@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/l10n.dart';
 import '../remote/link_status.dart';
 import '../remote/network_watch.dart';
+import '../remote/direct/direct_link.dart';
 import '../remote/relay/relay_backend.dart';
 import '../remote/ssh/ssh_link.dart';
 import '../remote/ssh/ssh_transport.dart';
@@ -197,6 +198,18 @@ final hostLinkProvider = Provider.autoDispose.family<HostLink?, HostRef>((ref, h
       });
       ref.onDispose(() => unawaited(link.close()));
       return link;
+    case HostKind.direct:
+      final config = ref.watch(hostsProvider.select((s) => s.directById(host.id)));
+      if (config == null) return null;
+      final link = DirectHostLink(
+        config: config,
+        loadToken: () => ref.read(hostsProvider.notifier).loadDirectToken(config.id),
+        loadCookie: () => ref.read(hostsProvider.notifier).loadDirectCookie(config.id),
+        saveCookie: (cookie) => ref.read(hostsProvider.notifier).saveDirectCookie(config.id, cookie),
+        kicks: ref.read(networkKicksProvider),
+      );
+      ref.onDispose(() => unawaited(link.close()));
+      return link;
     case HostKind.relay:
       final backend = ref.watch(relayBackendProvider);
       final link = RelayHostLink(
@@ -242,6 +255,7 @@ final hostNameProvider = Provider.autoDispose.family<String?, HostRef>((ref, hos
   return switch (host.kind) {
     HostKind.local => appL10n.commonThisPhone,
     HostKind.ssh => ref.watch(hostsProvider.select((s) => s.sshById(host.id)?.name)),
+    HostKind.direct => ref.watch(hostsProvider.select((s) => s.directById(host.id)?.name)) ?? host.name,
     HostKind.relay => ref.watch(relayAccountProvider.select((a) => a.value?.hostById(host.id)?.name)) ?? host.name,
   };
 });
@@ -542,6 +556,11 @@ AsyncValue<HostConnection?> _connectionForHost(Ref ref, HostRef host) {
       if (!loaded) return const AsyncLoading();
       return ref.watch(remoteConnectionProvider(host));
     case HostKind.relay:
+      return ref.watch(remoteConnectionProvider(host));
+    case HostKind.direct:
+      final known = ref.watch(hostsProvider.select((s) => !s.loaded || s.directById(host.id) != null));
+      if (!known) return ref.watch(localConnectionProvider);
+      if (!ref.watch(hostsProvider.select((s) => s.loaded))) return const AsyncLoading();
       return ref.watch(remoteConnectionProvider(host));
   }
 }

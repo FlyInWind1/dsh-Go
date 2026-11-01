@@ -313,6 +313,10 @@ class _WebEntryHostState extends ConsumerState<WebEntryHost> {
           ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(context.l10n.webChatGone)));
           return;
         }
+        if (host.kind == HostKind.direct && hosts.loaded && hosts.directById(host.id) == null) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(context.l10n.webChatGone)));
+          return;
+        }
         Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
         // The page follows the current conversation (WebHome).
         ref.read(activeHostProvider.notifier).select(host);

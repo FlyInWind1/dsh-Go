@@ -462,5 +462,18 @@
   "remoteCompactHistory": "Compact history",
   "remoteErrHistoryModeChanged": "The Host no longer supports compact history. Switch to another host and back, or restart the app, to reload history.",
   "remoteCompactHistoryHint": "Reduces historical tool details on supporting DSH Remote Hosts; live replies and approvals stay unchanged. Switch hosts or restart the app to apply. Older Hosts keep full history.",
-  "searchKwRemoteCompactHistory": "compact slim lite history tools transfer bandwidth remote"
+  "searchKwRemoteCompactHistory": "compact slim lite history tools transfer bandwidth remote",
+
+  "remoteDirectSection": "Direct access",
+  "remoteDirectSectionHint": "Reach dsh web through your own reverse proxy / tunnel — no SSH, no relay server",
+  "remoteAddDirect": "Add direct host",
+  "remoteDirectUrl": "Address",
+  "remoteDirectUrlHint": "https://dsh.example.com, or paste the whole dsh web launch URL",
+  "remoteDirectToken": "Launch token",
+  "remoteDirectTokenHint": "The ?token= value printed by dsh web on the host; paste the full launch URL to fill both",
+  "remoteDirectErrUrl": "Enter an address starting with https://",
+  "remoteDirectErrToken": "Paste the launch URL or enter the token",
+  "remoteErrDirectNoToken": "No launch token saved yet — paste the dsh web launch URL on the edit page",
+  "remoteErrDirectUnreachable": "Cannot reach that address — check the domain, port and reverse proxy",
+  "remoteErrDirectTokenExpired": "The host restarted and its token is stale: paste a fresh launch URL to sign in again"
 }

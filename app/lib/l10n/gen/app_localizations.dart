@@ -28664,6 +28664,78 @@ abstract class L10n {
   /// **'精简 简洁 历史 工具 传输 流量 远程 compact slim lite'**
   String get searchKwRemoteCompactHistory;
 
+  /// No description provided for @remoteDirectSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'域名直连'**
+  String get remoteDirectSection;
+
+  /// No description provided for @remoteDirectSectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过你自己的反向代理 / 内网穿透地址直连 dsh web，不经 SSH、不经中继服务器'**
+  String get remoteDirectSectionHint;
+
+  /// No description provided for @remoteAddDirect.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加域名直连主机'**
+  String get remoteAddDirect;
+
+  /// No description provided for @remoteDirectUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址'**
+  String get remoteDirectUrl;
+
+  /// No description provided for @remoteDirectUrlHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'https://dsh.example.com，或直接粘贴 dsh web 的启动链接'**
+  String get remoteDirectUrlHint;
+
+  /// No description provided for @remoteDirectToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动 Token'**
+  String get remoteDirectToken;
+
+  /// No description provided for @remoteDirectTokenHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'电脑运行 dsh web 时打印的 ?token= 后面的那串；整行粘贴即可自动填入'**
+  String get remoteDirectTokenHint;
+
+  /// No description provided for @remoteDirectErrUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'填写 https:// 开头的地址'**
+  String get remoteDirectErrUrl;
+
+  /// No description provided for @remoteDirectErrToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴启动链接或填入 token'**
+  String get remoteDirectErrToken;
+
+  /// No description provided for @remoteErrDirectNoToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有保存启动 Token，请在编辑页粘贴 dsh web 的启动链接'**
+  String get remoteErrDirectNoToken;
+
+  /// No description provided for @remoteErrDirectUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法访问该地址，检查域名、端口与反向代理'**
+  String get remoteErrDirectUnreachable;
+
+  /// No description provided for @remoteErrDirectTokenExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机重启过，Token 已失效：请粘贴新的启动链接重新登录'**
+  String get remoteErrDirectTokenExpired;
+
   /// No description provided for @remotePairEntry.
   ///
   /// In zh, this message translates to:
@@ -34231,6 +34303,18 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'随时随刻，想go就Go！'**
   String get appSlogan;
+
+  /// No description provided for @stateDirectHost.
+  ///
+  /// In zh, this message translates to:
+  /// **'域名直连主机'**
+  String get stateDirectHost;
+
+  /// No description provided for @stateDirectSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'直连'**
+  String get stateDirectSuffix;
 
   /// No description provided for @tavernTitle.
   ///
@@ -42877,6 +42961,12 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'还没连上「{name}」，连上后再打开网页版'**
   String webConnectHostFirst(String name);
+
+  /// No description provided for @webDirectUseBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'该主机请用系统浏览器打开官方界面（App 内网页模式不适用）'**
+  String get webDirectUseBrowser;
 
   /// No description provided for @workshopTitle.
   ///

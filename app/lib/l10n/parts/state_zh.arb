@@ -784,5 +784,7 @@
     }
   },
   "stateProviderTokenCountInvalid": "填写数字，如 128K",
-  "appSlogan": "随时随刻，想go就Go！"
+  "appSlogan": "随时随刻，想go就Go！",
+  "stateDirectHost": "域名直连主机",
+  "stateDirectSuffix": "直连"
 }
