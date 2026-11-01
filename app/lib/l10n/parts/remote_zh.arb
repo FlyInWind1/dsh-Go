@@ -1042,5 +1042,18 @@
   "remoteCompactHistory": "精简历史",
   "remoteErrHistoryModeChanged": "主机已不支持精简历史，请切换到其他主机后再连回来，或重启 App，重新加载历史",
   "remoteCompactHistoryHint": "支持的 DSH Remote 主机会精简历史工具详情，实时回复和审批不变。切换主机或重启 App 后生效；旧主机仍传输完整历史。",
-  "searchKwRemoteCompactHistory": "精简 简洁 历史 工具 传输 流量 远程 compact slim lite"
+  "searchKwRemoteCompactHistory": "精简 简洁 历史 工具 传输 流量 远程 compact slim lite",
+
+  "remoteDirectSection": "域名直连",
+  "remoteDirectSectionHint": "通过你自己的反向代理 / 内网穿透地址直连 dsh web，不经 SSH、不经中继服务器",
+  "remoteAddDirect": "添加域名直连主机",
+  "remoteDirectUrl": "地址",
+  "remoteDirectUrlHint": "https://dsh.example.com，或直接粘贴 dsh web 的启动链接",
+  "remoteDirectToken": "启动 Token",
+  "remoteDirectTokenHint": "电脑运行 dsh web 时打印的 ?token= 后面的那串；整行粘贴即可自动填入",
+  "remoteDirectErrUrl": "填写 https:// 开头的地址",
+  "remoteDirectErrToken": "粘贴启动链接或填入 token",
+  "remoteErrDirectNoToken": "还没有保存启动 Token，请在编辑页粘贴 dsh web 的启动链接",
+  "remoteErrDirectUnreachable": "无法访问该地址，检查域名、端口与反向代理",
+  "remoteErrDirectTokenExpired": "主机重启过，Token 已失效：请粘贴新的启动链接重新登录"
 }

@@ -445,6 +445,7 @@ class ChatAlertsController extends Notifier<ChatAlert?> {
     return switch (connection.kind) {
       HostKind.local => null,
       HostKind.ssh => HostRef.ssh(id),
+      HostKind.direct => HostRef.direct(id, name: active.id == id ? active.name : null),
       HostKind.relay => HostRef.relay(id, name: active.id == id ? active.name : null),
     };
   }

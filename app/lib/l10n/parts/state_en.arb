@@ -370,5 +370,7 @@
   "stateUiWeb": "Web",
   "statePluginRegistryProgressUnknown": "Downloading from {registry} (registry {attempt}/null)",
   "stateProviderTokenCountInvalid": "Enter a number, like 128K",
-  "appSlogan": "Anytime, anywhere. Just Go!"
+  "appSlogan": "Anytime, anywhere. Just Go!",
+  "stateDirectHost": "Direct host",
+  "stateDirectSuffix": "Direct"
 }

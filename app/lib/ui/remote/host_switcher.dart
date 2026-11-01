@@ -84,6 +84,7 @@ class HostSheet extends ConsumerWidget {
     final l10n = context.l10n;
     final active = ref.watch(activeHostProvider);
     final ssh = ref.watch(hostsProvider.select((s) => s.ssh));
+    final direct = ref.watch(hostsProvider.select((s) => s.direct));
     final account = ref.watch(relayAccountProvider).value;
     final relayHosts = account?.signedIn == true ? account!.hosts : const <RelayHost>[];
 
@@ -134,6 +135,14 @@ class HostSheet extends ConsumerWidget {
                       active: active == HostRef.ssh(h.id),
                       onTap: () => pick(HostRef.ssh(h.id)),
                     ),
+                  for (final h in direct)
+                    _HostRow(
+                      host: HostRef.direct(h.id),
+                      title: h.name,
+                      subtitle: '${l10n.stateDirectSuffix} · ${h.url}',
+                      active: active == HostRef.direct(h.id),
+                      onTap: () => pick(HostRef.direct(h.id)),
+                    ),
                   for (final h in relayHosts)
                     _HostRow(
                       host: HostRef.relay(h.id, name: h.name),
@@ -170,10 +179,14 @@ class HostSheet extends ConsumerWidget {
                     },
                   ),
                   SettingsTile(
-                    icon: ssh.isEmpty && relayHosts.isEmpty ? AppIcons.add : AppIcons.configure,
+                    icon: ssh.isEmpty && direct.isEmpty && relayHosts.isEmpty ? AppIcons.add : AppIcons.configure,
                     tinted: false,
-                    title: ssh.isEmpty && relayHosts.isEmpty ? l10n.remoteConnectComputer : l10n.remoteManageHosts,
-                    subtitle: ssh.isEmpty && relayHosts.isEmpty ? l10n.remoteConnectionMethods : null,
+                    title: ssh.isEmpty && direct.isEmpty && relayHosts.isEmpty
+                        ? l10n.remoteConnectComputer
+                        : l10n.remoteManageHosts,
+                    subtitle: ssh.isEmpty && direct.isEmpty && relayHosts.isEmpty
+                        ? l10n.remoteConnectionMethods
+                        : null,
                     onTap: () {
                       Navigator.of(context).pop();
                       onManage();

@@ -14939,6 +14939,45 @@ class L10nEn extends L10n {
   String get searchKwRemoteCompactHistory => 'compact slim lite history tools transfer bandwidth remote';
 
   @override
+  String get remoteDirectSection => 'Direct access';
+
+  @override
+  String get remoteDirectSectionHint =>
+      'Reach dsh web through your own reverse proxy / tunnel — no SSH, no relay server';
+
+  @override
+  String get remoteAddDirect => 'Add direct host';
+
+  @override
+  String get remoteDirectUrl => 'Address';
+
+  @override
+  String get remoteDirectUrlHint => 'https://dsh.example.com, or paste the whole dsh web launch URL';
+
+  @override
+  String get remoteDirectToken => 'Launch token';
+
+  @override
+  String get remoteDirectTokenHint =>
+      'The ?token= value printed by dsh web on the host; paste the full launch URL to fill both';
+
+  @override
+  String get remoteDirectErrUrl => 'Enter an address starting with https://';
+
+  @override
+  String get remoteDirectErrToken => 'Paste the launch URL or enter the token';
+
+  @override
+  String get remoteErrDirectNoToken => 'No launch token saved yet — paste the dsh web launch URL on the edit page';
+
+  @override
+  String get remoteErrDirectUnreachable => 'Cannot reach that address — check the domain, port and reverse proxy';
+
+  @override
+  String get remoteErrDirectTokenExpired =>
+      'The host restarted and its token is stale: paste a fresh launch URL to sign in again';
+
+  @override
   String get stateWorkspaceFilesHint => 'Files uploaded to the current workspace:';
 
   @override
@@ -17843,6 +17882,12 @@ class L10nEn extends L10n {
   String get appSlogan => 'Anytime, anywhere. Just Go!';
 
   @override
+  String get stateDirectHost => 'Direct host';
+
+  @override
+  String get stateDirectSuffix => 'Direct';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override
@@ -20004,4 +20049,7 @@ class L10nEn extends L10n {
   String webConnectHostFirst(String name) {
     return 'Connect to “$name” to open DSH Web';
   }
+
+  @override
+  String get webDirectUseBrowser => 'Open this host\'s official Web in your browser (in-app web mode is not available)';
 }

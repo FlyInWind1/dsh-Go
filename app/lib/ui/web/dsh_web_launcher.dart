@@ -58,6 +58,10 @@ final dshWebAccessProvider = Provider.autoDispose<DshWebAccess>((ref) {
         return NoDshWeb(appL10n.webConnectHostFirst(name));
       }
       return SshDshWeb(localWebUri('http://127.0.0.1:$port', token), name);
+    case HostKind.direct:
+      // The in-app WebView sends a mobile.origin Origin the DSH fence
+      // rejects; the origin is public anyway — hand it to the system browser.
+      return NoDshWeb(appL10n.webDirectUseBrowser);
   }
 });
 

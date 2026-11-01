@@ -14215,6 +14215,42 @@ class L10nZh extends L10n {
   String get searchKwRemoteCompactHistory => '精简 简洁 历史 工具 传输 流量 远程 compact slim lite';
 
   @override
+  String get remoteDirectSection => '域名直连';
+
+  @override
+  String get remoteDirectSectionHint => '通过你自己的反向代理 / 内网穿透地址直连 dsh web，不经 SSH、不经中继服务器';
+
+  @override
+  String get remoteAddDirect => '添加域名直连主机';
+
+  @override
+  String get remoteDirectUrl => '地址';
+
+  @override
+  String get remoteDirectUrlHint => 'https://dsh.example.com，或直接粘贴 dsh web 的启动链接';
+
+  @override
+  String get remoteDirectToken => '启动 Token';
+
+  @override
+  String get remoteDirectTokenHint => '电脑运行 dsh web 时打印的 ?token= 后面的那串；整行粘贴即可自动填入';
+
+  @override
+  String get remoteDirectErrUrl => '填写 https:// 开头的地址';
+
+  @override
+  String get remoteDirectErrToken => '粘贴启动链接或填入 token';
+
+  @override
+  String get remoteErrDirectNoToken => '还没有保存启动 Token，请在编辑页粘贴 dsh web 的启动链接';
+
+  @override
+  String get remoteErrDirectUnreachable => '无法访问该地址，检查域名、端口与反向代理';
+
+  @override
+  String get remoteErrDirectTokenExpired => '主机重启过，Token 已失效：请粘贴新的启动链接重新登录';
+
+  @override
   String get stateWorkspaceFilesHint => '已上传到当前工作区的文件：';
 
   @override
@@ -16928,6 +16964,12 @@ class L10nZh extends L10n {
   String get appSlogan => '随时随刻，想go就Go！';
 
   @override
+  String get stateDirectHost => '域名直连主机';
+
+  @override
+  String get stateDirectSuffix => '直连';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
@@ -18966,4 +19008,7 @@ class L10nZh extends L10n {
   String webConnectHostFirst(String name) {
     return '还没连上「$name」，连上后再打开网页版';
   }
+
+  @override
+  String get webDirectUseBrowser => '该主机请用系统浏览器打开官方界面（App 内网页模式不适用）';
 }

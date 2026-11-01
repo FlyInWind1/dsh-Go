@@ -39,5 +39,6 @@
   "webTargetCordisMissing": "Couldn’t find the Cordis panel. The plugin may have been removed.",
   "webTargetNewChatFailed": "Couldn’t start a chat. You’re on the DSH Web home page.",
   "webTargetPageFailed": "Couldn’t open this page. You’re on the DSH Web home page.",
-  "webConnectHostFirst": "Connect to “{name}” to open DSH Web"
+  "webConnectHostFirst": "Connect to “{name}” to open DSH Web",
+  "webDirectUseBrowser": "Open this host's official Web in your browser (in-app web mode is not available)"
 }

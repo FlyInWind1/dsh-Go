@@ -20,6 +20,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import '../web/web_view_page.dart';
+import 'direct_host_form.dart';
 import 'host_key_dialog.dart';
 import 'host_status.dart';
 import 'link_progress.dart';
@@ -75,6 +76,14 @@ class RemoteScreen extends ConsumerWidget {
 
   /// A host added while this phone has nothing to run on (no runtime, first
   /// run) is the one to use: take it at once instead of a second tap.
+  Future<void> _addDirect(BuildContext context, WidgetRef ref) async {
+    final saved = await Navigator.of(context)
+        .push<DirectHostConfig>(MaterialPageRoute(builder: (_) => const DirectHostFormPage()));
+    if (saved == null || !context.mounted) return;
+    final nothingHere = ref.read(localRuntimeProvider).status.runtimeMissing;
+    if (nothingHere && ref.read(activeHostProvider).isLocal) await _use(context, ref, HostRef.direct(saved.id));
+  }
+
   Future<void> _addSsh(BuildContext context, WidgetRef ref) async {
     final saved = await Navigator.of(context)
         .push<SshHostConfig>(MaterialPageRoute(builder: (_) => const SshHostFormPage()));
@@ -87,6 +96,7 @@ class RemoteScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final ssh = ref.watch(hostsProvider.select((s) => s.ssh));
+    final direct = ref.watch(hostsProvider.select((s) => s.direct));
     final active = ref.watch(activeHostProvider);
     final signedIn = ref.watch(relayAccountProvider.select((a) => a.value?.signedIn ?? false));
     void push(Widget page) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -130,6 +140,26 @@ class RemoteScreen extends ConsumerWidget {
           ],
         ),
         SettingsSection(
+          title: l10n.remoteDirectSection,
+          footer: Text(l10n.remoteDirectSectionHint),
+          children: [
+            for (final h in direct)
+              _DirectRow(
+                config: h,
+                active: active == HostRef.direct(h.id),
+                onTap: () => _use(context, ref, HostRef.direct(h.id)),
+                onEdit: () => push(DirectHostFormPage(existing: h)),
+              ),
+            SettingsTile(
+              icon: AppIcons.add,
+              tinted: false,
+              title: l10n.remoteAddDirect,
+              subtitle: direct.isEmpty ? l10n.remoteDirectSectionHint : null,
+              onTap: () => unawaited(_addDirect(context, ref)),
+            ),
+          ],
+        ),
+        SettingsSection(
           title: l10n.remoteOtherMethods,
           children: [
             SettingsTile(
@@ -142,7 +172,7 @@ class RemoteScreen extends ConsumerWidget {
           ],
         ),
         // Only meaningful once there is a host to come back to.
-        if (ssh.isNotEmpty || signedIn)
+        if (ssh.isNotEmpty || direct.isNotEmpty || signedIn)
           SettingsSection(
             title: l10n.remoteStartupSection,
             children: [
@@ -175,11 +205,12 @@ class _ActiveCard extends ConsumerWidget {
     final view = HostStatusView.ofLink(status);
     final name = ref.watch(hostNameProvider(active)) ?? l10n.commonRemoteHost;
     final ssh = active.kind == HostKind.ssh ? ref.watch(hostsProvider).sshById(active.id) : null;
+    final direct = active.kind == HostKind.direct ? ref.watch(hostsProvider).directById(active.id) : null;
     final error = status.error;
     // Errors a retry can't fix go to the host's settings (SSH) or the trust
     // check (relay) instead.
     final needsLogin = active.kind == HostKind.relay && error?.kind == HostLinkErrorKind.notLoggedIn;
-    final needsSettings = ssh != null && error != null && !error.retryable;
+    final needsSettings = (ssh != null || direct != null) && error != null && !error.retryable;
     final needsTrust =
         active.kind == HostKind.relay &&
         (error?.kind == HostLinkErrorKind.hostKeyMismatch || error?.kind == HostLinkErrorKind.hostKeyUnverified);
@@ -199,7 +230,11 @@ class _ActiveCard extends ConsumerWidget {
             AnimatedStatusDot(tone: view.tone, size: 7),
             const SizedBox(width: 6),
             Flexible(
-              child: Text(_statusLine(status, view, ssh?.address), maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                _statusLine(status, view, ssh?.address ?? direct?.url),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             if (active.kind == HostKind.relay && status.isConnected) ...[
               const SizedBox(width: 6),
@@ -230,9 +265,12 @@ class _ActiveCard extends ConsumerWidget {
                     : needsSettings
                     ? (
                         l10n.remoteHostSettings,
-                        () =>
-                            Navigator.of(context)
-                                .push(MaterialPageRoute<void>(builder: (_) => SshHostFormPage(existing: ssh))),
+                        () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                direct != null ? DirectHostFormPage(existing: direct) : SshHostFormPage(existing: ssh),
+                          ),
+                        ),
                       )
                     : needsTrust
                     ? (
@@ -336,6 +374,38 @@ class _EdgeIconButton extends StatelessWidget {
     return Transform.translate(
       offset: const Offset(SettingsMetrics.trailingPad + 10 - SettingsMetrics.inset, 0),
       child: button,
+    );
+  }
+}
+
+class _DirectRow extends ConsumerWidget {
+  const _DirectRow({required this.config, required this.active, required this.onTap, required this.onEdit});
+
+  final DirectHostConfig config;
+  final bool active;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final view = active ? watchHostStatus(ref, HostRef.direct(config.id)) : null;
+    return Semantics(
+      selected: active,
+      inMutuallyExclusiveGroup: true,
+      child: SettingsTile(
+        icon: hostKindIcon(HostKind.direct),
+        tinted: false,
+        title: config.name,
+        subtitle: config.url,
+        onTap: onTap,
+        value: view == null ? null : _HostState(view),
+        trailing: _EdgeIconButton(
+          icon: const Icon(AppIcons.configure, size: 20),
+          tooltip: l10n.commonEdit,
+          onPressed: onEdit,
+        ),
+      ),
     );
   }
 }

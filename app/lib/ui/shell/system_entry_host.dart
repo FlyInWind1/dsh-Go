@@ -118,7 +118,8 @@ class _SystemEntryHostState extends ConsumerState<SystemEntryHost> {
       case OpenChatEntry(:final host, :final sessionId):
         if (!await _showChat() || !mounted) return;
         final hosts = ref.read(hostsProvider);
-        if (host.kind == HostKind.ssh && hosts.loaded && hosts.sshById(host.id) == null) {
+        if ((host.kind == HostKind.ssh && hosts.loaded && hosts.sshById(host.id) == null) ||
+            (host.kind == HostKind.direct && hosts.loaded && hosts.directById(host.id) == null)) {
           // Its host was removed since the shortcut was made.
           ref.read(composeInboxProvider.notifier).push(ComposeRequest(problems: [appL10n.shellChatGone]));
           return;
