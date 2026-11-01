@@ -46,5 +46,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "webDirectUseBrowser": "该主机请用系统浏览器打开官方界面（App 内网页模式不适用）"
 }

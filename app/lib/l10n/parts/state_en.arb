@@ -379,5 +379,7 @@
   "statePasteEmpty": "The clipboard has no text to paste.",
   "statePasteDenied": "Paste was not authorized. Tap the Paste button again.",
   "statePasteBusy": "The paste window is still active or closing. Finish or cancel it, then try again.",
-  "statePasteFailed": "Could not read the clipboard. Try again or enter the text manually."
+  "statePasteFailed": "Could not read the clipboard. Try again or enter the text manually.",
+  "stateDirectHost": "Direct host",
+  "stateDirectSuffix": "Direct"
 }

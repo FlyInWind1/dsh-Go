@@ -49,6 +49,10 @@ void main() {
     await tester.scrollUntilVisible(tile, 300);
     final toggle = find.descendant(of: tile, matching: find.byType(Switch));
     expect(tester.widget<Switch>(toggle).value, isTrue);
+    // The direct section below shifts the layout; make sure the switch itself
+    // (not just its row) is inside the viewport before tapping.
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
     await tester.tap(toggle);
     await tester.pump();
     expect(tester.widget<Switch>(toggle).value, isFalse);

@@ -789,5 +789,7 @@
   "statePasteEmpty": "剪贴板中没有可粘贴的文本。",
   "statePasteDenied": "系统未授予粘贴权限，请重新点击粘贴按钮。",
   "statePasteBusy": "粘贴窗口尚未结束或仍在关闭，请完成或取消后重试。",
-  "statePasteFailed": "无法读取剪贴板，请重试或手动输入。"
+  "statePasteFailed": "无法读取剪贴板，请重试或手动输入。",
+  "stateDirectHost": "域名直连主机",
+  "stateDirectSuffix": "直连"
 }
