@@ -118,11 +118,15 @@ android {
 
     buildTypes {
         debug {
+            // Coexists with the store/GitHub release build on the phone.
+            applicationIdSuffix = ".debug"
             // tooling/dev-run.sh installs debug over the release build on a phone, data
             // kept: Android only allows that with the same key.
             if (hasWholeReleaseKey) signingConfig = signingConfigs.getByName("release")
         }
         release {
+            // Coexists with the official release build (ours falls back to the debug key).
+            applicationIdSuffix = ".local"
             // Use the release key when configured; local builds without key.properties fall back to debug.
             signingConfig = signingConfigs.getByName(if (keyProps.isEmpty) "debug" else "release")
             // Ours on top of Flutter's: phone control's privileged process and
