@@ -19498,6 +19498,157 @@ class L10nEn extends L10n {
   String get tavernExportFailed => 'Couldn\'t export this card';
 
   @override
+  String get tavernInspectTitle => 'What this turn sent';
+
+  @override
+  String get tavernInspectMenu => 'See what was sent';
+
+  @override
+  String get tavernInspectLatest => 'What the last turn sent';
+
+  @override
+  String get tavernInspectNone => 'Nothing recorded';
+
+  @override
+  String get tavernInspectNoneMessage =>
+      'Greetings, messages from before the engine and sample replies have no record.';
+
+  @override
+  String get tavernInspectSummary => 'Summary';
+
+  @override
+  String get tavernInspectKind => 'Type';
+
+  @override
+  String get tavernTurnSend => 'Send';
+
+  @override
+  String get tavernTurnImpersonate => 'Write for me';
+
+  @override
+  String get tavernInspectStatus => 'Result';
+
+  @override
+  String get tavernInspectPreparing => 'Preparing';
+
+  @override
+  String get tavernInspectReady => 'Sent';
+
+  @override
+  String get tavernInspectCompleted => 'Done';
+
+  @override
+  String get tavernInspectFailed => 'Failed';
+
+  @override
+  String get tavernInspectPrompt => 'Prompt';
+
+  @override
+  String tavernTokens(int count) {
+    return '$count tokens';
+  }
+
+  @override
+  String tavernTokensAbout(int count) {
+    return 'about $count tokens';
+  }
+
+  @override
+  String get tavernInspectBudget => 'Context budget left';
+
+  @override
+  String get tavernInspectUsage => 'Usage the model reported';
+
+  @override
+  String get tavernInspectNoUsage => 'Not reported';
+
+  @override
+  String tavernInspectUsageValue(int prompt, int hit, int completion) {
+    return 'In $prompt (cached $hit) · out $completion';
+  }
+
+  @override
+  String tavernInspectSegments(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count parts sent', one: '1 part sent');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernInspectSegmentsNote => 'In the order sent. Tap for the full text; long-press to copy.';
+
+  @override
+  String tavernInspectWorld(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lorebook entries matched',
+      one: '1 lorebook entry matched',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tavernInspectWorldKey(String key) {
+    return 'key “$key”';
+  }
+
+  @override
+  String tavernInspectExcluded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count parts left out',
+      one: '1 part left out',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernExcludeDisabled => 'Turned off';
+
+  @override
+  String get tavernExcludeTrigger => 'Not for this kind of turn';
+
+  @override
+  String get tavernExcludeHidden => 'Hidden from the model';
+
+  @override
+  String get tavernExcludeSystem => 'System message';
+
+  @override
+  String get tavernExcludeHistoryBudget => 'Over the context budget';
+
+  @override
+  String get tavernExcludeExampleBudget => 'Examples over budget';
+
+  @override
+  String get tavernRoleSystem => 'System';
+
+  @override
+  String get tavernRoleUser => 'You';
+
+  @override
+  String get tavernRoleCharacter => 'Character';
+
+  @override
+  String get tavernSourcePreset => 'Preset';
+
+  @override
+  String get tavernSourceCard => 'Card';
+
+  @override
+  String get tavernSourceWorld => 'Lorebook';
+
+  @override
+  String get tavernSourcePersona => 'Persona';
+
+  @override
+  String get tavernSourceHistory => 'Chat';
+
+  @override
+  String get tavernSourceControl => 'Control';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

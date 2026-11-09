@@ -193,5 +193,101 @@
   "tavernExportPng": "Export card (PNG)",
   "tavernExportPngSubtitle": "The card rides inside the picture; SillyTavern and other taverns can import it",
   "tavernExportJson": "Export as JSON",
-  "tavernExportFailed": "Couldn't export this card"
+  "tavernExportFailed": "Couldn't export this card",
+  "tavernInspectTitle": "What this turn sent",
+  "tavernInspectMenu": "See what was sent",
+  "tavernInspectLatest": "What the last turn sent",
+  "tavernInspectNone": "Nothing recorded",
+  "tavernInspectNoneMessage": "Greetings, messages from before the engine and sample replies have no record.",
+  "tavernInspectSummary": "Summary",
+  "tavernInspectKind": "Type",
+  "tavernTurnSend": "Send",
+  "tavernTurnImpersonate": "Write for me",
+  "tavernInspectStatus": "Result",
+  "tavernInspectPreparing": "Preparing",
+  "tavernInspectReady": "Sent",
+  "tavernInspectCompleted": "Done",
+  "tavernInspectFailed": "Failed",
+  "tavernInspectPrompt": "Prompt",
+  "tavernTokens": "{count} tokens",
+  "@tavernTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernTokensAbout": "about {count} tokens",
+  "@tavernTokensAbout": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectBudget": "Context budget left",
+  "tavernInspectUsage": "Usage the model reported",
+  "tavernInspectNoUsage": "Not reported",
+  "tavernInspectUsageValue": "In {prompt} (cached {hit}) · out {completion}",
+  "@tavernInspectUsageValue": {
+    "placeholders": {
+      "prompt": {
+        "type": "int"
+      },
+      "hit": {
+        "type": "int"
+      },
+      "completion": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectSegments": "{count, plural, =1{1 part sent} other{{count} parts sent}}",
+  "@tavernInspectSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectSegmentsNote": "In the order sent. Tap for the full text; long-press to copy.",
+  "tavernInspectWorld": "{count, plural, =1{1 lorebook entry matched} other{{count} lorebook entries matched}}",
+  "@tavernInspectWorld": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectWorldKey": "key “{key}”",
+  "@tavernInspectWorldKey": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernInspectExcluded": "{count, plural, =1{1 part left out} other{{count} parts left out}}",
+  "@tavernInspectExcluded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernExcludeDisabled": "Turned off",
+  "tavernExcludeTrigger": "Not for this kind of turn",
+  "tavernExcludeHidden": "Hidden from the model",
+  "tavernExcludeSystem": "System message",
+  "tavernExcludeHistoryBudget": "Over the context budget",
+  "tavernExcludeExampleBudget": "Examples over budget",
+  "tavernRoleSystem": "System",
+  "tavernRoleUser": "You",
+  "tavernRoleCharacter": "Character",
+  "tavernSourcePreset": "Preset",
+  "tavernSourceCard": "Card",
+  "tavernSourceWorld": "Lorebook",
+  "tavernSourcePersona": "Persona",
+  "tavernSourceHistory": "Chat",
+  "tavernSourceControl": "Control"
 }

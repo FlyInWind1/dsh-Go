@@ -18488,6 +18488,143 @@ class L10nZh extends L10n {
   String get tavernExportFailed => '没能导出这张卡';
 
   @override
+  String get tavernInspectTitle => '这一回合发了什么';
+
+  @override
+  String get tavernInspectMenu => '看看发了什么';
+
+  @override
+  String get tavernInspectLatest => '上一回合发了什么';
+
+  @override
+  String get tavernInspectNone => '这条没有记录';
+
+  @override
+  String get tavernInspectNoneMessage => '开场白、接上引擎之前的消息和示例回复没有检视记录。';
+
+  @override
+  String get tavernInspectSummary => '概况';
+
+  @override
+  String get tavernInspectKind => '类型';
+
+  @override
+  String get tavernTurnSend => '发送';
+
+  @override
+  String get tavernTurnImpersonate => '代写';
+
+  @override
+  String get tavernInspectStatus => '结果';
+
+  @override
+  String get tavernInspectPreparing => '准备中';
+
+  @override
+  String get tavernInspectReady => '已发出';
+
+  @override
+  String get tavernInspectCompleted => '完成';
+
+  @override
+  String get tavernInspectFailed => '失败';
+
+  @override
+  String get tavernInspectPrompt => '提示词';
+
+  @override
+  String tavernTokens(int count) {
+    return '$count tokens';
+  }
+
+  @override
+  String tavernTokensAbout(int count) {
+    return '约 $count tokens';
+  }
+
+  @override
+  String get tavernInspectBudget => '上下文预算剩余';
+
+  @override
+  String get tavernInspectUsage => '模型报告的用量';
+
+  @override
+  String get tavernInspectNoUsage => '没报告';
+
+  @override
+  String tavernInspectUsageValue(int prompt, int hit, int completion) {
+    return '输入 $prompt（缓存 $hit）· 输出 $completion';
+  }
+
+  @override
+  String tavernInspectSegments(int count) {
+    return '发出去的 $count 段';
+  }
+
+  @override
+  String get tavernInspectSegmentsNote => '按发送顺序。点开看全文，长按复制。';
+
+  @override
+  String tavernInspectWorld(int count) {
+    return '世界书命中 $count 条';
+  }
+
+  @override
+  String tavernInspectWorldKey(String key) {
+    return '关键词「$key」';
+  }
+
+  @override
+  String tavernInspectExcluded(int count) {
+    return '没发出去的 $count 段';
+  }
+
+  @override
+  String get tavernExcludeDisabled => '关着';
+
+  @override
+  String get tavernExcludeTrigger => '不在这种生成里';
+
+  @override
+  String get tavernExcludeHidden => '对模型隐藏';
+
+  @override
+  String get tavernExcludeSystem => '系统消息';
+
+  @override
+  String get tavernExcludeHistoryBudget => '超出上下文预算';
+
+  @override
+  String get tavernExcludeExampleBudget => '示例超出预算';
+
+  @override
+  String get tavernRoleSystem => '系统';
+
+  @override
+  String get tavernRoleUser => '你';
+
+  @override
+  String get tavernRoleCharacter => '角色';
+
+  @override
+  String get tavernSourcePreset => '预设';
+
+  @override
+  String get tavernSourceCard => '角色卡';
+
+  @override
+  String get tavernSourceWorld => '世界书';
+
+  @override
+  String get tavernSourcePersona => '人设';
+
+  @override
+  String get tavernSourceHistory => '对话';
+
+  @override
+  String get tavernSourceControl => '控制';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

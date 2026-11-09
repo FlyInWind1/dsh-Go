@@ -33776,6 +33776,252 @@ abstract class L10n {
   /// **'没能导出这张卡'**
   String get tavernExportFailed;
 
+  /// No description provided for @tavernInspectTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一回合发了什么'**
+  String get tavernInspectTitle;
+
+  /// No description provided for @tavernInspectMenu.
+  ///
+  /// In zh, this message translates to:
+  /// **'看看发了什么'**
+  String get tavernInspectMenu;
+
+  /// No description provided for @tavernInspectLatest.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一回合发了什么'**
+  String get tavernInspectLatest;
+
+  /// No description provided for @tavernInspectNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条没有记录'**
+  String get tavernInspectNone;
+
+  /// No description provided for @tavernInspectNoneMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'开场白、接上引擎之前的消息和示例回复没有检视记录。'**
+  String get tavernInspectNoneMessage;
+
+  /// No description provided for @tavernInspectSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'概况'**
+  String get tavernInspectSummary;
+
+  /// No description provided for @tavernInspectKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'类型'**
+  String get tavernInspectKind;
+
+  /// No description provided for @tavernTurnSend.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送'**
+  String get tavernTurnSend;
+
+  /// No description provided for @tavernTurnImpersonate.
+  ///
+  /// In zh, this message translates to:
+  /// **'代写'**
+  String get tavernTurnImpersonate;
+
+  /// No description provided for @tavernInspectStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果'**
+  String get tavernInspectStatus;
+
+  /// No description provided for @tavernInspectPreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'准备中'**
+  String get tavernInspectPreparing;
+
+  /// No description provided for @tavernInspectReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已发出'**
+  String get tavernInspectReady;
+
+  /// No description provided for @tavernInspectCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get tavernInspectCompleted;
+
+  /// No description provided for @tavernInspectFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get tavernInspectFailed;
+
+  /// No description provided for @tavernInspectPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get tavernInspectPrompt;
+
+  /// No description provided for @tavernTokens.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} tokens'**
+  String tavernTokens(int count);
+
+  /// No description provided for @tavernTokensAbout.
+  ///
+  /// In zh, this message translates to:
+  /// **'约 {count} tokens'**
+  String tavernTokensAbout(int count);
+
+  /// No description provided for @tavernInspectBudget.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下文预算剩余'**
+  String get tavernInspectBudget;
+
+  /// No description provided for @tavernInspectUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型报告的用量'**
+  String get tavernInspectUsage;
+
+  /// No description provided for @tavernInspectNoUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'没报告'**
+  String get tavernInspectNoUsage;
+
+  /// No description provided for @tavernInspectUsageValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 {prompt}（缓存 {hit}）· 输出 {completion}'**
+  String tavernInspectUsageValue(int prompt, int hit, int completion);
+
+  /// No description provided for @tavernInspectSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'发出去的 {count} 段'**
+  String tavernInspectSegments(int count);
+
+  /// No description provided for @tavernInspectSegmentsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'按发送顺序。点开看全文，长按复制。'**
+  String get tavernInspectSegmentsNote;
+
+  /// No description provided for @tavernInspectWorld.
+  ///
+  /// In zh, this message translates to:
+  /// **'世界书命中 {count} 条'**
+  String tavernInspectWorld(int count);
+
+  /// No description provided for @tavernInspectWorldKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词「{key}」'**
+  String tavernInspectWorldKey(String key);
+
+  /// No description provided for @tavernInspectExcluded.
+  ///
+  /// In zh, this message translates to:
+  /// **'没发出去的 {count} 段'**
+  String tavernInspectExcluded(int count);
+
+  /// No description provided for @tavernExcludeDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'关着'**
+  String get tavernExcludeDisabled;
+
+  /// No description provided for @tavernExcludeTrigger.
+  ///
+  /// In zh, this message translates to:
+  /// **'不在这种生成里'**
+  String get tavernExcludeTrigger;
+
+  /// No description provided for @tavernExcludeHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'对模型隐藏'**
+  String get tavernExcludeHidden;
+
+  /// No description provided for @tavernExcludeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统消息'**
+  String get tavernExcludeSystem;
+
+  /// No description provided for @tavernExcludeHistoryBudget.
+  ///
+  /// In zh, this message translates to:
+  /// **'超出上下文预算'**
+  String get tavernExcludeHistoryBudget;
+
+  /// No description provided for @tavernExcludeExampleBudget.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例超出预算'**
+  String get tavernExcludeExampleBudget;
+
+  /// No description provided for @tavernRoleSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get tavernRoleSystem;
+
+  /// No description provided for @tavernRoleUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'你'**
+  String get tavernRoleUser;
+
+  /// No description provided for @tavernRoleCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get tavernRoleCharacter;
+
+  /// No description provided for @tavernSourcePreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'预设'**
+  String get tavernSourcePreset;
+
+  /// No description provided for @tavernSourceCard.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色卡'**
+  String get tavernSourceCard;
+
+  /// No description provided for @tavernSourceWorld.
+  ///
+  /// In zh, this message translates to:
+  /// **'世界书'**
+  String get tavernSourceWorld;
+
+  /// No description provided for @tavernSourcePersona.
+  ///
+  /// In zh, this message translates to:
+  /// **'人设'**
+  String get tavernSourcePersona;
+
+  /// No description provided for @tavernSourceHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话'**
+  String get tavernSourceHistory;
+
+  /// No description provided for @tavernSourceControl.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制'**
+  String get tavernSourceControl;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -32,6 +32,7 @@ import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_page.dart';
+import 'tavern_inspector_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
@@ -266,6 +267,16 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                               unawaited(showTavernPersonaPicker(this.context, widget.chatId));
                             },
                     ),
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-inspect'),
+                      icon: AppIcons.code,
+                      tinted: false,
+                      title: l10n.tavernInspectLatest,
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(Navigator.of(this.context).push(TavernInspectorPage.route(widget.chatId)));
+                      },
+                    ),
                   ],
                 ),
                 SheetGroup(
@@ -325,6 +336,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               row(_MessageAction.edit, AppIcons.edit, l10n.commonEdit),
               if (character) row(_MessageAction.regenerate, AppIcons.regenerate, l10n.tavernRegenerate),
               if (character && last) row(_MessageAction.continueReply, AppIcons.forward, l10n.tavernContinueReply),
+              if (character) row(_MessageAction.inspect, AppIcons.code, l10n.tavernInspectMenu),
               row(_MessageAction.delete, AppIcons.delete, l10n.tavernDeleteFrom, danger: true),
             ],
           ),
@@ -341,6 +353,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         if (!_running) _run(() => _tavern.regenerate(widget.chatId, message.nodeId));
       case _MessageAction.continueReply:
         if (!_running) _run(() => _tavern.continueReply(widget.chatId, message.nodeId));
+      case _MessageAction.inspect:
+        await Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: message.nodeId));
       case _MessageAction.delete:
         if (!_running) await _tavern.deleteFrom(widget.chatId, message.nodeId);
     }
@@ -493,7 +507,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
 final _none = TavernMessage(nodeId: '', role: TavernRole.system, speaker: '', text: '', at: DateTime(0));
 
-enum _MessageAction { copy, edit, regenerate, continueReply, delete }
+enum _MessageAction { copy, edit, regenerate, continueReply, inspect, delete }
 
 /// A message on the path: the user's in a bubble, the character's as text;
 /// the last character message carries its alternatives.

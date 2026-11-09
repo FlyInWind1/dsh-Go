@@ -193,5 +193,101 @@
   "tavernExportPng": "导出角色卡（PNG）",
   "tavernExportPngSubtitle": "设定藏在图片里，SillyTavern 等酒馆都能导入",
   "tavernExportJson": "导出为 JSON",
-  "tavernExportFailed": "没能导出这张卡"
+  "tavernExportFailed": "没能导出这张卡",
+  "tavernInspectTitle": "这一回合发了什么",
+  "tavernInspectMenu": "看看发了什么",
+  "tavernInspectLatest": "上一回合发了什么",
+  "tavernInspectNone": "这条没有记录",
+  "tavernInspectNoneMessage": "开场白、接上引擎之前的消息和示例回复没有检视记录。",
+  "tavernInspectSummary": "概况",
+  "tavernInspectKind": "类型",
+  "tavernTurnSend": "发送",
+  "tavernTurnImpersonate": "代写",
+  "tavernInspectStatus": "结果",
+  "tavernInspectPreparing": "准备中",
+  "tavernInspectReady": "已发出",
+  "tavernInspectCompleted": "完成",
+  "tavernInspectFailed": "失败",
+  "tavernInspectPrompt": "提示词",
+  "tavernTokens": "{count} tokens",
+  "@tavernTokens": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernTokensAbout": "约 {count} tokens",
+  "@tavernTokensAbout": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectBudget": "上下文预算剩余",
+  "tavernInspectUsage": "模型报告的用量",
+  "tavernInspectNoUsage": "没报告",
+  "tavernInspectUsageValue": "输入 {prompt}（缓存 {hit}）· 输出 {completion}",
+  "@tavernInspectUsageValue": {
+    "placeholders": {
+      "prompt": {
+        "type": "int"
+      },
+      "hit": {
+        "type": "int"
+      },
+      "completion": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectSegments": "发出去的 {count} 段",
+  "@tavernInspectSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectSegmentsNote": "按发送顺序。点开看全文，长按复制。",
+  "tavernInspectWorld": "世界书命中 {count} 条",
+  "@tavernInspectWorld": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectWorldKey": "关键词「{key}」",
+  "@tavernInspectWorldKey": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernInspectExcluded": "没发出去的 {count} 段",
+  "@tavernInspectExcluded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernExcludeDisabled": "关着",
+  "tavernExcludeTrigger": "不在这种生成里",
+  "tavernExcludeHidden": "对模型隐藏",
+  "tavernExcludeSystem": "系统消息",
+  "tavernExcludeHistoryBudget": "超出上下文预算",
+  "tavernExcludeExampleBudget": "示例超出预算",
+  "tavernRoleSystem": "系统",
+  "tavernRoleUser": "你",
+  "tavernRoleCharacter": "角色",
+  "tavernSourcePreset": "预设",
+  "tavernSourceCard": "角色卡",
+  "tavernSourceWorld": "世界书",
+  "tavernSourcePersona": "人设",
+  "tavernSourceHistory": "对话",
+  "tavernSourceControl": "控制"
 }
