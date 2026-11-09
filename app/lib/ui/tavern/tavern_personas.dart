@@ -163,19 +163,65 @@ Future<bool> deleteTavernPersona(BuildContext context, WidgetRef ref, TavernPers
   return true;
 }
 
+/// One persona in a list: its picture, name and first line, and what is
+/// true of it at the end (默认, or a tick in the picker).
 class _PersonaRow extends StatelessWidget {
-  const _PersonaRow({super.key, required this.persona, required this.onTap, this.onLongPress, this.badge});
+  const _PersonaRow({
+    super.key,
+    required this.persona,
+    required this.onTap,
+    this.onLongPress,
+    this.badge,
+    this.trailing,
+  });
 
   final TavernPersona persona;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final String? badge;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _AvatarRow(
+      leading: TavernPersonaAvatar(name: persona.name, path: persona.avatarPath),
+      title: persona.name,
+      subtitle: plainPreview(persona.description),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      trailing: switch (badge) {
+        final badge? => Text(badge, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary)),
+        null => trailing,
+      },
+    );
+  }
+}
+
+/// A settings-height row led by a 36 round picture, so persona rows and the
+/// 跟随默认 row line up.
+class _AvatarRow extends StatelessWidget {
+  const _AvatarRow({
+    super.key,
+    required this.leading,
+    required this.title,
+    required this.onTap,
+    this.subtitle = '',
+    this.onLongPress,
+    this.trailing,
+  });
+
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
-    final about = plainPreview(persona.description);
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -187,17 +233,17 @@ class _PersonaRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: SettingsMetrics.inset, vertical: 10),
           child: Row(
             children: [
-              TavernPersonaAvatar(name: persona.name, path: persona.avatarPath),
+              leading,
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(persona.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyLarge),
-                    if (about.isNotEmpty)
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyLarge),
+                    if (subtitle.isNotEmpty)
                       Text(
-                        about,
+                        subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary),
@@ -205,10 +251,7 @@ class _PersonaRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (badge case final badge?) ...[
-                const SizedBox(width: 8),
-                Text(badge, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary)),
-              ],
+              if (trailing case final trailing?) ...[const SizedBox(width: 8), trailing],
             ],
           ),
         ),
@@ -602,24 +645,27 @@ Future<void> showTavernPersonaPicker(BuildContext context, String chatId) => sho
                 child: SheetGroup(
                   margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
                   children: [
-                    SettingsTile(
+                    _AvatarRow(
                       key: const ValueKey('tavern-persona-follow'),
-                      icon: AppIcons.restart,
-                      tinted: false,
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Theme.of(inner).colorScheme.onSurface.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(AppIcons.restart, size: 18, color: Theme.of(inner).colorScheme.onSurface),
+                      ),
                       title: l10n.tavernPersonaFollowDefault,
                       subtitle: fallback?.name ?? l10n.tavernPersonaNone,
                       trailing: tick(bound == null),
-                      chevron: false,
                       onTap: () => bind(null),
                     ),
                     for (final p in personas)
-                      SettingsTile(
+                      _PersonaRow(
                         key: ValueKey('tavern-persona-pick-${p.id}'),
-                        icon: AppIcons.profile,
-                        tinted: false,
-                        title: p.name,
+                        persona: p,
                         trailing: tick(bound == p.id),
-                        chevron: false,
                         onTap: () => bind(p.id),
                       ),
                   ],

@@ -87,6 +87,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('tavern-persona-key')));
     await tester.pumpAndSettle();
     expect(find.text('这段对话里你是'), findsOneWidget);
+    // Each persona shows with its own picture.
+    expect(
+      find.descendant(
+        of: find.byKey(ValueKey('tavern-persona-pick-${sailor.id}')),
+        matching: find.byType(TavernPersonaAvatar),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(ValueKey('tavern-persona-pick-${sailor.id}')));
     await tester.pumpAndSettle();
 
