@@ -316,5 +316,27 @@
   },
   "tavernImportNoticesTitle": "Notes from the import",
   "tavernExportChat": "Export chat",
-  "tavernExportChatFailed": "Couldn't export this chat"
+  "tavernExportChatFailed": "Couldn't export this chat",
+  "tavernLorebook": "Lorebook",
+  "tavernLorebookSubtitle": "The entries this card carries",
+  "tavernLorebookEntries": "{count, plural, =1{1 entry} other{{count} entries}}",
+  "@tavernLorebookEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernLorebookNote": "When a key comes up in the chat, its entry goes into the prompt; 'Always' entries go in every time.",
+  "tavernLorebookKeys": "Keys: {keys}",
+  "@tavernLorebookKeys": {
+    "placeholders": {
+      "keys": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernLorebookConstant": "Always",
+  "tavernLorebookOff": "Off",
+  "tavernLorebookEmpty": "This card has no lorebook"
 }

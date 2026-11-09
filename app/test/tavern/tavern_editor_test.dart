@@ -143,8 +143,8 @@ void main() {
 
   testWidgets('fields the page does not edit are counted as kept', (tester) async {
     await _open(tester, _Recording(), home: const TavernCharacterEditPage(characterId: 'sample-innkeeper'));
-    // The sample card carries one extension the page does not show.
-    await tester.scrollUntilVisible(find.textContaining('卡里还有 1 项'), 300, scrollable: find.byType(Scrollable).first);
-    expect(find.textContaining('卡里还有 1 项'), findsOneWidget);
+    // The sample card carries an extension and a lorebook the page does not show.
+    await tester.scrollUntilVisible(find.textContaining('卡里还有 2 项'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('卡里还有 2 项'), findsOneWidget);
   });
 }

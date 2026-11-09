@@ -20,6 +20,7 @@ import '../theme/theme.dart';
 import 'tavern_character_edit_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_lorebook_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
 import 'tavern_widgets.dart';
 
@@ -189,6 +190,22 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                       onTap: () => Navigator.of(context).push(TavernChatPage.route(chat.id)),
                     ),
                   ),
+              ],
+            ),
+          ),
+        if (character.hasLorebook)
+          SliverToBoxAdapter(
+            child: SheetGroup(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                SettingsTile(
+                  key: const ValueKey('tavern-lorebook'),
+                  icon: AppIcons.lorebook,
+                  tinted: false,
+                  title: l10n.tavernLorebook,
+                  subtitle: l10n.tavernLorebookSubtitle,
+                  onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
+                ),
               ],
             ),
           ),

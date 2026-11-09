@@ -19698,6 +19698,36 @@ class L10nEn extends L10n {
   String get tavernExportChatFailed => 'Couldn\'t export this chat';
 
   @override
+  String get tavernLorebook => 'Lorebook';
+
+  @override
+  String get tavernLorebookSubtitle => 'The entries this card carries';
+
+  @override
+  String tavernLorebookEntries(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count entries', one: '1 entry');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernLorebookNote =>
+      'When a key comes up in the chat, its entry goes into the prompt; \'Always\' entries go in every time.';
+
+  @override
+  String tavernLorebookKeys(String keys) {
+    return 'Keys: $keys';
+  }
+
+  @override
+  String get tavernLorebookConstant => 'Always';
+
+  @override
+  String get tavernLorebookOff => 'Off';
+
+  @override
+  String get tavernLorebookEmpty => 'This card has no lorebook';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

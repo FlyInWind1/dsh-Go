@@ -56,6 +56,7 @@ class PreviewTavern implements Tavern, TavernPreview {
       description: c.description,
       creatorNotes: c.creatorNotes,
       greetings: c.greetings,
+      hasLorebook: c.data['character_book'] is Map,
       chatCount: chats.length,
       lastChatAt: last,
       importedAt: c.importedAt,
@@ -441,6 +442,7 @@ class _Card {
     this.creator,
     this.tags = const [],
     this.creatorNotes = '',
+    this.book,
   });
 
   final String id;
@@ -450,6 +452,9 @@ class _Card {
   final String description;
   final String creatorNotes;
   final List<String> greetings;
+
+  /// A V3 character_book, as a card carries it.
+  final Map<String, Object?>? book;
 }
 
 class _Char {
@@ -473,6 +478,7 @@ class _Char {
         'extensions': <String, Object?>{
           'depth_prompt': {'prompt': '', 'depth': 4},
         },
+        'character_book': ?card.book,
       };
 
   final String id;
@@ -603,6 +609,27 @@ const _samples = [
     tags: ['示例', '悬疑'],
     description: '雨夜小镇上一家旅店的老板娘，知道很多事，但只说一半。',
     creatorNotes: '这是一张示例卡，用来预览酒馆的界面。',
+    book: {
+      'name': '雨镇',
+      'entries': [
+        {
+          'keys': ['地下室', '酒窖'],
+          'comment': '地下室',
+          'content': '旅店地下室名义上是酒窖，钥匙只有林晚有。',
+          'insertion_order': 100,
+          'enabled': true,
+          'constant': false,
+        },
+        {
+          'keys': ['雨'],
+          'comment': '连雨',
+          'content': '雨已经下了三天，桥被冲断了。',
+          'insertion_order': 90,
+          'enabled': true,
+          'constant': true,
+        },
+      ],
+    },
     greetings: [
       '*旅店的门被风推开，带进一阵冷雨。柜台后面的女人抬起头。*\n\n「这么晚了还在赶路？进来吧，炉子还热着。」',
       '*你醒来时，发现自己躺在旅店二楼的床上。窗外还在下雨。*\n\n「你可算醒了。」门口的女人端着一碗汤，「昨晚你倒在门口，吓我一跳。」',

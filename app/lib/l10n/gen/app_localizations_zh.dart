@@ -18668,6 +18668,34 @@ class L10nZh extends L10n {
   String get tavernExportChatFailed => '没能导出这段对话';
 
   @override
+  String get tavernLorebook => '世界书';
+
+  @override
+  String get tavernLorebookSubtitle => '这张卡自带的设定条目';
+
+  @override
+  String tavernLorebookEntries(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String get tavernLorebookNote => '对话里提到关键词时，对应条目会带进提示词；「常驻」的每次都带。';
+
+  @override
+  String tavernLorebookKeys(String keys) {
+    return '关键词：$keys';
+  }
+
+  @override
+  String get tavernLorebookConstant => '常驻';
+
+  @override
+  String get tavernLorebookOff => '已关';
+
+  @override
+  String get tavernLorebookEmpty => '这张卡没有世界书';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

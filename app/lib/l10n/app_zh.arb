@@ -11507,6 +11507,28 @@
   "tavernImportNoticesTitle": "导入时注意到",
   "tavernExportChat": "导出聊天记录",
   "tavernExportChatFailed": "没能导出这段对话",
+  "tavernLorebook": "世界书",
+  "tavernLorebookSubtitle": "这张卡自带的设定条目",
+  "tavernLorebookEntries": "{count} 条",
+  "@tavernLorebookEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernLorebookNote": "对话里提到关键词时，对应条目会带进提示词；「常驻」的每次都带。",
+  "tavernLorebookKeys": "关键词：{keys}",
+  "@tavernLorebookKeys": {
+    "placeholders": {
+      "keys": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernLorebookConstant": "常驻",
+  "tavernLorebookOff": "已关",
+  "tavernLorebookEmpty": "这张卡没有世界书",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

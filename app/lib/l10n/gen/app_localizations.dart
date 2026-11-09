@@ -34100,6 +34100,54 @@ abstract class L10n {
   /// **'没能导出这段对话'**
   String get tavernExportChatFailed;
 
+  /// No description provided for @tavernLorebook.
+  ///
+  /// In zh, this message translates to:
+  /// **'世界书'**
+  String get tavernLorebook;
+
+  /// No description provided for @tavernLorebookSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡自带的设定条目'**
+  String get tavernLorebookSubtitle;
+
+  /// No description provided for @tavernLorebookEntries.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条'**
+  String tavernLorebookEntries(int count);
+
+  /// No description provided for @tavernLorebookNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话里提到关键词时，对应条目会带进提示词；「常驻」的每次都带。'**
+  String get tavernLorebookNote;
+
+  /// No description provided for @tavernLorebookKeys.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词：{keys}'**
+  String tavernLorebookKeys(String keys);
+
+  /// No description provided for @tavernLorebookConstant.
+  ///
+  /// In zh, this message translates to:
+  /// **'常驻'**
+  String get tavernLorebookConstant;
+
+  /// No description provided for @tavernLorebookOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关'**
+  String get tavernLorebookOff;
+
+  /// No description provided for @tavernLorebookEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡没有世界书'**
+  String get tavernLorebookEmpty;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
