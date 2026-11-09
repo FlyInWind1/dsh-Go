@@ -43,19 +43,19 @@ class PreviewTavern implements Tavern, TavernPreview {
   }
 
   TavernCharacter _view(_Char c) {
-    final chats = _chats.values.where((chat) => chat.characterId == c.card.id).toList();
+    final chats = _chats.values.where((chat) => chat.characterId == c.id).toList();
     DateTime? last;
     for (final chat in chats) {
       if (last == null || chat.updatedAt.isAfter(last)) last = chat.updatedAt;
     }
     return TavernCharacter(
-      id: c.card.id,
-      name: c.card.name,
-      creator: c.card.creator,
-      tags: c.card.tags,
-      description: c.card.description,
-      creatorNotes: c.card.creatorNotes,
-      greetings: c.card.greetings,
+      id: c.id,
+      name: c.name,
+      creator: c.creator,
+      tags: c.tags,
+      description: c.description,
+      creatorNotes: c.creatorNotes,
+      greetings: c.greetings,
       chatCount: chats.length,
       lastChatAt: last,
       importedAt: c.importedAt,
@@ -91,6 +91,148 @@ class PreviewTavern implements Tavern, TavernPreview {
     _listChanged.add(null);
   }
 
+  static const _editableTexts = {
+    'name',
+    'nickname',
+    'description',
+    'personality',
+    'scenario',
+    'first_mes',
+    'mes_example',
+    'system_prompt',
+    'post_history_instructions',
+    'creator_notes',
+    'creator',
+    'character_version',
+  };
+
+  @override
+  Future<Map<String, Object?>?> characterFields(String characterId) async => switch (_characters[characterId]) {
+    final c? => _copy(c.data),
+    null => null,
+  };
+
+  @override
+  Future<TavernCharacter> updateCharacterFields(String characterId, Map<String, Object?> fields) async {
+    final c = _characters[characterId];
+    if (c == null) throw const TavernImportError('missing character');
+    for (final MapEntry(:key, :value) in fields.entries) {
+      final ok = _editableTexts.contains(key)
+          ? value is String
+          : (key == 'alternate_greetings' || key == 'tags') && value is List && value.every((v) => v is String);
+      if (!ok) throw ArgumentError.value(value, key);
+    }
+    for (final MapEntry(:key, :value) in fields.entries) {
+      c.data[key] = value is List ? [...value] : value;
+    }
+    _listChanged.add(null);
+    return _view(c);
+  }
+
+  static Map<String, Object?> _copy(Map<String, Object?> data) => {
+    for (final MapEntry(:key, :value) in data.entries)
+      key: switch (value) {
+        final List l => [...l],
+        final Map<String, Object?> m => _copy(m),
+        _ => value,
+      },
+  };
+
+  // Personas ------------------------------------------------------------------
+
+  final _personas = <String, TavernPersona>{};
+  final _bindings = <String, String>{};
+  String? _defaultPersona;
+
+  List<TavernPersona> _personaList() => _personas.values.toList();
+
+  @override
+  Stream<List<TavernPersona>> watchPersonas() => _watch(_personaList);
+
+  @override
+  Future<TavernPersona?> persona(String personaId) async => _personas[personaId];
+
+  @override
+  Future<TavernPersona> createPersona({
+    required String name,
+    String description = '',
+    String? avatarPath,
+    int descriptionPosition = PersonaDescriptionPosition.inPrompt,
+  }) async {
+    final persona = TavernPersona(
+      id: _id('persona'),
+      name: name,
+      description: description,
+      avatarPath: avatarPath,
+      descriptionPosition: descriptionPosition,
+    );
+    _personas[persona.id] = persona;
+    _listChanged.add(null);
+    return persona;
+  }
+
+  @override
+  Future<TavernPersona> updatePersona(
+    String personaId, {
+    String? name,
+    String? description,
+    String? avatarPath,
+    bool clearAvatar = false,
+    int? descriptionPosition,
+  }) async {
+    final persona = _personas[personaId]!.copyWith(
+      name: name,
+      description: description,
+      avatarPath: avatarPath,
+      clearAvatar: clearAvatar,
+      descriptionPosition: descriptionPosition,
+    );
+    _personas[personaId] = persona;
+    _listChanged.add(null);
+    return persona;
+  }
+
+  @override
+  Future<void> deletePersona(String personaId) async {
+    _personas.remove(personaId);
+    _bindings.removeWhere((_, id) => id == personaId);
+    if (_defaultPersona == personaId) _defaultPersona = null;
+    _listChanged.add(null);
+  }
+
+  @override
+  Future<PersonaSelection> personaSelection({String? chatId}) async {
+    final bound = chatId == null ? null : _bindings[chatId];
+    final fallback = _defaultPersona;
+    final persona = _personas[bound] ?? _personas[fallback];
+    return PersonaSelection(
+      persona: persona,
+      source: _personas[bound] != null
+          ? PersonaSelectionSource.chat
+          : persona != null
+          ? PersonaSelectionSource.globalDefault
+          : PersonaSelectionSource.none,
+      boundPersonaId: _personas.containsKey(bound) ? bound : null,
+      defaultPersonaId: fallback,
+    );
+  }
+
+  @override
+  Future<void> setDefaultPersona(String? personaId) async {
+    _defaultPersona = personaId;
+    _listChanged.add(null);
+  }
+
+  @override
+  Future<void> bindPersona(String chatId, String? personaId) async {
+    if (personaId == null) {
+      _bindings.remove(chatId);
+    } else {
+      _bindings[chatId] = personaId;
+    }
+    _listChanged.add(null);
+  }
+
   // Chats ---------------------------------------------------------------------
 
   @override
@@ -118,10 +260,10 @@ class PreviewTavern implements Tavern, TavernPreview {
   Future<String> createChat(String characterId, {int greeting = 0}) async {
     final c = _characters[characterId]!;
     final now = _clock();
-    final chat = _Chat(_id('chat'), characterId, c.card.name, now);
-    final greetings = c.card.greetings;
+    final chat = _Chat(_id('chat'), characterId, c.name, now);
+    final greetings = c.greetings;
     for (var i = 0; i < greetings.length; i++) {
-      chat.add(_Node(_id('n'), null, TavernRole.character, c.card.name, greetings[i], now));
+      chat.add(_Node(_id('n'), null, TavernRole.character, c.name, greetings[i], now));
     }
     chat.chosen[null] = chat.children(null)[greeting.clamp(0, greetings.length - 1)].id;
     _chats[chat.id] = chat;
@@ -189,7 +331,7 @@ class PreviewTavern implements Tavern, TavernPreview {
 
   Stream<TavernEvent> _reply(_Chat chat, String? parent, String text) {
     final c = _characters[chat.characterId]!;
-    final node = _Node(_id('n'), parent, TavernRole.character, c.card.name, '', _clock());
+    final node = _Node(_id('n'), parent, TavernRole.character, c.name, '', _clock());
     chat.add(node);
     chat.chosen[parent] = node.id;
     return _stream(chat, node, text, started: true);
@@ -296,9 +438,46 @@ class _Card {
 }
 
 class _Char {
-  _Char(this.card, this.importedAt);
-  final _Card card;
+  _Char(_Card card, this.importedAt)
+    : id = card.id,
+      data = {
+        'name': card.name,
+        'nickname': '',
+        'description': card.description,
+        'personality': '',
+        'scenario': '',
+        'first_mes': card.greetings.first,
+        'alternate_greetings': card.greetings.skip(1).toList(),
+        'mes_example': '',
+        'system_prompt': '',
+        'post_history_instructions': '',
+        'creator_notes': card.creatorNotes,
+        'creator': card.creator ?? '',
+        'character_version': '',
+        'tags': [...card.tags],
+        'extensions': <String, Object?>{
+          'depth_prompt': {'prompt': '', 'depth': 4},
+        },
+      };
+
+  final String id;
+
+  /// The card's V3 `data`, as [Tavern.characterFields] gives it.
+  final Map<String, Object?> data;
   final DateTime importedAt;
+
+  String get name => data['name']! as String;
+  String? get creator => switch (data['creator']) {
+    final String c when c.isNotEmpty => c,
+    _ => null,
+  };
+  List<String> get tags => (data['tags']! as List).cast<String>();
+  String get description => data['description']! as String;
+  String get creatorNotes => data['creator_notes']! as String;
+  List<String> get greetings => [
+    data['first_mes']! as String,
+    ...(data['alternate_greetings']! as List).cast<String>(),
+  ];
 }
 
 class _Node {

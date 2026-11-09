@@ -18300,6 +18300,176 @@ class L10nZh extends L10n {
   String get tavernLog => '记录';
 
   @override
+  String get tavernEditCharacter => '编辑角色';
+
+  @override
+  String get tavernNameNeeded => '名字不能空着';
+
+  @override
+  String get tavernFieldsBasics => '基本';
+
+  @override
+  String get tavernFieldNickname => '昵称';
+
+  @override
+  String get tavernFieldNicknameHelp => '填了的话，对话里用它称呼角色';
+
+  @override
+  String get tavernFieldTags => '标签';
+
+  @override
+  String get tavernFieldTagsHelp => '用逗号隔开';
+
+  @override
+  String get tavernFieldCreator => '作者';
+
+  @override
+  String get tavernFieldVersion => '版本';
+
+  @override
+  String get tavernFieldDescription => '描述';
+
+  @override
+  String get tavernFieldPersonality => '性格';
+
+  @override
+  String get tavernFieldScenario => '场景';
+
+  @override
+  String tavernGreetingNumber(int n) {
+    return '开场白 $n';
+  }
+
+  @override
+  String get tavernFieldGreetingsNote => '新对话可以从任意一条开场白开始。';
+
+  @override
+  String get tavernAddGreeting => '加一条开场白';
+
+  @override
+  String get tavernMoreFields => '更多字段';
+
+  @override
+  String get tavernMoreFieldsSubtitle => '示例对话、系统提示、历史后指令';
+
+  @override
+  String get tavernFieldExamples => '示例对话';
+
+  @override
+  String get tavernFieldExamplesHelp => '每段示例用一行 <START> 开头';
+
+  @override
+  String get tavernFieldPrompts => '提示词';
+
+  @override
+  String get tavernFieldPromptsNote => '填了就替换预设里对应的那一段；留空用预设的。';
+
+  @override
+  String get tavernFieldSystemPrompt => '系统提示';
+
+  @override
+  String get tavernFieldPostHistory => '历史后指令';
+
+  @override
+  String get tavernFieldNotesNote => '写给看卡的人，不发给模型。';
+
+  @override
+  String tavernEditKeeps(int count) {
+    return '卡里还有 $count 项这里改不了的内容（世界书、扩展等），保存时原样保留；已有的对话也不会变。';
+  }
+
+  @override
+  String get tavernEditKeepsChats => '保存后，已有的对话不会变。';
+
+  @override
+  String get tavernPersonas => '人设';
+
+  @override
+  String get tavernPersona => '人设';
+
+  @override
+  String get tavernPersonaNew => '新建人设';
+
+  @override
+  String get tavernPersonasEmpty => '还没有人设';
+
+  @override
+  String get tavernPersonasEmptyMessage => '人设是你在对话里扮演的人：一个名字和一段介绍，角色就知道你是谁。';
+
+  @override
+  String get tavernPersonasNote => '长按设为默认或删除。没有单独选人设的对话用默认的。';
+
+  @override
+  String get tavernPersonaUnsetDefault => '不再作为默认';
+
+  @override
+  String get tavernPersonaSetDefault => '设为默认人设';
+
+  @override
+  String tavernPersonaDeleteTitle(String name) {
+    return '删除「$name」？';
+  }
+
+  @override
+  String get tavernPersonaDeleteMessage => '用它的对话会改用默认人设，已经写下的内容不变。';
+
+  @override
+  String get tavernPersonaEdit => '编辑人设';
+
+  @override
+  String get tavernPersonaPickAvatar => '换头像';
+
+  @override
+  String get tavernPersonaRemoveAvatar => '去掉头像';
+
+  @override
+  String get tavernPersonaAvatarFailed => '没能用上这张图片';
+
+  @override
+  String get tavernPersonaNameHint => '角色怎么称呼你';
+
+  @override
+  String get tavernPersonaDescriptionHelp => '模型会读到这段：你是谁、什么样子、和角色是什么关系。';
+
+  @override
+  String get tavernPersonaDescriptionHint => '比如：镇上新来的医生，话不多，总拎着一个旧皮箱。';
+
+  @override
+  String get tavernPersonaDefaultSubtitle => '新对话和没有单独选人设的对话都用它';
+
+  @override
+  String get tavernPersonaDelete => '删除人设';
+
+  @override
+  String get tavernPersonaNone => '没有人设';
+
+  @override
+  String tavernPersonaAs(String name) {
+    return '以「$name」的身份';
+  }
+
+  @override
+  String get tavernPersonaForChat => '这段对话里你是';
+
+  @override
+  String get tavernPersonaFollowDefault => '跟随默认';
+
+  @override
+  String get tavernPersonasManage => '管理人设';
+
+  @override
+  String get tavernSettingsYou => '你';
+
+  @override
+  String get tavernDefaultPersona => '默认人设';
+
+  @override
+  String get tavernPersonaNotSet => '未设置';
+
+  @override
+  String get tavernFieldName => '名字';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

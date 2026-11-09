@@ -17,6 +17,7 @@ import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_character_edit_page.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
 import 'tavern_widgets.dart';
@@ -81,6 +82,12 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
       title: character.name,
       showLargeTitle: false,
       actions: [
+        GlassIconButton(
+          key: const ValueKey('tavern-character-edit'),
+          icon: AppIcons.edit,
+          tooltip: l10n.commonEdit,
+          onPressed: () => unawaited(Navigator.of(context).push(TavernCharacterEditPage.route(character.id))),
+        ),
         GlassIconButton(
           key: const ValueKey('tavern-character-more'),
           icon: AppIcons.more,

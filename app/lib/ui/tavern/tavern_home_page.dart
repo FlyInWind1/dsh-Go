@@ -18,6 +18,7 @@ import '../modes/mode_switch.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_character_edit_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_settings_page.dart';
@@ -209,6 +210,11 @@ class _CharacterTile extends ConsumerWidget {
         onTap: () => Navigator.of(context).push(TavernCharacterPage.route(character.id)),
         onLongPress: () => unawaited(
           showTavernActions(context, [
+            (
+              AppIcons.edit,
+              context.l10n.commonEdit,
+              () => unawaited(Navigator.of(context).push(TavernCharacterEditPage.route(character.id))),
+            ),
             (AppIcons.delete, context.l10n.tavernDeleteCharacter, () => deleteTavernCharacter(context, ref, character)),
           ]),
         ),

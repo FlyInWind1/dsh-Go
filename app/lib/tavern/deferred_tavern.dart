@@ -41,6 +41,62 @@ class DeferredTavern implements Tavern {
   Future<void> deleteCharacter(String characterId) async => (await _ready).deleteCharacter(characterId);
 
   @override
+  Future<Map<String, Object?>?> characterFields(String characterId) async =>
+      (await _ready).characterFields(characterId);
+
+  @override
+  Future<TavernCharacter> updateCharacterFields(String characterId, Map<String, Object?> fields) async =>
+      (await _ready).updateCharacterFields(characterId, fields);
+
+  @override
+  Stream<List<TavernPersona>> watchPersonas() => _stream((t) => t.watchPersonas());
+
+  @override
+  Future<TavernPersona?> persona(String personaId) async => (await _ready).persona(personaId);
+
+  @override
+  Future<TavernPersona> createPersona({
+    required String name,
+    String description = '',
+    String? avatarPath,
+    int descriptionPosition = PersonaDescriptionPosition.inPrompt,
+  }) async => (await _ready).createPersona(
+    name: name,
+    description: description,
+    avatarPath: avatarPath,
+    descriptionPosition: descriptionPosition,
+  );
+
+  @override
+  Future<TavernPersona> updatePersona(
+    String personaId, {
+    String? name,
+    String? description,
+    String? avatarPath,
+    bool clearAvatar = false,
+    int? descriptionPosition,
+  }) async => (await _ready).updatePersona(
+    personaId,
+    name: name,
+    description: description,
+    avatarPath: avatarPath,
+    clearAvatar: clearAvatar,
+    descriptionPosition: descriptionPosition,
+  );
+
+  @override
+  Future<void> deletePersona(String personaId) async => (await _ready).deletePersona(personaId);
+
+  @override
+  Future<PersonaSelection> personaSelection({String? chatId}) async => (await _ready).personaSelection(chatId: chatId);
+
+  @override
+  Future<void> setDefaultPersona(String? personaId) async => (await _ready).setDefaultPersona(personaId);
+
+  @override
+  Future<void> bindPersona(String chatId, String? personaId) async => (await _ready).bindPersona(chatId, personaId);
+
+  @override
   Stream<List<TavernChatSummary>> watchChats({String? characterId}) =>
       _stream((t) => t.watchChats(characterId: characterId));
 
@@ -94,6 +150,15 @@ class DeferredTavern implements Tavern {
     _open?.configure(config);
   }
 
+  /// Nothing to close when it never opened.
   @override
-  Future<void> close() async => (await _ready).close();
+  Future<void> close() async {
+    final Tavern tavern;
+    try {
+      tavern = await _ready;
+    } on Object {
+      return;
+    }
+    await tavern.close();
+  }
 }

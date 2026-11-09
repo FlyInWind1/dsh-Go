@@ -19296,6 +19296,188 @@ class L10nEn extends L10n {
   String get tavernLog => 'Backlog';
 
   @override
+  String get tavernEditCharacter => 'Edit character';
+
+  @override
+  String get tavernNameNeeded => 'A name is needed';
+
+  @override
+  String get tavernFieldsBasics => 'Basics';
+
+  @override
+  String get tavernFieldNickname => 'Nickname';
+
+  @override
+  String get tavernFieldNicknameHelp => 'If set, chats call the character this';
+
+  @override
+  String get tavernFieldTags => 'Tags';
+
+  @override
+  String get tavernFieldTagsHelp => 'Separate with commas';
+
+  @override
+  String get tavernFieldCreator => 'Creator';
+
+  @override
+  String get tavernFieldVersion => 'Version';
+
+  @override
+  String get tavernFieldDescription => 'Description';
+
+  @override
+  String get tavernFieldPersonality => 'Personality';
+
+  @override
+  String get tavernFieldScenario => 'Scenario';
+
+  @override
+  String tavernGreetingNumber(int n) {
+    return 'Greeting $n';
+  }
+
+  @override
+  String get tavernFieldGreetingsNote => 'A new chat can start from any of these.';
+
+  @override
+  String get tavernAddGreeting => 'Add a greeting';
+
+  @override
+  String get tavernMoreFields => 'More fields';
+
+  @override
+  String get tavernMoreFieldsSubtitle => 'Example dialogue, system prompt, post-history instructions';
+
+  @override
+  String get tavernFieldExamples => 'Example dialogue';
+
+  @override
+  String get tavernFieldExamplesHelp => 'Start each example with a <START> line';
+
+  @override
+  String get tavernFieldPrompts => 'Prompts';
+
+  @override
+  String get tavernFieldPromptsNote =>
+      'When set, these replace the matching part of the preset; leave empty to use the preset\'s.';
+
+  @override
+  String get tavernFieldSystemPrompt => 'System prompt';
+
+  @override
+  String get tavernFieldPostHistory => 'Post-history instructions';
+
+  @override
+  String get tavernFieldNotesNote => 'For people reading the card; not sent to the model.';
+
+  @override
+  String tavernEditKeeps(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'This card has $count more items you can\'t edit here (lorebook, extensions…). Saving keeps them as they are, and existing chats don\'t change.',
+      one: 'This card has 1 more item you can\'t edit here (lorebook, extensions…). Saving keeps it as it is, and existing chats don\'t change.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernEditKeepsChats => 'Saving doesn\'t change existing chats.';
+
+  @override
+  String get tavernPersonas => 'Personas';
+
+  @override
+  String get tavernPersona => 'Persona';
+
+  @override
+  String get tavernPersonaNew => 'New persona';
+
+  @override
+  String get tavernPersonasEmpty => 'No personas yet';
+
+  @override
+  String get tavernPersonasEmptyMessage =>
+      'A persona is who you play in chats: a name and a few lines, so characters know who you are.';
+
+  @override
+  String get tavernPersonasNote =>
+      'Long-press to make one the default or delete it. Chats without their own persona use the default.';
+
+  @override
+  String get tavernPersonaUnsetDefault => 'Stop using as default';
+
+  @override
+  String get tavernPersonaSetDefault => 'Use as default';
+
+  @override
+  String tavernPersonaDeleteTitle(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get tavernPersonaDeleteMessage =>
+      'Chats that use it switch to the default persona; what\'s already written stays.';
+
+  @override
+  String get tavernPersonaEdit => 'Edit persona';
+
+  @override
+  String get tavernPersonaPickAvatar => 'Change picture';
+
+  @override
+  String get tavernPersonaRemoveAvatar => 'Remove picture';
+
+  @override
+  String get tavernPersonaAvatarFailed => 'Couldn\'t use that picture';
+
+  @override
+  String get tavernPersonaNameHint => 'What characters call you';
+
+  @override
+  String get tavernPersonaDescriptionHelp =>
+      'The model reads this: who you are, what you\'re like, how you know the character.';
+
+  @override
+  String get tavernPersonaDescriptionHint => 'e.g. The town\'s new doctor: quiet, always carrying an old leather case.';
+
+  @override
+  String get tavernPersonaDefaultSubtitle => 'New chats, and chats without their own persona, use it';
+
+  @override
+  String get tavernPersonaDelete => 'Delete persona';
+
+  @override
+  String get tavernPersonaNone => 'No persona';
+
+  @override
+  String tavernPersonaAs(String name) {
+    return 'As $name';
+  }
+
+  @override
+  String get tavernPersonaForChat => 'In this chat you are';
+
+  @override
+  String get tavernPersonaFollowDefault => 'Use the default';
+
+  @override
+  String get tavernPersonasManage => 'Manage personas';
+
+  @override
+  String get tavernSettingsYou => 'You';
+
+  @override
+  String get tavernDefaultPersona => 'Default persona';
+
+  @override
+  String get tavernPersonaNotSet => 'Not set';
+
+  @override
+  String get tavernFieldName => 'Name';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -33416,6 +33416,330 @@ abstract class L10n {
   /// **'记录'**
   String get tavernLog;
 
+  /// No description provided for @tavernEditCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑角色'**
+  String get tavernEditCharacter;
+
+  /// No description provided for @tavernNameNeeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'名字不能空着'**
+  String get tavernNameNeeded;
+
+  /// No description provided for @tavernFieldsBasics.
+  ///
+  /// In zh, this message translates to:
+  /// **'基本'**
+  String get tavernFieldsBasics;
+
+  /// No description provided for @tavernFieldNickname.
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称'**
+  String get tavernFieldNickname;
+
+  /// No description provided for @tavernFieldNicknameHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'填了的话，对话里用它称呼角色'**
+  String get tavernFieldNicknameHelp;
+
+  /// No description provided for @tavernFieldTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签'**
+  String get tavernFieldTags;
+
+  /// No description provided for @tavernFieldTagsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'用逗号隔开'**
+  String get tavernFieldTagsHelp;
+
+  /// No description provided for @tavernFieldCreator.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者'**
+  String get tavernFieldCreator;
+
+  /// No description provided for @tavernFieldVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本'**
+  String get tavernFieldVersion;
+
+  /// No description provided for @tavernFieldDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述'**
+  String get tavernFieldDescription;
+
+  /// No description provided for @tavernFieldPersonality.
+  ///
+  /// In zh, this message translates to:
+  /// **'性格'**
+  String get tavernFieldPersonality;
+
+  /// No description provided for @tavernFieldScenario.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景'**
+  String get tavernFieldScenario;
+
+  /// No description provided for @tavernGreetingNumber.
+  ///
+  /// In zh, this message translates to:
+  /// **'开场白 {n}'**
+  String tavernGreetingNumber(int n);
+
+  /// No description provided for @tavernFieldGreetingsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'新对话可以从任意一条开场白开始。'**
+  String get tavernFieldGreetingsNote;
+
+  /// No description provided for @tavernAddGreeting.
+  ///
+  /// In zh, this message translates to:
+  /// **'加一条开场白'**
+  String get tavernAddGreeting;
+
+  /// No description provided for @tavernMoreFields.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多字段'**
+  String get tavernMoreFields;
+
+  /// No description provided for @tavernMoreFieldsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例对话、系统提示、历史后指令'**
+  String get tavernMoreFieldsSubtitle;
+
+  /// No description provided for @tavernFieldExamples.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例对话'**
+  String get tavernFieldExamples;
+
+  /// No description provided for @tavernFieldExamplesHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'每段示例用一行 <START> 开头'**
+  String get tavernFieldExamplesHelp;
+
+  /// No description provided for @tavernFieldPrompts.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get tavernFieldPrompts;
+
+  /// No description provided for @tavernFieldPromptsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'填了就替换预设里对应的那一段；留空用预设的。'**
+  String get tavernFieldPromptsNote;
+
+  /// No description provided for @tavernFieldSystemPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统提示'**
+  String get tavernFieldSystemPrompt;
+
+  /// No description provided for @tavernFieldPostHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'历史后指令'**
+  String get tavernFieldPostHistory;
+
+  /// No description provided for @tavernFieldNotesNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'写给看卡的人，不发给模型。'**
+  String get tavernFieldNotesNote;
+
+  /// No description provided for @tavernEditKeeps.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡里还有 {count} 项这里改不了的内容（世界书、扩展等），保存时原样保留；已有的对话也不会变。'**
+  String tavernEditKeeps(int count);
+
+  /// No description provided for @tavernEditKeepsChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存后，已有的对话不会变。'**
+  String get tavernEditKeepsChats;
+
+  /// No description provided for @tavernPersonas.
+  ///
+  /// In zh, this message translates to:
+  /// **'人设'**
+  String get tavernPersonas;
+
+  /// No description provided for @tavernPersona.
+  ///
+  /// In zh, this message translates to:
+  /// **'人设'**
+  String get tavernPersona;
+
+  /// No description provided for @tavernPersonaNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建人设'**
+  String get tavernPersonaNew;
+
+  /// No description provided for @tavernPersonasEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有人设'**
+  String get tavernPersonasEmpty;
+
+  /// No description provided for @tavernPersonasEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'人设是你在对话里扮演的人：一个名字和一段介绍，角色就知道你是谁。'**
+  String get tavernPersonasEmptyMessage;
+
+  /// No description provided for @tavernPersonasNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'长按设为默认或删除。没有单独选人设的对话用默认的。'**
+  String get tavernPersonasNote;
+
+  /// No description provided for @tavernPersonaUnsetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'不再作为默认'**
+  String get tavernPersonaUnsetDefault;
+
+  /// No description provided for @tavernPersonaSetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'设为默认人设'**
+  String get tavernPersonaSetDefault;
+
+  /// No description provided for @tavernPersonaDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除「{name}」？'**
+  String tavernPersonaDeleteTitle(String name);
+
+  /// No description provided for @tavernPersonaDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'用它的对话会改用默认人设，已经写下的内容不变。'**
+  String get tavernPersonaDeleteMessage;
+
+  /// No description provided for @tavernPersonaEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑人设'**
+  String get tavernPersonaEdit;
+
+  /// No description provided for @tavernPersonaPickAvatar.
+  ///
+  /// In zh, this message translates to:
+  /// **'换头像'**
+  String get tavernPersonaPickAvatar;
+
+  /// No description provided for @tavernPersonaRemoveAvatar.
+  ///
+  /// In zh, this message translates to:
+  /// **'去掉头像'**
+  String get tavernPersonaRemoveAvatar;
+
+  /// No description provided for @tavernPersonaAvatarFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能用上这张图片'**
+  String get tavernPersonaAvatarFailed;
+
+  /// No description provided for @tavernPersonaNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色怎么称呼你'**
+  String get tavernPersonaNameHint;
+
+  /// No description provided for @tavernPersonaDescriptionHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型会读到这段：你是谁、什么样子、和角色是什么关系。'**
+  String get tavernPersonaDescriptionHelp;
+
+  /// No description provided for @tavernPersonaDescriptionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'比如：镇上新来的医生，话不多，总拎着一个旧皮箱。'**
+  String get tavernPersonaDescriptionHint;
+
+  /// No description provided for @tavernPersonaDefaultSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新对话和没有单独选人设的对话都用它'**
+  String get tavernPersonaDefaultSubtitle;
+
+  /// No description provided for @tavernPersonaDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除人设'**
+  String get tavernPersonaDelete;
+
+  /// No description provided for @tavernPersonaNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有人设'**
+  String get tavernPersonaNone;
+
+  /// No description provided for @tavernPersonaAs.
+  ///
+  /// In zh, this message translates to:
+  /// **'以「{name}」的身份'**
+  String tavernPersonaAs(String name);
+
+  /// No description provided for @tavernPersonaForChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段对话里你是'**
+  String get tavernPersonaForChat;
+
+  /// No description provided for @tavernPersonaFollowDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随默认'**
+  String get tavernPersonaFollowDefault;
+
+  /// No description provided for @tavernPersonasManage.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理人设'**
+  String get tavernPersonasManage;
+
+  /// No description provided for @tavernSettingsYou.
+  ///
+  /// In zh, this message translates to:
+  /// **'你'**
+  String get tavernSettingsYou;
+
+  /// No description provided for @tavernDefaultPersona.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认人设'**
+  String get tavernDefaultPersona;
+
+  /// No description provided for @tavernPersonaNotSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get tavernPersonaNotSet;
+
+  /// No description provided for @tavernFieldName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名字'**
+  String get tavernFieldName;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

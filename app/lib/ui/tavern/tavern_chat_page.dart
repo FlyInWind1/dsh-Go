@@ -27,11 +27,12 @@ import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
-import '../settings/index/settings_pages.dart';
+import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_page.dart';
+import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
 
@@ -182,9 +183,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   void _stop() => _tavern.stop(widget.chatId);
 
-  /// 模型 settings, where the DeepSeek key is; the line waits in the composer.
+  /// Where the DeepSeek key is set (as 酒馆设置 opens it); the line waits in
+  /// the composer.
   void _openKeySettings() => unawaited(
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => settingsPage(SettingsPageId.models))),
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ApiKeyPage(onboarding: false))),
   );
 
   Future<void> _sibling(TavernMessage message, int delta) async {
@@ -223,54 +225,77 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         final controller = ref.read(tavernChatLayoutProvider(widget.chatId).notifier);
         return SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SheetTitleBar(name),
-              if (characterId != null)
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SheetTitleBar(name),
+                if (characterId != null)
+                  SheetGroup(
+                    margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                    children: [
+                      SettingsTile(
+                        key: const ValueKey('tavern-character-details'),
+                        icon: AppIcons.info,
+                        tinted: false,
+                        title: l10n.tavernCharacterDetails,
+                        onTap: () {
+                          Navigator.of(sheet).pop();
+                          unawaited(Navigator.of(this.context).push(TavernCharacterPage.route(characterId)));
+                        },
+                      ),
+                    ],
+                  ),
                 SheetGroup(
                   margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
                   children: [
                     SettingsTile(
-                      key: const ValueKey('tavern-character-details'),
-                      icon: AppIcons.info,
+                      key: const ValueKey('tavern-chat-persona'),
+                      icon: AppIcons.profile,
                       tinted: false,
-                      title: l10n.tavernCharacterDetails,
-                      onTap: () {
-                        Navigator.of(sheet).pop();
-                        unawaited(Navigator.of(this.context).push(TavernCharacterPage.route(characterId)));
-                      },
+                      title: l10n.tavernPersona,
+                      value: Text(
+                        ref.watch(tavernPersonaSelectionProvider(widget.chatId)).value?.persona?.name ??
+                            l10n.tavernPersonaNone,
+                      ),
+                      onTap: _running
+                          ? null
+                          : () {
+                              Navigator.of(sheet).pop();
+                              unawaited(showTavernPersonaPicker(this.context, widget.chatId));
+                            },
                     ),
                   ],
                 ),
-              SheetGroup(
-                margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
-                children: [
-                  SettingsSegmentTile<TavernLayout>(
-                    key: const ValueKey('tavern-chat-layout'),
-                    title: l10n.tavernChatLayout,
-                    tinted: false,
-                    segments: [
-                      PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
-                      PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
-                      PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
-                    ],
-                    selected: own ?? ref.watch(tavernSettingsProvider.select((s) => s.layout)),
-                    onChanged: (layout) => unawaited(controller.set(layout)),
-                  ),
-                  if (own != null)
-                    SettingsTile(
-                      key: const ValueKey('tavern-chat-layout-follow'),
-                      icon: AppIcons.restart,
+                SheetGroup(
+                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                  children: [
+                    SettingsSegmentTile<TavernLayout>(
+                      key: const ValueKey('tavern-chat-layout'),
+                      title: l10n.tavernChatLayout,
                       tinted: false,
-                      title: l10n.tavernFollowSettings,
-                      onTap: () => unawaited(controller.set(null)),
+                      segments: [
+                        PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
+                        PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
+                        PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
+                      ],
+                      selected: own ?? ref.watch(tavernSettingsProvider.select((s) => s.layout)),
+                      onChanged: (layout) => unawaited(controller.set(layout)),
                     ),
-                ],
-              ),
-              const SizedBox(height: 4),
-            ],
+                    if (own != null)
+                      SettingsTile(
+                        key: const ValueKey('tavern-chat-layout-follow'),
+                        icon: AppIcons.restart,
+                        tinted: false,
+                        title: l10n.tavernFollowSettings,
+                        onTap: () => unawaited(controller.set(null)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
           ),
         );
       },
@@ -459,6 +484,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           onSend: _send,
           onStop: _stop,
           placeholder: l10n.tavernComposerHint(name),
+          leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
         ),
       ],
     );

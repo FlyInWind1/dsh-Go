@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../state/settings_state.dart';
+import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_settings.dart';
 import '../common/app_sheet.dart';
 import '../modes/mode_switch.dart';
@@ -16,6 +17,7 @@ import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
+import 'tavern_personas.dart';
 
 class TavernSettingsPage extends ConsumerWidget {
   const TavernSettingsPage({super.key});
@@ -29,9 +31,23 @@ class TavernSettingsPage extends ConsumerWidget {
     final hasKey = ref.watch(settingsProvider.select((s) => s.hasApiKey));
     final startup = ref.watch(appModeProvider.select((s) => s.startup));
     final controller = ref.read(tavernSettingsProvider.notifier);
+    final defaultPersona = ref.watch(tavernPersonaSelectionProvider(null)).value?.persona;
     return AppPage.list(
       title: l10n.tavernSettings,
       children: [
+        SheetGroup(
+          title: l10n.tavernSettingsYou,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            SettingsTile(
+              key: const ValueKey('tavern-personas'),
+              icon: AppIcons.profile,
+              title: l10n.tavernDefaultPersona,
+              value: Text(defaultPersona?.name ?? l10n.tavernPersonaNotSet),
+              onTap: () => unawaited(Navigator.of(context).push(TavernPersonasPage.route())),
+            ),
+          ],
+        ),
         SheetGroup(
           title: l10n.tavernSettingsModel,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),

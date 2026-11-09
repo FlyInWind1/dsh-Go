@@ -42,3 +42,13 @@ final tavernCharactersProvider = StreamProvider<List<TavernCharacter>>(
 final tavernChatsProvider = StreamProvider.family<List<TavernChatSummary>, String?>(
   (ref, characterId) => ref.watch(tavernProvider).watchChats(characterId: characterId),
 );
+
+/// Saved personas (人设).
+final tavernPersonasProvider = StreamProvider<List<TavernPersona>>((ref) => ref.watch(tavernProvider).watchPersonas());
+
+/// Who you are in a chat (null: outside any chat, just the default). Read
+/// again whenever the personas notify, which default and binding changes do.
+final tavernPersonaSelectionProvider = FutureProvider.family<PersonaSelection, String?>((ref, chatId) {
+  ref.watch(tavernPersonasProvider);
+  return ref.watch(tavernProvider).personaSelection(chatId: chatId);
+});

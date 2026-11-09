@@ -105,5 +105,87 @@
   "tavernCharacterDetails": "角色详情",
   "tavernChatLayout": "这段对话的排版",
   "tavernFollowSettings": "跟随酒馆设置",
-  "tavernLog": "记录"
+  "tavernLog": "记录",
+  "tavernEditCharacter": "编辑角色",
+  "tavernNameNeeded": "名字不能空着",
+  "tavernFieldsBasics": "基本",
+  "tavernFieldNickname": "昵称",
+  "tavernFieldNicknameHelp": "填了的话，对话里用它称呼角色",
+  "tavernFieldTags": "标签",
+  "tavernFieldTagsHelp": "用逗号隔开",
+  "tavernFieldCreator": "作者",
+  "tavernFieldVersion": "版本",
+  "tavernFieldDescription": "描述",
+  "tavernFieldPersonality": "性格",
+  "tavernFieldScenario": "场景",
+  "tavernGreetingNumber": "开场白 {n}",
+  "@tavernGreetingNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernFieldGreetingsNote": "新对话可以从任意一条开场白开始。",
+  "tavernAddGreeting": "加一条开场白",
+  "tavernMoreFields": "更多字段",
+  "tavernMoreFieldsSubtitle": "示例对话、系统提示、历史后指令",
+  "tavernFieldExamples": "示例对话",
+  "tavernFieldExamplesHelp": "每段示例用一行 <START> 开头",
+  "tavernFieldPrompts": "提示词",
+  "tavernFieldPromptsNote": "填了就替换预设里对应的那一段；留空用预设的。",
+  "tavernFieldSystemPrompt": "系统提示",
+  "tavernFieldPostHistory": "历史后指令",
+  "tavernFieldNotesNote": "写给看卡的人，不发给模型。",
+  "tavernEditKeeps": "卡里还有 {count} 项这里改不了的内容（世界书、扩展等），保存时原样保留；已有的对话也不会变。",
+  "@tavernEditKeeps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernEditKeepsChats": "保存后，已有的对话不会变。",
+  "tavernPersonas": "人设",
+  "tavernPersona": "人设",
+  "tavernPersonaNew": "新建人设",
+  "tavernPersonasEmpty": "还没有人设",
+  "tavernPersonasEmptyMessage": "人设是你在对话里扮演的人：一个名字和一段介绍，角色就知道你是谁。",
+  "tavernPersonasNote": "长按设为默认或删除。没有单独选人设的对话用默认的。",
+  "tavernPersonaUnsetDefault": "不再作为默认",
+  "tavernPersonaSetDefault": "设为默认人设",
+  "tavernPersonaDeleteTitle": "删除「{name}」？",
+  "@tavernPersonaDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPersonaDeleteMessage": "用它的对话会改用默认人设，已经写下的内容不变。",
+  "tavernPersonaEdit": "编辑人设",
+  "tavernPersonaPickAvatar": "换头像",
+  "tavernPersonaRemoveAvatar": "去掉头像",
+  "tavernPersonaAvatarFailed": "没能用上这张图片",
+  "tavernPersonaNameHint": "角色怎么称呼你",
+  "tavernPersonaDescriptionHelp": "模型会读到这段：你是谁、什么样子、和角色是什么关系。",
+  "tavernPersonaDescriptionHint": "比如：镇上新来的医生，话不多，总拎着一个旧皮箱。",
+  "tavernPersonaDefaultSubtitle": "新对话和没有单独选人设的对话都用它",
+  "tavernPersonaDelete": "删除人设",
+  "tavernPersonaNone": "没有人设",
+  "tavernPersonaAs": "以「{name}」的身份",
+  "@tavernPersonaAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPersonaForChat": "这段对话里你是",
+  "tavernPersonaFollowDefault": "跟随默认",
+  "tavernPersonasManage": "管理人设",
+  "tavernSettingsYou": "你",
+  "tavernDefaultPersona": "默认人设",
+  "tavernPersonaNotSet": "未设置",
+  "tavernFieldName": "名字"
 }
