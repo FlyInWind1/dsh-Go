@@ -169,6 +169,34 @@ void main() {
     expect(find.byKey(const ValueKey('tavern-vn-backlog')), findsNothing);
   });
 
+  testWidgets('a message hidden from the model stays visible, faded and marked', (tester) async {
+    final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
+    final chat = await _open(tester, tavern);
+    final greeting = (await tavern.path(chat)).last;
+
+    await tester.longPress(find.textContaining('炉子还热着'));
+    await tester.pumpAndSettle();
+    expect(find.text('对模型隐藏'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('tavern-menu-hide')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-menu-hide')));
+    await tester.pumpAndSettle();
+
+    expect((await tavern.path(chat)).last.hidden, isTrue);
+    expect(find.byKey(ValueKey('tavern-hidden-${greeting.nodeId}')), findsOneWidget);
+    expect(find.textContaining('炉子还热着'), findsOneWidget);
+
+    await tester.longPress(find.textContaining('炉子还热着'));
+    await tester.pumpAndSettle();
+    expect(find.text('让模型看到'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('tavern-menu-hide')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-menu-hide')));
+    await tester.pumpAndSettle();
+    expect((await tavern.path(chat)).last.hidden, isFalse);
+    expect(find.byKey(ValueKey('tavern-hidden-${greeting.nodeId}')), findsNothing);
+  });
+
   testWidgets('帮我写 drafts the next line into the box without sending it', (tester) async {
     final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
     final chat = await _open(tester, tavern);

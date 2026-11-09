@@ -133,6 +133,8 @@ void main() {
     final greeting = (await tavern.path(chat)).last;
     await tester.longPress(find.textContaining('炉子还热着'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('tavern-menu-inspect')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('tavern-menu-inspect')));
     await tester.pumpAndSettle();
 

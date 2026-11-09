@@ -290,5 +290,8 @@
   "tavernSourcePersona": "Persona",
   "tavernSourceHistory": "Chat",
   "tavernSourceControl": "Control",
-  "tavernWriteForMe": "Write it for me"
+  "tavernWriteForMe": "Write it for me",
+  "tavernHide": "Hide from the model",
+  "tavernUnhide": "Show to the model",
+  "tavernHiddenFromModel": "The model can't see this"
 }

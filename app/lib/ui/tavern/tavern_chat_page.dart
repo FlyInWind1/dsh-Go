@@ -385,18 +385,25 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           title: title,
           onTap: () => Navigator.of(sheet).pop(action),
         );
+        // Up to seven rows: scrolls on a short screen instead of overflowing.
         return SafeArea(
           top: false,
-          child: SheetGroup(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            children: [
-              row(_MessageAction.copy, AppIcons.copy, l10n.commonCopy),
-              row(_MessageAction.edit, AppIcons.edit, l10n.commonEdit),
-              if (character) row(_MessageAction.regenerate, AppIcons.regenerate, l10n.tavernRegenerate),
-              if (character && last) row(_MessageAction.continueReply, AppIcons.forward, l10n.tavernContinueReply),
-              if (character) row(_MessageAction.inspect, AppIcons.code, l10n.tavernInspectMenu),
-              row(_MessageAction.delete, AppIcons.delete, l10n.tavernDeleteFrom, danger: true),
-            ],
+          child: SingleChildScrollView(
+            child: SheetGroup(
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              children: [
+                row(_MessageAction.copy, AppIcons.copy, l10n.commonCopy),
+                row(_MessageAction.edit, AppIcons.edit, l10n.commonEdit),
+                if (character) row(_MessageAction.regenerate, AppIcons.regenerate, l10n.tavernRegenerate),
+                if (character && last) row(_MessageAction.continueReply, AppIcons.forward, l10n.tavernContinueReply),
+                if (character) row(_MessageAction.inspect, AppIcons.code, l10n.tavernInspectMenu),
+                if (message.hidden)
+                  row(_MessageAction.hide, AppIcons.showSecret, l10n.tavernUnhide)
+                else
+                  row(_MessageAction.hide, AppIcons.hideSecret, l10n.tavernHide),
+                row(_MessageAction.delete, AppIcons.delete, l10n.tavernDeleteFrom, danger: true),
+              ],
+            ),
           ),
         );
       },
@@ -413,6 +420,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         if (!_running) _run(() => _tavern.continueReply(widget.chatId, message.nodeId));
       case _MessageAction.inspect:
         await Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: message.nodeId));
+      case _MessageAction.hide:
+        if (!_running) await _tavern.setHidden(widget.chatId, message.nodeId, !message.hidden);
       case _MessageAction.delete:
         if (!_running) await _tavern.deleteFrom(widget.chatId, message.nodeId);
     }
@@ -601,7 +610,7 @@ class _WriteForMeKey extends StatelessWidget {
   }
 }
 
-enum _MessageAction { copy, edit, regenerate, continueReply, inspect, delete }
+enum _MessageAction { copy, edit, regenerate, continueReply, inspect, hide, delete }
 
 /// A message on the path: the user's in a bubble, the character's as text;
 /// the last character message carries its alternatives.
@@ -627,7 +636,21 @@ class _MessageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (novel) return _novel(context);
+    final body = novel ? _novel(context) : _bubble(context);
+    if (!message.hidden) return body;
+    // Hidden from the model: still here for you, faded, and says so.
+    final end = !novel && message.role == TavernRole.user;
+    return Column(
+      crossAxisAlignment: end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Opacity(opacity: 0.45, child: body),
+        const SizedBox(height: 4),
+        _HiddenTag(key: ValueKey('tavern-hidden-${message.nodeId}')),
+      ],
+    );
+  }
+
+  Widget _bubble(BuildContext context) {
     if (message.role == TavernRole.user) {
       return GestureDetector(
         onLongPress: onMenu,
@@ -681,6 +704,25 @@ class _MessageRow extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// 「模型看不到这条」 under a hidden message.
+class _HiddenTag extends StatelessWidget {
+  const _HiddenTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = DshColors.of(context).textTertiary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(AppIcons.hideSecret, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(context.l10n.tavernHiddenFromModel, style: theme.textTheme.labelSmall?.copyWith(color: color)),
+      ],
     );
   }
 }

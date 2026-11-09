@@ -19652,6 +19652,15 @@ class L10nEn extends L10n {
   String get tavernWriteForMe => 'Write it for me';
 
   @override
+  String get tavernHide => 'Hide from the model';
+
+  @override
+  String get tavernUnhide => 'Show to the model';
+
+  @override
+  String get tavernHiddenFromModel => 'The model can\'t see this';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

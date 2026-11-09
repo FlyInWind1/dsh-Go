@@ -290,5 +290,8 @@
   "tavernSourcePersona": "人设",
   "tavernSourceHistory": "对话",
   "tavernSourceControl": "控制",
-  "tavernWriteForMe": "帮我写"
+  "tavernWriteForMe": "帮我写",
+  "tavernHide": "对模型隐藏",
+  "tavernUnhide": "让模型看到",
+  "tavernHiddenFromModel": "模型看不到这条"
 }

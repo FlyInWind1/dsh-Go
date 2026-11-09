@@ -34028,6 +34028,24 @@ abstract class L10n {
   /// **'帮我写'**
   String get tavernWriteForMe;
 
+  /// No description provided for @tavernHide.
+  ///
+  /// In zh, this message translates to:
+  /// **'对模型隐藏'**
+  String get tavernHide;
+
+  /// No description provided for @tavernUnhide.
+  ///
+  /// In zh, this message translates to:
+  /// **'让模型看到'**
+  String get tavernUnhide;
+
+  /// No description provided for @tavernHiddenFromModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型看不到这条'**
+  String get tavernHiddenFromModel;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
