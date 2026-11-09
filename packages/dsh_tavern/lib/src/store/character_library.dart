@@ -103,6 +103,63 @@ class CharacterLibrary {
     return _read(id);
   });
 
+  /// Returns the complete V3 `data` object, detached from the stored card.
+  /// Unknown and read-only fields stay available to a character editor.
+  Future<Map<String, Object?>?> readFields(String id) async {
+    final record = await read(id);
+    if (record == null) return null;
+    return jsonDecode(jsonEncode(record.card.data)) as Map<String, Object?>;
+  }
+
+  /// Changes only the supplied editable fields. Empty strings/lists clear a
+  /// field; null, unknown keys and values of the wrong type are rejected.
+  ///
+  /// A nonempty patch updates `modification_date` in Unix seconds. An empty
+  /// patch reads the existing record without rewriting it. The original
+  /// import, portrait, resources, metadata and every other JSON value remain
+  /// intact. Publish the complete JSON by rename so an interrupted write
+  /// cannot expose a truncated card.
+  Future<StoredCharacter> updateFields(String id, Map<String, Object?> fields) async {
+    _requireId(id);
+    // Snapshot and validate before queueing: callers may reuse their form map.
+    final updates = _fieldUpdates(fields);
+    return _exclusive(() async {
+      await _tidy();
+      final record = await _read(id);
+      if (record == null) throw const TavernImportError('角色不存在。');
+      if (updates.isEmpty) return record;
+      final json = jsonDecode(jsonEncode(record.card.json)) as Map<String, Object?>;
+      final data = json['data'] as Map<String, Object?>;
+      data.addAll(updates);
+      data['modification_date'] = _now().toUtc().millisecondsSinceEpoch ~/ 1000;
+      final cardFile = File('${_characters.path}/$id/card.json');
+      final pending = File('${cardFile.path}.writing');
+      try {
+        await pending.writeAsString(jsonEncode(json), flush: true);
+        await pending.rename(cardFile.path);
+      } finally {
+        try {
+          if (await pending.exists()) await pending.delete();
+        } on FileSystemException {
+          // A later save overwrites this uncommitted file. Reads only use
+          // card.json, so cleanup failure cannot publish an incomplete edit.
+        }
+      }
+      return StoredCharacter(
+        id: record.id,
+        card: TavernCard(
+          json: json,
+          assets: record.card.assets,
+          png: record.card.png,
+          originalBytes: record.card.originalBytes,
+          sourceFormat: record.card.sourceFormat,
+        ),
+        importedAt: record.importedAt,
+        avatarPath: record.avatarPath,
+      );
+    });
+  }
+
   Future<List<StoredCharacter>> list() => _exclusive(() async {
     await _tidy();
     final records = <StoredCharacter>[];
@@ -198,6 +255,41 @@ class CharacterLibrary {
 }
 
 final _idPattern = RegExp(r'^card-[0-9a-f]{32}$');
+
+const _editableTextFields = {
+  'name',
+  'nickname',
+  'description',
+  'personality',
+  'scenario',
+  'first_mes',
+  'mes_example',
+  'system_prompt',
+  'post_history_instructions',
+  'creator_notes',
+  'creator',
+  'character_version',
+};
+const _editableListFields = {'alternate_greetings', 'tags'};
+
+Map<String, Object?> _fieldUpdates(Map<String, Object?> fields) {
+  final updates = <String, Object?>{};
+  for (final entry in fields.entries) {
+    final value = entry.value;
+    if (_editableTextFields.contains(entry.key)) {
+      if (value is! String) throw ArgumentError.value(value, entry.key, 'Expected a string');
+      updates[entry.key] = value;
+    } else if (_editableListFields.contains(entry.key)) {
+      if (value is! List<Object?> || value.any((item) => item is! String)) {
+        throw ArgumentError.value(value, entry.key, 'Expected a list of strings');
+      }
+      updates[entry.key] = List<String>.from(value);
+    } else {
+      throw ArgumentError.value(entry.key, 'fields', 'This character field is read-only or unknown');
+    }
+  }
+  return updates;
+}
 
 // Top-level helpers keep an isolate callback from capturing the library's
 // operation queue (and its unsendable Futures) through a surrounding closure.

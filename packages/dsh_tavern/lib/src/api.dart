@@ -206,6 +206,23 @@ abstract interface class Tavern {
 
   Future<TavernCharacter?> character(String id);
 
+  /// The complete V3 `data` object, including read-only unknown fields. The
+  /// returned map is detached: editing it does not change the stored card.
+  /// Optional fields may be absent. Null means the character does not exist.
+  Future<Map<String, Object?>?> characterFields(String characterId);
+
+  /// Saves only the supplied fields, retaining the rest of the card and all
+  /// original assets. Editable strings: `name`, `nickname`, `description`,
+  /// `personality`, `scenario`, `first_mes`, `mes_example`, `system_prompt`,
+  /// `post_history_instructions`, `creator_notes`, `creator`,
+  /// `character_version`. `alternate_greetings` and `tags` are string lists.
+  ///
+  /// Empty strings/lists clear a field; null and other keys/types throw
+  /// [ArgumentError]. A nonempty patch updates V3 `modification_date` in Unix
+  /// seconds. An empty patch is a read. Missing characters throw
+  /// [TavernImportError]. Existing messages keep their text and speaker names.
+  Future<TavernCharacter> updateCharacterFields(String characterId, Map<String, Object?> fields);
+
   /// A PNG / JSON / CHARX card (sniffed from the bytes, not the name), or an
   /// ST lorebook JSON (then it throws [TavernImportError] with
   /// [TavernImportError.isLorebook]; lorebooks import elsewhere later).

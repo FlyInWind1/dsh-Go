@@ -259,6 +259,28 @@ class TavernEngine implements Tavern {
   });
 
   @override
+  Future<Map<String, Object?>?> characterFields(String characterId) =>
+      _operation(() => _libraryOperation(() => _library.readFields(characterId)));
+
+  @override
+  Future<TavernCharacter> updateCharacterFields(String characterId, Map<String, Object?> fields) => _operation(() {
+    if (_deletingCharacters.contains(characterId)) throw StateError('Character deletion is running.');
+    // Only strings and string lists are accepted by the library. Snapshot the
+    // lists now, before this edit waits behind another library operation.
+    final patch = <String, Object?>{
+      for (final entry in fields.entries)
+        entry.key: entry.value is List<Object?> ? List<Object?>.of(entry.value! as List<Object?>) : entry.value,
+    };
+    return _libraryOperation(() async {
+      final stored = await _library.updateFields(characterId, patch);
+      _characterCache = null;
+      _notifyLists();
+      final chats = _store.listChats(characterId: characterId);
+      return stored.toCharacter(chatCount: chats.length, lastChatAt: chats.isEmpty ? null : chats.first.updatedAt);
+    });
+  });
+
+  @override
   Future<TavernCharacter> importCard(Uint8List bytes, {String? fileName}) => _operation(
     () => _libraryOperation(() async {
       final stored = await _library.importCard(bytes, fileName: fileName);
