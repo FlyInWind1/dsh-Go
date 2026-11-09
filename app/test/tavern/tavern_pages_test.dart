@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dsh_app/tavern/deferred_tavern.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
+import 'package:dsh_app/ui/tavern/tavern_character_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_home_page.dart';
 import 'package:dsh_app/ui/theme/app_icons.dart';
@@ -175,4 +179,46 @@ void main() {
     expect(find.byKey(const ValueKey('tavern-open-failed')), findsNothing);
     expect(find.text('林晚'), findsOneWidget);
   });
+
+  testWidgets('an empty tavern offers the sample card, and trying it opens the card', (tester) async {
+    final tavern = _Importing();
+    await tavern.deleteCharacter('sample-innkeeper');
+    await tavern.deleteCharacter('sample-navigator');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [tavernProvider.overrideWith((ref) => tavern)],
+        child: MaterialApp(
+          theme: withTestFonts(buildLightTheme()),
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const TavernHomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('还没有角色'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('tavern-try-sample')));
+    await tester.pumpAndSettle();
+
+    expect(tavern.imported.single.fileName, 'sample_innkeeper.json');
+    final card = jsonDecode(utf8.decode(tavern.imported.single.bytes)) as Map<String, Object?>;
+    expect(card['spec'], 'chara_card_v3');
+    expect((card['data']! as Map)['name'], '林晚');
+    expect(find.byType(TavernCharacterPage), findsOneWidget);
+  });
+}
+
+/// The preview, accepting a card import.
+class _Importing extends PreviewTavern {
+  _Importing() : super(tick: const Duration(milliseconds: 1));
+
+  final imported = <({String? fileName, Uint8List bytes})>[];
+
+  @override
+  Future<TavernCharacter> importCard(Uint8List bytes, {String? fileName}) async {
+    imported.add((fileName: fileName, bytes: bytes));
+    return TavernCharacter(id: 'imported', name: '林晚', greetings: const [], importedAt: DateTime.now());
+  }
 }

@@ -18637,6 +18637,9 @@ class L10nZh extends L10n {
   String get tavernHiddenFromModel => '模型看不到这条';
 
   @override
+  String get tavernTrySample => '试试示范卡';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

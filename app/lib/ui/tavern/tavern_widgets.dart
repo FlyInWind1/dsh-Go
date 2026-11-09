@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -124,6 +125,27 @@ Future<void> showTavernActions(BuildContext context, List<(IconData, String, Voi
         ),
       ),
     );
+
+/// Our own sample card (assets/tavern), written for DSH Go: two greetings,
+/// example lines and a small lorebook to try the tavern with.
+const tavernSampleCardAsset = 'assets/tavern/sample_innkeeper.json';
+
+/// Imports the sample card; says how it went. Returns the character, or null.
+Future<TavernCharacter?> importSampleTavernCard(BuildContext context, WidgetRef ref) async {
+  final l10n = context.l10n;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final data = await rootBundle.load(tavernSampleCardAsset);
+    final character = await ref
+        .read(tavernProvider)
+        .importCard(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), fileName: 'sample_innkeeper.json');
+    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImported(character.name))));
+    return character;
+  } on Object {
+    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImportFailed)));
+    return null;
+  }
+}
 
 /// Picks a card file and imports it; says how it went. Returns the character,
 /// or null when nothing was imported.

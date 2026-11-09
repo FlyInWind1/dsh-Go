@@ -46,6 +46,13 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
     super.dispose();
   }
 
+  /// Imports the sample card and opens it, as an imported card would be.
+  Future<void> _trySample() async {
+    final navigator = Navigator.of(context);
+    final character = await importSampleTavernCard(context, ref);
+    if (character != null && mounted) unawaited(navigator.push(TavernCharacterPage.route(character.id)));
+  }
+
   bool _matches(TavernCharacter c) {
     if (_tag != null && !c.tags.contains(_tag)) return false;
     final q = _query.trim().toLowerCase();
@@ -105,8 +112,27 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
               icon: AppIcons.tavern,
               title: l10n.tavernEmptyTitle,
               message: l10n.tavernEmptyMessage,
-              actionLabel: l10n.tavernImport,
-              onAction: () => unawaited(importTavernCard(context, ref)),
+              action: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    key: const ValueKey('tavern-empty-import'),
+                    onPressed: () => unawaited(importTavernCard(context, ref)),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                    child: Text(l10n.tavernImport),
+                  ),
+                  const SizedBox(height: 8),
+                  // A card to start from before you have your own.
+                  TextButton(
+                    key: const ValueKey('tavern-try-sample'),
+                    onPressed: () => unawaited(_trySample()),
+                    child: Text(l10n.tavernTrySample),
+                  ),
+                ],
+              ),
             ),
           )
         else ...[

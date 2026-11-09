@@ -5659,6 +5659,7 @@
   "tavernHide": "Hide from the model",
   "tavernUnhide": "Show to the model",
   "tavernHiddenFromModel": "The model can't see this",
+  "tavernTrySample": "Try the sample card",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

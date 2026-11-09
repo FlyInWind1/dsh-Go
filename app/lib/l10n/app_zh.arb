@@ -11484,6 +11484,7 @@
   "tavernHide": "对模型隐藏",
   "tavernUnhide": "让模型看到",
   "tavernHiddenFromModel": "模型看不到这条",
+  "tavernTrySample": "试试示范卡",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

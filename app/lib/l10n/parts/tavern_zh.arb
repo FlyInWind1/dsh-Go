@@ -293,5 +293,6 @@
   "tavernWriteForMe": "帮我写",
   "tavernHide": "对模型隐藏",
   "tavernUnhide": "让模型看到",
-  "tavernHiddenFromModel": "模型看不到这条"
+  "tavernHiddenFromModel": "模型看不到这条",
+  "tavernTrySample": "试试示范卡"
 }

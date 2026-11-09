@@ -19661,6 +19661,9 @@ class L10nEn extends L10n {
   String get tavernHiddenFromModel => 'The model can\'t see this';
 
   @override
+  String get tavernTrySample => 'Try the sample card';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

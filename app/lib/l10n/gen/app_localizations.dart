@@ -34046,6 +34046,12 @@ abstract class L10n {
   /// **'模型看不到这条'**
   String get tavernHiddenFromModel;
 
+  /// No description provided for @tavernTrySample.
+  ///
+  /// In zh, this message translates to:
+  /// **'试试示范卡'**
+  String get tavernTrySample;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
