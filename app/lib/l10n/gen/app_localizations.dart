@@ -33254,6 +33254,60 @@ abstract class L10n {
   /// **'出错了：{detail}'**
   String tavernErrorDetail(String detail);
 
+  /// No description provided for @tavernSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'酒馆设置'**
+  String get tavernSettings;
+
+  /// No description provided for @tavernSettingsModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get tavernSettingsModel;
+
+  /// No description provided for @tavernModelFlash.
+  ///
+  /// In zh, this message translates to:
+  /// **'Flash'**
+  String get tavernModelFlash;
+
+  /// No description provided for @tavernModelPro.
+  ///
+  /// In zh, this message translates to:
+  /// **'V4 Pro'**
+  String get tavernModelPro;
+
+  /// No description provided for @tavernThinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'思考'**
+  String get tavernThinking;
+
+  /// No description provided for @tavernThinkingSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复前先想一想'**
+  String get tavernThinkingSubtitle;
+
+  /// No description provided for @tavernApiKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'DeepSeek API Key'**
+  String get tavernApiKey;
+
+  /// No description provided for @tavernApiKeySet.
+  ///
+  /// In zh, this message translates to:
+  /// **'已填'**
+  String get tavernApiKeySet;
+
+  /// No description provided for @tavernApiKeyMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'未填'**
+  String get tavernApiKeyMissing;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

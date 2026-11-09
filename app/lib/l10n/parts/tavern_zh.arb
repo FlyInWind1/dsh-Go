@@ -78,5 +78,14 @@
         "type": "String"
       }
     }
-  }
+  },
+  "tavernSettings": "酒馆设置",
+  "tavernSettingsModel": "模型",
+  "tavernModelFlash": "Flash",
+  "tavernModelPro": "V4 Pro",
+  "tavernThinking": "思考",
+  "tavernThinkingSubtitle": "回复前先想一想",
+  "tavernApiKey": "DeepSeek API Key",
+  "tavernApiKeySet": "已填",
+  "tavernApiKeyMissing": "未填"
 }

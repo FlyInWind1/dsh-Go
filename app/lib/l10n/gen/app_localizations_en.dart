@@ -19215,6 +19215,33 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernSettings => 'Tavern settings';
+
+  @override
+  String get tavernSettingsModel => 'Model';
+
+  @override
+  String get tavernModelFlash => 'Flash';
+
+  @override
+  String get tavernModelPro => 'V4 Pro';
+
+  @override
+  String get tavernThinking => 'Thinking';
+
+  @override
+  String get tavernThinkingSubtitle => 'Think before replying';
+
+  @override
+  String get tavernApiKey => 'DeepSeek API key';
+
+  @override
+  String get tavernApiKeySet => 'Set';
+
+  @override
+  String get tavernApiKeyMissing => 'Not set';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

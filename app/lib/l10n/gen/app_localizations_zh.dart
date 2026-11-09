@@ -18219,6 +18219,33 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernSettings => '酒馆设置';
+
+  @override
+  String get tavernSettingsModel => '模型';
+
+  @override
+  String get tavernModelFlash => 'Flash';
+
+  @override
+  String get tavernModelPro => 'V4 Pro';
+
+  @override
+  String get tavernThinking => '思考';
+
+  @override
+  String get tavernThinkingSubtitle => '回复前先想一想';
+
+  @override
+  String get tavernApiKey => 'DeepSeek API Key';
+
+  @override
+  String get tavernApiKeySet => '已填';
+
+  @override
+  String get tavernApiKeyMissing => '未填';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

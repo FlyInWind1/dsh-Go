@@ -78,5 +78,14 @@
         "type": "String"
       }
     }
-  }
+  },
+  "tavernSettings": "Tavern settings",
+  "tavernSettingsModel": "Model",
+  "tavernModelFlash": "Flash",
+  "tavernModelPro": "V4 Pro",
+  "tavernThinking": "Thinking",
+  "tavernThinkingSubtitle": "Think before replying",
+  "tavernApiKey": "DeepSeek API key",
+  "tavernApiKeySet": "Set",
+  "tavernApiKeyMissing": "Not set"
 }

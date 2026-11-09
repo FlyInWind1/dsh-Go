@@ -17,6 +17,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_settings_page.dart';
 import 'tavern_widgets.dart';
 
 class TavernHomePage extends ConsumerWidget {
@@ -37,6 +38,12 @@ class TavernHomePage extends ConsumerWidget {
           icon: AppIcons.add,
           tooltip: l10n.tavernImport,
           onPressed: () => unawaited(importTavernCard(context, ref)),
+        ),
+        GlassIconButton(
+          key: const ValueKey('tavern-settings'),
+          icon: AppIcons.settings,
+          tooltip: l10n.tavernSettings,
+          onPressed: () => Navigator.of(context).push(TavernSettingsPage.route()),
         ),
         const ModeKey(current: AppMode.tavern, size: 44, tier: GlassTier.chrome),
       ],
