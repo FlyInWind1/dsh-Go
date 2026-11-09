@@ -27,6 +27,7 @@ import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
+import '../settings/index/settings_pages.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
@@ -61,8 +62,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   String _streamReasoning = '';
   String? _error;
 
-  /// What 「重试」 on the error does, when it can do anything.
-  VoidCallback? _retry;
+  /// The error's button: 「重试」 when trying again can help, 「设置」 when
+  /// the key is missing or refused.
+  ({String label, VoidCallback onPressed})? _action;
 
   bool get _running => _turn != null;
 
@@ -92,7 +94,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   void _run(Stream<TavernEvent> Function() start, {String? draft}) {
     setState(() {
       _error = null;
-      _retry = null;
+      _action = null;
       _streamNode = null;
       _streamText = '';
       _streamReasoning = '';
@@ -119,14 +121,23 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           case TavernTurnFailed(:final kind, :final detail, :final partial):
             if (partial == null && draft != null && _input.text.isEmpty) _input.text = draft;
             if (kind == TavernFailure.cancelled) return _finish();
+            final l10n = context.l10n;
             _finish(
               error: _failureText(kind, detail),
-              // Nothing stored: the line is back in the composer, send it
-              // again. Half a reply: write that reply again.
-              retry: switch (partial) {
-                null when draft != null => _send,
-                final p? => () => _run(() => _tavern.regenerate(widget.chatId, p.nodeId)),
-                null => () => _run(start),
+              action: switch (kind) {
+                // Trying again cannot help until the key is there.
+                TavernFailure.noKey ||
+                TavernFailure.badKey => (label: l10n.commonSettings, onPressed: _openKeySettings),
+                // Nothing stored: the line is back in the composer, send it
+                // again. Half a reply: write that reply again.
+                _ => (
+                  label: l10n.commonRetry,
+                  onPressed: switch (partial) {
+                    null when draft != null => _send,
+                    final p? => () => _run(() => _tavern.regenerate(widget.chatId, p.nodeId)),
+                    null => () => _run(start),
+                  },
+                ),
               },
             );
         }
@@ -137,7 +148,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
   }
 
-  void _finish({String? error, VoidCallback? retry}) {
+  void _finish({String? error, ({String label, VoidCallback onPressed})? action}) {
     unawaited(_turn?.cancel());
     setState(() {
       _turn = null;
@@ -145,7 +156,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _streamText = '';
       _streamReasoning = '';
       _error = error;
-      _retry = retry;
+      _action = action;
     });
     unawaited(_reload());
   }
@@ -170,6 +181,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   void _stop() => _tavern.stop(widget.chatId);
+
+  /// 模型 settings, where the DeepSeek key is; the line waits in the composer.
+  void _openKeySettings() => unawaited(
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => settingsPage(SettingsPageId.models))),
+  );
 
   Future<void> _sibling(TavernMessage message, int delta) async {
     if (_running) return;
@@ -428,10 +444,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       bottom: [
         _ErrorSlot(
           error: _error,
-          retry: _retry,
+          action: _action,
           onDismiss: () => setState(() {
             _error = null;
-            _retry = null;
+            _action = null;
           }),
         ),
         Composer(
@@ -604,10 +620,10 @@ class _StreamingReply extends StatelessWidget {
 
 /// The last turn's error over the composer, with 「重试」 when it can retry.
 class _ErrorSlot extends StatelessWidget {
-  const _ErrorSlot({required this.error, required this.retry, required this.onDismiss});
+  const _ErrorSlot({required this.error, required this.action, required this.onDismiss});
 
   final String? error;
-  final VoidCallback? retry;
+  final ({String label, VoidCallback onPressed})? action;
   final VoidCallback onDismiss;
 
   @override
@@ -623,10 +639,7 @@ class _ErrorSlot extends StatelessWidget {
               key: const ValueKey('tavern-error'),
               message: error!,
               onDismiss: onDismiss,
-              action: switch (retry) {
-                final retry? => (label: context.l10n.commonRetry, onPressed: retry),
-                null => null,
-              },
+              action: action,
             ),
           ),
   );

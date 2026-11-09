@@ -15,7 +15,9 @@ import '../support/test_fonts.dart';
 
 /// The preview, except the first send fails before anything is stored.
 class _FlakyTavern extends PreviewTavern {
-  _FlakyTavern() : super(tick: const Duration(milliseconds: 1));
+  _FlakyTavern([this.kind = TavernFailure.network]) : super(tick: const Duration(milliseconds: 1));
+
+  final TavernFailure kind;
 
   var failed = false;
 
@@ -23,7 +25,7 @@ class _FlakyTavern extends PreviewTavern {
   Stream<TavernEvent> send(String chatId, String text) {
     if (failed) return super.send(chatId, text);
     failed = true;
-    return Stream.value(const TavernTurnFailed(TavernFailure.network));
+    return Stream.value(TavernTurnFailed(kind));
   }
 }
 
@@ -70,6 +72,21 @@ void main() {
     await _settle(tester);
     expect(find.byKey(const ValueKey('tavern-error')), findsNothing);
     expect(find.textContaining('地下室'), findsOneWidget);
+  });
+
+  testWidgets('no key: the error offers 设置, not a retry that cannot work', (tester) async {
+    await _open(tester, _FlakyTavern(TavernFailure.noKey));
+
+    await tester.enterText(find.byType(TextField), '外面怎么了？');
+    await tester.pump();
+    await tester.tap(find.byIcon(AppIcons.send));
+    await _settle(tester);
+
+    expect(find.text('先在设置里填 DeepSeek API Key'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '外面怎么了？'), findsOneWidget);
+    final banner = find.byKey(const ValueKey('tavern-error'));
+    expect(find.descendant(of: banner, matching: find.text('设置')), findsOneWidget);
+    expect(find.descendant(of: banner, matching: find.text('重试')), findsNothing);
   });
 
   testWidgets('switching an earlier message offers to undo', (tester) async {
