@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
-import 'package:dsh_tavern/src/llm/model_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 

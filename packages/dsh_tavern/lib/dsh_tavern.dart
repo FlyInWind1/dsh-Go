@@ -3,3 +3,15 @@
 library;
 
 export 'src/api.dart';
+export 'src/engine.dart';
+export 'src/io/card_codec.dart';
+export 'src/llm/model_client.dart';
+export 'src/macros/macro_engine.dart';
+export 'src/prompt/character_fields.dart';
+export 'src/prompt/deepseek_processing.dart';
+export 'src/prompt/preset.dart';
+export 'src/prompt/prompt_assembler.dart';
+export 'src/prompt/prompt_types.dart';
+export 'src/store/character_library.dart';
+export 'src/store/chat_store.dart';
+export 'src/worldinfo/world_info.dart';
