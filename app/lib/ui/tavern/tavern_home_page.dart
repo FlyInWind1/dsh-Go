@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../tavern/tavern_provider.dart';
+import '../bots/bot_format.dart' show shortTime;
 import '../common/capsule_chip.dart';
 import '../common/search_capsule.dart';
 import '../features/feature_kit.dart';
@@ -274,7 +275,23 @@ class _ContinueCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        shortTime(chat.updatedAt),
+                        style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     plainPreview(chat.lastText ?? ''),

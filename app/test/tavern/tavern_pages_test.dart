@@ -118,4 +118,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('没有符合的角色'), findsOneWidget);
   });
+
+  testWidgets('a chat to continue shows when it was last touched', (tester) async {
+    final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
+    await tavern.createChat('sample-navigator');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [tavernProvider.overrideWith((ref) => tavern)],
+        child: MaterialApp(
+          theme: withTestFonts(buildLightTheme()),
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const TavernHomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-continue')), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('tavern-continue')), matching: find.text('刚刚')),
+      findsOneWidget,
+    );
+  });
 }

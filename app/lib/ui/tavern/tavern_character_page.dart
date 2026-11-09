@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_provider.dart';
+import '../bots/bot_format.dart' show shortTime;
 import '../chat/render/markdown_body.dart';
 import '../common/app_sheet.dart';
 import '../features/feature_kit.dart';
@@ -171,7 +172,7 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                       icon: AppIcons.chat,
                       tinted: false,
                       title: plainPreview(chat.lastText ?? chat.title),
-                      subtitle: l10n.tavernMessageCount(chat.messageCount),
+                      subtitle: '${l10n.tavernMessageCount(chat.messageCount)} · ${shortTime(chat.updatedAt)}',
                       onTap: () => Navigator.of(context).push(TavernChatPage.route(chat.id)),
                     ),
                   ),
