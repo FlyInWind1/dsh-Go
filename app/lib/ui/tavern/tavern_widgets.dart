@@ -2,11 +2,14 @@
 // deleting with a confirmation, and the long-press action sheet.
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_provider.dart';
@@ -139,4 +142,52 @@ Future<TavernCharacter?> importTavernCard(BuildContext context, WidgetRef ref) a
     messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImportFailed)));
   }
   return null;
+}
+
+/// Hands a card file to the system share sheet (save to Files, send to a
+/// chat, open in another tavern): written into the app cache first, as the
+/// diagnostics bundle is. Tests swap it.
+final tavernCardSinkProvider = Provider<Future<void> Function(String name, Uint8List bytes, String mime)>(
+  (ref) => (name, bytes, mime) async {
+    final dir = Directory('${(await getTemporaryDirectory()).path}/tavern_export');
+    await dir.create(recursive: true);
+    final file = File('${dir.path}/$name');
+    await file.writeAsBytes(bytes, flush: true);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: mime, name: name)],
+        fileNameOverrides: [name],
+      ),
+    );
+  },
+);
+
+/// A file name from a character's name: no path or reserved characters.
+@visibleForTesting
+String tavernCardFileName(String name, TavernCardFormat format) {
+  final safe = name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
+  return '${safe.isEmpty ? 'character' : safe}.${format.name}';
+}
+
+/// Exports [character] as a card in [format] and shares it.
+Future<void> shareTavernCard(
+  BuildContext context,
+  WidgetRef ref,
+  TavernCharacter character,
+  TavernCardFormat format,
+) async {
+  final l10n = context.l10n;
+  final messenger = ScaffoldMessenger.of(context);
+  final sink = ref.read(tavernCardSinkProvider);
+  try {
+    final bytes = await ref.read(tavernProvider).exportCard(character.id, format: format);
+    final mime = switch (format) {
+      TavernCardFormat.png => 'image/png',
+      TavernCardFormat.json => 'application/json',
+      TavernCardFormat.charx => 'application/zip',
+    };
+    await sink(tavernCardFileName(character.name, format), bytes, mime);
+  } on Object {
+    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernExportFailed)));
+  }
 }

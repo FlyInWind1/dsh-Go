@@ -18476,6 +18476,18 @@ class L10nZh extends L10n {
   String get tavernOpenFailedMessage => '存角色和对话的数据没能打开。重试一下；还不行的话，重启 App 再试。';
 
   @override
+  String get tavernExportPng => '导出角色卡（PNG）';
+
+  @override
+  String get tavernExportPngSubtitle => '设定藏在图片里，SillyTavern 等酒馆都能导入';
+
+  @override
+  String get tavernExportJson => '导出为 JSON';
+
+  @override
+  String get tavernExportFailed => '没能导出这张卡';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

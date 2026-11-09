@@ -33752,6 +33752,30 @@ abstract class L10n {
   /// **'存角色和对话的数据没能打开。重试一下；还不行的话，重启 App 再试。'**
   String get tavernOpenFailedMessage;
 
+  /// No description provided for @tavernExportPng.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出角色卡（PNG）'**
+  String get tavernExportPng;
+
+  /// No description provided for @tavernExportPngSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设定藏在图片里，SillyTavern 等酒馆都能导入'**
+  String get tavernExportPngSubtitle;
+
+  /// No description provided for @tavernExportJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出为 JSON'**
+  String get tavernExportJson;
+
+  /// No description provided for @tavernExportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能导出这张卡'**
+  String get tavernExportFailed;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

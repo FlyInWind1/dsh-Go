@@ -213,8 +213,33 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
         margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
         children: [
           SettingsTile(
+            key: const ValueKey('tavern-export-png'),
+            icon: AppIcons.share,
+            tinted: false,
+            title: context.l10n.tavernExportPng,
+            subtitle: context.l10n.tavernExportPngSubtitle,
+            chevron: false,
+            onTap: () {
+              Navigator.of(sheet).pop();
+              unawaited(shareTavernCard(context, ref, character, TavernCardFormat.png));
+            },
+          ),
+          SettingsTile(
+            key: const ValueKey('tavern-export-json'),
+            icon: AppIcons.shareFile,
+            tinted: false,
+            title: context.l10n.tavernExportJson,
+            chevron: false,
+            onTap: () {
+              Navigator.of(sheet).pop();
+              unawaited(shareTavernCard(context, ref, character, TavernCardFormat.json));
+            },
+          ),
+          SettingsTile(
             icon: AppIcons.delete,
             danger: true,
+            tinted: false,
+            chevron: false,
             title: context.l10n.tavernDeleteCharacter,
             onTap: () {
               Navigator.of(sheet).pop();

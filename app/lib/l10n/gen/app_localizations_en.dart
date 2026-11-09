@@ -19485,6 +19485,19 @@ class L10nEn extends L10n {
       'The data for characters and chats couldn\'t be opened. Try again; if it still fails, restart the app.';
 
   @override
+  String get tavernExportPng => 'Export card (PNG)';
+
+  @override
+  String get tavernExportPngSubtitle =>
+      'The card rides inside the picture; SillyTavern and other taverns can import it';
+
+  @override
+  String get tavernExportJson => 'Export as JSON';
+
+  @override
+  String get tavernExportFailed => 'Couldn\'t export this card';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override
