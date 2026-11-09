@@ -123,4 +123,18 @@ void main() {
     await _settle(tester);
     expect(find.textContaining('地下室'), findsOneWidget);
   });
+
+  testWidgets('the title opens a quick look where this chat picks its own layout', (tester) async {
+    final chat = await _open(tester, PreviewTavern(tick: const Duration(milliseconds: 1)));
+
+    await tester.tap(find.byKey(const ValueKey('bot-title')));
+    await tester.pumpAndSettle();
+    expect(find.text('角色详情'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-chat-layout')), matching: find.text('小说')));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('tavern.layout.$chat'), 'novel');
+    expect(find.text('跟随酒馆设置'), findsOneWidget);
+  });
 }

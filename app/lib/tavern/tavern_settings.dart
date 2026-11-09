@@ -87,3 +87,39 @@ class TavernSettingsController extends Notifier<TavernSettings> {
 }
 
 final tavernSettingsProvider = NotifierProvider<TavernSettingsController, TavernSettings>(TavernSettingsController.new);
+
+/// One chat's own layout, over 酒馆设置's; null follows the setting.
+class TavernChatLayoutController extends Notifier<TavernLayout?> {
+  TavernChatLayoutController(this.chatId);
+
+  final String chatId;
+  var _chosen = false;
+
+  String get _key => 'tavern.layout.$chatId';
+
+  @override
+  TavernLayout? build() {
+    unawaited(_load());
+    return null;
+  }
+
+  Future<void> _load() async {
+    try {
+      final stored = (await SharedPreferences.getInstance()).getString(_key);
+      if (!_chosen && ref.mounted) state = TavernLayout.values.asNameMap()[stored];
+    } catch (_) {}
+  }
+
+  Future<void> set(TavernLayout? layout) async {
+    _chosen = true;
+    state = layout;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      layout == null ? await prefs.remove(_key) : await prefs.setString(_key, layout.name);
+    } catch (_) {}
+  }
+}
+
+final tavernChatLayoutProvider = NotifierProvider.autoDispose.family<TavernChatLayoutController, TavernLayout?, String>(
+  TavernChatLayoutController.new,
+);

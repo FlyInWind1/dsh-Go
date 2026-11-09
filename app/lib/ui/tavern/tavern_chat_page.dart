@@ -23,6 +23,7 @@ import '../chat/render/markdown_body.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
+import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
@@ -196,6 +197,70 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
   }
 
+  /// The title's sheet: the character's page, and this chat's own layout.
+  Future<void> _quickLook(String? characterId, String name) => showAppSheet<void>(
+    context,
+    builder: (sheet) => Consumer(
+      builder: (context, ref, _) {
+        final l10n = context.l10n;
+        final own = ref.watch(tavernChatLayoutProvider(widget.chatId));
+        final controller = ref.read(tavernChatLayoutProvider(widget.chatId).notifier);
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SheetTitleBar(name),
+              if (characterId != null)
+                SheetGroup(
+                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                  children: [
+                    SettingsTile(
+                      key: const ValueKey('tavern-character-details'),
+                      icon: AppIcons.info,
+                      tinted: false,
+                      title: l10n.tavernCharacterDetails,
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(Navigator.of(this.context).push(TavernCharacterPage.route(characterId)));
+                      },
+                    ),
+                  ],
+                ),
+              SheetGroup(
+                margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                children: [
+                  SettingsSegmentTile<TavernLayout>(
+                    key: const ValueKey('tavern-chat-layout'),
+                    title: l10n.tavernChatLayout,
+                    tinted: false,
+                    segments: [
+                      PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
+                      PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
+                      PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
+                    ],
+                    selected: own ?? ref.watch(tavernSettingsProvider.select((s) => s.layout)),
+                    onChanged: (layout) => unawaited(controller.set(layout)),
+                  ),
+                  if (own != null)
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-layout-follow'),
+                      icon: AppIcons.restart,
+                      tinted: false,
+                      title: l10n.tavernFollowSettings,
+                      onTap: () => unawaited(controller.set(null)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+
   Future<void> _menu(TavernMessage message, {required bool last}) async {
     final l10n = context.l10n;
     final character = message.role == TavernRole.character;
@@ -271,7 +336,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final character = characters?.where((c) => c.id == characterId).firstOrNull;
     final name = character?.name ?? l10n.tavernTitle;
     final preview = _tavern is TavernPreview;
-    final layout = ref.watch(tavernSettingsProvider.select((s) => s.layout));
+    final layout =
+        ref.watch(tavernChatLayoutProvider(widget.chatId)) ?? ref.watch(tavernSettingsProvider.select((s) => s.layout));
     final novel = layout == TavernLayout.novel;
     final messages = _messages;
     final (String status, StatusTone tone) = switch (()) {
@@ -309,9 +375,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         status: status,
         tone: tone,
         scrolledUnder: _scrolled,
-        onDetails: () {
-          if (characterId != null) unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
-        },
+        onDetails: () => unawaited(_quickLook(characterId, name)),
       ),
       body: layout == TavernLayout.visualNovel
           ? TavernVisualNovelView(

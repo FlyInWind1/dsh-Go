@@ -101,5 +101,8 @@
   "tavernSearchHint": "Search characters, creators, tags",
   "tavernAllTags": "All",
   "tavernNoMatch": "No matching characters",
-  "tavernLayoutVisualNovel": "Visual novel"
+  "tavernLayoutVisualNovel": "Visual novel",
+  "tavernCharacterDetails": "Character details",
+  "tavernChatLayout": "Layout for this chat",
+  "tavernFollowSettings": "Follow tavern settings"
 }

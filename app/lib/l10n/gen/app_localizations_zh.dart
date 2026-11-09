@@ -18288,6 +18288,15 @@ class L10nZh extends L10n {
   String get tavernLayoutVisualNovel => '视觉小说';
 
   @override
+  String get tavernCharacterDetails => '角色详情';
+
+  @override
+  String get tavernChatLayout => '这段对话的排版';
+
+  @override
+  String get tavernFollowSettings => '跟随酒馆设置';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

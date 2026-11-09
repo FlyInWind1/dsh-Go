@@ -19284,6 +19284,15 @@ class L10nEn extends L10n {
   String get tavernLayoutVisualNovel => 'Visual novel';
 
   @override
+  String get tavernCharacterDetails => 'Character details';
+
+  @override
+  String get tavernChatLayout => 'Layout for this chat';
+
+  @override
+  String get tavernFollowSettings => 'Follow tavern settings';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

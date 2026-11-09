@@ -33392,6 +33392,24 @@ abstract class L10n {
   /// **'视觉小说'**
   String get tavernLayoutVisualNovel;
 
+  /// No description provided for @tavernCharacterDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色详情'**
+  String get tavernCharacterDetails;
+
+  /// No description provided for @tavernChatLayout.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段对话的排版'**
+  String get tavernChatLayout;
+
+  /// No description provided for @tavernFollowSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随酒馆设置'**
+  String get tavernFollowSettings;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
