@@ -92,5 +92,10 @@
   "tavernDeleteChatTitle": "Delete this chat?",
   "tavernDeleteChatMessage": "It can't be brought back.",
   "tavernSwitchedBranch": "Switched to another branch",
-  "tavernUndo": "Undo"
+  "tavernUndo": "Undo",
+  "tavernSettingsDisplay": "Display",
+  "tavernLayout": "Layout",
+  "tavernLayoutBubble": "Bubbles",
+  "tavernLayoutNovel": "Novel",
+  "tavernYou": "You"
 }

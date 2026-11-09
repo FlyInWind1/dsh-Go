@@ -10,20 +10,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// The models the tavern offers, cheapest first.
 const tavernModels = ['deepseek-flash', 'deepseek-v4-pro'];
 
+/// How a chat is laid out (docs/design/roleplay-ui.md §4): bubbles, or full
+/// width text under the speaker's name. 视觉小说 comes with the canvas.
+enum TavernLayout { bubble, novel }
+
 class TavernSettings {
-  const TavernSettings({this.model = 'deepseek-flash', this.thinking = false, this.loaded = false});
+  const TavernSettings({
+    this.model = 'deepseek-flash',
+    this.thinking = false,
+    this.layout = TavernLayout.bubble,
+    this.loaded = false,
+  });
 
   final String model;
   final bool thinking;
+  final TavernLayout layout;
   final bool loaded;
 
-  TavernSettings copyWith({String? model, bool? thinking}) =>
-      TavernSettings(model: model ?? this.model, thinking: thinking ?? this.thinking, loaded: true);
+  TavernSettings copyWith({String? model, bool? thinking, TavernLayout? layout}) => TavernSettings(
+    model: model ?? this.model,
+    thinking: thinking ?? this.thinking,
+    layout: layout ?? this.layout,
+    loaded: true,
+  );
 }
 
 class TavernSettingsController extends Notifier<TavernSettings> {
   static const modelKey = 'tavern.model';
   static const thinkingKey = 'tavern.thinking';
+  static const layoutKey = 'tavern.layout';
 
   @override
   TavernSettings build() {
@@ -39,6 +54,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
       loaded = TavernSettings(
         model: tavernModels.contains(model) ? model! : tavernModels.first,
         thinking: prefs.getBool(thinkingKey) ?? false,
+        layout: TavernLayout.values.asNameMap()[prefs.getString(layoutKey)] ?? TavernLayout.bubble,
         loaded: true,
       );
     } catch (_) {
@@ -55,6 +71,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setThinking(bool thinking) async {
     state = state.copyWith(thinking: thinking);
     await _save((prefs) => prefs.setBool(thinkingKey, thinking));
+  }
+
+  Future<void> setLayout(TavernLayout layout) async {
+    state = state.copyWith(layout: layout);
+    await _save((prefs) => prefs.setString(layoutKey, layout.name));
   }
 
   Future<void> _save(Future<bool> Function(SharedPreferences prefs) write) async {

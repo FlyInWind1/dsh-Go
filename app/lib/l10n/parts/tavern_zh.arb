@@ -92,5 +92,10 @@
   "tavernDeleteChatTitle": "删除这段对话？",
   "tavernDeleteChatMessage": "删除后就找不回来了。",
   "tavernSwitchedBranch": "切到了另一条分支",
-  "tavernUndo": "撤销"
+  "tavernUndo": "撤销",
+  "tavernSettingsDisplay": "显示",
+  "tavernLayout": "排版",
+  "tavernLayoutBubble": "气泡",
+  "tavernLayoutNovel": "小说",
+  "tavernYou": "你"
 }

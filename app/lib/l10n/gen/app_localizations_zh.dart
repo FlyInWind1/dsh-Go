@@ -18261,6 +18261,21 @@ class L10nZh extends L10n {
   String get tavernUndo => '撤销';
 
   @override
+  String get tavernSettingsDisplay => '显示';
+
+  @override
+  String get tavernLayout => '排版';
+
+  @override
+  String get tavernLayoutBubble => '气泡';
+
+  @override
+  String get tavernLayoutNovel => '小说';
+
+  @override
+  String get tavernYou => '你';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

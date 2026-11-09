@@ -15,6 +15,7 @@ import '../../l10n/l10n.dart';
 import '../../state/settings_state.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_settings.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
 import '../chat/widgets/notice_row.dart';
@@ -262,6 +263,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final character = characters?.where((c) => c.id == characterId).firstOrNull;
     final name = character?.name ?? l10n.tavernTitle;
     final preview = _tavern is TavernPreview;
+    final novel = ref.watch(tavernSettingsProvider.select((s) => s.layout)) == TavernLayout.novel;
     final messages = _messages;
     final (String status, StatusTone tone) = switch (()) {
       _ when _running => (l10n.tavernReplying, StatusTone.busy),
@@ -283,6 +285,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             busy: _running,
             onMenu: () => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
             onSibling: (delta) => unawaited(_sibling(m, delta)),
+            novel: novel,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
         _StreamingReply(key: const ValueKey('stream-pending'), text: _streamText),
@@ -355,6 +358,7 @@ class _MessageRow extends StatelessWidget {
     required this.busy,
     required this.onMenu,
     required this.onSibling,
+    this.novel = false,
   });
 
   final TavernMessage message;
@@ -363,8 +367,12 @@ class _MessageRow extends StatelessWidget {
   final VoidCallback onMenu;
   final ValueChanged<int> onSibling;
 
+  /// 小说 layout: every message full width under its speaker's name.
+  final bool novel;
+
   @override
   Widget build(BuildContext context) {
+    if (novel) return _novel(context);
     if (message.role == TavernRole.user) {
       return GestureDetector(
         onLongPress: onMenu,
@@ -379,6 +387,37 @@ class _MessageRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MarkdownBody(text: message.text, selectable: false),
+          if (alternatives) ...[
+            const SizedBox(height: 4),
+            _Alternatives(message: message, last: last, busy: busy, onSibling: onSibling),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _novel(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = message.role == TavernRole.user;
+    final alternatives = !user && (last || message.siblingCount > 1);
+    return GestureDetector(
+      onLongPress: onMenu,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            user ? context.l10n.tavernYou : message.speaker,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: user ? DshColors.of(context).textTertiary : theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Opacity(
+            opacity: user ? 0.78 : 1,
+            child: MarkdownBody(text: message.text, selectable: false),
+          ),
           if (alternatives) ...[
             const SizedBox(height: 4),
             _Alternatives(message: message, last: last, busy: busy, onSibling: onSibling),
@@ -406,29 +445,33 @@ class _Alternatives extends StatelessWidget {
     final style = AppType.tabular(Theme.of(context).textTheme.labelSmall!.copyWith(color: dsh.textTertiary));
     final atEnd = message.siblingIndex >= message.siblingCount - 1;
     final canNext = !atEnd || last;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          key: const ValueKey('tavern-prev'),
-          tooltip: l10n.tavernPrevious,
-          visualDensity: VisualDensity.compact,
-          iconSize: 18,
-          color: dsh.textTertiary,
-          onPressed: busy || message.siblingIndex == 0 ? null : () => onSibling(-1),
-          icon: Icon(AppIcons.keyLeft),
-        ),
-        Text('${message.siblingIndex + 1}/${message.siblingCount}', style: style),
-        IconButton(
-          key: const ValueKey('tavern-next'),
-          tooltip: atEnd ? l10n.tavernRegenerate : l10n.tavernNext,
-          visualDensity: VisualDensity.compact,
-          iconSize: 18,
-          color: dsh.textTertiary,
-          onPressed: busy || !canNext ? null : () => onSibling(1),
-          icon: Icon(atEnd ? AppIcons.regenerate : AppIcons.keyRight),
-        ),
-      ],
+    // The keys' own padding would indent the row; line its ‹ up with the text.
+    return Transform.translate(
+      offset: const Offset(-10, 0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: const ValueKey('tavern-prev'),
+            tooltip: l10n.tavernPrevious,
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            color: dsh.textTertiary,
+            onPressed: busy || message.siblingIndex == 0 ? null : () => onSibling(-1),
+            icon: Icon(AppIcons.keyLeft),
+          ),
+          Text('${message.siblingIndex + 1}/${message.siblingCount}', style: style),
+          IconButton(
+            key: const ValueKey('tavern-next'),
+            tooltip: atEnd ? l10n.tavernRegenerate : l10n.tavernNext,
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            color: dsh.textTertiary,
+            onPressed: busy || !canNext ? null : () => onSibling(1),
+            icon: Icon(atEnd ? AppIcons.regenerate : AppIcons.keyRight),
+          ),
+        ],
+      ),
     );
   }
 }

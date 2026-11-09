@@ -33338,6 +33338,36 @@ abstract class L10n {
   /// **'撤销'**
   String get tavernUndo;
 
+  /// No description provided for @tavernSettingsDisplay.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示'**
+  String get tavernSettingsDisplay;
+
+  /// No description provided for @tavernLayout.
+  ///
+  /// In zh, this message translates to:
+  /// **'排版'**
+  String get tavernLayout;
+
+  /// No description provided for @tavernLayoutBubble.
+  ///
+  /// In zh, this message translates to:
+  /// **'气泡'**
+  String get tavernLayoutBubble;
+
+  /// No description provided for @tavernLayoutNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说'**
+  String get tavernLayoutNovel;
+
+  /// No description provided for @tavernYou.
+  ///
+  /// In zh, this message translates to:
+  /// **'你'**
+  String get tavernYou;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

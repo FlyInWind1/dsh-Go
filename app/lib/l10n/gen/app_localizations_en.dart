@@ -19257,6 +19257,21 @@ class L10nEn extends L10n {
   String get tavernUndo => 'Undo';
 
   @override
+  String get tavernSettingsDisplay => 'Display';
+
+  @override
+  String get tavernLayout => 'Layout';
+
+  @override
+  String get tavernLayoutBubble => 'Bubbles';
+
+  @override
+  String get tavernLayoutNovel => 'Novel';
+
+  @override
+  String get tavernYou => 'You';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -67,6 +67,23 @@ class TavernSettingsPage extends ConsumerWidget {
           ],
         ),
         SheetGroup(
+          title: l10n.tavernSettingsDisplay,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            SettingsSegmentTile<TavernLayout>(
+              key: const ValueKey('tavern-layout'),
+              icon: AppIcons.article,
+              title: l10n.tavernLayout,
+              segments: [
+                PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
+                PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
+              ],
+              selected: settings.layout,
+              onChanged: (layout) => unawaited(controller.setLayout(layout)),
+            ),
+          ],
+        ),
+        SheetGroup(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           children: [
             SettingsTile(
