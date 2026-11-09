@@ -33740,6 +33740,18 @@ abstract class L10n {
   /// **'名字'**
   String get tavernFieldName;
 
+  /// No description provided for @tavernOpenFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'酒馆没能打开'**
+  String get tavernOpenFailed;
+
+  /// No description provided for @tavernOpenFailedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'存角色和对话的数据没能打开。重试一下；还不行的话，重启 App 再试。'**
+  String get tavernOpenFailedMessage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

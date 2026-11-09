@@ -19478,6 +19478,13 @@ class L10nEn extends L10n {
   String get tavernFieldName => 'Name';
 
   @override
+  String get tavernOpenFailed => 'The tavern couldn\'t open';
+
+  @override
+  String get tavernOpenFailedMessage =>
+      'The data for characters and chats couldn\'t be opened. Try again; if it still fails, restart the app.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

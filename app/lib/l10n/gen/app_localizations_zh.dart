@@ -18470,6 +18470,12 @@ class L10nZh extends L10n {
   String get tavernFieldName => '名字';
 
   @override
+  String get tavernOpenFailed => '酒馆没能打开';
+
+  @override
+  String get tavernOpenFailedMessage => '存角色和对话的数据没能打开。重试一下；还不行的话，重启 App 再试。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

@@ -5608,6 +5608,8 @@
   "tavernDefaultPersona": "Default persona",
   "tavernPersonaNotSet": "Not set",
   "tavernFieldName": "Name",
+  "tavernOpenFailed": "The tavern couldn't open",
+  "tavernOpenFailedMessage": "The data for characters and chats couldn't be opened. Try again; if it still fails, restart the app.",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

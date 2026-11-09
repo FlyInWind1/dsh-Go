@@ -1,9 +1,11 @@
+import 'package:dsh_app/tavern/deferred_tavern.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_home_page.dart';
 import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
+import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -140,5 +142,37 @@ void main() {
       find.descendant(of: find.byKey(const ValueKey('tavern-continue')), matching: find.text('刚刚')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a tavern that could not open says so, and retry opens it again', (tester) async {
+    var opens = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tavernProvider.overrideWith(
+            (ref) => ++opens == 1
+                ? DeferredTavern(Future<Tavern>.error(StateError('no sqlite')))
+                : PreviewTavern(tick: const Duration(milliseconds: 1)),
+          ),
+        ],
+        child: MaterialApp(
+          theme: withTestFonts(buildLightTheme()),
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const TavernHomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('tavern-open-failed')), findsOneWidget);
+    expect(find.text('酒馆没能打开'), findsOneWidget);
+
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(opens, 2);
+    expect(find.byKey(const ValueKey('tavern-open-failed')), findsNothing);
+    expect(find.text('林晚'), findsOneWidget);
   });
 }

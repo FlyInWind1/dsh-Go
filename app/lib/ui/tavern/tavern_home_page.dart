@@ -82,7 +82,21 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
         const ModeKey(current: AppMode.tavern, size: 44, tier: GlassTier.chrome),
       ],
       slivers: [
-        if (list == null)
+        // The engine could not open its folder or database: say so, and let
+        // a retry open it afresh rather than spin forever.
+        if (list == null && characters.hasError)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyView(
+              key: const ValueKey('tavern-open-failed'),
+              icon: AppIcons.error,
+              title: l10n.tavernOpenFailed,
+              message: l10n.tavernOpenFailedMessage,
+              actionLabel: l10n.commonRetry,
+              onAction: () => ref.invalidate(tavernProvider),
+            ),
+          )
+        else if (list == null)
           const SliverToBoxAdapter(child: QuietSpinner())
         else if (all!.isEmpty)
           SliverFillRemaining(
