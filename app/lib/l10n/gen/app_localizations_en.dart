@@ -19272,6 +19272,15 @@ class L10nEn extends L10n {
   String get tavernYou => 'You';
 
   @override
+  String get tavernSearchHint => 'Search characters, creators, tags';
+
+  @override
+  String get tavernAllTags => 'All';
+
+  @override
+  String get tavernNoMatch => 'No matching characters';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

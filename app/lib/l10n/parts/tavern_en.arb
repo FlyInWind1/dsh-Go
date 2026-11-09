@@ -97,5 +97,8 @@
   "tavernLayout": "Layout",
   "tavernLayoutBubble": "Bubbles",
   "tavernLayoutNovel": "Novel",
-  "tavernYou": "You"
+  "tavernYou": "You",
+  "tavernSearchHint": "Search characters, creators, tags",
+  "tavernAllTags": "All",
+  "tavernNoMatch": "No matching characters"
 }

@@ -18276,6 +18276,15 @@ class L10nZh extends L10n {
   String get tavernYou => '你';
 
   @override
+  String get tavernSearchHint => '搜索角色、作者、标签';
+
+  @override
+  String get tavernAllTags => '全部';
+
+  @override
+  String get tavernNoMatch => '没有符合的角色';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

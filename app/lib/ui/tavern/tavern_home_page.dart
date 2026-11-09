@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../tavern/tavern_provider.dart';
+import '../common/capsule_chip.dart';
+import '../common/search_capsule.dart';
 import '../features/feature_kit.dart';
 import '../modes/mode_switch.dart';
 import '../shell/page_frame.dart';
@@ -20,16 +22,46 @@ import 'tavern_chat_page.dart';
 import 'tavern_settings_page.dart';
 import 'tavern_widgets.dart';
 
-class TavernHomePage extends ConsumerWidget {
+class TavernHomePage extends ConsumerStatefulWidget {
   const TavernHomePage({super.key});
 
+  /// From this many characters on, the home offers search and tag filters.
+  @visibleForTesting
+  static int searchFrom = 6;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TavernHomePage> createState() => _TavernHomePageState();
+}
+
+class _TavernHomePageState extends ConsumerState<TavernHomePage> {
+  final _search = TextEditingController();
+  String _query = '';
+  String? _tag;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _matches(TavernCharacter c) {
+    if (_tag != null && !c.tags.contains(_tag)) return false;
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return [c.name, ?c.nickname, ?c.creator, ...c.tags].any((field) => field.toLowerCase().contains(q));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final characters = ref.watch(tavernCharactersProvider);
     final chats = ref.watch(tavernChatsProvider(null)).value ?? const [];
-    final list = characters.value;
-    final byId = {for (final c in list ?? const <TavernCharacter>[]) c.id: c};
+    final all = characters.value;
+    final byId = {for (final c in all ?? const <TavernCharacter>[]) c.id: c};
+    final searchable = (all?.length ?? 0) >= TavernHomePage.searchFrom;
+    final filtering = _tag != null || _query.trim().isNotEmpty;
+    final list = all?.where(_matches).toList();
+    final tags = _topTags(all ?? const []);
     return AppPage(
       title: l10n.tavernTitle,
       actions: [
@@ -50,7 +82,7 @@ class TavernHomePage extends ConsumerWidget {
       slivers: [
         if (list == null)
           const SliverToBoxAdapter(child: QuietSpinner())
-        else if (list.isEmpty)
+        else if (all!.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyView(
@@ -62,7 +94,46 @@ class TavernHomePage extends ConsumerWidget {
             ),
           )
         else ...[
-          if (chats.isNotEmpty) ...[
+          if (searchable)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SearchCapsule(
+                      key: const ValueKey('tavern-search'),
+                      controller: _search,
+                      hint: l10n.tavernSearchHint,
+                      onChanged: (q) => setState(() => _query = q),
+                      onClear: () => setState(() {
+                        _search.clear();
+                        _query = '';
+                      }),
+                    ),
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final tag in [null, ...tags]) ...[
+                              CapsuleChoiceChip(
+                                label: tag ?? l10n.tavernAllTags,
+                                selected: _tag == tag,
+                                onSelected: () => setState(() => _tag = tag),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          if (chats.isNotEmpty && !filtering) ...[
             _SectionLabel(l10n.tavernContinue),
             SliverToBoxAdapter(
               child: SizedBox(
@@ -79,6 +150,10 @@ class TavernHomePage extends ConsumerWidget {
             ),
           ],
           _SectionLabel(l10n.tavernCharacters),
+          if (list.isEmpty)
+            SliverToBoxAdapter(
+              child: EmptyView(icon: AppIcons.noResults, title: l10n.tavernNoMatch, compact: true),
+            ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             sliver: SliverGrid.builder(
@@ -221,3 +296,15 @@ class _ContinueCard extends ConsumerWidget {
 /// white space folded.
 String plainPreview(String text) =>
     text.replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'[*_`#>]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// The most used tags, most used first.
+List<String> _topTags(List<TavernCharacter> characters, {int limit = 8}) {
+  final counts = <String, int>{};
+  for (final c in characters) {
+    for (final tag in c.tags) {
+      counts[tag] = (counts[tag] ?? 0) + 1;
+    }
+  }
+  final tags = counts.keys.toList()..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+  return tags.take(limit).toList();
+}

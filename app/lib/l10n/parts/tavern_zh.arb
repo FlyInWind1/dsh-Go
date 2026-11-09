@@ -97,5 +97,8 @@
   "tavernLayout": "排版",
   "tavernLayoutBubble": "气泡",
   "tavernLayoutNovel": "小说",
-  "tavernYou": "你"
+  "tavernYou": "你",
+  "tavernSearchHint": "搜索角色、作者、标签",
+  "tavernAllTags": "全部",
+  "tavernNoMatch": "没有符合的角色"
 }

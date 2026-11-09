@@ -33368,6 +33368,24 @@ abstract class L10n {
   /// **'你'**
   String get tavernYou;
 
+  /// No description provided for @tavernSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索角色、作者、标签'**
+  String get tavernSearchHint;
+
+  /// No description provided for @tavernAllTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get tavernAllTags;
+
+  /// No description provided for @tavernNoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有符合的角色'**
+  String get tavernNoMatch;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

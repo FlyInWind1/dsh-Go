@@ -95,4 +95,27 @@ void main() {
     expect(find.text('星图'), findsNothing);
     expect(find.text('林晚'), findsOneWidget);
   });
+
+  testWidgets('search and tags narrow the characters', (tester) async {
+    TavernHomePage.searchFrom = 2;
+    addTearDown(() => TavernHomePage.searchFrom = 6);
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '星');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-character-sample-navigator')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-character-sample-innkeeper')), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('悬疑'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-character-sample-innkeeper')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-character-sample-navigator')), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '没有这个人');
+    await tester.pumpAndSettle();
+    expect(find.text('没有符合的角色'), findsOneWidget);
+  });
 }
