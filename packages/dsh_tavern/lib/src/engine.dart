@@ -10,12 +10,14 @@ import 'dart:typed_data';
 import 'api.dart';
 import 'llm/model_client.dart';
 import 'macros/macro_engine.dart';
+import 'persona.dart';
 import 'prompt/character_fields.dart';
 import 'prompt/preset.dart';
 import 'prompt/prompt_assembler.dart';
 import 'prompt/prompt_types.dart';
 import 'store/character_library.dart';
 import 'store/chat_store.dart';
+import 'store/persona_store.dart';
 import 'worldinfo/world_info.dart';
 
 /// App convenience factory. [directory] is the actual tavern data directory,
@@ -71,6 +73,7 @@ class TavernEngine implements Tavern {
     this.directory,
     this._store,
     this._library,
+    this._personas,
     this._document,
     this._config,
     this._modelClient,
@@ -119,23 +122,33 @@ class TavernEngine implements Tavern {
         : <String, Object?>{'version': 1, 'settings': <String, Object?>{}, 'globalVariables': <String, Object?>{}};
     if (document['version'] != 1) throw const FormatException('Unsupported Tavern settings version.');
     final now = clock ?? DateTime.now;
-    final store = ChatStore.open('${directory.path}/tavern.sqlite3', clock: now);
-    return TavernEngine._(
-      directory,
-      store,
-      CharacterLibrary(directory, now: now),
-      document,
-      config ?? TavernModelConfig(apiKey: () async => null),
-      modelClient ?? TavernModelClient(),
-      counter,
-      now,
-      random ?? Random.secure().nextDouble,
-    );
+    final personas = await PersonaStore.open(directory);
+    ChatStore? store;
+    try {
+      store = ChatStore.open('${directory.path}/tavern.sqlite3', clock: now);
+      return TavernEngine._(
+        directory,
+        store,
+        CharacterLibrary(directory, now: now),
+        personas,
+        document,
+        config ?? TavernModelConfig(apiKey: () async => null),
+        modelClient ?? TavernModelClient(),
+        counter,
+        now,
+        random ?? Random.secure().nextDouble,
+      );
+    } catch (_) {
+      await store?.close();
+      await personas.close();
+      rethrow;
+    }
   }
 
   final Directory directory;
   final ChatStore _store;
   final CharacterLibrary _library;
+  final PersonaStore _personas;
   final Map<String, Object?> _document;
   TavernModelConfig _config;
   final TavernModelClient _modelClient;
@@ -150,6 +163,7 @@ class TavernEngine implements Tavern {
   final _turns = <String, _Turn>{};
   final _mutations = <String, Future<void>>{};
   final _deletingCharacters = <String>{};
+  final _deletingPersonas = <String>{};
   final _operations = <Future<void>>{};
   final _inspections = <String, TavernInspection>{};
   final _liveVariables = <String, ({String? leaf, Map<String, Object?> values})>{};
@@ -157,6 +171,7 @@ class TavernEngine implements Tavern {
   final _bookRevisions = <String, int>{};
   Future<List<StoredCharacter>>? _characterCache;
   Future<void> _libraryQueue = Future.value();
+  Future<void> _personaQueue = Future.value();
   Future<void> _fileQueue = Future.value();
   Future<void>? _closeFuture;
   var _closing = false;
@@ -183,6 +198,15 @@ class TavernEngine implements Tavern {
   Future<T> _libraryOperation<T>(Future<T> Function() action) {
     final result = _libraryQueue.then((_) => action());
     _libraryQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  // Acquire this queue before chat barriers for bind/delete. Taking them in
+  // the reverse order could leave a binder waiting behind a deletion that is
+  // itself waiting for the binder's chat barrier.
+  Future<T> _personaOperation<T>(Future<T> Function() action) {
+    final result = _personaQueue.then((_) => action());
+    _personaQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return result;
   }
 
@@ -323,6 +347,99 @@ class TavernEngine implements Tavern {
   }
 
   @override
+  Stream<List<TavernPersona>> watchPersonas() {
+    _ensureOpen();
+    return _watch(_personas.changes, _personas.list);
+  }
+
+  @override
+  Future<TavernPersona?> persona(String personaId) =>
+      _operation(() => _personaOperation(() async => _personas.get(personaId)));
+
+  @override
+  Future<TavernPersona> createPersona({
+    required String name,
+    String description = '',
+    String? avatarPath,
+    int descriptionPosition = PersonaDescriptionPosition.inPrompt,
+  }) => _operation(
+    () => _personaOperation(
+      () => _personas.create(
+        name: name,
+        description: description,
+        avatarPath: avatarPath,
+        descriptionPosition: descriptionPosition,
+      ),
+    ),
+  );
+
+  @override
+  Future<TavernPersona> updatePersona(
+    String personaId, {
+    String? name,
+    String? description,
+    String? avatarPath,
+    bool clearAvatar = false,
+    int? descriptionPosition,
+  }) => _operation(
+    () => _personaOperation(
+      () => _personas.update(
+        personaId,
+        name: name,
+        description: description,
+        avatarPath: avatarPath,
+        clearAvatar: clearAvatar,
+        descriptionPosition: descriptionPosition,
+      ),
+    ),
+  );
+
+  @override
+  Future<PersonaSelection> personaSelection({String? chatId}) => _operation(
+    () => _personaOperation(() async => chatId == null ? _personas.resolve() : _personas.forChat(_store, chatId)),
+  );
+
+  @override
+  Future<void> setDefaultPersona(String? personaId) =>
+      _operation(() => _personaOperation(() => _personas.setDefault(personaId)));
+
+  @override
+  Future<void> bindPersona(String chatId, String? personaId) => _operation(
+    () => _personaOperation(() async {
+      // Reject a missing profile before disturbing an otherwise valid turn.
+      if (personaId != null && _personas.get(personaId) == null) throw StateError('Unknown persona: $personaId');
+      if (_store.chat(chatId).personaId == personaId) return;
+      await _withMutation(chatId, () => _personas.bindChat(_store, chatId, personaId));
+    }),
+  );
+
+  @override
+  Future<void> deletePersona(String personaId) => _operation(
+    () => _personaOperation(() async {
+      _deletingPersonas.add(personaId);
+      try {
+        final affected = <String>{};
+        for (final summary in _store.listChats()) {
+          final chat = _store.chat(summary.id);
+          if (chat.personaId == personaId ||
+              _personas.resolve(personaId: chat.personaId).persona?.id == personaId ||
+              _turns[chat.id]?.personaSelection.persona?.id == personaId) {
+            affected.add(chat.id);
+          }
+        }
+        // Hold every affected chat gate until both profile and bindings have
+        // been updated. The active turn may still use this profile even when
+        // its chat has inherited a different default since that turn began.
+        await _withMutations(affected, () async {
+          await _personas.delete(personaId, chats: _store);
+        });
+      } finally {
+        _deletingPersonas.remove(personaId);
+      }
+    }),
+  );
+
+  @override
   Future<String> createChat(String characterId, {int greeting = 0}) => _operation(
     () => _libraryOperation(() async {
       if (_deletingCharacters.contains(characterId)) throw StateError('Character deletion is running.');
@@ -332,7 +449,9 @@ class TavernEngine implements Tavern {
       final data = record.card.data;
       final greetings = <String>[_string(data['first_mes']), ..._strings(data['alternate_greetings'])];
       RangeError.checkValidIndex(greeting, greetings, 'greeting');
-      final settings = _effectiveSettings();
+      final selection = _personas.resolve();
+      if (_deletingPersonas.contains(selection.persona?.id)) throw StateError('Persona deletion is running.');
+      final settings = _personaSettings(_effectiveSettings(), selection);
       final variables = <String, Object?>{};
       final beforeGlobals = _jsonString(_globalVariables);
       final id = _store.transaction(() {
@@ -521,26 +640,35 @@ class TavernEngine implements Tavern {
     return result;
   }
 
-  Future<T> _withMutation<T>(String chatId, FutureOr<T> Function() action) {
-    final previous = _mutations[chatId] ?? Future<void>.value();
+  Future<T> _withMutation<T>(String chatId, FutureOr<T> Function() action) => _withMutations([chatId], action);
+
+  Future<T> _withMutations<T>(Iterable<String> chatIds, FutureOr<T> Function() action) {
+    final ids = chatIds.toSet();
+    final previous = [for (final id in ids) _mutations[id] ?? Future<void>.value()];
     final released = Completer<void>();
-    // Register before cancelling: no new generation can slip into this gap.
-    _mutations[chatId] = released.future;
-    _turns[chatId]?.cancellation.cancel();
+    // Register every gate before awaiting any turn, including when one persona
+    // deletion affects several chats. Later overlapping mutations wait behind
+    // this same gate; none can enter while another affected chat is draining.
+    for (final id in ids) {
+      _mutations[id] = released.future;
+      _turns[id]?.cancellation.cancel();
+    }
     return () async {
       try {
-        await previous;
-        final running = _turns[chatId];
-        if (running != null) {
-          running.cancellation.cancel();
-          await running.done.future;
+        await Future.wait(previous);
+        final running = ids.map((id) => _turns[id]).whereType<_Turn>().toList();
+        for (final turn in running) {
+          turn.cancellation.cancel();
         }
+        await Future.wait([for (final turn in running) turn.done.future]);
         return await action();
       } finally {
-        if (identical(_mutations[chatId], released.future)) {
-          // remove returns this same gate Future; complete it below. Waiting
-          // for it here would deadlock the mutation's own finally block.
-          unawaited(_mutations.remove(chatId));
+        for (final id in ids) {
+          if (identical(_mutations[id], released.future)) {
+            // remove returns this same gate Future; complete it below. Waiting
+            // for it here would deadlock the mutation's own finally block.
+            unawaited(_mutations.remove(id));
+          }
         }
         released.complete();
         _notifyLists();
@@ -630,14 +758,26 @@ class TavernEngine implements Tavern {
         try {
           _ensureOpen();
           final chat = _store.chat(chatId);
+          final selection = _personas.resolve(personaId: chat.personaId);
           if (_turns.containsKey(chatId) ||
               _mutations.containsKey(chatId) ||
-              _deletingCharacters.contains(chat.characterId)) {
+              _deletingCharacters.contains(chat.characterId) ||
+              _deletingPersonas.contains(selection.persona?.id)) {
             controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
             unawaited(controller.close());
             return;
           }
-          final running = _Turn(chat, kind, input, nodeId, controller, _config, _effectiveSettings(chat), _clock());
+          final running = _Turn(
+            chat,
+            kind,
+            input,
+            nodeId,
+            controller,
+            _config,
+            _personaSettings(_effectiveSettings(chat), selection),
+            _clock(),
+            selection,
+          );
           turn = running;
           _turns[chatId] = running;
           unawaited(_run(running));
@@ -1146,12 +1286,14 @@ class TavernEngine implements Tavern {
     }
     await _fileQueue;
     await _libraryQueue;
+    await _personaQueue;
     await _storeSubscription.cancel();
     _liveVariables.clear();
     _closed = true;
     unawaited(_charactersChanged.close());
     unawaited(_chatsChanged.close());
     unawaited(_paths.close());
+    await _personas.close();
     await _store.close();
   }
 }
@@ -1159,7 +1301,17 @@ class TavernEngine implements Tavern {
 enum _TurnKind { send, regenerate, continueReply, impersonate }
 
 class _Turn {
-  _Turn(this.chat, this.kind, this.input, this.nodeId, this.controller, this.config, this.settings, this.at);
+  _Turn(
+    this.chat,
+    this.kind,
+    this.input,
+    this.nodeId,
+    this.controller,
+    this.config,
+    this.settings,
+    this.at,
+    this.personaSelection,
+  );
   final StoredChat chat;
   final _TurnKind kind;
   final String input;
@@ -1168,6 +1320,7 @@ class _Turn {
   final TavernModelConfig config;
   final Map<String, Object?> settings;
   final DateTime at;
+  final PersonaSelection personaSelection;
   final cancellation = ModelCancellation();
   final done = Completer<void>();
   bool abandoned = false;
@@ -1477,6 +1630,12 @@ Map<String, Object?> _runtimeCopy(Map<String, Object?> value) => {
 };
 bool _jsTruthy(Object? value) =>
     value != null && value != false && value != '' && !(value is num && (value == 0 || value.isNaN));
+Map<String, Object?> _personaSettings(Map<String, Object?> settings, PersonaSelection selection) {
+  final persona = selection.persona;
+  if (persona == null) return settings;
+  return {...settings, 'userName': persona.name, 'persona': persona.description, 'personaInPrompt': persona.inPrompt};
+}
+
 Map<String, Object?> _effectiveCard(Map<String, Object?> raw, Map<String, Object?> settings) {
   final card = _copy(raw);
   for (final key in const {

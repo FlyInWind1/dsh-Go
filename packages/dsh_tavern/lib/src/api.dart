@@ -8,6 +8,8 @@
 
 import 'dart:typed_data';
 
+import 'persona.dart';
+
 /// One character in the library: the card's V3 `data` plus what the library
 /// knows about it.
 class TavernCharacter {
@@ -232,6 +234,50 @@ abstract interface class Tavern {
 
   /// Its chats go with it.
   Future<void> deleteCharacter(String characterId);
+
+  // User personas ------------------------------------------------------------
+
+  /// Saved personas, with the current committed list emitted first. Default
+  /// and chat-binding changes also notify selectors through this stream.
+  Stream<List<TavernPersona>> watchPersonas();
+
+  Future<TavernPersona?> persona(String personaId);
+
+  /// The optional avatar is a caller-owned file reference. Persona text is
+  /// saved as entered; macros run only in the normal generation pipeline.
+  /// Only position 0 currently injects the personaDescription prompt marker.
+  Future<TavernPersona> createPersona({
+    required String name,
+    String description = '',
+    String? avatarPath,
+    int descriptionPosition = PersonaDescriptionPosition.inPrompt,
+  });
+
+  /// Null means unchanged; empty text is a real change. Use [clearAvatar] to
+  /// remove an avatar reference. Active turns retain their captured persona.
+  Future<TavernPersona> updatePersona(
+    String personaId, {
+    String? name,
+    String? description,
+    String? avatarPath,
+    bool clearAvatar = false,
+    int? descriptionPosition,
+  });
+
+  /// Cancels affected turns before removing the profile, default and matching
+  /// chat bindings. Partial output and old messages remain; avatar files stay.
+  Future<void> deletePersona(String personaId);
+
+  /// Without [chatId], selects the global default. With it: chat binding,
+  /// then global default, then no profile. This read never runs macros.
+  Future<PersonaSelection> personaSelection({String? chatId});
+
+  /// Null clears the default. Changes take effect on the next turn.
+  Future<void> setDefaultPersona(String? personaId);
+
+  /// Null restores inheritance from the global default. Cancels and waits for
+  /// this chat's current turn before changing its binding.
+  Future<void> bindPersona(String chatId, String? personaId);
 
   // Chats --------------------------------------------------------------------
 

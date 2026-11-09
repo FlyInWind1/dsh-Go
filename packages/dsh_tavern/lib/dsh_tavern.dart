@@ -7,6 +7,7 @@ export 'src/engine.dart';
 export 'src/io/card_codec.dart';
 export 'src/llm/model_client.dart';
 export 'src/macros/macro_engine.dart';
+export 'src/persona.dart';
 export 'src/prompt/character_fields.dart';
 export 'src/prompt/deepseek_processing.dart';
 export 'src/prompt/preset.dart';
