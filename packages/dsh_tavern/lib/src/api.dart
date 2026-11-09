@@ -1,0 +1,285 @@
+// The tavern's surface for the app (docs/design/roleplay.md §4): what the
+// screens read and call. The engine behind it — card IO, the chat store, the
+// prompt assembler, the model client — implements [Tavern]; the app holds one
+// and never reaches past it.
+//
+// Pure Dart, no Flutter. Everything here is value types and one interface, so
+// the app can be built against a fake before the engine lands.
+
+import 'dart:typed_data';
+
+/// One character in the library: the card's V3 `data` plus what the library
+/// knows about it.
+class TavernCharacter {
+  const TavernCharacter({
+    required this.id,
+    required this.name,
+    this.nickname,
+    this.creator,
+    this.tags = const [],
+    this.avatarPath,
+    this.description = '',
+    this.creatorNotes = '',
+    this.greetings = const [],
+    this.regexCount = 0,
+    this.scriptCount = 0,
+    this.hasLorebook = false,
+    this.chatCount = 0,
+    this.lastChatAt,
+    this.importedAt,
+  });
+
+  final String id;
+  final String name;
+  final String? nickname;
+  final String? creator;
+  final List<String> tags;
+
+  /// The card picture on this phone (the PNG it came in, or the `main` icon).
+  final String? avatarPath;
+  final String description;
+
+  /// May carry HTML; the canvas renders it.
+  final String creatorNotes;
+
+  /// `first_mes` first, then `alternate_greetings`.
+  final List<String> greetings;
+
+  /// The card's own regex scripts and 酒馆助手 scripts (roleplay-compat.md §6.1).
+  final int regexCount;
+  final int scriptCount;
+  final bool hasLorebook;
+
+  final int chatCount;
+  final DateTime? lastChatAt;
+  final DateTime? importedAt;
+}
+
+/// A conversation in the list.
+class TavernChatSummary {
+  const TavernChatSummary({
+    required this.id,
+    required this.characterId,
+    required this.title,
+    required this.updatedAt,
+    this.lastText,
+    this.messageCount = 0,
+  });
+
+  final String id;
+  final String characterId;
+  final String title;
+  final DateTime updatedAt;
+
+  /// The last message on the current path, plain text, for a preview line.
+  final String? lastText;
+  final int messageCount;
+}
+
+enum TavernRole { user, character, narrator, system }
+
+/// One message on the current path. Alternatives are siblings in the tree
+/// (roleplay.md §5.2): [siblingIndex] of [siblingCount].
+class TavernMessage {
+  const TavernMessage({
+    required this.nodeId,
+    required this.role,
+    required this.speaker,
+    required this.text,
+    required this.at,
+    this.parentId,
+    this.reasoning,
+    this.siblingIndex = 0,
+    this.siblingCount = 1,
+    this.hidden = false,
+    this.usage,
+  });
+
+  final String nodeId;
+  final String? parentId;
+  final TavernRole role;
+
+  /// Display name: the character's or the persona's.
+  final String speaker;
+
+  /// The stored text (after write-back regex). Display regex and Markdown run
+  /// in the canvas, not here.
+  final String text;
+  final String? reasoning;
+  final DateTime at;
+  final int siblingIndex;
+  final int siblingCount;
+
+  /// Kept out of the prompt (ST `/hide`).
+  final bool hidden;
+  final TavernUsage? usage;
+}
+
+/// What one model call cost, as the API reported it.
+class TavernUsage {
+  const TavernUsage({this.promptTokens = 0, this.cacheHitTokens = 0, this.completionTokens = 0, this.model});
+
+  final int promptTokens;
+  final int cacheHitTokens;
+  final int completionTokens;
+  final String? model;
+}
+
+/// A turn as it streams. A turn always ends with exactly one [TavernTurnDone]
+/// or [TavernTurnFailed].
+sealed class TavernEvent {
+  const TavernEvent();
+}
+
+/// The node the reply is written into exists (a new one, or a new sibling).
+class TavernTurnStarted extends TavernEvent {
+  const TavernTurnStarted(this.message);
+
+  /// Empty text so far; carries the node id and its place among siblings.
+  final TavernMessage message;
+}
+
+class TavernTextDelta extends TavernEvent {
+  const TavernTextDelta(this.nodeId, this.text);
+  final String nodeId;
+  final String text;
+}
+
+class TavernReasoningDelta extends TavernEvent {
+  const TavernReasoningDelta(this.nodeId, this.text);
+  final String nodeId;
+  final String text;
+}
+
+class TavernTurnDone extends TavernEvent {
+  const TavernTurnDone(this.message);
+
+  /// As stored: write-back regex applied, usage filled in.
+  final TavernMessage message;
+}
+
+enum TavernFailure { noKey, badKey, busy, network, server, contextTooLong, cancelled, invalidCard }
+
+class TavernTurnFailed extends TavernEvent {
+  const TavernTurnFailed(this.kind, {this.detail, this.partial});
+  final TavernFailure kind;
+
+  /// For 「详情」: a status code, the first part of an error body.
+  final String? detail;
+
+  /// Whatever arrived before it failed or was stopped; null when nothing was
+  /// stored (the user's line goes back into the composer).
+  final TavernMessage? partial;
+}
+
+enum TavernCardFormat { png, json, charx }
+
+/// Where the model calls go. The key is read through [apiKey] each call, so
+/// the app keeps it in secure storage and the engine never stores it.
+class TavernModelConfig {
+  const TavernModelConfig({
+    required this.apiKey,
+    this.baseUrl = 'https://api.deepseek.com',
+    this.model = 'deepseek-flash',
+    this.deepseek = true,
+    this.thinking = false,
+  });
+
+  final Future<String?> Function() apiKey;
+  final String baseUrl;
+  final String model;
+
+  /// DeepSeek's own API: ST's DeepSeek post-processing and `/beta` prefix
+  /// continuation (roleplay-compat.md §3.4). False: a plain OpenAI-compatible
+  /// endpoint.
+  final bool deepseek;
+  final bool thinking;
+}
+
+/// The tavern. One per app; [open] it on the app's support directory.
+abstract interface class Tavern {
+  // Library ------------------------------------------------------------------
+
+  /// Every character, newest chat first, then newest import. Emits the current
+  /// list first.
+  Stream<List<TavernCharacter>> watchCharacters();
+
+  Future<TavernCharacter?> character(String id);
+
+  /// A PNG / JSON / CHARX card (sniffed from the bytes, not the name), or an
+  /// ST lorebook JSON (then it throws [TavernImportError] with
+  /// [TavernImportError.isLorebook]; lorebooks import elsewhere later).
+  Future<TavernCharacter> importCard(Uint8List bytes, {String? fileName});
+
+  Future<Uint8List> exportCard(String characterId, {TavernCardFormat format = TavernCardFormat.png});
+
+  /// Its chats go with it.
+  Future<void> deleteCharacter(String characterId);
+
+  // Chats --------------------------------------------------------------------
+
+  /// Newest first; all characters when [characterId] is null.
+  Stream<List<TavernChatSummary>> watchChats({String? characterId});
+
+  /// A new chat whose first message is greeting [greeting] (0 = `first_mes`).
+  Future<String> createChat(String characterId, {int greeting = 0});
+
+  Future<void> deleteChat(String chatId);
+
+  /// The current path, oldest first: the last [limit] messages, or the
+  /// [limit] before [beforeNodeId] when paging back.
+  Future<List<TavernMessage>> path(String chatId, {int limit = 60, String? beforeNodeId});
+
+  /// Fires whenever the current path changes (a turn, a swipe, an edit) so the
+  /// screen re-reads [path].
+  Stream<void> pathChanges(String chatId);
+
+  // Turns --------------------------------------------------------------------
+
+  /// Appends [text] as the user's message and streams the character's reply.
+  /// Empty [text]: the character speaks next without a new user line.
+  Stream<TavernEvent> send(String chatId, String text);
+
+  /// A new reply as a sibling of [nodeId] (a character message), which becomes
+  /// current.
+  Stream<TavernEvent> regenerate(String chatId, String nodeId);
+
+  /// More text at the end of [nodeId] (ST 「继续」).
+  Stream<TavernEvent> continueReply(String chatId, String nodeId);
+
+  /// Writes the user's next line for them (ST impersonate); not stored.
+  Stream<TavernEvent> impersonate(String chatId);
+
+  /// Stops whatever turn [chatId] is running. Its stream ends with
+  /// [TavernTurnFailed] `cancelled`, keeping what arrived.
+  void stop(String chatId);
+
+  // Editing the tree -----------------------------------------------------------
+
+  /// Makes sibling [index] of [nodeId] current (and its subtree's remembered
+  /// path below it).
+  Future<void> selectSibling(String chatId, String nodeId, int index);
+
+  Future<void> edit(String chatId, String nodeId, String text);
+
+  /// Removes [nodeId] and everything after it on every branch.
+  Future<void> deleteFrom(String chatId, String nodeId);
+
+  Future<void> setHidden(String chatId, String nodeId, bool hidden);
+
+  // Settings -----------------------------------------------------------------
+
+  /// Where model calls go from now on.
+  void configure(TavernModelConfig config);
+
+  Future<void> close();
+}
+
+class TavernImportError implements Exception {
+  const TavernImportError(this.message, {this.isLorebook = false});
+  final String message;
+  final bool isLorebook;
+
+  @override
+  String toString() => 'TavernImportError: $message';
+}
