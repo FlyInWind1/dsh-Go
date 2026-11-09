@@ -203,7 +203,15 @@ class PreviewTavern implements Tavern, TavernPreview {
     unawaited(() async {
       if (started) out.add(TavernTurnStarted(chat.message(node)));
       chat.touch(_clock());
-      final pieces = RegExp(r'.{1,3}', dotAll: true).allMatches(text).map((m) => m[0]!);
+      if (_thinking && started) {
+        for (final piece in _pieces(_sampleReasoning)) {
+          await Future<void>.delayed(tick);
+          if (stopped || out.isClosed) break;
+          node.reasoning = (node.reasoning ?? '') + piece;
+          out.add(TavernReasoningDelta(node.id, piece));
+        }
+      }
+      final pieces = _pieces(text);
       for (final piece in pieces) {
         await Future<void>.delayed(tick);
         if (stopped || out.isClosed) break;
@@ -258,7 +266,10 @@ class PreviewTavern implements Tavern, TavernPreview {
   }
 
   @override
-  void configure(TavernModelConfig config) {}
+  void configure(TavernModelConfig config) => _thinking = config.thinking;
+
+  /// 思考 is on: replies think a little first.
+  var _thinking = false;
 
   @override
   Future<void> close() async => _listChanged.close();
@@ -297,6 +308,7 @@ class _Node {
   final TavernRole role;
   final String speaker;
   String text;
+  String? reasoning;
   final DateTime at;
   bool hidden = false;
 }
@@ -349,6 +361,7 @@ class _Chat {
       role: node.role,
       speaker: node.speaker,
       text: node.text,
+      reasoning: node.reasoning,
       at: node.at,
       siblingIndex: siblings.indexOf(node),
       siblingCount: siblings.length,
@@ -375,6 +388,10 @@ class _Chat {
     }
   }
 }
+
+Iterable<String> _pieces(String text) => RegExp(r'.{1,3}', dotAll: true).allMatches(text).map((m) => m[0]!);
+
+const _sampleReasoning = '她在等一个答案，但不想说得太多。先回应眼前的问题，再留一点悬念。';
 
 String _cannedFor(String text) => text.contains('?') || text.contains('？') ? _canned[1] : _canned[0];
 

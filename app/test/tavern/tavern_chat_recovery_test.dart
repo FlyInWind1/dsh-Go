@@ -1,5 +1,6 @@
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
+import 'package:dsh_app/ui/chat/widgets/thinking_pill.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
 import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
@@ -87,5 +88,19 @@ void main() {
     await tester.tap(find.text('撤销'));
     await tester.pumpAndSettle();
     expect(find.text('你好'), findsOneWidget);
+  });
+
+  testWidgets('with 思考 on, the thinking shows above the reply and stays folded after', (tester) async {
+    final tavern = PreviewTavern(tick: const Duration(milliseconds: 1))
+      ..configure(TavernModelConfig(apiKey: () async => 'k', thinking: true));
+    await _open(tester, tavern);
+    await tester.enterText(find.byType(TextField), '你好');
+    await tester.pump();
+    await tester.tap(find.byIcon(AppIcons.send));
+    await _settle(tester);
+
+    expect(find.byType(ThinkingPill), findsOneWidget);
+    expect(find.textContaining('地下室').evaluate().isEmpty, isTrue); // a greeting reply, not the question one
+    expect(find.textContaining('炉子'), findsOneWidget);
   });
 }

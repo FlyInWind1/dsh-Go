@@ -20,6 +20,7 @@ import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
 import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
+import '../chat/widgets/thinking_pill.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
 import '../common/smooth_size.dart';
@@ -55,6 +56,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// The reply being written: its node and the text so far.
   String? _streamNode;
   String _streamText = '';
+  String _streamReasoning = '';
   String? _error;
 
   /// What 「重试」 on the error does, when it can do anything.
@@ -91,6 +93,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _retry = null;
       _streamNode = null;
       _streamText = '';
+      _streamReasoning = '';
     });
     _turn = start().listen(
       (event) {
@@ -104,8 +107,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               _streamNode ??= nodeId;
               _streamText += text;
             });
-          case TavernReasoningDelta():
-            break;
+          case TavernReasoningDelta(:final nodeId, :final text):
+            setState(() {
+              _streamNode ??= nodeId;
+              _streamReasoning += text;
+            });
           case TavernTurnDone():
             _finish();
           case TavernTurnFailed(:final kind, :final detail, :final partial):
@@ -135,6 +141,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _turn = null;
       _streamNode = null;
       _streamText = '';
+      _streamReasoning = '';
       _error = error;
       _retry = retry;
     });
@@ -276,7 +283,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final rows = <Widget>[
       for (final m in messages ?? const <TavernMessage>[])
         if (m.nodeId == _streamNode)
-          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), text: _streamText)
+          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), text: _streamText, reasoning: _streamReasoning)
         else
           _MessageRow(
             key: ValueKey(m.nodeId),
@@ -288,7 +295,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             novel: novel,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
-        _StreamingReply(key: const ValueKey('stream-pending'), text: _streamText),
+        _StreamingReply(key: const ValueKey('stream-pending'), text: _streamText, reasoning: _streamReasoning),
     ];
 
     return BotChatFrame(
@@ -386,6 +393,7 @@ class _MessageRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           MarkdownBody(text: message.text, selectable: false),
           if (alternatives) ...[
             const SizedBox(height: 4),
@@ -414,6 +422,7 @@ class _MessageRow extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
+          if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           Opacity(
             opacity: user ? 0.78 : 1,
             child: MarkdownBody(text: message.text, selectable: false),
@@ -477,14 +486,22 @@ class _Alternatives extends StatelessWidget {
 }
 
 class _StreamingReply extends StatelessWidget {
-  const _StreamingReply({super.key, required this.text});
+  const _StreamingReply({super.key, required this.text, this.reasoning = ''});
 
   final String text;
+  final String reasoning;
 
   @override
-  Widget build(BuildContext context) => text.isEmpty
-      ? const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
-      : MarkdownBody(text: text, streaming: true, selectable: false);
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning, active: text.isEmpty, streaming: true),
+      if (text.isEmpty && reasoning.isEmpty)
+        const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
+      else if (text.isNotEmpty)
+        MarkdownBody(text: text, streaming: true, selectable: false),
+    ],
+  );
 }
 
 /// The last turn's error over the composer, with 「重试」 when it can retry.
