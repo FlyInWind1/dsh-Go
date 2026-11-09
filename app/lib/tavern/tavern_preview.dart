@@ -138,6 +138,10 @@ class PreviewTavern implements Tavern, TavernPreview {
       },
   };
 
+  /// Canned replies assemble no prompt: there is nothing to inspect.
+  @override
+  Future<TavernTurnInspection?> inspectTurn(String chatId, {String? nodeId}) async => null;
+
   // Personas ------------------------------------------------------------------
 
   final _personas = <String, TavernPersona>{};

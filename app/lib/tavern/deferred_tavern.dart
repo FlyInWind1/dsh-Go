@@ -145,6 +145,10 @@ class DeferredTavern implements Tavern {
       (await _ready).setHidden(chatId, nodeId, hidden);
 
   @override
+  Future<TavernTurnInspection?> inspectTurn(String chatId, {String? nodeId}) async =>
+      (await _ready).inspectTurn(chatId, nodeId: nodeId);
+
+  @override
   void configure(TavernModelConfig config) {
     _config = config;
     _open?.configure(config);
