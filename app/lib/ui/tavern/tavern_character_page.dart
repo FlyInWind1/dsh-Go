@@ -18,6 +18,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_edit_page.dart';
+import 'tavern_chat_files.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
 import 'tavern_widgets.dart';
@@ -171,6 +172,11 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                   GestureDetector(
                     onLongPress: () => unawaited(
                       showTavernActions(context, [
+                        (
+                          AppIcons.share,
+                          l10n.tavernExportChat,
+                          () => unawaited(exportTavernChat(context, ref, chat.id, title: _chatTitle(character, chat))),
+                        ),
                         (AppIcons.delete, l10n.tavernDeleteChat, () => deleteTavernChat(context, ref, chat.id)),
                       ]),
                     ),
@@ -236,6 +242,18 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
             },
           ),
           SettingsTile(
+            key: const ValueKey('tavern-import-chats'),
+            icon: AppIcons.download,
+            tinted: false,
+            title: context.l10n.tavernImportChats,
+            subtitle: context.l10n.tavernImportChatsSubtitle,
+            chevron: false,
+            onTap: () {
+              Navigator.of(sheet).pop();
+              unawaited(importTavernChats(context, ref, character.id));
+            },
+          ),
+          SettingsTile(
             icon: AppIcons.delete,
             danger: true,
             tinted: false,
@@ -250,6 +268,13 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
       ),
     ),
   );
+}
+
+/// 「林晚 2026-11-10 0530」: a chat's export name, its character and when.
+String _chatTitle(TavernCharacter character, TavernChatSummary chat) {
+  final t = chat.updatedAt.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${character.name} ${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}${two(t.minute)}';
 }
 
 class _Section extends StatelessWidget {

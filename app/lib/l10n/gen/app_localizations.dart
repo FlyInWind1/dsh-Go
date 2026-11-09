@@ -34052,6 +34052,54 @@ abstract class L10n {
   /// **'试试示范卡'**
   String get tavernTrySample;
 
+  /// No description provided for @tavernImportChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入聊天记录'**
+  String get tavernImportChats;
+
+  /// No description provided for @tavernImportChatsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'SillyTavern 的 .jsonl，可以一次选几个'**
+  String get tavernImportChatsSubtitle;
+
+  /// No description provided for @tavernOnlyJsonl.
+  ///
+  /// In zh, this message translates to:
+  /// **'只能导入 .jsonl 聊天记录'**
+  String get tavernOnlyJsonl;
+
+  /// No description provided for @tavernImportChatsFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能导入：{detail}'**
+  String tavernImportChatsFailed(String detail);
+
+  /// No description provided for @tavernImportedChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入了 {count} 段对话'**
+  String tavernImportedChats(int count);
+
+  /// No description provided for @tavernImportNoticesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入时注意到'**
+  String get tavernImportNoticesTitle;
+
+  /// No description provided for @tavernExportChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出聊天记录'**
+  String get tavernExportChat;
+
+  /// No description provided for @tavernExportChatFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能导出这段对话'**
+  String get tavernExportChatFailed;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

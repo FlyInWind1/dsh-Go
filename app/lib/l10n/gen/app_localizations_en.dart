@@ -19664,6 +19664,40 @@ class L10nEn extends L10n {
   String get tavernTrySample => 'Try the sample card';
 
   @override
+  String get tavernImportChats => 'Import chats';
+
+  @override
+  String get tavernImportChatsSubtitle => 'SillyTavern .jsonl files, one or several';
+
+  @override
+  String get tavernOnlyJsonl => 'Only .jsonl chat files can be imported';
+
+  @override
+  String tavernImportChatsFailed(String detail) {
+    return 'Couldn\'t import: $detail';
+  }
+
+  @override
+  String tavernImportedChats(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count chats',
+      one: 'Imported 1 chat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernImportNoticesTitle => 'Notes from the import';
+
+  @override
+  String get tavernExportChat => 'Export chat';
+
+  @override
+  String get tavernExportChatFailed => 'Couldn\'t export this chat';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -18640,6 +18640,34 @@ class L10nZh extends L10n {
   String get tavernTrySample => '试试示范卡';
 
   @override
+  String get tavernImportChats => '导入聊天记录';
+
+  @override
+  String get tavernImportChatsSubtitle => 'SillyTavern 的 .jsonl，可以一次选几个';
+
+  @override
+  String get tavernOnlyJsonl => '只能导入 .jsonl 聊天记录';
+
+  @override
+  String tavernImportChatsFailed(String detail) {
+    return '没能导入：$detail';
+  }
+
+  @override
+  String tavernImportedChats(int count) {
+    return '导入了 $count 段对话';
+  }
+
+  @override
+  String get tavernImportNoticesTitle => '导入时注意到';
+
+  @override
+  String get tavernExportChat => '导出聊天记录';
+
+  @override
+  String get tavernExportChatFailed => '没能导出这段对话';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

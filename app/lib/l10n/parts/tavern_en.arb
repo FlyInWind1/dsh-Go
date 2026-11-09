@@ -294,5 +294,27 @@
   "tavernHide": "Hide from the model",
   "tavernUnhide": "Show to the model",
   "tavernHiddenFromModel": "The model can't see this",
-  "tavernTrySample": "Try the sample card"
+  "tavernTrySample": "Try the sample card",
+  "tavernImportChats": "Import chats",
+  "tavernImportChatsSubtitle": "SillyTavern .jsonl files, one or several",
+  "tavernOnlyJsonl": "Only .jsonl chat files can be imported",
+  "tavernImportChatsFailed": "Couldn't import: {detail}",
+  "@tavernImportChatsFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernImportedChats": "{count, plural, =1{Imported 1 chat} other{Imported {count} chats}}",
+  "@tavernImportedChats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernImportNoticesTitle": "Notes from the import",
+  "tavernExportChat": "Export chat",
+  "tavernExportChatFailed": "Couldn't export this chat"
 }

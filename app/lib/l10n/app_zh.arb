@@ -11485,6 +11485,28 @@
   "tavernUnhide": "让模型看到",
   "tavernHiddenFromModel": "模型看不到这条",
   "tavernTrySample": "试试示范卡",
+  "tavernImportChats": "导入聊天记录",
+  "tavernImportChatsSubtitle": "SillyTavern 的 .jsonl，可以一次选几个",
+  "tavernOnlyJsonl": "只能导入 .jsonl 聊天记录",
+  "tavernImportChatsFailed": "没能导入：{detail}",
+  "@tavernImportChatsFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernImportedChats": "导入了 {count} 段对话",
+  "@tavernImportedChats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernImportNoticesTitle": "导入时注意到",
+  "tavernExportChat": "导出聊天记录",
+  "tavernExportChatFailed": "没能导出这段对话",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

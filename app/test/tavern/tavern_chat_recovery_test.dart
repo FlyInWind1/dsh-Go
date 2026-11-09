@@ -147,6 +147,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('bot-title')));
     await tester.pumpAndSettle();
     expect(find.text('角色详情'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('tavern-chat-layout')));
+    await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-chat-layout')), matching: find.text('小说')));
     await tester.pumpAndSettle();
 

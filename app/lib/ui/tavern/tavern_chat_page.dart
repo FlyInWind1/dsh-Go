@@ -32,6 +32,7 @@ import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_page.dart';
+import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
@@ -333,6 +334,16 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       onTap: () {
                         Navigator.of(sheet).pop();
                         unawaited(Navigator.of(this.context).push(TavernInspectorPage.route(widget.chatId)));
+                      },
+                    ),
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-export'),
+                      icon: AppIcons.share,
+                      tinted: false,
+                      title: l10n.tavernExportChat,
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(exportTavernChat(this.context, ref, widget.chatId, title: name));
                       },
                     ),
                   ],
