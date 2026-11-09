@@ -30,6 +30,7 @@ import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_page.dart';
+import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
 
 class TavernChatPage extends ConsumerStatefulWidget {
@@ -270,7 +271,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final character = characters?.where((c) => c.id == characterId).firstOrNull;
     final name = character?.name ?? l10n.tavernTitle;
     final preview = _tavern is TavernPreview;
-    final novel = ref.watch(tavernSettingsProvider.select((s) => s.layout)) == TavernLayout.novel;
+    final layout = ref.watch(tavernSettingsProvider.select((s) => s.layout));
+    final novel = layout == TavernLayout.novel;
     final messages = _messages;
     final (String status, StatusTone tone) = switch (()) {
       _ when _running => (l10n.tavernReplying, StatusTone.busy),
@@ -311,22 +313,54 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           if (characterId != null) unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
         },
       ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (n) {
-          if (n.metrics.axis == Axis.vertical) {
-            _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
-          }
-          return false;
-        },
-        child: ListView(
-          key: const ValueKey('tavern-transcript'),
-          reverse: true,
-          padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
-          children: [
-            for (final row in rows.reversed) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: row),
-          ],
-        ),
-      ),
+      body: layout == TavernLayout.visualNovel
+          ? TavernVisualNovelView(
+              pages: [
+                ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: _streamText),
+                if (_running && _streamText.isNotEmpty && !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
+                  TavernPage(
+                    TavernMessage(
+                      nodeId: _streamNode ?? '',
+                      role: TavernRole.character,
+                      speaker: name,
+                      text: '',
+                      at: DateTime(0),
+                    ),
+                    _streamText,
+                    streaming: true,
+                  ),
+              ],
+              name: name,
+              avatarPath: character?.avatarPath,
+              topInset: topInset,
+              onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
+              footer: (m, lastPage) =>
+                  lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
+                  ? _Alternatives(
+                      message: m,
+                      last: m.nodeId == lastCharacter,
+                      busy: _running,
+                      onSibling: (d) => unawaited(_sibling(m, d)),
+                    )
+                  : null,
+            )
+          : NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if (n.metrics.axis == Axis.vertical) {
+                  _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
+                }
+                return false;
+              },
+              child: ListView(
+                key: const ValueKey('tavern-transcript'),
+                reverse: true,
+                padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
+                children: [
+                  for (final row in rows.reversed)
+                    Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: row),
+                ],
+              ),
+            ),
       bottom: [
         _ErrorSlot(
           error: _error,

@@ -77,6 +77,7 @@ class TavernSettingsPage extends ConsumerWidget {
               segments: [
                 PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
                 PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
+                PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
               ],
               selected: settings.layout,
               onChanged: (layout) => unawaited(controller.setLayout(layout)),

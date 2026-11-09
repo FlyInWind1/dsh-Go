@@ -103,4 +103,24 @@ void main() {
     expect(find.textContaining('地下室').evaluate().isEmpty, isTrue); // a greeting reply, not the question one
     expect(find.textContaining('炉子'), findsOneWidget);
   });
+
+  testWidgets('视觉小说 pages through paragraphs and follows a new reply', (tester) async {
+    SharedPreferences.setMockInitialValues({'tavern.layout': 'visualNovel'});
+    await _open(tester, PreviewTavern(tick: const Duration(milliseconds: 1)));
+
+    // The greeting is two paragraphs; the newest one shows.
+    expect(find.text('2/2'), findsOneWidget);
+    await tester.fling(find.byKey(const ValueKey('tavern-vn-box')), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('1/2'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tavern-vn-box')));
+    await tester.pumpAndSettle();
+    expect(find.text('2/2'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '外面怎么了？');
+    await tester.pump();
+    await tester.tap(find.byIcon(AppIcons.send));
+    await _settle(tester);
+    expect(find.textContaining('地下室'), findsOneWidget);
+  });
 }

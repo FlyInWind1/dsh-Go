@@ -33386,6 +33386,12 @@ abstract class L10n {
   /// **'没有符合的角色'**
   String get tavernNoMatch;
 
+  /// No description provided for @tavernLayoutVisualNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉小说'**
+  String get tavernLayoutVisualNovel;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

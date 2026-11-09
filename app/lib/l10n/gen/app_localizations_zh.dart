@@ -18285,6 +18285,9 @@ class L10nZh extends L10n {
   String get tavernNoMatch => '没有符合的角色';
 
   @override
+  String get tavernLayoutVisualNovel => '视觉小说';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

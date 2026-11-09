@@ -100,5 +100,6 @@
   "tavernYou": "你",
   "tavernSearchHint": "搜索角色、作者、标签",
   "tavernAllTags": "全部",
-  "tavernNoMatch": "没有符合的角色"
+  "tavernNoMatch": "没有符合的角色",
+  "tavernLayoutVisualNovel": "视觉小说"
 }

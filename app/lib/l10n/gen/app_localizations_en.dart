@@ -19281,6 +19281,9 @@ class L10nEn extends L10n {
   String get tavernNoMatch => 'No matching characters';
 
   @override
+  String get tavernLayoutVisualNovel => 'Visual novel';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -10,9 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// The models the tavern offers, cheapest first.
 const tavernModels = ['deepseek-flash', 'deepseek-v4-pro'];
 
-/// How a chat is laid out (docs/design/roleplay-ui.md §4): bubbles, or full
-/// width text under the speaker's name. 视觉小说 comes with the canvas.
-enum TavernLayout { bubble, novel }
+/// How a chat is laid out (docs/design/roleplay-ui.md §4): bubbles, full
+/// width text under the speaker's name, or a stage with one paragraph at a
+/// time (视觉小说).
+enum TavernLayout { bubble, novel, visualNovel }
 
 class TavernSettings {
   const TavernSettings({
