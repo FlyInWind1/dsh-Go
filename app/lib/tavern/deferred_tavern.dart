@@ -105,6 +105,17 @@ class DeferredTavern implements Tavern {
       (await _ready).createChat(characterId, greeting: greeting);
 
   @override
+  Future<TavernChatImportResult> importChats(
+    String characterId,
+    List<TavernChatFile> files, {
+    Map<String, String> lorebookIds = const {},
+  }) async => (await _ready).importChats(characterId, files, lorebookIds: lorebookIds);
+
+  @override
+  Future<List<TavernChatFile>> exportChat(String chatId, {String? fileName}) async =>
+      (await _ready).exportChat(chatId, fileName: fileName);
+
+  @override
   Future<void> deleteChat(String chatId) async => (await _ready).deleteChat(chatId);
 
   @override

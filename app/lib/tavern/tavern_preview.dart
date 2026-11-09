@@ -275,6 +275,17 @@ class PreviewTavern implements Tavern, TavernPreview {
     return chat.id;
   }
 
+  /// The samples have no ST chat files to read or write.
+  @override
+  Future<TavernChatImportResult> importChats(
+    String characterId,
+    List<TavernChatFile> files, {
+    Map<String, String> lorebookIds = const {},
+  }) async => throw UnsupportedError('preview');
+
+  @override
+  Future<List<TavernChatFile>> exportChat(String chatId, {String? fileName}) async => throw UnsupportedError('preview');
+
   @override
   Future<void> deleteChat(String chatId) async {
     _chats.remove(chatId);
