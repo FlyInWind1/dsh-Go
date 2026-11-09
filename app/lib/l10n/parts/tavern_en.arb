@@ -289,5 +289,6 @@
   "tavernSourceWorld": "Lorebook",
   "tavernSourcePersona": "Persona",
   "tavernSourceHistory": "Chat",
-  "tavernSourceControl": "Control"
+  "tavernSourceControl": "Control",
+  "tavernWriteForMe": "Write it for me"
 }

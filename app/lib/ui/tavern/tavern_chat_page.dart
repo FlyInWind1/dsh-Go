@@ -184,6 +184,64 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   void _stop() => _tavern.stop(widget.chatId);
 
+  /// 帮我写: the model writes your next line into the composer. Nothing is
+  /// sent or stored; edit it, then send. Stop keeps what has arrived.
+  void _impersonate() {
+    if (_running) return;
+    unawaited(HapticFeedback.selectionClick());
+    _setDraft('');
+    setState(() {
+      _error = null;
+      _action = null;
+    });
+    _turn = _tavern
+        .impersonate(widget.chatId)
+        .listen(
+          (event) {
+            if (!mounted) return;
+            switch (event) {
+              case TavernTextDelta(:final text):
+                _setDraft(_input.text + text);
+              case TavernTurnDone(:final message):
+                _setDraft(message.text);
+                _endDraft();
+              case TavernTurnFailed(:final kind, :final detail):
+                if (kind == TavernFailure.cancelled) return _endDraft();
+                _endDraft(failure: (kind, detail));
+              case TavernTurnStarted() || TavernReasoningDelta():
+                break;
+            }
+          },
+          onDone: () {
+            if (mounted && _running) _endDraft();
+          },
+        );
+    setState(() {});
+  }
+
+  void _setDraft(String text) => _input.value = TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
+  );
+
+  void _endDraft({(TavernFailure, String?)? failure}) {
+    unawaited(_turn?.cancel());
+    final l10n = context.l10n;
+    setState(() {
+      _turn = null;
+      _error = switch (failure) {
+        (final kind, final detail)? => _failureText(kind, detail),
+        null => null,
+      };
+      _action = switch (failure?.$1) {
+        null => null,
+        TavernFailure.noKey || TavernFailure.badKey => (label: l10n.commonSettings, onPressed: _openKeySettings),
+        _ => (label: l10n.commonRetry, onPressed: _impersonate),
+      };
+    });
+    if (failure == null) _focus.requestFocus();
+  }
+
   /// Where the DeepSeek key is set (as 酒馆设置 opens it); the line waits in
   /// the composer.
   void _openKeySettings() => unawaited(
@@ -499,6 +557,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           onStop: _stop,
           placeholder: l10n.tavernComposerHint(name),
           leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
+          // 帮我写 while the box is empty: an idea to start from.
+          accessory: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _input,
+            builder: (context, value, _) => value.text.isEmpty && !_running && messages != null
+                ? _WriteForMeKey(onPressed: _impersonate)
+                : const SizedBox.shrink(),
+          ),
         ),
       ],
     );
@@ -506,6 +571,35 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 }
 
 final _none = TavernMessage(nodeId: '', role: TavernRole.system, speaker: '', text: '', at: DateTime(0));
+
+/// The composer's 帮我写 key, the size of its other round keys.
+class _WriteForMeKey extends StatelessWidget {
+  const _WriteForMeKey({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = context.l10n.tavernWriteForMe;
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: InkResponse(
+          key: const ValueKey('tavern-write-for-me'),
+          onTap: onPressed,
+          radius: 22,
+          child: SizedBox.square(
+            dimension: 40,
+            child: Icon(AppIcons.write, size: 20, color: scheme.onSurface.withValues(alpha: 0.7)),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 enum _MessageAction { copy, edit, regenerate, continueReply, inspect, delete }
 

@@ -18625,6 +18625,9 @@ class L10nZh extends L10n {
   String get tavernSourceControl => '控制';
 
   @override
+  String get tavernWriteForMe => '帮我写';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

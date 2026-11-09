@@ -19649,6 +19649,9 @@ class L10nEn extends L10n {
   String get tavernSourceControl => 'Control';
 
   @override
+  String get tavernWriteForMe => 'Write it for me';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -5655,6 +5655,7 @@
   "tavernSourcePersona": "Persona",
   "tavernSourceHistory": "Chat",
   "tavernSourceControl": "Control",
+  "tavernWriteForMe": "Write it for me",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

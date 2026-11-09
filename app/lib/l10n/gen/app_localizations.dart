@@ -34022,6 +34022,12 @@ abstract class L10n {
   /// **'控制'**
   String get tavernSourceControl;
 
+  /// No description provided for @tavernWriteForMe.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮我写'**
+  String get tavernWriteForMe;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

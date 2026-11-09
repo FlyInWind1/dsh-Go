@@ -168,4 +168,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('tavern-vn-backlog')), findsNothing);
   });
+
+  testWidgets('帮我写 drafts the next line into the box without sending it', (tester) async {
+    final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
+    final chat = await _open(tester, tavern);
+    final before = await tavern.path(chat);
+
+    expect(find.byKey(const ValueKey('tavern-write-for-me')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tavern-write-for-me')));
+    await _settle(tester);
+
+    expect(find.widgetWithText(TextField, '我推开门，四下看了看。'), findsOneWidget);
+    expect((await tavern.path(chat)).length, before.length);
+    // With something in the box the key steps aside.
+    expect(find.byKey(const ValueKey('tavern-write-for-me')), findsNothing);
+  });
+
+  testWidgets('帮我写 without a key offers 设置', (tester) async {
+    await _open(tester, _NoKeyDraft());
+    await tester.tap(find.byKey(const ValueKey('tavern-write-for-me')));
+    await _settle(tester);
+
+    expect(find.text('先在设置里填 DeepSeek API Key'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('tavern-error')), matching: find.text('设置')), findsOneWidget);
+  });
+}
+
+/// The preview, except drafting a line finds no key.
+class _NoKeyDraft extends PreviewTavern {
+  _NoKeyDraft() : super(tick: const Duration(milliseconds: 1));
+
+  @override
+  Stream<TavernEvent> impersonate(String chatId) => Stream.value(const TavernTurnFailed(TavernFailure.noKey));
 }

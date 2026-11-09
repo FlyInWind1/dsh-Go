@@ -289,5 +289,6 @@
   "tavernSourceWorld": "世界书",
   "tavernSourcePersona": "人设",
   "tavernSourceHistory": "对话",
-  "tavernSourceControl": "控制"
+  "tavernSourceControl": "控制",
+  "tavernWriteForMe": "帮我写"
 }
