@@ -86,6 +86,37 @@ void main() {
     expect(find.textContaining('地下室'), findsOneWidget);
   });
 
+  testWidgets('swiping the reply sideways steps through its alternatives', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-character-sample-innkeeper')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('tavern-start')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-start')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '外面怎么了？');
+    await tester.pump();
+    await tester.tap(find.byIcon(AppIcons.send));
+    await _finishReply(tester);
+    expect(find.text('1/1'), findsOneWidget);
+
+    // Left past the last alternative writes a new one.
+    await tester.drag(find.textContaining('地下室'), const Offset(-200, 0));
+    await _finishReply(tester);
+    expect(find.text('2/2'), findsOneWidget);
+
+    // Right goes back to the first. The list is newest first: .first is the reply.
+    final swipes = find.byWidgetPredicate(
+      (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('tavern-swipe-'),
+    );
+    await tester.drag(swipes.first, const Offset(200, 0));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('地下室'), findsOneWidget);
+    expect(find.text('1/2'), findsNWidgets(2)); // the greeting and the reply
+  });
+
   testWidgets('long-press a character to delete it', (tester) async {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();

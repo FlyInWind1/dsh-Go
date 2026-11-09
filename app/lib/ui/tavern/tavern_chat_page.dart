@@ -647,7 +647,18 @@ class _MessageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = novel ? _novel(context) : _bubble(context);
+    final drawn = novel ? _novel(context) : _bubble(context);
+    // A reply with alternatives swipes sideways through them, like ‹ ›.
+    final swipes = message.role == TavernRole.character && !busy && (last || message.siblingCount > 1);
+    final body = swipes
+        ? _SwipeToSwitch(
+            key: ValueKey('tavern-swipe-${message.nodeId}'),
+            canPrevious: message.siblingIndex > 0,
+            canNext: message.siblingIndex + 1 < message.siblingCount || last,
+            onSwitch: onSibling,
+            child: drawn,
+          )
+        : drawn;
     if (!message.hidden) return body;
     // Hidden from the model: still here for you, faded, and says so.
     final end = !novel && message.role == TavernRole.user;
@@ -717,6 +728,74 @@ class _MessageRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Swiping a reply sideways steps through its alternatives: left for the next
+/// (past the last on the newest reply, a new one, as › does), right for the
+/// previous. The reply follows the finger a little and springs back.
+class _SwipeToSwitch extends StatefulWidget {
+  const _SwipeToSwitch({
+    super.key,
+    required this.canPrevious,
+    required this.canNext,
+    required this.onSwitch,
+    required this.child,
+  });
+
+  final bool canPrevious;
+  final bool canNext;
+  final ValueChanged<int> onSwitch;
+  final Widget child;
+
+  @override
+  State<_SwipeToSwitch> createState() => _SwipeToSwitchState();
+}
+
+class _SwipeToSwitchState extends State<_SwipeToSwitch> {
+  static const _distance = 64.0;
+  static const _flick = 600.0;
+
+  double _dx = 0;
+  bool _dragging = false;
+
+  void _update(DragUpdateDetails d) {
+    final next = _dx + d.delta.dx;
+    setState(() {
+      _dragging = true;
+      _dx = next.clamp(widget.canNext ? -160.0 : 0.0, widget.canPrevious ? 160.0 : 0.0);
+    });
+  }
+
+  void _end(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (widget.canNext && (_dx <= -_distance || v <= -_flick)) {
+      widget.onSwitch(1);
+    } else if (widget.canPrevious && (_dx >= _distance || v >= _flick)) {
+      widget.onSwitch(-1);
+    }
+    setState(() {
+      _dragging = false;
+      _dx = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.translucent,
+    onHorizontalDragUpdate: _update,
+    onHorizontalDragEnd: _end,
+    onHorizontalDragCancel: () => setState(() {
+      _dragging = false;
+      _dx = 0;
+    }),
+    child: AnimatedContainer(
+      duration: _dragging ? Duration.zero : AppMotion.of(context, AppMotion.standard),
+      curve: AppMotion.std,
+      // Half the finger's travel: it gives, but stays readable.
+      transform: Matrix4.translationValues(_dx / 2, 0, 0),
+      child: widget.child,
+    ),
+  );
 }
 
 /// 「模型看不到这条」 under a hidden message.
