@@ -104,5 +104,6 @@
   "tavernLayoutVisualNovel": "视觉小说",
   "tavernCharacterDetails": "角色详情",
   "tavernChatLayout": "这段对话的排版",
-  "tavernFollowSettings": "跟随酒馆设置"
+  "tavernFollowSettings": "跟随酒馆设置",
+  "tavernLog": "记录"
 }

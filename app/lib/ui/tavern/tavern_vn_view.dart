@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
 import '../chat/render/markdown_body.dart';
+import '../companion/companion_log.dart';
+import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_widgets.dart';
 
@@ -58,6 +60,9 @@ class TavernVisualNovelView extends StatefulWidget {
 class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
   /// The page shown; null follows the newest.
   int? _page;
+
+  /// The backlog is open over the stage.
+  bool _log = false;
 
   int get _last => widget.pages.length - 1;
 
@@ -133,6 +138,10 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
               if (v > 200) _previous();
               if (v < -200) _next();
             },
+            // Up over the box: the backlog, as in a visual novel.
+            onVerticalDragEnd: (d) {
+              if ((d.primaryVelocity ?? 0) < -300) setState(() => _log = true);
+            },
             child: GlassSurface(
               tier: GlassTier.sheet,
               borderRadius: AppShape.radiusXl,
@@ -156,6 +165,18 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
                           '${at + 1}/${pages.length}',
                           style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
                         ),
+                      SizedBox.square(
+                        dimension: 32,
+                        child: IconButton(
+                          key: const ValueKey('tavern-vn-log'),
+                          tooltip: context.l10n.tavernLog,
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          color: dsh.textTertiary,
+                          onPressed: () => setState(() => _log = true),
+                          icon: Icon(AppIcons.history),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -181,7 +202,34 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
             ),
           ),
         ),
+        // The backlog is drawn for a dark stage (伙伴小屋's), whatever the
+        // app's brightness; it starts under the floating header.
+        Positioned.fill(
+          top: widget.topInset,
+          child: CompanionLogTransition(
+            child: _log
+                ? Theme(
+                    key: const ValueKey('tavern-vn-backlog'),
+                    data: buildDarkTheme(),
+                    child: CompanionLog(
+                      entries: [
+                        for (final page in pages)
+                          if (page.message.role == TavernRole.user)
+                            CompanionLogEntry.you(_plain(page.text))
+                          else
+                            CompanionLogEntry.her(_plain(page.text)),
+                      ],
+                      name: widget.name,
+                      onClose: () => setState(() => _log = false),
+                    ),
+                  )
+                : null,
+          ),
+        ),
       ],
     );
   }
 }
+
+/// A page as the backlog shows it: plain text, Markdown emphasis dropped.
+String _plain(String text) => text.replaceAll(RegExp(r'(\*\*|\*|__)'), '');

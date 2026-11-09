@@ -33410,6 +33410,12 @@ abstract class L10n {
   /// **'跟随酒馆设置'**
   String get tavernFollowSettings;
 
+  /// No description provided for @tavernLog.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录'**
+  String get tavernLog;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

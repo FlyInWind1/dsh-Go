@@ -19293,6 +19293,9 @@ class L10nEn extends L10n {
   String get tavernFollowSettings => 'Follow tavern settings';
 
   @override
+  String get tavernLog => 'Backlog';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

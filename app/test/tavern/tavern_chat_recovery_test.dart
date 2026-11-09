@@ -137,4 +137,18 @@ void main() {
     expect(prefs.getString('tavern.layout.$chat'), 'novel');
     expect(find.text('跟随酒馆设置'), findsOneWidget);
   });
+
+  testWidgets('视觉小说 opens the backlog and closes it again', (tester) async {
+    SharedPreferences.setMockInitialValues({'tavern.layout': 'visualNovel'});
+    await _open(tester, PreviewTavern(tick: const Duration(milliseconds: 1)));
+
+    await tester.tap(find.byKey(const ValueKey('tavern-vn-log')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-vn-backlog')), findsOneWidget);
+    expect(find.textContaining('旅店的门被风推开'), findsWidgets);
+
+    await tester.tap(find.byIcon(AppIcons.close));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-vn-backlog')), findsNothing);
+  });
 }

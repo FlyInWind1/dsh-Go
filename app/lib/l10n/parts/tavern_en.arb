@@ -104,5 +104,6 @@
   "tavernLayoutVisualNovel": "Visual novel",
   "tavernCharacterDetails": "Character details",
   "tavernChatLayout": "Layout for this chat",
-  "tavernFollowSettings": "Follow tavern settings"
+  "tavernFollowSettings": "Follow tavern settings",
+  "tavernLog": "Backlog"
 }

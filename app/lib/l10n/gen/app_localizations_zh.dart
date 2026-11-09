@@ -18297,6 +18297,9 @@ class L10nZh extends L10n {
   String get tavernFollowSettings => '跟随酒馆设置';
 
   @override
+  String get tavernLog => '记录';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
