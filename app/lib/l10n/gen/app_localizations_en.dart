@@ -9972,6 +9972,27 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get modeSheetTitle => 'Mode';
+
+  @override
+  String get modeKeyTooltip => 'Switch mode';
+
+  @override
+  String get modeWork => 'Work';
+
+  @override
+  String get modeWorkSubtitle => 'Get things done with DSH';
+
+  @override
+  String get modeCompanionShort => 'Companion';
+
+  @override
+  String get modeTavernSubtitle => 'Import a character card and start a story';
+
+  @override
+  String get modeStartup => 'Open on launch';
+
+  @override
   String get nearbyThisChat => 'This chat';
 
   @override
@@ -19074,6 +19095,124 @@ class L10nEn extends L10n {
 
   @override
   String get appSlogan => 'Anytime, anywhere. Just Go!';
+
+  @override
+  String get tavernTitle => 'Tavern';
+
+  @override
+  String get tavernImport => 'Import';
+
+  @override
+  String get tavernEmptyTitle => 'No characters yet';
+
+  @override
+  String get tavernEmptyMessage => 'Import a character card: PNG, JSON or CHARX';
+
+  @override
+  String get tavernContinue => 'Continue';
+
+  @override
+  String get tavernCharacters => 'Characters';
+
+  @override
+  String tavernImported(String name) {
+    return 'Imported “$name”';
+  }
+
+  @override
+  String get tavernImportLorebook => 'This is a lorebook, not a character card';
+
+  @override
+  String get tavernImportFailed => 'Couldn\'t read this card';
+
+  @override
+  String get tavernCharacterGone => 'This character is gone';
+
+  @override
+  String get tavernDeleteCharacter => 'Delete character';
+
+  @override
+  String tavernDeleteCharacterTitle(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get tavernDeleteCharacterMessage => 'Its chats are deleted too.';
+
+  @override
+  String get tavernGreeting => 'Greeting';
+
+  @override
+  String tavernGreetingOf(int index, int count) {
+    return 'Greeting $index/$count';
+  }
+
+  @override
+  String get tavernStart => 'Start';
+
+  @override
+  String get tavernChats => 'Chats';
+
+  @override
+  String tavernMessageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count messages', one: '1 message');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernCreatorNotes => 'Creator\'s notes';
+
+  @override
+  String get tavernDefinition => 'Definition';
+
+  @override
+  String tavernComposerHint(String name) {
+    return 'Say something to $name…';
+  }
+
+  @override
+  String get tavernReplying => 'Replying…';
+
+  @override
+  String get tavernReady => 'Ready';
+
+  @override
+  String get tavernPreviewStatus => 'Preview · sample replies, no model yet';
+
+  @override
+  String get tavernRegenerate => 'Regenerate';
+
+  @override
+  String get tavernContinueReply => 'Continue writing';
+
+  @override
+  String get tavernDeleteFrom => 'Delete this and everything after';
+
+  @override
+  String get tavernPrevious => 'Previous reply';
+
+  @override
+  String get tavernNext => 'Next reply';
+
+  @override
+  String get tavernErrorNoKey => 'Add a DeepSeek API key in Settings first';
+
+  @override
+  String get tavernErrorBadKey => 'The API key was refused; check it in Settings';
+
+  @override
+  String get tavernErrorBusy => 'The model is busy; try again in a moment';
+
+  @override
+  String get tavernErrorNetwork => 'Can\'t connect; check the network and retry';
+
+  @override
+  String get tavernErrorTooLong => 'The chat is longer than the model\'s context';
+
+  @override
+  String tavernErrorDetail(String detail) {
+    return 'Something went wrong: $detail';
+  }
 
   @override
   String get updateCheck => 'Check for updates';

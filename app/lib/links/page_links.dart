@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ui/companion/companion_page.dart';
 import '../ui/features/feature_catalog.dart';
 import '../ui/settings/index/settings_pages.dart';
+import '../ui/tavern/tavern_home_page.dart';
 import 'app_links.dart';
 
 /// The host of page links: `dshgo://open/<page>`.
@@ -32,8 +33,11 @@ const catalogPageLinks = <String>{'schedules', 'cordis', 'agent-team', 'forum', 
 /// 伙伴小屋: the home-screen widget opens it (android companion/CompanionWidget.kt).
 const companionPageLink = 'companion';
 
+/// 酒馆 (role play).
+const tavernPageLink = 'tavern';
+
 /// Every page a link may name.
-Set<String> get pageLinkIds => {...SettingsIndex.linkIds, ...catalogPageLinks, companionPageLink};
+Set<String> get pageLinkIds => {...SettingsIndex.linkIds, ...catalogPageLinks, companionPageLink, tavernPageLink};
 
 /// The page id [uri] names: exactly `dshgo://open/<id>` (a trailing slash is
 /// fine) with an id from [pageLinkIds]; null otherwise.
@@ -51,6 +55,7 @@ String? pageLinkId(Uri uri) {
 Widget? pageForId(String id, String? sessionId) {
   if (settingsPageForLink(id, sessionId: sessionId) case final page?) return page;
   if (id == companionPageLink) return const CompanionPage();
+  if (id == tavernPageLink) return const TavernHomePage();
   if (!catalogPageLinks.contains(id)) return null;
   for (final section in featureSections) {
     for (final item in section.items) {

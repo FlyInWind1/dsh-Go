@@ -33,6 +33,7 @@ import '../common/smooth_size.dart';
 import '../common/read_list_status.dart';
 import '../common/status_dot.dart';
 import '../onboarding/local_install.dart';
+import '../modes/mode_switch.dart';
 import '../remote/host_status.dart';
 import '../remote/host_switcher.dart' show showHostSheet;
 import '../remote/network_details_sheet.dart' show showRemoteNetworkDetails;
@@ -163,7 +164,9 @@ class SessionsDrawer extends ConsumerWidget {
                         child: FittedBox(fit: BoxFit.scaleDown, child: BrandLockup(height: 19)),
                       ),
                     ),
-                    // 网页模式, quietly: the one solid element stays 新对话.
+                    // 模式 and 网页模式, quietly: the one solid element stays 新对话.
+                    const ModeKey(),
+                    const SizedBox(width: 8),
                     const WebModeKey(tier: GlassTier.pill),
                     const SizedBox(width: 8),
                     NewChatButton(onTap: newChat),

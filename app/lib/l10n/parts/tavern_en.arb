@@ -1,0 +1,82 @@
+{
+  "tavernTitle": "Tavern",
+  "tavernImport": "Import",
+  "tavernEmptyTitle": "No characters yet",
+  "tavernEmptyMessage": "Import a character card: PNG, JSON or CHARX",
+  "tavernContinue": "Continue",
+  "tavernCharacters": "Characters",
+  "tavernImported": "Imported “{name}”",
+  "@tavernImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernImportLorebook": "This is a lorebook, not a character card",
+  "tavernImportFailed": "Couldn't read this card",
+  "tavernCharacterGone": "This character is gone",
+  "tavernDeleteCharacter": "Delete character",
+  "tavernDeleteCharacterTitle": "Delete “{name}”?",
+  "@tavernDeleteCharacterTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDeleteCharacterMessage": "Its chats are deleted too.",
+  "tavernGreeting": "Greeting",
+  "tavernGreetingOf": "Greeting {index}/{count}",
+  "@tavernGreetingOf": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStart": "Start",
+  "tavernChats": "Chats",
+  "tavernMessageCount": "{count, plural, =1{1 message} other{{count} messages}}",
+  "@tavernMessageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernCreatorNotes": "Creator's notes",
+  "tavernDefinition": "Definition",
+  "tavernComposerHint": "Say something to {name}…",
+  "@tavernComposerHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernReplying": "Replying…",
+  "tavernReady": "Ready",
+  "tavernPreviewStatus": "Preview · sample replies, no model yet",
+  "tavernRegenerate": "Regenerate",
+  "tavernContinueReply": "Continue writing",
+  "tavernDeleteFrom": "Delete this and everything after",
+  "tavernPrevious": "Previous reply",
+  "tavernNext": "Next reply",
+  "tavernErrorNoKey": "Add a DeepSeek API key in Settings first",
+  "tavernErrorBadKey": "The API key was refused; check it in Settings",
+  "tavernErrorBusy": "The model is busy; try again in a moment",
+  "tavernErrorNetwork": "Can't connect; check the network and retry",
+  "tavernErrorTooLong": "The chat is longer than the model's context",
+  "tavernErrorDetail": "Something went wrong: {detail}",
+  "@tavernErrorDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  }
+}

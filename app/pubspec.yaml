@@ -57,6 +57,8 @@ dependencies:
     path: ../packages/dsh_client
   dsh_remote:
     path: ../packages/dsh_remote
+  dsh_tavern:
+    path: ../packages/dsh_tavern
   scrollable_positioned_list: ^0.3.8
   share_plus: ^13.3.1
   dartssh2: ^4.1.0

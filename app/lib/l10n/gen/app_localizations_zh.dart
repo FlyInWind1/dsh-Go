@@ -9477,6 +9477,27 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get modeSheetTitle => '模式';
+
+  @override
+  String get modeKeyTooltip => '切换模式';
+
+  @override
+  String get modeWork => '工作';
+
+  @override
+  String get modeWorkSubtitle => '和 DSH 一起干活';
+
+  @override
+  String get modeCompanionShort => '伙伴';
+
+  @override
+  String get modeTavernSubtitle => '导入角色卡，开始一段故事';
+
+  @override
+  String get modeStartup => '启动时进入';
+
+  @override
   String get nearbyThisChat => '本对话';
 
   @override
@@ -18079,6 +18100,123 @@ class L10nZh extends L10n {
 
   @override
   String get appSlogan => '随时随刻，想go就Go！';
+
+  @override
+  String get tavernTitle => '酒馆';
+
+  @override
+  String get tavernImport => '导入';
+
+  @override
+  String get tavernEmptyTitle => '还没有角色';
+
+  @override
+  String get tavernEmptyMessage => '导入一张角色卡：PNG、JSON 或 CHARX';
+
+  @override
+  String get tavernContinue => '继续';
+
+  @override
+  String get tavernCharacters => '角色';
+
+  @override
+  String tavernImported(String name) {
+    return '已导入「$name」';
+  }
+
+  @override
+  String get tavernImportLorebook => '这是一本世界书，不是角色卡';
+
+  @override
+  String get tavernImportFailed => '这张卡读不出来';
+
+  @override
+  String get tavernCharacterGone => '这个角色已经不在了';
+
+  @override
+  String get tavernDeleteCharacter => '删除角色';
+
+  @override
+  String tavernDeleteCharacterTitle(String name) {
+    return '删除「$name」？';
+  }
+
+  @override
+  String get tavernDeleteCharacterMessage => '它的对话也会一起删掉。';
+
+  @override
+  String get tavernGreeting => '开场白';
+
+  @override
+  String tavernGreetingOf(int index, int count) {
+    return '开场白 $index/$count';
+  }
+
+  @override
+  String get tavernStart => '开始';
+
+  @override
+  String get tavernChats => '对话';
+
+  @override
+  String tavernMessageCount(int count) {
+    return '$count 条消息';
+  }
+
+  @override
+  String get tavernCreatorNotes => '作者说明';
+
+  @override
+  String get tavernDefinition => '设定';
+
+  @override
+  String tavernComposerHint(String name) {
+    return '对$name说…';
+  }
+
+  @override
+  String get tavernReplying => '正在回复…';
+
+  @override
+  String get tavernReady => '就绪';
+
+  @override
+  String get tavernPreviewStatus => '预览 · 回复是示例，还没接上模型';
+
+  @override
+  String get tavernRegenerate => '重新生成';
+
+  @override
+  String get tavernContinueReply => '接着写';
+
+  @override
+  String get tavernDeleteFrom => '删除这条及以后';
+
+  @override
+  String get tavernPrevious => '上一个回答';
+
+  @override
+  String get tavernNext => '下一个回答';
+
+  @override
+  String get tavernErrorNoKey => '先在设置里填 DeepSeek API Key';
+
+  @override
+  String get tavernErrorBadKey => 'API Key 不对，去设置里检查一下';
+
+  @override
+  String get tavernErrorBusy => '模型现在有点忙，稍后再试';
+
+  @override
+  String get tavernErrorNetwork => '连不上，检查网络后重试';
+
+  @override
+  String get tavernErrorTooLong => '对话太长了，超出了模型的上下文';
+
+  @override
+  String tavernErrorDetail(String detail) {
+    return '出错了：$detail';
+  }
 
   @override
   String get updateCheck => '检查更新';

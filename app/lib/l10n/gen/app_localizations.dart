@@ -17474,6 +17474,48 @@ abstract class L10n {
   /// **'已保存 {count} 个文件到相册'**
   String mediaSavedFilesCount(int count);
 
+  /// No description provided for @modeSheetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'模式'**
+  String get modeSheetTitle;
+
+  /// No description provided for @modeKeyTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换模式'**
+  String get modeKeyTooltip;
+
+  /// No description provided for @modeWork.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作'**
+  String get modeWork;
+
+  /// No description provided for @modeWorkSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'和 DSH 一起干活'**
+  String get modeWorkSubtitle;
+
+  /// No description provided for @modeCompanionShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴'**
+  String get modeCompanionShort;
+
+  /// No description provided for @modeTavernSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入角色卡，开始一段故事'**
+  String get modeTavernSubtitle;
+
+  /// No description provided for @modeStartup.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动时进入'**
+  String get modeStartup;
+
   /// No description provided for @nearbyThisChat.
   ///
   /// In zh, this message translates to:
@@ -33001,6 +33043,216 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'随时随刻，想go就Go！'**
   String get appSlogan;
+
+  /// No description provided for @tavernTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'酒馆'**
+  String get tavernTitle;
+
+  /// No description provided for @tavernImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入'**
+  String get tavernImport;
+
+  /// No description provided for @tavernEmptyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有角色'**
+  String get tavernEmptyTitle;
+
+  /// No description provided for @tavernEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入一张角色卡：PNG、JSON 或 CHARX'**
+  String get tavernEmptyMessage;
+
+  /// No description provided for @tavernContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get tavernContinue;
+
+  /// No description provided for @tavernCharacters.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get tavernCharacters;
+
+  /// No description provided for @tavernImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入「{name}」'**
+  String tavernImported(String name);
+
+  /// No description provided for @tavernImportLorebook.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是一本世界书，不是角色卡'**
+  String get tavernImportLorebook;
+
+  /// No description provided for @tavernImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡读不出来'**
+  String get tavernImportFailed;
+
+  /// No description provided for @tavernCharacterGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色已经不在了'**
+  String get tavernCharacterGone;
+
+  /// No description provided for @tavernDeleteCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除角色'**
+  String get tavernDeleteCharacter;
+
+  /// No description provided for @tavernDeleteCharacterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除「{name}」？'**
+  String tavernDeleteCharacterTitle(String name);
+
+  /// No description provided for @tavernDeleteCharacterMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'它的对话也会一起删掉。'**
+  String get tavernDeleteCharacterMessage;
+
+  /// No description provided for @tavernGreeting.
+  ///
+  /// In zh, this message translates to:
+  /// **'开场白'**
+  String get tavernGreeting;
+
+  /// No description provided for @tavernGreetingOf.
+  ///
+  /// In zh, this message translates to:
+  /// **'开场白 {index}/{count}'**
+  String tavernGreetingOf(int index, int count);
+
+  /// No description provided for @tavernStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get tavernStart;
+
+  /// No description provided for @tavernChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话'**
+  String get tavernChats;
+
+  /// No description provided for @tavernMessageCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条消息'**
+  String tavernMessageCount(int count);
+
+  /// No description provided for @tavernCreatorNotes.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者说明'**
+  String get tavernCreatorNotes;
+
+  /// No description provided for @tavernDefinition.
+  ///
+  /// In zh, this message translates to:
+  /// **'设定'**
+  String get tavernDefinition;
+
+  /// No description provided for @tavernComposerHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'对{name}说…'**
+  String tavernComposerHint(String name);
+
+  /// No description provided for @tavernReplying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在回复…'**
+  String get tavernReplying;
+
+  /// No description provided for @tavernReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'就绪'**
+  String get tavernReady;
+
+  /// No description provided for @tavernPreviewStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览 · 回复是示例，还没接上模型'**
+  String get tavernPreviewStatus;
+
+  /// No description provided for @tavernRegenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新生成'**
+  String get tavernRegenerate;
+
+  /// No description provided for @tavernContinueReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'接着写'**
+  String get tavernContinueReply;
+
+  /// No description provided for @tavernDeleteFrom.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除这条及以后'**
+  String get tavernDeleteFrom;
+
+  /// No description provided for @tavernPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一个回答'**
+  String get tavernPrevious;
+
+  /// No description provided for @tavernNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一个回答'**
+  String get tavernNext;
+
+  /// No description provided for @tavernErrorNoKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'先在设置里填 DeepSeek API Key'**
+  String get tavernErrorNoKey;
+
+  /// No description provided for @tavernErrorBadKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'API Key 不对，去设置里检查一下'**
+  String get tavernErrorBadKey;
+
+  /// No description provided for @tavernErrorBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型现在有点忙，稍后再试'**
+  String get tavernErrorBusy;
+
+  /// No description provided for @tavernErrorNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'连不上，检查网络后重试'**
+  String get tavernErrorNetwork;
+
+  /// No description provided for @tavernErrorTooLong.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话太长了，超出了模型的上下文'**
+  String get tavernErrorTooLong;
+
+  /// No description provided for @tavernErrorDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'出错了：{detail}'**
+  String tavernErrorDetail(String detail);
 
   /// No description provided for @updateCheck.
   ///

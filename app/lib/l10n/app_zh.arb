@@ -5858,6 +5858,13 @@
       }
     }
   },
+  "modeSheetTitle": "模式",
+  "modeKeyTooltip": "切换模式",
+  "modeWork": "工作",
+  "modeWorkSubtitle": "和 DSH 一起干活",
+  "modeCompanionShort": "伙伴",
+  "modeTavernSubtitle": "导入角色卡，开始一段故事",
+  "modeStartup": "启动时进入",
   "nearbyThisChat": "本对话",
   "nearbyPermissionTitle": "本对话的权限",
   "nearbyNewChatDefault": "新对话默认：{name}",
@@ -11182,6 +11189,86 @@
   },
   "stateProviderTokenCountInvalid": "填写数字，如 128K",
   "appSlogan": "随时随刻，想go就Go！",
+  "tavernTitle": "酒馆",
+  "tavernImport": "导入",
+  "tavernEmptyTitle": "还没有角色",
+  "tavernEmptyMessage": "导入一张角色卡：PNG、JSON 或 CHARX",
+  "tavernContinue": "继续",
+  "tavernCharacters": "角色",
+  "tavernImported": "已导入「{name}」",
+  "@tavernImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernImportLorebook": "这是一本世界书，不是角色卡",
+  "tavernImportFailed": "这张卡读不出来",
+  "tavernCharacterGone": "这个角色已经不在了",
+  "tavernDeleteCharacter": "删除角色",
+  "tavernDeleteCharacterTitle": "删除「{name}」？",
+  "@tavernDeleteCharacterTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDeleteCharacterMessage": "它的对话也会一起删掉。",
+  "tavernGreeting": "开场白",
+  "tavernGreetingOf": "开场白 {index}/{count}",
+  "@tavernGreetingOf": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStart": "开始",
+  "tavernChats": "对话",
+  "tavernMessageCount": "{count} 条消息",
+  "@tavernMessageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernCreatorNotes": "作者说明",
+  "tavernDefinition": "设定",
+  "tavernComposerHint": "对{name}说…",
+  "@tavernComposerHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernReplying": "正在回复…",
+  "tavernReady": "就绪",
+  "tavernPreviewStatus": "预览 · 回复是示例，还没接上模型",
+  "tavernRegenerate": "重新生成",
+  "tavernContinueReply": "接着写",
+  "tavernDeleteFrom": "删除这条及以后",
+  "tavernPrevious": "上一个回答",
+  "tavernNext": "下一个回答",
+  "tavernErrorNoKey": "先在设置里填 DeepSeek API Key",
+  "tavernErrorBadKey": "API Key 不对，去设置里检查一下",
+  "tavernErrorBusy": "模型现在有点忙，稍后再试",
+  "tavernErrorNetwork": "连不上，检查网络后重试",
+  "tavernErrorTooLong": "对话太长了，超出了模型的上下文",
+  "tavernErrorDetail": "出错了：{detail}",
+  "@tavernErrorDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

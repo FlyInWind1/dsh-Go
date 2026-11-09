@@ -389,6 +389,12 @@ abstract final class AppIcons {
   /// 设置 › 宠物.
   static const pet = DshGlyphs.smiley;
 
+  /// 模式 › 酒馆 (role play).
+  static const tavern = DshGlyphs.bookOpen;
+
+  /// The drawer's key to 模式.
+  static const modes = DshGlyphs.stack;
+
   /// 设置 › 隐私与分享.
   static const privacy = DshGlyphs.lockKey;
 
