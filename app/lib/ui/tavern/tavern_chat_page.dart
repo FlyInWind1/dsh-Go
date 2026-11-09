@@ -27,6 +27,7 @@ import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
+import '../features/feature_kit.dart' show QuietSpinner;
 import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
@@ -89,9 +90,36 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     super.dispose();
   }
 
+  /// Messages per page when scrolling back.
+  static const _page = 60;
+
+  /// How many of the latest messages are loaded; grows a page at a time as
+  /// you scroll back, and every reload keeps it.
+  int _window = _page;
+
+  /// A full window came back: there may be older ones.
+  bool _hasOlder = false;
+  bool _loadingOlder = false;
+
   Future<void> _reload() async {
-    final messages = await _tavern.path(widget.chatId);
-    if (mounted) setState(() => _messages = messages);
+    final window = _window;
+    final messages = await _tavern.path(widget.chatId, limit: window);
+    if (!mounted) return;
+    setState(() {
+      _messages = messages;
+      _hasOlder = messages.length >= window;
+    });
+  }
+
+  /// Near the oldest loaded message: load another page before it.
+  Future<void> _loadOlder() async {
+    if (!_hasOlder || _loadingOlder) return;
+    setState(() {
+      _loadingOlder = true;
+      _window += _page;
+    });
+    await _reload();
+    if (mounted) setState(() => _loadingOlder = false);
   }
 
   void _run(Stream<TavernEvent> Function() start, {String? draft}) {
@@ -545,6 +573,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               onNotification: (n) {
                 if (n.metrics.axis == Axis.vertical) {
                   _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
+                  // The list runs newest first: what is left above is older.
+                  if (n.metrics.extentAfter < 600) unawaited(_loadOlder());
                 }
                 return false;
               },
@@ -555,6 +585,12 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                 children: [
                   for (final row in rows.reversed)
                     Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: row),
+                  if (_hasOlder)
+                    const Padding(
+                      key: ValueKey('tavern-older'),
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: QuietSpinner()),
+                    ),
                 ],
               ),
             ),

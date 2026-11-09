@@ -199,6 +199,25 @@ void main() {
     expect(find.byKey(ValueKey('tavern-hidden-${greeting.nodeId}')), findsNothing);
   });
 
+  testWidgets('scrolling back through a long chat loads older messages a page at a time', (tester) async {
+    final tavern = _Long();
+    await _open(tester, tavern);
+
+    // The latest 60 first, with a marker that more is above.
+    expect(tavern.limits.last, 60);
+    expect(find.text('第 149 句'), findsOneWidget);
+    for (var i = 0; i < 12 && tavern.limits.last < 180; i++) {
+      await tester.drag(find.byKey(const ValueKey('tavern-transcript')), const Offset(0, 2400));
+      await tester.pumpAndSettle();
+    }
+    expect(tavern.limits, containsAllInOrder([60, 120, 180]));
+    // 180 asked, 150 there: the start of the chat, no more marker.
+    await tester.drag(find.byKey(const ValueKey('tavern-transcript')), const Offset(0, 20000));
+    await tester.pumpAndSettle();
+    expect(find.text('第 0 句'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-older')), findsNothing);
+  });
+
   testWidgets('帮我写 drafts the next line into the box without sending it', (tester) async {
     final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
     final chat = await _open(tester, tavern);
@@ -230,4 +249,27 @@ class _NoKeyDraft extends PreviewTavern {
 
   @override
   Stream<TavernEvent> impersonate(String chatId) => Stream.value(const TavernTurnFailed(TavernFailure.noKey));
+}
+
+/// The preview with a long chat: 150 messages on its path.
+class _Long extends PreviewTavern {
+  _Long() : super(tick: const Duration(milliseconds: 1));
+
+  final limits = <int>[];
+
+  @override
+  Future<List<TavernMessage>> path(String chatId, {int limit = 60, String? beforeNodeId}) async {
+    limits.add(limit);
+    final all = [
+      for (var i = 0; i < 150; i++)
+        TavernMessage(
+          nodeId: 'n$i',
+          role: i.isEven ? TavernRole.character : TavernRole.user,
+          speaker: i.isEven ? '林晚' : 'User',
+          text: '第 $i 句',
+          at: DateTime(2026, 11, 10),
+        ),
+    ];
+    return all.sublist((all.length - limit).clamp(0, all.length));
+  }
 }
