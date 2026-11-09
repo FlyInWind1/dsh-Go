@@ -79,4 +79,20 @@ void main() {
     expect(find.text('1/2'), findsOneWidget);
     expect(find.textContaining('地下室'), findsOneWidget);
   });
+
+  testWidgets('long-press a character to delete it', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(const ValueKey('tavern-character-sample-navigator')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除角色'));
+    await tester.pumpAndSettle();
+    expect(find.text('删除「星图」？'), findsOneWidget);
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('星图'), findsNothing);
+    expect(find.text('林晚'), findsOneWidget);
+  });
 }

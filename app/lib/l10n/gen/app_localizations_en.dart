@@ -19242,6 +19242,15 @@ class L10nEn extends L10n {
   String get tavernApiKeyMissing => 'Not set';
 
   @override
+  String get tavernDeleteChat => 'Delete chat';
+
+  @override
+  String get tavernDeleteChatTitle => 'Delete this chat?';
+
+  @override
+  String get tavernDeleteChatMessage => 'It can\'t be brought back.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

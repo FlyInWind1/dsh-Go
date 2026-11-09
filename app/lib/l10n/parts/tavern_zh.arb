@@ -87,5 +87,8 @@
   "tavernThinkingSubtitle": "回复前先想一想",
   "tavernApiKey": "DeepSeek API Key",
   "tavernApiKeySet": "已填",
-  "tavernApiKeyMissing": "未填"
+  "tavernApiKeyMissing": "未填",
+  "tavernDeleteChat": "删除对话",
+  "tavernDeleteChatTitle": "删除这段对话？",
+  "tavernDeleteChatMessage": "删除后就找不回来了。"
 }

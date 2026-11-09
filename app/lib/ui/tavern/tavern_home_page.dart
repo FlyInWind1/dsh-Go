@@ -116,13 +116,13 @@ class _SectionLabel extends StatelessWidget {
 }
 
 /// A card in the grid: the picture at 2:3, the name, the tags.
-class _CharacterTile extends StatelessWidget {
+class _CharacterTile extends ConsumerWidget {
   const _CharacterTile({required this.character});
 
   final TavernCharacter character;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
     return Semantics(
@@ -131,6 +131,11 @@ class _CharacterTile extends StatelessWidget {
       child: GestureDetector(
         key: ValueKey('tavern-character-${character.id}'),
         onTap: () => Navigator.of(context).push(TavernCharacterPage.route(character.id)),
+        onLongPress: () => unawaited(
+          showTavernActions(context, [
+            (AppIcons.delete, context.l10n.tavernDeleteCharacter, () => deleteTavernCharacter(context, ref, character)),
+          ]),
+        ),
         behavior: HitTestBehavior.opaque,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,14 +162,14 @@ class _CharacterTile extends StatelessWidget {
 }
 
 /// A chat to pick up again: who, and the last line on its path.
-class _ContinueCard extends StatelessWidget {
+class _ContinueCard extends ConsumerWidget {
   const _ContinueCard({required this.chat, required this.character});
 
   final TavernChatSummary chat;
   final TavernCharacter? character;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
     final name = character?.name ?? chat.title;
@@ -176,6 +181,11 @@ class _ContinueCard extends StatelessWidget {
         borderRadius: AppShape.radiusLg,
         padding: const EdgeInsets.all(12),
         onTap: () => Navigator.of(context).push(TavernChatPage.route(chat.id)),
+        onLongPress: () => unawaited(
+          showTavernActions(context, [
+            (AppIcons.delete, context.l10n.tavernDeleteChat, () => deleteTavernChat(context, ref, chat.id)),
+          ]),
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

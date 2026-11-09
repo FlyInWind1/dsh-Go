@@ -40,6 +40,7 @@ import '../../notify/chat_alerts.dart' show CompanionAlertDelivery, companionHos
 import '../../pets/pet_mood.dart' show PetEvent, PetEventKind;
 import '../../pets/pet_signals.dart' show petEventBusProvider;
 import '../../pets/pet_state.dart';
+import '../../state/app_mode_state.dart';
 import '../../state/chat_state.dart';
 import '../../state/connection_state.dart';
 import '../../state/hosts_state.dart';
@@ -52,6 +53,7 @@ import '../chat/voice/voice_controller.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
 import '../common/sheet_title_bar.dart';
+import '../modes/mode_switch.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
@@ -2804,6 +2806,23 @@ class _CompanionPageState extends ConsumerState<CompanionPage> implements Compan
                       onTap: () {
                         Navigator.of(sheet).pop();
                         unawaited(_removePack());
+                      },
+                    ),
+                  ],
+                ),
+                // 模式: 工作 or 酒馆 from here, and which one a launch opens.
+                SheetGroup(
+                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                  children: [
+                    SettingsTile(
+                      key: const ValueKey('companion-mode'),
+                      icon: AppIcons.modes,
+                      tinted: false,
+                      title: l10n.modeSheetTitle,
+                      value: Text(l10n.modeCompanionShort),
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(showModeSheet(context, current: AppMode.companion));
                       },
                     ),
                   ],

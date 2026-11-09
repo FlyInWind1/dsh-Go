@@ -18246,6 +18246,15 @@ class L10nZh extends L10n {
   String get tavernApiKeyMissing => '未填';
 
   @override
+  String get tavernDeleteChat => '删除对话';
+
+  @override
+  String get tavernDeleteChatTitle => '删除这段对话？';
+
+  @override
+  String get tavernDeleteChatMessage => '删除后就找不回来了。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

@@ -1,5 +1,5 @@
-// Pieces the tavern's pages share: a character's picture, and importing a
-// card from a file.
+// Pieces the tavern's pages share: a character's picture, importing a card,
+// deleting with a confirmation, and the long-press action sheet.
 
 import 'dart:io';
 
@@ -10,6 +10,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_provider.dart';
+import '../common/app_dialog.dart';
+import '../common/app_sheet.dart';
+import '../settings/settings_widgets.dart';
+import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 
 /// The card picture, or — for a card without one — a quiet field in the
@@ -56,6 +60,67 @@ class TavernPortrait extends StatelessWidget {
     );
   }
 }
+
+/// Asks, then deletes [character] and its chats. True when it was deleted.
+Future<bool> deleteTavernCharacter(BuildContext context, WidgetRef ref, TavernCharacter character) async {
+  final l10n = context.l10n;
+  final ok = await _confirmDelete(
+    context,
+    title: l10n.tavernDeleteCharacterTitle(character.name),
+    message: l10n.tavernDeleteCharacterMessage,
+  );
+  if (ok) await ref.read(tavernProvider).deleteCharacter(character.id);
+  return ok;
+}
+
+/// Asks, then deletes one chat. True when it was deleted.
+Future<bool> deleteTavernChat(BuildContext context, WidgetRef ref, String chatId) async {
+  final l10n = context.l10n;
+  final ok = await _confirmDelete(context, title: l10n.tavernDeleteChatTitle, message: l10n.tavernDeleteChatMessage);
+  if (ok) await ref.read(tavernProvider).deleteChat(chatId);
+  return ok;
+}
+
+Future<bool> _confirmDelete(BuildContext context, {required String title, required String message}) async {
+  final l10n = context.l10n;
+  final ok = await showAppDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l10n.commonCancel)),
+        TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text(l10n.commonDelete)),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// A one-row sheet of actions on something the person long-pressed.
+Future<void> showTavernActions(BuildContext context, List<(IconData, String, VoidCallback)> actions) =>
+    showAppSheet<void>(
+      context,
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: SheetGroup(
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          children: [
+            for (final (icon, title, onTap) in actions)
+              SettingsTile(
+                icon: icon,
+                tinted: false,
+                danger: icon == AppIcons.delete,
+                title: title,
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  onTap();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
 
 /// Picks a card file and imports it; says how it went. Returns the character,
 /// or null when nothing was imported.

@@ -33308,6 +33308,24 @@ abstract class L10n {
   /// **'未填'**
   String get tavernApiKeyMissing;
 
+  /// No description provided for @tavernDeleteChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除对话'**
+  String get tavernDeleteChat;
+
+  /// No description provided for @tavernDeleteChatTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除这段对话？'**
+  String get tavernDeleteChatTitle;
+
+  /// No description provided for @tavernDeleteChatMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后就找不回来了。'**
+  String get tavernDeleteChatMessage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

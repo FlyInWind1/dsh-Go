@@ -87,5 +87,8 @@
   "tavernThinkingSubtitle": "Think before replying",
   "tavernApiKey": "DeepSeek API key",
   "tavernApiKeySet": "Set",
-  "tavernApiKeyMissing": "Not set"
+  "tavernApiKeyMissing": "Not set",
+  "tavernDeleteChat": "Delete chat",
+  "tavernDeleteChatTitle": "Delete this chat?",
+  "tavernDeleteChatMessage": "It can't be brought back."
 }

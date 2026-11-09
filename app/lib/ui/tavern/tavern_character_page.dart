@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_provider.dart';
 import '../chat/render/markdown_body.dart';
-import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
 import '../features/feature_kit.dart';
 import '../settings/settings_widgets.dart';
@@ -57,22 +56,8 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
   }
 
   Future<void> _delete(TavernCharacter character) async {
-    final l10n = context.l10n;
     final navigator = Navigator.of(context);
-    final ok = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.tavernDeleteCharacterTitle(character.name)),
-        content: Text(l10n.tavernDeleteCharacterMessage),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l10n.commonCancel)),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text(l10n.commonDelete)),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await ref.read(tavernProvider).deleteCharacter(character.id);
-    if (mounted) navigator.pop();
+    if (await deleteTavernCharacter(context, ref, character) && mounted) navigator.pop();
   }
 
   @override
@@ -175,13 +160,20 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
                 for (final chat in chats)
-                  SettingsTile(
-                    key: ValueKey('tavern-chat-${chat.id}'),
-                    icon: AppIcons.chat,
-                    tinted: false,
-                    title: plainPreview(chat.lastText ?? chat.title),
-                    subtitle: l10n.tavernMessageCount(chat.messageCount),
-                    onTap: () => Navigator.of(context).push(TavernChatPage.route(chat.id)),
+                  GestureDetector(
+                    onLongPress: () => unawaited(
+                      showTavernActions(context, [
+                        (AppIcons.delete, l10n.tavernDeleteChat, () => deleteTavernChat(context, ref, chat.id)),
+                      ]),
+                    ),
+                    child: SettingsTile(
+                      key: ValueKey('tavern-chat-${chat.id}'),
+                      icon: AppIcons.chat,
+                      tinted: false,
+                      title: plainPreview(chat.lastText ?? chat.title),
+                      subtitle: l10n.tavernMessageCount(chat.messageCount),
+                      onTap: () => Navigator.of(context).push(TavernChatPage.route(chat.id)),
+                    ),
                   ),
               ],
             ),
