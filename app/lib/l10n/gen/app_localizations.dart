@@ -34148,6 +34148,54 @@ abstract class L10n {
   /// **'这张卡没有世界书'**
   String get tavernLorebookEmpty;
 
+  /// No description provided for @tavernImportFromFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'从文件导入'**
+  String get tavernImportFromFile;
+
+  /// No description provided for @tavernImportFromFileSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'PNG、JSON 或 CHARX 角色卡'**
+  String get tavernImportFromFileSubtitle;
+
+  /// No description provided for @tavernImportFromLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'从链接导入'**
+  String get tavernImportFromLink;
+
+  /// No description provided for @tavernImportFromLinkSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡文件的直链（.png、.json、.charx）'**
+  String get tavernImportFromLinkSubtitle;
+
+  /// No description provided for @tavernLinkInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是一个网址'**
+  String get tavernLinkInvalid;
+
+  /// No description provided for @tavernLinkFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败，检查网络或链接'**
+  String get tavernLinkFailed;
+
+  /// No description provided for @tavernLinkStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败（HTTP {status}）'**
+  String tavernLinkStatus(int status);
+
+  /// No description provided for @tavernLinkIsPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。'**
+  String get tavernLinkIsPage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

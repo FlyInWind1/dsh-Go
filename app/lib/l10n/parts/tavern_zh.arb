@@ -338,5 +338,20 @@
   },
   "tavernLorebookConstant": "常驻",
   "tavernLorebookOff": "已关",
-  "tavernLorebookEmpty": "这张卡没有世界书"
+  "tavernLorebookEmpty": "这张卡没有世界书",
+  "tavernImportFromFile": "从文件导入",
+  "tavernImportFromFileSubtitle": "PNG、JSON 或 CHARX 角色卡",
+  "tavernImportFromLink": "从链接导入",
+  "tavernImportFromLinkSubtitle": "卡文件的直链（.png、.json、.charx）",
+  "tavernLinkInvalid": "这不是一个网址",
+  "tavernLinkFailed": "下载失败，检查网络或链接",
+  "tavernLinkStatus": "下载失败（HTTP {status}）",
+  "@tavernLinkStatus": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernLinkIsPage": "这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。"
 }

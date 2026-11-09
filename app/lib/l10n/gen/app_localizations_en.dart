@@ -19728,6 +19728,33 @@ class L10nEn extends L10n {
   String get tavernLorebookEmpty => 'This card has no lorebook';
 
   @override
+  String get tavernImportFromFile => 'From a file';
+
+  @override
+  String get tavernImportFromFileSubtitle => 'A PNG, JSON or CHARX card';
+
+  @override
+  String get tavernImportFromLink => 'From a link';
+
+  @override
+  String get tavernImportFromLinkSubtitle => 'A direct link to the card file (.png, .json, .charx)';
+
+  @override
+  String get tavernLinkInvalid => 'That isn\'t a web address';
+
+  @override
+  String get tavernLinkFailed => 'Couldn\'t download it; check the connection or the link';
+
+  @override
+  String tavernLinkStatus(int status) {
+    return 'Couldn\'t download it (HTTP $status)';
+  }
+
+  @override
+  String get tavernLinkIsPage =>
+      'That\'s a web page, not a card file. Find the download link to the .png or .json and try that.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

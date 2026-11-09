@@ -338,5 +338,20 @@
   },
   "tavernLorebookConstant": "Always",
   "tavernLorebookOff": "Off",
-  "tavernLorebookEmpty": "This card has no lorebook"
+  "tavernLorebookEmpty": "This card has no lorebook",
+  "tavernImportFromFile": "From a file",
+  "tavernImportFromFileSubtitle": "A PNG, JSON or CHARX card",
+  "tavernImportFromLink": "From a link",
+  "tavernImportFromLinkSubtitle": "A direct link to the card file (.png, .json, .charx)",
+  "tavernLinkInvalid": "That isn't a web address",
+  "tavernLinkFailed": "Couldn't download it; check the connection or the link",
+  "tavernLinkStatus": "Couldn't download it (HTTP {status})",
+  "@tavernLinkStatus": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernLinkIsPage": "That's a web page, not a card file. Find the download link to the .png or .json and try that."
 }

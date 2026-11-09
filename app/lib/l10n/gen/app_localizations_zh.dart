@@ -18696,6 +18696,32 @@ class L10nZh extends L10n {
   String get tavernLorebookEmpty => '这张卡没有世界书';
 
   @override
+  String get tavernImportFromFile => '从文件导入';
+
+  @override
+  String get tavernImportFromFileSubtitle => 'PNG、JSON 或 CHARX 角色卡';
+
+  @override
+  String get tavernImportFromLink => '从链接导入';
+
+  @override
+  String get tavernImportFromLinkSubtitle => '卡文件的直链（.png、.json、.charx）';
+
+  @override
+  String get tavernLinkInvalid => '这不是一个网址';
+
+  @override
+  String get tavernLinkFailed => '下载失败，检查网络或链接';
+
+  @override
+  String tavernLinkStatus(int status) {
+    return '下载失败（HTTP $status）';
+  }
+
+  @override
+  String get tavernLinkIsPage => '这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

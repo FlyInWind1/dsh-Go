@@ -46,6 +46,13 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
     super.dispose();
   }
 
+  /// 导入 (a file or a link), then the card's page.
+  Future<void> _import() async {
+    final navigator = Navigator.of(context);
+    final character = await showTavernImport(context, ref);
+    if (character != null && mounted) unawaited(navigator.push(TavernCharacterPage.route(character.id)));
+  }
+
   /// Imports the sample card and opens it, as an imported card would be.
   Future<void> _trySample() async {
     final navigator = Navigator.of(context);
@@ -78,7 +85,7 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
           key: const ValueKey('tavern-import'),
           icon: AppIcons.add,
           tooltip: l10n.tavernImport,
-          onPressed: () => unawaited(importTavernCard(context, ref)),
+          onPressed: () => unawaited(_import()),
         ),
         GlassIconButton(
           key: const ValueKey('tavern-settings'),
@@ -117,7 +124,7 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
                 children: [
                   OutlinedButton(
                     key: const ValueKey('tavern-empty-import'),
-                    onPressed: () => unawaited(importTavernCard(context, ref)),
+                    onPressed: () => unawaited(_import()),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 44),
                       padding: const EdgeInsets.symmetric(horizontal: 20),
