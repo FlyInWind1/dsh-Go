@@ -19251,6 +19251,12 @@ class L10nEn extends L10n {
   String get tavernDeleteChatMessage => 'It can\'t be brought back.';
 
   @override
+  String get tavernSwitchedBranch => 'Switched to another branch';
+
+  @override
+  String get tavernUndo => 'Undo';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -70,13 +70,13 @@ void main() {
     expect(find.text('1/1'), findsOneWidget);
 
     // Past the last alternative, › writes a new one.
-    await tester.tap(find.byKey(const ValueKey('tavern-next')).last);
+    await tester.tap(find.byKey(const ValueKey('tavern-next')).first);
     await _finishReply(tester);
     expect(find.text('2/2'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('tavern-prev')).last);
+    await tester.tap(find.byKey(const ValueKey('tavern-prev')).first);
     await tester.pumpAndSettle();
-    expect(find.text('1/2'), findsOneWidget);
+    expect(find.text('1/2'), findsNWidgets(2)); // the greeting and the reply
     expect(find.textContaining('地下室'), findsOneWidget);
   });
 

@@ -17,9 +17,11 @@ import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_provider.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
+import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
+import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
 import '../settings/settings_widgets.dart';
@@ -54,6 +56,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   String _streamText = '';
   String? _error;
 
+  /// What 「重试」 on the error does, when it can do anything.
+  VoidCallback? _retry;
+
   bool get _running => _turn != null;
 
   @override
@@ -79,13 +84,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (mounted) setState(() => _messages = messages);
   }
 
-  void _run(Stream<TavernEvent> turn, {String? draft}) {
+  void _run(Stream<TavernEvent> Function() start, {String? draft}) {
     setState(() {
       _error = null;
+      _retry = null;
       _streamNode = null;
       _streamText = '';
     });
-    _turn = turn.listen(
+    _turn = start().listen(
       (event) {
         if (!mounted) return;
         switch (event) {
@@ -103,7 +109,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             _finish();
           case TavernTurnFailed(:final kind, :final detail, :final partial):
             if (partial == null && draft != null && _input.text.isEmpty) _input.text = draft;
-            _finish(error: kind == TavernFailure.cancelled ? null : _failureText(kind, detail));
+            if (kind == TavernFailure.cancelled) return _finish();
+            _finish(
+              error: _failureText(kind, detail),
+              // Nothing stored: the line is back in the composer, send it
+              // again. Half a reply: write that reply again.
+              retry: switch (partial) {
+                null when draft != null => _send,
+                final p? => () => _run(() => _tavern.regenerate(widget.chatId, p.nodeId)),
+                null => () => _run(start),
+              },
+            );
         }
       },
       onDone: () {
@@ -112,13 +128,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
   }
 
-  void _finish({String? error}) {
+  void _finish({String? error, VoidCallback? retry}) {
     unawaited(_turn?.cancel());
     setState(() {
       _turn = null;
       _streamNode = null;
       _streamText = '';
       _error = error;
+      _retry = retry;
     });
     unawaited(_reload());
   }
@@ -139,7 +156,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (_running) return;
     final text = _input.text;
     _input.clear();
-    _run(_tavern.send(widget.chatId, text), draft: text);
+    _run(() => _tavern.send(widget.chatId, text), draft: text);
   }
 
   void _stop() => _tavern.stop(widget.chatId);
@@ -148,11 +165,26 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (_running) return;
     final index = message.siblingIndex + delta;
     if (index >= message.siblingCount) {
-      _run(_tavern.regenerate(widget.chatId, message.nodeId));
+      _run(() => _tavern.regenerate(widget.chatId, message.nodeId));
       return;
     }
     unawaited(HapticFeedback.selectionClick());
+    final messages = _messages ?? const <TavernMessage>[];
+    final later = messages.indexWhere((m) => m.nodeId == message.nodeId) < messages.length - 1;
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
     await _tavern.selectSibling(widget.chatId, message.nodeId, index);
+    // An earlier message: everything after it is now another branch's.
+    if (!later || !mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l10n.tavernSwitchedBranch),
+        action: SnackBarAction(
+          label: l10n.tavernUndo,
+          onPressed: () => unawaited(_tavern.selectSibling(widget.chatId, message.nodeId, message.siblingIndex)),
+        ),
+      ),
+    );
   }
 
   Future<void> _menu(TavernMessage message, {required bool last}) async {
@@ -191,9 +223,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       case _MessageAction.edit:
         await _edit(message);
       case _MessageAction.regenerate:
-        if (!_running) _run(_tavern.regenerate(widget.chatId, message.nodeId));
+        if (!_running) _run(() => _tavern.regenerate(widget.chatId, message.nodeId));
       case _MessageAction.continueReply:
-        if (!_running) _run(_tavern.continueReply(widget.chatId, message.nodeId));
+        if (!_running) _run(() => _tavern.continueReply(widget.chatId, message.nodeId));
       case _MessageAction.delete:
         if (!_running) await _tavern.deleteFrom(widget.chatId, message.nodeId);
     }
@@ -286,7 +318,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         ),
       ),
       bottom: [
-        BotErrorSlot(error: _error, onDismiss: () => setState(() => _error = null)),
+        _ErrorSlot(
+          error: _error,
+          retry: _retry,
+          onDismiss: () => setState(() {
+            _error = null;
+            _retry = null;
+          }),
+        ),
         Composer(
           hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
           controller: _input,
@@ -403,4 +442,34 @@ class _StreamingReply extends StatelessWidget {
   Widget build(BuildContext context) => text.isEmpty
       ? const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
       : MarkdownBody(text: text, streaming: true, selectable: false);
+}
+
+/// The last turn's error over the composer, with 「重试」 when it can retry.
+class _ErrorSlot extends StatelessWidget {
+  const _ErrorSlot({required this.error, required this.retry, required this.onDismiss});
+
+  final String? error;
+  final VoidCallback? retry;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) => SmoothSize(
+    duration: AppMotion.of(context, AppMotion.standard),
+    curve: AppMotion.std,
+    alignment: Alignment.bottomCenter,
+    child: error == null
+        ? const SizedBox(width: double.infinity)
+        : Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ErrorBanner(
+              key: const ValueKey('tavern-error'),
+              message: error!,
+              onDismiss: onDismiss,
+              action: switch (retry) {
+                final retry? => (label: context.l10n.commonRetry, onPressed: retry),
+                null => null,
+              },
+            ),
+          ),
+  );
 }

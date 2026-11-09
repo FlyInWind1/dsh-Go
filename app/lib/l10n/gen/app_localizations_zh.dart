@@ -18255,6 +18255,12 @@ class L10nZh extends L10n {
   String get tavernDeleteChatMessage => '删除后就找不回来了。';
 
   @override
+  String get tavernSwitchedBranch => '切到了另一条分支';
+
+  @override
+  String get tavernUndo => '撤销';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

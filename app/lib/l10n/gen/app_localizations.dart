@@ -33326,6 +33326,18 @@ abstract class L10n {
   /// **'删除后就找不回来了。'**
   String get tavernDeleteChatMessage;
 
+  /// No description provided for @tavernSwitchedBranch.
+  ///
+  /// In zh, this message translates to:
+  /// **'切到了另一条分支'**
+  String get tavernSwitchedBranch;
+
+  /// No description provided for @tavernUndo.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get tavernUndo;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
