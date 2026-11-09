@@ -460,6 +460,54 @@ class ChatStore {
     });
   }
 
+  /// Restores a complete selection snapshot, including inactive branches and
+  /// explicit null stops. Every stored node must occur exactly once in the
+  /// map. A null root keeps the tree but selects an empty path.
+  ///
+  /// Importers can assemble a tree with makeCurrent:false and publish all
+  /// choices in O(nodes), without selectNode rewriting every ancestor for
+  /// every imported row. Validation finishes before any selection is changed.
+  void restoreSelection(
+    String chatId, {
+    required String? selectedRootId,
+    required Map<String, String?> selectedChildren,
+  }) {
+    transaction(() {
+      _chatRow(chatId);
+      final choices = Map<String, String?>.of(selectedChildren);
+      final rows = _db.select('SELECT id, parent_id, selected_child_id FROM nodes WHERE chat_id = ?', [chatId]);
+      final parents = <String, String?>{for (final row in rows) row['id'] as String: row['parent_id'] as String?};
+      if (choices.length != parents.length || parents.keys.any((id) => !choices.containsKey(id))) {
+        throw ArgumentError('A selection snapshot must contain every node of this chat, and no other nodes.');
+      }
+      if (selectedRootId != null && (!parents.containsKey(selectedRootId) || parents[selectedRootId] != null)) {
+        throw ArgumentError.value(selectedRootId, 'selectedRootId', 'Must be a root of this chat.');
+      }
+      for (final entry in choices.entries) {
+        final child = entry.value;
+        if (child != null && (!parents.containsKey(child) || parents[child] != entry.key)) {
+          throw ArgumentError('Selected child $child is not a child of ${entry.key} in this chat.');
+        }
+      }
+      var leaf = selectedRootId;
+      while (leaf != null && choices[leaf] != null) {
+        leaf = choices[leaf];
+      }
+      for (final row in rows) {
+        final id = row['id'] as String;
+        if (row['selected_child_id'] != choices[id]) {
+          _db.execute('UPDATE nodes SET selected_child_id = ? WHERE id = ?', [choices[id], id]);
+        }
+      }
+      _db.execute('UPDATE chats SET selected_root_id = ?, current_leaf_id = ? WHERE id = ?', [
+        selectedRootId,
+        leaf,
+        chatId,
+      ]);
+      _touch(chatId);
+    });
+  }
+
   TavernMessage updateMessage(
     String chatId,
     String nodeId, {

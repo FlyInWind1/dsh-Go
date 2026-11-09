@@ -9,6 +9,8 @@ import 'dart:typed_data';
 
 import 'api.dart';
 import 'inspection.dart';
+import 'io/chat_jsonl.dart';
+import 'io/st_chat_document.dart';
 import 'llm/model_client.dart';
 import 'macros/macro_engine.dart';
 import 'persona.dart';
@@ -156,6 +158,7 @@ class TavernEngine implements Tavern {
   final PromptTokenCounter _counter;
   final DateTime Function() _clock;
   final double Function() _random;
+  late final _chatCodec = ChatJsonlCodec(clock: _clock);
   late final Map<String, Object?> _globalVariables;
   late final StreamSubscription<String> _storeSubscription;
   final _charactersChanged = StreamController<void>.broadcast();
@@ -494,6 +497,61 @@ class TavernEngine implements Tavern {
   );
 
   @override
+  Future<TavernChatImportResult> importChats(
+    String characterId,
+    List<TavernChatFile> files, {
+    Map<String, String> lorebookIds = const {},
+  }) => _operation(() {
+    final documents = [
+      for (final file in List<TavernChatFile>.of(files)) StChatDocument.decode(file.fileName, file.bytes),
+    ];
+    final mapping = Map<String, String>.of(lorebookIds);
+    for (final entry in mapping.entries) {
+      if (entry.key.isEmpty) throw ArgumentError.value(entry.key, 'lorebookIds', 'ST names must not be empty.');
+      _requireBookId(entry.value);
+    }
+    return _libraryOperation(() async {
+      if (_deletingCharacters.contains(characterId)) throw StateError('Character deletion is running.');
+      if (await _record(characterId) == null) throw const TavernImportError('角色不存在。');
+      for (final id in mapping.values.toSet()) {
+        if (await _readBook(id) == null) throw const TavernImportError('映射的世界书不存在。');
+      }
+      if (_deletingCharacters.contains(characterId)) throw StateError('Character deletion is running.');
+      final extraNotices = <String>[];
+      for (final document in documents) {
+        final metadata = _map(document.header['chat_metadata']);
+        final name = metadata['world_info'];
+        if (name is String && name.isNotEmpty && !mapping.containsKey(name)) {
+          extraNotices.add('${document.fileName}:${document.headerLineNumber}: 世界书“$name”没有本地映射；保留名称，暂不执行该绑定。');
+        }
+      }
+      final imported = _store.transaction(() {
+        final result = _chatCodec.importBatch(_store, characterId: characterId, documents: documents);
+        if (mapping.isNotEmpty) {
+          for (final chatId in result.chatIds) {
+            _store.updateChat(chatId, settings: {'stLorebookIds': mapping});
+          }
+        }
+        return result;
+      });
+      _notifyLists();
+      return TavernChatImportResult(
+        chatIds: imported.chatIds,
+        chatsByFile: imported.chatsByFile,
+        notices: [...imported.notices, ...extraNotices],
+      );
+    });
+  });
+
+  @override
+  Future<List<TavernChatFile>> exportChat(String chatId, {String? fileName}) => _operation(
+    () => List<TavernChatFile>.unmodifiable([
+      for (final document in _chatCodec.exportChat(_store, chatId, fileName: fileName))
+        TavernChatFile(fileName: document.fileName, bytes: document.encode()),
+    ]),
+  );
+
+  @override
   Future<void> deleteChat(String chatId) => _operation(
     () => _withMutation(chatId, () {
       _store.deleteChat(chatId);
@@ -704,8 +762,16 @@ class TavernEngine implements Tavern {
         },
       });
 
-  Map<String, Object?> _effectiveSettings([StoredChat? chat]) {
-    final result = _merge(_map(_document['settings']), chat?.settings ?? const <String, Object?>{});
+  Map<String, Object?> _effectiveSettings([StoredChat? chat, Map<String, Object?>? metadata]) {
+    var result = _map(_document['settings']);
+    if (chat != null) {
+      final source = metadata ?? _chatCodec.metadataForNode(_store, chat.id);
+      result = _merge(
+        result,
+        _chatMetadataSettings(source, _map(chat.settings['stLorebookIds']), _map(result['authorNote'])),
+      );
+      result = _merge(result, chat.settings);
+    }
     // A selected preset is one complete preset, not a field-by-field mixture
     // with whichever global preset happened to be selected previously.
     if (chat != null && chat.settings.containsKey('preset')) result['preset'] = _map(chat.settings['preset']);
@@ -817,7 +883,11 @@ class TavernEngine implements Tavern {
   @override
   Future<void> setHidden(String chatId, String nodeId, bool hidden) => _operation(
     () => _withMutation(chatId, () {
-      _store.setHidden(chatId, nodeId, hidden);
+      _store.transaction(() {
+        final node = _store.node(chatId, nodeId);
+        _store.updateMessage(chatId, nodeId, original: {...node.original, 'is_system': hidden});
+        _store.setHidden(chatId, nodeId, hidden);
+      });
     }),
   );
 
@@ -876,6 +946,10 @@ class TavernEngine implements Tavern {
             unawaited(controller.close());
             return;
           }
+          final metadata = _chatCodec.metadataForNode(_store, chatId, nodeId: nodeId);
+          final sourceState = _stateAt(chatId, nodeId ?? chat.currentLeafId);
+          final sourceFile =
+              sourceState['chatJsonlSourceFile'] ?? _map(_map(chat.metadata['dshgo'])['chatJsonl'])['rootFile'];
           final running = _Turn(
             chat,
             kind,
@@ -883,9 +957,11 @@ class TavernEngine implements Tavern {
             nodeId,
             controller,
             _config,
-            _personaSettings(_effectiveSettings(chat), selection),
+            _personaSettings(_effectiveSettings(chat, metadata), selection),
             _clock(),
             selection,
+            metadata,
+            sourceFile is String ? sourceFile : null,
           );
           turn = running;
           _turns[chatId] = running;
@@ -930,12 +1006,13 @@ class TavernEngine implements Tavern {
       if (turn.kind == _TurnKind.continueReply) parent = target!.message.nodeId;
       _setInspection(turn, turn.inspection.copyWith(contextNodeId: parent, clearContextNodeId: parent == null));
       final state = _stateAt(chatId, parent);
+      if (turn.sourceFile != null) state['chatJsonlSourceFile'] = turn.sourceFile;
       final cached = _liveVariables[chatId];
       final local = turn.kind != _TurnKind.regenerate && cached != null && cached.leaf == parent
           ? _runtimeCopy(cached.values)
           : state.containsKey('variables')
           ? _map(state['variables'])
-          : turn.kind == _TurnKind.regenerate
+          : turn.kind == _TurnKind.regenerate || (parent != null && turn.sourceFile != null)
           ? <String, Object?>{}
           : _copy(turn.chat.variables);
       turn.variables = local;
@@ -962,9 +1039,7 @@ class TavernEngine implements Tavern {
         chatId,
         turn.input,
         turn.generationType,
-        chatIdHash: turn.chat.metadata['chat_id_hash'] is num
-            ? (turn.chat.metadata['chat_id_hash']! as num).toInt()
-            : null,
+        chatIdHash: turn.metadata['chat_id_hash'] is num ? (turn.metadata['chat_id_hash']! as num).toInt() : null,
       );
       if (turn.kind == _TurnKind.send && turn.input.isNotEmpty) {
         final text = environment.expand(turn.input, const {});
@@ -992,9 +1067,28 @@ class TavernEngine implements Tavern {
       });
       environment.preset = preset;
       final prepared = prepareCharacterFields(data, persona: environment.persona, expand: environment.baseExpand);
+      // ST expands chat[0].mes after eager card fields, before WI and before
+      // filtering hidden/system messages. Keep the same per-turn history for
+      // later macros; commit text changes with the ready reply below.
+      if (history.isNotEmpty) {
+        final first = history.first;
+        final expanded = environment.expand(first.message.text, const {});
+        if (expanded != first.message.text) {
+          history[0] = _nodeWithText(first, expanded);
+          if (turn.kind != _TurnKind.impersonate) {
+            turn.originalFirstMessage = first;
+            turn.expandedFirstMessage = expanded;
+          }
+        }
+      }
       final books = await turn.cancellation.wait(_loadBooks(turn.chat.characterId, data, turn.settings));
       turn.cancellation.check();
-      final initialInjections = _configuredInjections(turn.settings, prepared, data);
+      final initialInjections = _configuredInjections(
+        turn.settings,
+        prepared,
+        data,
+        userMessageCount: history.where((node) => node.message.role == TavernRole.user).length,
+      );
       final scanInjections = <String>[];
       for (final item in initialInjections) {
         if (item.scan) {
@@ -1089,6 +1183,9 @@ class TavernEngine implements Tavern {
         _persistInspection(turn, turn.inspection);
       } else {
         final created = _store.transaction(() {
+          if (turn.originalFirstMessage case final first?) {
+            _store.updateMessage(chatId, first.message.nodeId, text: turn.expandedFirstMessage);
+          }
           _store.updateChat(chatId, variables: _copy(local));
           TavernMessage message;
           if (turn.kind == _TurnKind.continueReply) {
@@ -1113,6 +1210,7 @@ class TavernEngine implements Tavern {
           _writeInspection(inspection);
           return (message, inspection);
         });
+        turn.firstMessageCommitted = turn.originalFirstMessage != null;
         reply = created.$1;
         _setInspection(turn, created.$2);
       }
@@ -1266,7 +1364,7 @@ class TavernEngine implements Tavern {
                     if (text.isEmpty) return;
                     var addition = text;
                     if (turn.kind == _TurnKind.continueReply && !turn.receivedText) {
-                      if (!turn.originalTarget!.message.text.endsWith(' ')) addition = '${turn.postfix}$text';
+                      if (!turn.text!.toString().endsWith(' ')) addition = '${turn.postfix}$text';
                     }
                     turn.receivedText = true;
                     turn.text!.write(addition);
@@ -1370,6 +1468,10 @@ class TavernEngine implements Tavern {
         _store.deleteFrom(turn.chat.id, turn.reply!.nodeId);
       }
       if (turn.newUserId != null) _store.deleteFrom(turn.chat.id, turn.newUserId!);
+      final first = turn.originalFirstMessage;
+      if (turn.firstMessageCommitted && first != null && first.message.nodeId != turn.newUserId) {
+        _store.updateMessage(turn.chat.id, first.message.nodeId, text: first.message.text);
+      }
       // Restore deepest choices first, then the old active leaf. Selecting a
       // child only rewrites its ancestors, never its remembered descendants.
       for (final selection in turn.previousSelections.reversed) {
@@ -1476,6 +1578,8 @@ class _Turn {
     this.settings,
     this.at,
     this.personaSelection,
+    this.metadata,
+    this.sourceFile,
   ) {
     inspection = TavernTurnInspection(
       chatId: chat.id,
@@ -1494,6 +1598,8 @@ class _Turn {
   final Map<String, Object?> settings;
   final DateTime at;
   final PersonaSelection personaSelection;
+  final Map<String, Object?> metadata;
+  final String? sourceFile;
   final cancellation = ModelCancellation();
   final done = Completer<void>();
   bool abandoned = false;
@@ -1505,6 +1611,9 @@ class _Turn {
   int chunks = 0;
   String? newUserId;
   StoredNode? originalTarget;
+  StoredNode? originalFirstMessage;
+  String? expandedFirstMessage;
+  bool firstMessageCommitted = false;
   TavernMessage? reply;
   TavernMessage? lastCommitted;
   StringBuffer? text;
@@ -1633,11 +1742,17 @@ class _ConfiguredInjection {
 List<_ConfiguredInjection> _configuredInjections(
   Map<String, Object?> settings,
   PreparedCharacterFields prepared,
-  Map<String, Object?> card,
-) {
+  Map<String, Object?> card, {
+  required int userMessageCount,
+}) {
   final result = <_ConfiguredInjection>[];
   final note = _map(settings['authorNote']);
-  if (note.isNotEmpty && note['enabled'] != false) {
+  final interval = note['interval'];
+  final noteDue =
+      interval == null ||
+      interval == 1 ||
+      (interval is num && interval > 0 && userMessageCount > 0 && userMessageCount % interval == 0);
+  if (note.isNotEmpty && note['enabled'] != false && noteDue) {
     result.add(
       _ConfiguredInjection(
         _injection(note, '2_floating_prompt', kind: 'authorNote'),
@@ -1780,6 +1895,29 @@ PromptSource _worldSource(WorldInfoHit hit) => PromptSource(
 );
 
 bool _systemMessage(StoredNode node) => node.message.role == TavernRole.system || node.original['is_system'] == true;
+StoredNode _nodeWithText(StoredNode node, String text) {
+  final value = node.message;
+  return StoredNode(
+    message: TavernMessage(
+      nodeId: value.nodeId,
+      parentId: value.parentId,
+      role: value.role,
+      speaker: value.speaker,
+      text: text,
+      reasoning: value.reasoning,
+      at: value.at,
+      siblingIndex: value.siblingIndex,
+      siblingCount: value.siblingCount,
+      hidden: value.hidden,
+      usage: value.usage,
+    ),
+    depth: node.depth,
+    selectedChildId: node.selectedChildId,
+    extra: node.extra,
+    original: node.original,
+  );
+}
+
 PromptHistoryMessage _promptHistory(StoredNode node) => PromptHistoryMessage(
   id: node.message.nodeId,
   role: switch (node.message.role) {
@@ -1834,6 +1972,53 @@ Map<String, Object?> _personaSettings(Map<String, Object?> settings, PersonaSele
   final persona = selection.persona;
   if (persona == null) return settings;
   return {...settings, 'userName': persona.name, 'persona': persona.description, 'personaInPrompt': persona.inPrompt};
+}
+
+// ST public/script.js getCharacterCardFields and scripts/authors-note.js
+// loadSettings/setFloatingPrompt, fixed 1.19.0 commit cited at the file top.
+// These values are projected from the selected source, not copied into every
+// branch's mutable chat settings. Explicit local settings are merged last.
+Map<String, Object?> _chatMetadataSettings(
+  Map<String, Object?> metadata,
+  Map<String, Object?> lorebookIds,
+  Map<String, Object?> defaultNote,
+) {
+  final result = <String, Object?>{};
+  for (final entry in const {
+    'scenario': 'scenarioOverride',
+    'system_prompt': 'systemPromptOverride',
+    'mes_example': 'mesExamplesOverride',
+  }.entries) {
+    final value = metadata[entry.key];
+    if (value is String) result[entry.value] = value;
+  }
+  const noteKeys = ['note_prompt', 'note_interval', 'note_depth', 'note_position', 'note_role'];
+  if (noteKeys.any(metadata.containsKey)) {
+    final position = metadata['note_position'];
+    final placement = position == null
+        ? defaultNote['placement'] ?? 'inChat'
+        : switch (position) {
+            2 => 'beforeMain',
+            0 => 'afterMain',
+            _ => 'inChat',
+          };
+    result['authorNote'] = {
+      'content': metadata['note_prompt'] ?? defaultNote['content'] ?? '',
+      'interval': metadata['note_interval'] ?? defaultNote['interval'] ?? 1,
+      'depth': metadata['note_depth'] ?? defaultNote['depth'] ?? 4,
+      'placement': placement,
+      'role': metadata['note_role'] == null ? defaultNote['role'] ?? 'system' : _role(metadata['note_role']),
+      'enabled': position == null || position == 0 || position == 1 || position == 2,
+    };
+  }
+  if (metadata.containsKey('world_info')) {
+    final name = metadata['world_info'];
+    final mapped = name is String ? lorebookIds[name] : null;
+    result['lorebooks'] = {
+      'chat': [if (mapped is String) mapped],
+    };
+  }
+  return result;
 }
 
 Map<String, Object?> _effectiveCard(Map<String, Object?> raw, Map<String, Object?> settings) {

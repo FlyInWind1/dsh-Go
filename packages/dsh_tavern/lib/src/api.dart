@@ -177,6 +177,31 @@ class TavernTurnFailed extends TavernEvent {
 
 enum TavernCardFormat { png, json, charx }
 
+/// A named ST JSONL document. The filename is a label, never a path to read.
+/// Bytes are copied at construction and cannot be changed through this value.
+final class TavernChatFile {
+  TavernChatFile({required this.fileName, required Uint8List bytes})
+    : bytes = Uint8List.fromList(bytes).asUnmodifiableView();
+
+  final String fileName;
+  final Uint8List bytes;
+}
+
+/// One atomic batch may contain several independent chats and their branches.
+final class TavernChatImportResult {
+  TavernChatImportResult({
+    required List<String> chatIds,
+    required Map<String, String> chatsByFile,
+    required List<String> notices,
+  }) : chatIds = List<String>.unmodifiable(chatIds),
+       chatsByFile = Map<String, String>.unmodifiable(chatsByFile),
+       notices = List<String>.unmodifiable(notices);
+
+  final List<String> chatIds;
+  final Map<String, String> chatsByFile;
+  final List<String> notices;
+}
+
 /// Where the model calls go. The key is read through [apiKey] each call, so
 /// the app keeps it in secure storage and the engine never stores it.
 class TavernModelConfig {
@@ -287,6 +312,23 @@ abstract interface class Tavern {
 
   /// A new chat whose first message is greeting [greeting] (0 = `first_mes`).
   Future<String> createChat(String characterId, {int greeting = 0});
+
+  /// Imports a same-character batch without adding greetings or evaluating
+  /// macros. Related main_chat files become branches; unrelated files remain
+  /// separate chats. A malformed document rejects the whole batch.
+  ///
+  /// [lorebookIds] maps ST world_info names to existing local lorebook IDs.
+  /// Unmapped names remain in the exported header and produce a notice.
+  Future<TavernChatImportResult> importChats(
+    String characterId,
+    List<TavernChatFile> files, {
+    Map<String, String> lorebookIds = const {},
+  });
+
+  /// Exports the current path first, then the other stored branches. Each
+  /// document has a fresh integrity UUID. Reading during a turn does not stop
+  /// generation; only the state already committed to storage is included.
+  Future<List<TavernChatFile>> exportChat(String chatId, {String? fileName});
 
   Future<void> deleteChat(String chatId);
 
