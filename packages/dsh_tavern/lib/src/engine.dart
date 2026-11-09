@@ -8,6 +8,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'api.dart';
+import 'inspection.dart';
 import 'llm/model_client.dart';
 import 'macros/macro_engine.dart';
 import 'persona.dart';
@@ -166,6 +167,9 @@ class TavernEngine implements Tavern {
   final _deletingPersonas = <String>{};
   final _operations = <Future<void>>{};
   final _inspections = <String, TavernInspection>{};
+  // A null entry is a tombstone: never fall back to an older disk snapshot
+  // after deleting the context of a more recent in-memory attempt.
+  final _latestInspections = <String, TavernTurnInspection?>{};
   final _liveVariables = <String, ({String? leaf, Map<String, Object?> values})>{};
   final _books = <String, Map<String, Object?>>{};
   final _bookRevisions = <String, int>{};
@@ -334,6 +338,7 @@ class TavernEngine implements Tavern {
           _store.deleteCharacterChats(characterId);
           for (final id in ids) {
             _inspections.remove(id);
+            _latestInspections.remove(id);
             _liveVariables.remove(id);
           }
           _characterCache = null;
@@ -493,6 +498,7 @@ class TavernEngine implements Tavern {
     () => _withMutation(chatId, () {
       _store.deleteChat(chatId);
       _inspections.remove(chatId);
+      _latestInspections.remove(chatId);
       _liveVariables.remove(chatId);
     }),
   );
@@ -565,6 +571,101 @@ class TavernEngine implements Tavern {
   TavernInspection? inspect(String chatId) {
     _ensureOpen();
     return _inspections[chatId];
+  }
+
+  @override
+  Future<TavernTurnInspection?> inspectTurn(String chatId, {String? nodeId}) => _operation(() {
+    StoredChat chat;
+    try {
+      chat = _store.chat(chatId);
+    } on StateError {
+      return null;
+    }
+    if (nodeId != null) return _nodeInspection(chatId, nodeId);
+    if (_latestInspections.containsKey(chatId)) {
+      final value = _latestInspections[chatId];
+      if (value != null && !_inspectionAnchorExists(value)) _latestInspections[chatId] = null;
+      return _latestInspections[chatId];
+    }
+    final value = _storedLatestInspection(chat);
+    return value != null && _inspectionAnchorExists(value) ? value : null;
+  });
+
+  StoredNode? _inspectionNode(String chatId, String nodeId) {
+    try {
+      return _store.node(chatId, nodeId);
+    } on StateError {
+      return null;
+    }
+  }
+
+  TavernTurnInspection? _nodeInspection(String chatId, String nodeId) {
+    final node = _inspectionNode(chatId, nodeId);
+    final json = node == null ? null : _map(node.extra['dshgo'])['inspection'];
+    if (json is! Map<String, Object?>) return null;
+    final value = TavernTurnInspection.fromJson(json);
+    return value.chatId == chatId && value.nodeId == nodeId ? value : null;
+  }
+
+  TavernTurnInspection? _storedLatestInspection(StoredChat chat) {
+    final latest = _map(_map(chat.metadata['dshgo'])['latestInspection']);
+    final nodeId = latest['nodeId'];
+    if (nodeId is String) return _nodeInspection(chat.id, nodeId);
+    final json = latest['snapshot'];
+    if (json is! Map<String, Object?>) return null;
+    final value = TavernTurnInspection.fromJson(json);
+    return value.chatId == chat.id && value.nodeId == null ? value : null;
+  }
+
+  bool _inspectionAnchorExists(TavernTurnInspection value) {
+    final anchor = value.nodeId ?? value.contextNodeId;
+    return anchor == null || _inspectionNode(value.chatId, anchor) != null;
+  }
+
+  void _setInspection(_Turn turn, TavernTurnInspection value) {
+    turn.inspection = value;
+    _latestInspections[turn.chat.id] = value;
+  }
+
+  Map<String, Object?> _inspectionExtra(Map<String, Object?> extra, TavernTurnInspection value) => {
+    ...extra,
+    'dshgo': {..._map(extra['dshgo']), 'inspection': value.toJson()},
+  };
+
+  void _writeLatestInspection(String chatId, TavernTurnInspection? value) {
+    final metadata = _store.chat(chatId).metadata;
+    final own = _map(metadata['dshgo']);
+    if (value == null) {
+      own.remove('latestInspection');
+    } else {
+      own['latestInspection'] = value.nodeId == null ? {'snapshot': value.toJson()} : {'nodeId': value.nodeId};
+    }
+    _store.updateChat(chatId, metadata: {...metadata, 'dshgo': own});
+  }
+
+  // The caller owns the transaction, so node evidence and the latest pointer
+  // become visible together. Always merge with the current stored JSON.
+  void _writeInspection(TavernTurnInspection value) {
+    final nodeId = value.nodeId;
+    if (nodeId != null) {
+      final node = _store.node(value.chatId, nodeId);
+      _store.updateMessage(value.chatId, nodeId, extra: _inspectionExtra(node.extra, value));
+    }
+    _writeLatestInspection(value.chatId, value);
+  }
+
+  void _persistInspection(_Turn turn, TavernTurnInspection value) {
+    _store.transaction(() => _writeInspection(value));
+    _setInspection(turn, value);
+  }
+
+  void _captureAssembly(_Turn turn, PromptAssembly assembly) {
+    try {
+      _setInspection(turn, turn.inspection.copyWith(prompt: assembly, status: TavernInspectionStatus.ready));
+    } on FormatException {
+      // An internal recording error is not a malformed character card.
+      throw StateError('Invalid assembled inspection data.');
+    }
   }
 
   Future<void> putLorebook(String id, Map<String, Object?> json) => _operation(() async {
@@ -697,10 +798,18 @@ class TavernEngine implements Tavern {
   @override
   Future<void> deleteFrom(String chatId, String nodeId) => _operation(
     () => _withMutation(chatId, () {
+      final stored = _storedLatestInspection(_store.chat(chatId));
+      final latest = _latestInspections.containsKey(chatId) ? _latestInspections[chatId] : stored;
+      var clearLatest = false;
       _store.transaction(() {
         _store.deleteFrom(chatId, nodeId);
         _restoreVariables(chatId);
+        clearLatest = latest != null && !_inspectionAnchorExists(latest);
+        if (clearLatest || (stored != null && !_inspectionAnchorExists(stored))) {
+          _writeLatestInspection(chatId, null);
+        }
       });
+      if (clearLatest) _latestInspections[chatId] = null;
       _liveVariables.remove(chatId);
     }),
   );
@@ -780,6 +889,7 @@ class TavernEngine implements Tavern {
           );
           turn = running;
           _turns[chatId] = running;
+          _setInspection(running, running.inspection);
           unawaited(_run(running));
         } catch (error) {
           controller.add(TavernTurnFailed(TavernFailure.server, detail: _safeDetail(error)));
@@ -818,6 +928,7 @@ class TavernEngine implements Tavern {
       var parent = turn.chat.currentLeafId;
       if (turn.kind == _TurnKind.regenerate) parent = target!.message.parentId;
       if (turn.kind == _TurnKind.continueReply) parent = target!.message.nodeId;
+      _setInspection(turn, turn.inspection.copyWith(contextNodeId: parent, clearContextNodeId: parent == null));
       final state = _stateAt(chatId, parent);
       final cached = _liveVariables[chatId];
       final local = turn.kind != _TurnKind.regenerate && cached != null && cached.leaf == parent
@@ -917,6 +1028,7 @@ class TavernEngine implements Tavern {
           characterTags: _characterTags(turn.settings, turn.chat.characterId),
         ),
       );
+      _setInspection(turn, turn.inspection.copyWith(worldInfo: _worldInfoTrace(world)));
       environment.outlets.addAll({
         for (final entry in world.outlets.entries) entry.key: entry.value.map((hit) => hit.content).join('\n'),
       });
@@ -961,6 +1073,7 @@ class TavernEngine implements Tavern {
         generationType: turn.generationType,
         at: turn.at,
       );
+      _captureAssembly(turn, assembly);
       turn.cancellation.check();
       turn.postfix = _string(preset.settings['continue_postfix']);
       TavernMessage reply;
@@ -973,27 +1086,35 @@ class TavernEngine implements Tavern {
           text: '',
           at: turn.at,
         );
+        _persistInspection(turn, turn.inspection);
       } else {
-        reply = _store.transaction(() {
+        final created = _store.transaction(() {
           _store.updateChat(chatId, variables: _copy(local));
+          TavernMessage message;
           if (turn.kind == _TurnKind.continueReply) {
-            final message = target!.message;
+            message = target!.message;
             // Descendants remain stored. The selected path ends at the node
             // whose continuation is now being generated.
             _store.selectNode(chatId, message.nodeId, restoreDescendants: false);
             final extra = _copy(target.extra);
             extra['dshgo'] = {..._map(extra['dshgo']), 'tavernState': turn.currentState};
-            return _store.updateMessage(chatId, message.nodeId, extra: extra);
+            message = _store.updateMessage(chatId, message.nodeId, extra: extra);
+          } else {
+            message = _store.append(
+              chatId,
+              parentId: parent,
+              role: TavernRole.character,
+              speaker: record.card.promptName,
+              text: '',
+              state: turn.currentState,
+            );
           }
-          return _store.append(
-            chatId,
-            parentId: parent,
-            role: TavernRole.character,
-            speaker: record.card.promptName,
-            text: '',
-            state: turn.currentState,
-          );
+          final inspection = turn.inspection.copyWith(nodeId: message.nodeId);
+          _writeInspection(inspection);
+          return (message, inspection);
         });
+        reply = created.$1;
+        _setInspection(turn, created.$2);
       }
       turn.begin(reply);
       if (turn.kind != _TurnKind.impersonate) {
@@ -1005,6 +1126,10 @@ class TavernEngine implements Tavern {
       _flush(turn);
       if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
       turn.cancellation.check();
+      _persistInspection(
+        turn,
+        turn.inspection.copyWith(status: TavernInspectionStatus.completed, finishedAt: _clock()),
+      );
       turn.emit(TavernTurnDone(_latest(turn)));
       turn.terminal = true;
     } catch (error) {
@@ -1017,29 +1142,58 @@ class TavernEngine implements Tavern {
           : TavernFailure.server;
       var detail = error is TavernModelException ? error.detail : _safeDetail(error);
       TavernMessage? partial;
+      var storageReady = false;
+      var inspection = turn.inspection.copyWith(
+        status: TavernInspectionStatus.failed,
+        finishedAt: _clock(),
+        failure: failure,
+        detail: detail,
+      );
       try {
         _flush(turn);
         if (turn.hasOutput) {
           partial = _latest(turn);
         } else {
-          _rollbackEmpty(turn);
+          inspection = inspection.copyWith(clearNodeId: true);
+          _rollbackEmpty(turn, inspection);
           if (turn.kind == _TurnKind.continueReply) partial = turn.originalTarget?.message;
         }
+        storageReady = true;
         if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
       } catch (storageError) {
         // Do not return partial=null after a failed rollback: that would invite
         // the UI to reinsert a user line that might still be in the database.
         failure = TavernFailure.server;
         detail = 'turn_storage_failure (${storageError.runtimeType})';
-        partial = turn.lastCommitted;
-        if (partial == null && turn.newUserId != null) {
-          try {
-            partial = _store.message(chatId, turn.newUserId!);
-          } catch (_) {
-            /* Original failure is retained. */
+        if (!storageReady) {
+          partial = turn.lastCommitted;
+          if (partial == null && turn.newUserId != null) {
+            try {
+              partial = _store.message(chatId, turn.newUserId!);
+            } catch (_) {
+              /* Original failure is retained. */
+            }
           }
         }
+        inspection = turn.inspection.copyWith(
+          status: TavernInspectionStatus.failed,
+          finishedAt: _clock(),
+          failure: failure,
+          detail: detail,
+        );
       }
+      if (storageReady && !identical(inspection, turn.inspection)) {
+        try {
+          _persistInspection(turn, inspection);
+        } catch (storageError) {
+          failure = TavernFailure.server;
+          detail = 'inspection_storage_failure (${storageError.runtimeType})';
+          inspection = inspection.copyWith(failure: failure, detail: detail);
+          // The DB may be unwritable. Keep this process's actual failure, but
+          // do not retry recursively or claim that this terminal state saved.
+        }
+      }
+      _setInspection(turn, inspection);
       turn.emit(TavernTurnFailed(failure, detail: detail, partial: partial));
       turn.terminal = true;
     } finally {
@@ -1123,6 +1277,7 @@ class TavernEngine implements Tavern {
                     turn.emit(TavernReasoningDelta(turn.reply!.nodeId, text));
                   case ModelUsage(:final usage):
                     turn.usage = usage;
+                    _setInspection(turn, turn.inspection.copyWith(reportedUsage: usage));
                   case ModelFinished():
                     completed.complete();
                     return;
@@ -1154,14 +1309,17 @@ class TavernEngine implements Tavern {
     if (!turn.dirty || turn.reply == null) return;
     final message = _buffered(turn);
     if (turn.kind != _TurnKind.impersonate) {
+      final extra = _store.node(turn.chat.id, message.nodeId).extra;
       turn.lastCommitted = _store.updateMessage(
         turn.chat.id,
         message.nodeId,
         text: message.text,
         reasoning: message.reasoning,
         usage: message.usage,
+        extra: _inspectionExtra(extra, turn.inspection),
       );
     } else {
+      _writeLatestInspection(turn.chat.id, turn.inspection);
       turn.lastCommitted = message;
     }
     turn.dirty = false;
@@ -1189,8 +1347,11 @@ class TavernEngine implements Tavern {
   TavernMessage _latest(_Turn turn) =>
       turn.kind == _TurnKind.impersonate ? _buffered(turn) : _store.message(turn.chat.id, turn.reply!.nodeId);
 
-  void _rollbackEmpty(_Turn turn) {
-    if (turn.kind == _TurnKind.impersonate) return;
+  void _rollbackEmpty(_Turn turn, TavernTurnInspection failed) {
+    if (turn.kind == _TurnKind.impersonate) {
+      _persistInspection(turn, failed);
+      return;
+    }
     _store.transaction(() {
       final original = turn.originalTarget;
       if (turn.kind == _TurnKind.continueReply && turn.reply != null && original != null) {
@@ -1218,7 +1379,9 @@ class TavernEngine implements Tavern {
         _store.selectNode(turn.chat.id, turn.chat.currentLeafId!, restoreDescendants: false);
       }
       _store.updateChat(turn.chat.id, variables: turn.chat.variables);
+      _writeLatestInspection(turn.chat.id, failed);
     });
+    _setInspection(turn, failed);
     _liveVariables[turn.chat.id] = (leaf: turn.chat.currentLeafId, values: _runtimeCopy(turn.originalVariables));
   }
 
@@ -1289,6 +1452,8 @@ class TavernEngine implements Tavern {
     await _personaQueue;
     await _storeSubscription.cancel();
     _liveVariables.clear();
+    _latestInspections.clear();
+    _inspections.clear();
     _closed = true;
     unawaited(_charactersChanged.close());
     unawaited(_chatsChanged.close());
@@ -1311,7 +1476,15 @@ class _Turn {
     this.settings,
     this.at,
     this.personaSelection,
-  );
+  ) {
+    inspection = TavernTurnInspection(
+      chatId: chat.id,
+      contextNodeId: chat.currentLeafId,
+      generationType: generationType,
+      startedAt: at,
+    );
+  }
+  late TavernTurnInspection inspection;
   final StoredChat chat;
   final _TurnKind kind;
   final String input;
@@ -1565,6 +1738,33 @@ List<PromptInjection> _finishInjections(List<_ConfiguredInjection> initial, Worl
 }
 
 PromptFragment _worldFragment(WorldInfoHit hit) => PromptFragment(hit.content, _worldSource(hit));
+Map<String, Object?> _worldInfoTrace(WorldInfoResult world) => _copy({
+  'budget': world.budget,
+  'overflowed': world.overflowed,
+  'scanRounds': world.scanRounds,
+  'activated': [
+    for (final hit in world.activated)
+      {
+        'bookId': hit.bookId,
+        'uid': hit.uid,
+        'source': hit.source.name,
+        'reason': hit.reason,
+        'content': hit.content,
+        'originalContent': hit.originalContent,
+        'order': hit.order,
+        'position': hit.entry.position,
+        'depth': hit.entry.depth,
+        'role': hit.entry.role,
+        'outlet': hit.entry.outlet,
+        'phase': hit.phase.name,
+        'round': hit.round,
+        'primaryKey': hit.primaryKey,
+        'secondaryMatches': hit.secondaryMatches,
+        'probabilityRoll': hit.probabilityRoll,
+      },
+  ],
+});
+
 PromptSource _worldSource(WorldInfoHit hit) => PromptSource(
   'worldInfo',
   '${hit.bookId}:${hit.uid}',

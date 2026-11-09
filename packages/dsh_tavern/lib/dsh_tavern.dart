@@ -4,6 +4,7 @@ library;
 
 export 'src/api.dart';
 export 'src/engine.dart';
+export 'src/inspection.dart';
 export 'src/io/card_codec.dart';
 export 'src/llm/model_client.dart';
 export 'src/macros/macro_engine.dart';

@@ -8,6 +8,7 @@
 
 import 'dart:typed_data';
 
+import 'inspection.dart';
 import 'persona.dart';
 
 /// One character in the library: the card's V3 `data` plus what the library
@@ -296,6 +297,13 @@ abstract interface class Tavern {
   /// Fires whenever the current path changes (a turn, a swipe, an edit) so the
   /// screen re-reads [path].
   Stream<void> pathChanges(String chatId);
+
+  /// The recorded request for a node, or the chat's latest admitted attempt
+  /// when [nodeId] is omitted. Reading never repeats macros, WI or assembly.
+  /// Missing/deleted records return null. Branch selection does not change
+  /// which attempt is latest. Ephemeral/empty failed attempts have no node.
+  /// Estimates and this call's provider-reported usage are separate fields.
+  Future<TavernTurnInspection?> inspectTurn(String chatId, {String? nodeId});
 
   // Turns --------------------------------------------------------------------
 
