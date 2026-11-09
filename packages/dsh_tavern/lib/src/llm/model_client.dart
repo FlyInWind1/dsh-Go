@@ -1,0 +1,310 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../api.dart';
+
+/// The transport contract is OpenAI Chat Completions. DeepSeek's beta endpoint,
+/// prefix, reasoning_content and usage fields follow its published API:
+/// https://api-docs.deepseek.com/api/create-chat-completion/
+/// https://api-docs.deepseek.com/guides/chat_prefix_completion/
+/// Checked 2026-11-10. Prompt conversion belongs to the prompt assembler.
+sealed class ModelDelta {
+  const ModelDelta();
+}
+
+class ModelText extends ModelDelta {
+  const ModelText(this.text);
+  final String text;
+}
+
+class ModelReasoning extends ModelDelta {
+  const ModelReasoning(this.text);
+  final String text;
+}
+
+class ModelUsage extends ModelDelta {
+  const ModelUsage(this.usage);
+  final TavernUsage usage;
+}
+
+class ModelFinished extends ModelDelta {
+  const ModelFinished(this.reason);
+  final String? reason;
+}
+
+class TavernModelException implements Exception {
+  const TavernModelException(this.kind, this.detail);
+  final TavernFailure kind;
+  final String detail;
+
+  @override
+  String toString() => 'TavernModelException(${kind.name}): $detail';
+}
+
+/// One cancellation per generation, including time spent obtaining the key.
+class ModelCancellation {
+  final _cancelled = Completer<void>();
+
+  bool get isCancelled => _cancelled.isCompleted;
+  Future<void> get whenCancelled => _cancelled.future;
+
+  void cancel() {
+    if (!isCancelled) _cancelled.complete();
+  }
+
+  void check() {
+    if (isCancelled) throw const TavernModelException(TavernFailure.cancelled, 'cancelled');
+  }
+
+  Future<T> wait<T>(Future<T> operation) {
+    check();
+    return Future.any([
+      operation,
+      whenCancelled.then<T>((_) => throw const TavernModelException(TavernFailure.cancelled, 'cancelled')),
+    ]);
+  }
+}
+
+/// An HTTP client is owned by each call so stopping one chat cannot abort a
+/// different chat. Supply [clientFactory] for deterministic transport tests.
+class TavernModelClient {
+  TavernModelClient({http.Client Function()? clientFactory, this.idleTimeout = const Duration(minutes: 5)})
+    : _clientFactory = clientFactory ?? http.Client.new;
+
+  final http.Client Function() _clientFactory;
+  final Duration idleTimeout;
+
+  /// [body] is the final, inspected request from the assembler. This method
+  /// only supplies the configured model and transport stream setting.
+  /// `stream: false` presets are also supported: one text/reasoning delta.
+  Stream<ModelDelta> generate({
+    required TavernModelConfig config,
+    required Map<String, Object?> body,
+    required ModelCancellation cancellation,
+  }) async* {
+    http.Client? client;
+    String? key;
+    try {
+      cancellation.check();
+      key = await cancellation.wait(config.apiKey());
+      cancellation.check();
+      key = key?.trim();
+      if (key == null || key.isEmpty) {
+        throw const TavernModelException(TavernFailure.noKey, 'no_api_key');
+      }
+      final payload = <String, Object?>{...body, 'model': config.model};
+      payload.putIfAbsent('stream', () => true);
+      if (config.deepseek) {
+        payload.putIfAbsent('thinking', () => {'type': config.thinking ? 'enabled' : 'disabled'});
+      }
+      final request = http.AbortableRequest('POST', endpoint(config), abortTrigger: cancellation.whenCancelled)
+        ..headers.addAll({'Content-Type': 'application/json', 'Authorization': 'Bearer $key'})
+        ..body = jsonEncode(payload);
+      client = _clientFactory();
+      final response = await cancellation.wait(client.send(request).timeout(idleTimeout));
+      cancellation.check();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final error = await cancellation.wait(_errorBody(response.stream.timeout(idleTimeout)));
+        throw _apiError(response.statusCode, error, key);
+      }
+
+      if (payload['stream'] == false) {
+        final text = await cancellation.wait(response.stream.bytesToString().timeout(idleTimeout));
+        cancellation.check();
+        final result = _object(jsonDecode(text));
+        if (result['error'] != null) throw _apiError(200, text, key);
+        final choice = _firstChoice(result);
+        final message = _object(choice['message']);
+        if (message['reasoning_content'] case final String reasoning when reasoning.isNotEmpty) {
+          cancellation.check();
+          yield ModelReasoning(reasoning);
+        }
+        if (message['content'] case final String content when content.isNotEmpty) {
+          cancellation.check();
+          yield ModelText(content);
+        }
+        if (result['usage'] case final Map<String, dynamic> usage) {
+          cancellation.check();
+          yield ModelUsage(_usage(usage, result['model'] as String? ?? config.model));
+        }
+        if (choice.isEmpty || message.isEmpty) {
+          throw const TavernModelException(TavernFailure.server, 'invalid_completion_response');
+        }
+        final reason = choice['finish_reason'] as String?;
+        _checkFinish(reason);
+        cancellation.check();
+        yield ModelFinished(reason);
+        return;
+      }
+
+      String? finishReason;
+      var sawFinish = false;
+      var sawDone = false;
+      await for (final event in decodeServerSentEvents(response.stream.timeout(idleTimeout))) {
+        cancellation.check();
+        if (event == '[DONE]') {
+          sawDone = true;
+          break;
+        }
+        final data = _object(jsonDecode(event));
+        if (data['error'] != null) throw _apiError(200, event, key);
+        final choice = _firstChoice(data);
+        final delta = _object(choice['delta']);
+        if (delta['reasoning_content'] case final String reasoning when reasoning.isNotEmpty) {
+          cancellation.check();
+          yield ModelReasoning(reasoning);
+        }
+        if (delta['content'] case final String content when content.isNotEmpty) {
+          cancellation.check();
+          yield ModelText(content);
+        }
+        if (choice['finish_reason'] case final String reason) {
+          finishReason = reason;
+          sawFinish = true;
+        }
+        // Some providers send usage with choices: [], others on the finish
+        // chunk. It must be read independently of the first choice.
+        if (data['usage'] case final Map<String, dynamic> usage) {
+          cancellation.check();
+          yield ModelUsage(_usage(usage, data['model'] as String? ?? config.model));
+        }
+      }
+      cancellation.check();
+      if (!sawDone && !sawFinish) {
+        throw const TavernModelException(TavernFailure.network, 'stream_ended_before_finish');
+      }
+      _checkFinish(finishReason);
+      cancellation.check();
+      yield ModelFinished(finishReason);
+    } on TavernModelException {
+      rethrow;
+    } on http.RequestAbortedException {
+      throw const TavernModelException(TavernFailure.cancelled, 'cancelled');
+    } on TimeoutException {
+      cancellation.check();
+      throw const TavernModelException(TavernFailure.network, 'request_timeout');
+    } on http.ClientException {
+      cancellation.check();
+      throw const TavernModelException(TavernFailure.network, 'http_transport_failed');
+    } on FormatException {
+      cancellation.check();
+      throw const TavernModelException(TavernFailure.server, 'invalid_response_format');
+    } catch (_) {
+      cancellation.check();
+      // Do not expose callback/transport exception text: it may contain a key
+      // or the entire request. Known HTTP errors carry a bounded safe detail.
+      throw const TavernModelException(TavernFailure.network, 'model_call_failed');
+    } finally {
+      client?.close();
+    }
+  }
+
+  /// Generic services supply their own API prefix (for example /v1). A full
+  /// /chat/completions URL is accepted. DeepSeek roots and /v1 become /beta.
+  static Uri endpoint(TavernModelConfig config) {
+    final uri = Uri.parse(config.baseUrl);
+    if (!uri.hasAuthority || (uri.scheme != 'https' && uri.scheme != 'http')) {
+      throw const TavernModelException(TavernFailure.network, 'invalid_base_url');
+    }
+    var path = uri.path.replaceFirst(RegExp(r'/+$'), '');
+    if (path.endsWith('/chat/completions')) {
+      if (!config.deepseek) return uri.replace(path: path, fragment: '');
+      path = path.substring(0, path.length - '/chat/completions'.length);
+    }
+    if (config.deepseek && !path.endsWith('/beta')) {
+      if (path.endsWith('/v1')) path = path.substring(0, path.length - 3);
+      path += '/beta';
+    }
+    return uri.replace(path: '$path/chat/completions', fragment: '');
+  }
+}
+
+/// SSE framing is independent of HTTP chunk boundaries and UTF-8 characters.
+/// Comments/keepalives are ignored; multiple data fields join with a newline.
+Stream<String> decodeServerSentEvents(Stream<List<int>> bytes) async* {
+  final data = <String>[];
+  var first = true;
+  await for (var line in bytes.transform(utf8.decoder).transform(const LineSplitter())) {
+    if (first) {
+      first = false;
+      if (line.startsWith('\uFEFF')) line = line.substring(1);
+    }
+    if (line.isEmpty) {
+      if (data.isNotEmpty) {
+        yield data.join('\n');
+        data.clear();
+      }
+      continue;
+    }
+    if (line.startsWith(':')) continue;
+    final colon = line.indexOf(':');
+    final field = colon < 0 ? line : line.substring(0, colon);
+    if (field != 'data') continue;
+    var value = colon < 0 ? '' : line.substring(colon + 1);
+    if (value.startsWith(' ')) value = value.substring(1);
+    data.add(value);
+  }
+  if (data.isNotEmpty) yield data.join('\n');
+}
+
+Map<String, Object?> _object(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  return const {};
+}
+
+Map<String, Object?> _firstChoice(Map<String, Object?> response) {
+  final choices = response['choices'];
+  if (choices is! List<Object?> || choices.isEmpty) return const {};
+  for (final value in choices) {
+    final choice = _object(value);
+    if (choice['index'] == null || choice['index'] == 0) return choice;
+  }
+  return const {};
+}
+
+TavernUsage _usage(Map<String, Object?> data, String model) {
+  int number(Object? value) => value is num ? value.toInt() : 0;
+  return TavernUsage(
+    promptTokens: number(data['prompt_tokens']),
+    cacheHitTokens: number(data['prompt_cache_hit_tokens'] ?? _object(data['prompt_tokens_details'])['cached_tokens']),
+    completionTokens: number(data['completion_tokens']),
+    model: model,
+  );
+}
+
+void _checkFinish(String? reason) {
+  if (reason == 'insufficient_system_resource' || reason == 'aborted') {
+    throw TavernModelException(TavernFailure.server, 'finish_reason:$reason');
+  }
+}
+
+Future<String> _errorBody(Stream<List<int>> bytes) async {
+  final buffer = StringBuffer();
+  await for (final chunk in bytes.transform(const Utf8Decoder(allowMalformed: true))) {
+    buffer.write(chunk);
+    if (buffer.length >= 4096) break;
+  }
+  final text = buffer.toString();
+  return text.length > 4096 ? text.substring(0, 4096) : text;
+}
+
+TavernModelException _apiError(int status, String body, String key) {
+  final lowered = body.toLowerCase();
+  final kind = switch (status) {
+    401 || 403 => TavernFailure.badKey,
+    429 => TavernFailure.busy,
+    _
+        when lowered.contains('context_length_exceeded') ||
+            lowered.contains('maximum context length') ||
+            lowered.contains('context window') ||
+            lowered.contains('context too long') =>
+      TavernFailure.contextTooLong,
+    _ => TavernFailure.server,
+  };
+  var detail = body.replaceAll(key, '[redacted]');
+  detail = detail.replaceAll(RegExp(r'Bearer\s+[^\s"<>]+', caseSensitive: false), 'Bearer [redacted]');
+  if (detail.length > 512) detail = detail.substring(0, 512);
+  return TavernModelException(kind, 'HTTP $status: $detail');
+}
