@@ -675,5 +675,7 @@
   "tavernPrefillContent": "正文",
   "tavernPrefillReasoning": "思考",
   "tavernPrefillNote": "开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。",
-  "tavernPresetPromptEmpty": "空着"
+  "tavernPresetPromptEmpty": "空着",
+  "tavernThinkingSeconds": "{seconds} 秒",
+  "@tavernThinkingSeconds": {"placeholders": {"seconds": {"type": "int"}}}
 }

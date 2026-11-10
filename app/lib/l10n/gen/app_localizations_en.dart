@@ -20481,6 +20481,11 @@ class L10nEn extends L10n {
   String get tavernPresetPromptEmpty => 'Empty';
 
   @override
+  String tavernThinkingSeconds(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

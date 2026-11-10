@@ -35480,6 +35480,12 @@ abstract class L10n {
   /// **'空着'**
   String get tavernPresetPromptEmpty;
 
+  /// No description provided for @tavernThinkingSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String tavernThinkingSeconds(int seconds);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

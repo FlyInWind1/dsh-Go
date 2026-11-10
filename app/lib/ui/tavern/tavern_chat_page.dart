@@ -29,6 +29,7 @@ import '../chat/composer.dart';
 import '../chat/render/markdown_body.dart';
 import '../chat/voice/voice_controller.dart';
 import '../chat/widgets/notice_row.dart';
+import '../chat/widgets/stream_row.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_sheet.dart';
 import '../common/capsule_chip.dart';
@@ -105,6 +106,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   String? _streamNode;
   final _stream = ValueNotifier<_Streamed>(_nothing);
 
+  /// Whole seconds the model has thought this turn, counting until its reply
+  /// starts; null before any thinking. A tick, not a clock, so it can be read
+  /// without asking the time.
+  final _thinking = ValueNotifier<int?>(null);
+  Timer? _thinkingTick;
+
+  void _stopThinking() {
+    _thinkingTick?.cancel();
+    _thinkingTick = null;
+  }
+
   /// The reply's text through the display regex, as it will show once stored.
   late final _live = TavernLiveDisplay((text) => _tavern.displayText(widget.chatId, nodeId: _streamNode, text: text));
   String? _error;
@@ -152,6 +164,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     unawaited(_turn?.cancel());
     _stream.dispose();
     _live.dispose();
+    _stopThinking();
+    _thinking.dispose();
     _voice.removeListener(_reportVoice);
     _voice.dispose();
     // The page is gone, and its dictation with it.
@@ -206,6 +220,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     });
     _stream.value = _nothing;
     _live.reset();
+    _stopThinking();
+    _thinking.value = null;
     _turn = start().listen(
       (event) {
         if (!mounted) return;
@@ -217,9 +233,15 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             _adopt(nodeId);
             _stream.value = (text: _stream.value.text + text, reasoning: _stream.value.reasoning);
             _live.text = _stream.value.text;
+            // The reply has begun: the thinking took what the count says.
+            _stopThinking();
           case TavernReasoningDelta(:final nodeId, :final text):
             _adopt(nodeId);
             _stream.value = (text: _stream.value.text, reasoning: _stream.value.reasoning + text);
+            if (_thinking.value == null && _stream.value.text.isEmpty) {
+              _thinking.value = 0;
+              _thinkingTick = Timer.periodic(const Duration(seconds: 1), (_) => _thinking.value = _thinking.value! + 1);
+            }
           case TavernTurnDone(:final message, :final finishReason):
             // Cut short by the reply limit, or by the provider's filter: say
             // so over the composer, with the way on.
@@ -303,6 +325,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     });
     _stream.value = _nothing;
     _live.reset();
+    _stopThinking();
     unawaited(_reload());
   }
 
@@ -586,7 +609,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final rows = <Widget>[
       for (final m in messages ?? const <TavernMessage>[])
         if (m.nodeId == _streamNode)
-          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream, live: _live)
+          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream, live: _live, thinking: _thinking)
         else
           _MessageRow(
             chatId: widget.chatId,
@@ -600,7 +623,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             lead: name,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
-        _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream, live: _live),
+        _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream, live: _live, thinking: _thinking),
     ];
 
     // Read here, not in the 视觉小说 builder below, which reruns on every
@@ -1259,10 +1282,13 @@ const _Streamed _nothing = (text: '', reasoning: '');
 /// The reply being written, rebuilt alone as each piece arrives: its text
 /// as [live] shows it, through the display regex.
 class _StreamingReply extends StatelessWidget {
-  const _StreamingReply({super.key, required this.stream, required this.live});
+  const _StreamingReply({super.key, required this.stream, required this.live, required this.thinking});
 
   final ValueListenable<_Streamed> stream;
   final TavernLiveDisplay live;
+
+  /// How long the model has thought, beside the pill.
+  final ValueListenable<int?> thinking;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -1273,13 +1299,43 @@ class _StreamingReply extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning, active: text.isEmpty, streaming: true),
+          if (reasoning.isNotEmpty)
+            ThinkingPill(
+              reasoning: reasoning,
+              active: text.isEmpty,
+              streaming: true,
+              meta: _ThinkingClock(seconds: thinking),
+            ),
           if (text.isEmpty && reasoning.isEmpty)
             const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
           else if (shown.isNotEmpty)
             MarkdownBody(text: shown, streaming: true, selectable: false),
         ],
       );
+    },
+  );
+}
+
+/// How long the model has thought: from the first second, after the label;
+/// it stops counting when the reply starts and stays until the reply is in.
+class _ThinkingClock extends StatelessWidget {
+  const _ThinkingClock({required this.seconds});
+
+  final ValueListenable<int?> seconds;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: seconds,
+    builder: (context, seconds, _) => switch (seconds) {
+      final s? when s > 0 => Row(
+        key: const ValueKey('tavern-thinking-clock'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const StreamDot(),
+          Text(context.l10n.tavernThinkingSeconds(s), style: StreamRow.detail(context)),
+        ],
+      ),
+      _ => const SizedBox.shrink(),
     },
   );
 }

@@ -19420,6 +19420,11 @@ class L10nZh extends L10n {
   String get tavernPresetPromptEmpty => '空着';
 
   @override
+  String tavernThinkingSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
