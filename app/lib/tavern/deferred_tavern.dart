@@ -279,6 +279,16 @@ class DeferredTavern implements Tavern {
   }) async =>
       (await _ready).bindLorebooks(ids, source: source, chatId: chatId, characterId: characterId, personaId: personaId);
 
+  // Import reports (T22) -------------------------------------------------------
+
+  @override
+  Future<TavernImportReport?> readImportReport(TavernImportKind kind, String assetId) async =>
+      (await _ready).readImportReport(kind, assetId);
+
+  @override
+  Future<TavernImportReport> recheckImport(TavernImportKind kind, String assetId) async =>
+      (await _ready).recheckImport(kind, assetId);
+
   @override
   Future<Map<String, Object?>> readSettings({String? chatId}) async => (await _ready).readSettings(chatId: chatId);
 

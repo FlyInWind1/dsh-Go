@@ -210,7 +210,7 @@ class _Harness {
         'character_name': 'Guide',
         'create_date': '2026-11-10T00:00:00Z',
         'chat_metadata': {
-          if (worldName != null) 'world_info': worldName,
+          'world_info': ?worldName,
           'timedWorldInfo': {
             'sticky': {
               source.stKey: {'hash': source.stHash, 'start': 0, 'end': 50, 'protected': false},

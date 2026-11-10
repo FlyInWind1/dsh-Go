@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:sqlite3/sqlite3.dart';
 
 import '../api.dart';
+import '../import_report.dart';
 
 /// The chat settings and original ST metadata, separate from the selected path.
 /// JSON values returned by the store are detached copies.
@@ -70,6 +71,7 @@ class StoredPreset {
     required this.createdAt,
     required this.updatedAt,
     this.envelope,
+    this.importReport,
   });
 
   final String id;
@@ -77,6 +79,7 @@ class StoredPreset {
   final String sourceText;
   final Map<String, Object?> raw;
   final Map<String, Object?>? envelope;
+  final TavernImportReport? importReport;
   final DateTime createdAt;
   final DateTime updatedAt;
 }
@@ -132,12 +135,12 @@ class ChatStore {
     return ChatStore._(database, clock: clock, createId: createId);
   }
 
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   // Keys are destination versions. Future upgrades register every successor
   // here and increase schemaVersion; no existing schema is dropped or replayed.
   // Steps run inside one transaction and must not manage transactions themselves.
-  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2};
+  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2, 3: _schemaV3};
   final Database _db;
   final DateTime Function() _clock;
   final String Function() _createId;
@@ -297,13 +300,23 @@ class ChatStore {
     required String sourceText,
     required Map<String, Object?> raw,
     Map<String, Object?>? envelope,
+    TavernImportReport? importReport,
   }) => transaction(() {
     final id = _createId();
     final at = _clock().millisecondsSinceEpoch;
     _db.execute(
-      '''INSERT INTO presets (id, name, source_text, raw_json, envelope_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)''',
-      [id, name, sourceText, jsonEncode(raw), envelope == null ? null : jsonEncode(envelope), at, at],
+      '''INSERT INTO presets (id, name, source_text, raw_json, envelope_json, import_report_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+      [
+        id,
+        name,
+        sourceText,
+        jsonEncode(raw),
+        envelope == null ? null : jsonEncode(envelope),
+        importReport == null ? null : jsonEncode(importReport.toJson()),
+        at,
+        at,
+      ],
     );
     _presetsChanged = true;
     return preset(id)!;
@@ -316,7 +329,7 @@ class ChatStore {
     // that guard below; source_text itself and the schema remain unchanged.
     final rows = _db.select(
       '''SELECT id, name, char(1) || source_text AS guarded_source_text,
-                raw_json, envelope_json, created_at, updated_at
+                raw_json, envelope_json, import_report_json, created_at, updated_at
          FROM presets WHERE id = ?''',
       [id],
     );
@@ -330,6 +343,9 @@ class ChatStore {
       sourceText: (row['guarded_source_text'] as String).substring(1),
       raw: _map(row['raw_json']),
       envelope: row['envelope_json'] == null ? null : _map(row['envelope_json']),
+      importReport: row['import_report_json'] == null
+          ? null
+          : TavernImportReport.fromJson(_map(row['import_report_json'])),
       createdAt: _date(row['created_at']),
       updatedAt: _date(row['updated_at']),
     );
@@ -366,6 +382,15 @@ class ChatStore {
     );
     _presetsChanged = true;
     return preset(id)!;
+  });
+
+  /// Refreshes only the capability snapshot. The editable data, original text,
+  /// selection, creation time and content update time remain unchanged.
+  void savePresetImportReport(String id, TavernImportReport report) => transaction(() {
+    _requirePreset(id);
+    if (report.kind != TavernImportKind.preset) throw ArgumentError('Expected a preset import report.');
+    _db.execute('UPDATE presets SET import_report_json = ? WHERE id = ?', [jsonEncode(report.toJson()), id]);
+    _presetsChanged = true;
   });
 
   String? get defaultPresetId {
@@ -1120,6 +1145,10 @@ CREATE TRIGGER nodes_fts_update AFTER UPDATE OF text, speaker ON nodes BEGIN
   INSERT INTO nodes_fts(nodes_fts, rowid, text, speaker) VALUES ('delete', old.seq, old.text, old.speaker);
   INSERT INTO nodes_fts(rowid, text, speaker) VALUES (new.seq, new.text, new.speaker);
 END;
+''';
+
+  static const _schemaV3 = '''
+ALTER TABLE presets ADD COLUMN import_report_json TEXT;
 ''';
 
   static const _schemaV2 = '''

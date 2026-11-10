@@ -8,8 +8,11 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'api.dart';
+import 'import_report.dart';
 import 'inspection.dart';
+import 'io/card_codec.dart' show TavernCard;
 import 'io/chat_jsonl.dart';
+import 'io/import_intake.dart';
 import 'io/preset_codec.dart';
 import 'io/regex_intake.dart';
 import 'io/st_chat_document.dart';
@@ -182,6 +185,7 @@ class TavernEngine implements Tavern {
   final _liveVariables = <String, ({String? leaf, Map<String, Object?> values})>{};
   final _books = <String, Map<String, Object?>>{};
   final _bookSourceNames = <String, String>{};
+  final _bookImportReports = <String, TavernImportReport>{};
   final _bookRevisions = <String, int>{};
   final _displayQueues = <(String, String?, bool), _DisplayQueue>{};
   Future<List<StoredCharacter>>? _characterCache;
@@ -336,8 +340,15 @@ class TavernEngine implements Tavern {
       final stored = await _library.importCard(
         bytes,
         fileName: fileName,
-        beforeSave: (card) async {
+        inspect: (card) async {
           diagnostics = await _checkCardRegex(card.data);
+          return assessImport(
+            kind: TavernImportKind.character,
+            document: card.json,
+            embeddedAssetPaths: card.assets.keys,
+            regexDiagnostics: diagnostics,
+            checkedAt: _clock().toUtc(),
+          );
         },
       );
       _characterCache = null;
@@ -674,12 +685,21 @@ class TavernEngine implements Tavern {
   Future<TavernPresetImportResult> importPreset(String text, {String? fileName}) => _operation(() async {
     final decoded = _presetCodec.decode(text, fileName: fileName);
     final diagnostics = await inspectRegexScripts(_map(decoded.raw['extensions'])['regex_scripts'], _regexWorker);
+    final report = assessImport(
+      kind: TavernImportKind.preset,
+      document: decoded.raw,
+      envelope: decoded.envelope,
+      regexDiagnostics: diagnostics,
+      presetIssues: decoded.issues,
+      checkedAt: _clock().toUtc(),
+    );
     return _presetOperation(() {
       final value = _store.createPreset(
         name: decoded.name,
         sourceText: text,
         raw: decoded.raw,
         envelope: decoded.envelope,
+        importReport: report,
       );
       return TavernPresetImportResult(_presetView(value), decoded.issues, regexDiagnostics: diagnostics);
     });
@@ -1330,6 +1350,100 @@ class TavernEngine implements Tavern {
   }
 
   @override
+  Future<TavernImportReport?> readImportReport(TavernImportKind kind, String assetId) => _operation(() async {
+    switch (kind) {
+      case TavernImportKind.character:
+        return _libraryOperation(() => _library.readImportReport(assetId));
+      case TavernImportKind.preset:
+        return _presetOperation(() {
+          final record = _store.preset(assetId);
+          if (record == null) return null;
+          return _currentImportReport(kind, record.importReport, record.raw, envelope: record.envelope);
+        });
+      case TavernImportKind.lorebook:
+        return _bookOperation(() async {
+          final raw = await _readBookNow(assetId);
+          if (raw == null) return null;
+          return _currentImportReport(kind, _bookImportReports[assetId], raw);
+        });
+      case TavernImportKind.regex:
+        return _regexLibrary.readImportReport(assetId);
+    }
+  });
+
+  @override
+  Future<TavernImportReport> recheckImport(TavernImportKind kind, String assetId) => _operation(() async {
+    switch (kind) {
+      case TavernImportKind.character:
+        return _libraryOperation(() => _library.recheckImport(assetId, _inspectCardReport));
+      case TavernImportKind.preset:
+        return _presetOperation(() async {
+          final record = _requirePreset(assetId);
+          final raw = record.raw;
+          final envelope = record.envelope;
+          List<TavernPresetIssue> issues;
+          try {
+            issues = _presetCodec.validate(raw, envelope: envelope).issues;
+          } on TavernPresetImportError catch (error) {
+            // Legacy permissive settings can contain values rejected by the
+            // modern importer. Inspection must not normalize their live data.
+            issues = error.issues;
+          }
+          final diagnostics = await inspectRegexScripts(_map(raw['extensions'])['regex_scripts'], _regexWorker);
+          final report = assessImport(
+            kind: kind,
+            document: raw,
+            envelope: envelope,
+            regexDiagnostics: diagnostics,
+            presetIssues: issues,
+            checkedAt: _clock().toUtc(),
+          );
+          _store.savePresetImportReport(assetId, report);
+          return report;
+        });
+      case TavernImportKind.lorebook:
+        return _bookOperation(() async {
+          final raw = await _readBookNow(assetId);
+          if (raw == null) throw const TavernImportError('世界书不存在。');
+          final book = WorldInfoBook.fromJson(id: assetId, source: WorldInfoSource.global, json: raw);
+          final diagnostics = await _checkWorldBookRegex(book);
+          final report = assessImport(
+            kind: kind,
+            document: raw,
+            regexDiagnostics: diagnostics,
+            checkedAt: _clock().toUtc(),
+          );
+          await _writeBookNow(assetId, raw, importReport: report);
+          return report;
+        });
+      case TavernImportKind.regex:
+        return _regexLibrary.recheckImport(assetId);
+    }
+  });
+
+  Future<TavernImportReport> _inspectCardReport(TavernCard card) async {
+    final diagnostics = await _checkCardRegex(card.data);
+    return assessImport(
+      kind: TavernImportKind.character,
+      document: card.json,
+      embeddedAssetPaths: card.assets.keys,
+      regexDiagnostics: diagnostics,
+      checkedAt: _clock().toUtc(),
+    );
+  }
+
+  TavernImportReport? _currentImportReport(
+    TavernImportKind kind,
+    TavernImportReport? report,
+    Map<String, Object?> raw, {
+    Map<String, Object?>? envelope,
+  }) {
+    if (report == null) return null;
+    if (report.kind != kind) throw const FormatException('Import report does not match its asset kind.');
+    return report.withStale(report.fingerprint != importFingerprint(kind, raw, envelope: envelope));
+  }
+
+  @override
   Future<List<TavernRegexScript>> listRegexScripts() => _operation(() => _regexLibrary.scripts);
   @override
   Future<TavernRegexImportResult> importRegexScripts(String text) =>
@@ -1452,6 +1566,12 @@ class TavernEngine implements Tavern {
       throw const TavernImportError('世界书只能包含合法JSON数值。');
     }
     final diagnostics = await _checkWorldBookRegex(parsed);
+    final report = assessImport(
+      kind: TavernImportKind.lorebook,
+      document: parsed.raw,
+      regexDiagnostics: diagnostics,
+      checkedAt: _clock().toUtc(),
+    );
     return _bookOperation(() async {
       final random = Random.secure();
       String id;
@@ -1459,7 +1579,7 @@ class TavernEngine implements Tavern {
         id = List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
       } while (await FileSystemEntity.type('${directory.path}/lorebooks/$id.json', followLinks: false) !=
           FileSystemEntityType.notFound);
-      await _writeBookNow(id, parsed.raw, stWorldName: sourceName);
+      await _writeBookNow(id, parsed.raw, stWorldName: sourceName, importReport: report);
       final book = WorldInfoBook.fromJson(id: id, source: WorldInfoSource.global, json: parsed.raw);
       return TavernLorebookImportResult(
         TavernLorebook(
@@ -1484,17 +1604,32 @@ class TavernEngine implements Tavern {
     });
   });
 
-  Future<void> _writeBookNow(String id, Map<String, Object?> raw, {String? stWorldName}) async {
+  Future<void> _writeBookNow(
+    String id,
+    Map<String, Object?> raw, {
+    String? stWorldName,
+    TavernImportReport? importReport,
+  }) async {
     final sourceName = stWorldName ?? _bookSourceNames[id];
+    final report = importReport ?? _bookImportReports[id];
     // Source identity and raw data share one atomic file publication. Valid
     // legacy books have entries at the root; this local envelope does not.
     await _writeJson(
       File('${directory.path}/lorebooks/$id.json'),
-      sourceName == null ? raw : {'format': 'dshgo-lorebook', 'version': 1, 'stWorldName': sourceName, 'book': raw},
+      sourceName == null && report == null
+          ? raw
+          : {
+              'format': 'dshgo-lorebook',
+              'version': 1,
+              if (sourceName != null) 'stWorldName': sourceName,
+              if (report != null) 'importReport': report.toJson(),
+              'book': raw,
+            },
     );
     _bookRevisions.update(id, (revision) => revision + 1, ifAbsent: () => 1);
     _books[id] = _copy(raw);
     if (sourceName != null) _bookSourceNames[id] = sourceName;
+    if (report != null) _bookImportReports[id] = report;
   }
 
   @override
@@ -1520,6 +1655,7 @@ class TavernEngine implements Tavern {
       _bookRevisions.update(id, (revision) => revision + 1, ifAbsent: () => 1);
       _books.remove(id);
       _bookSourceNames.remove(id);
+      _bookImportReports.remove(id);
     });
   });
 
@@ -1642,15 +1778,26 @@ class TavernEngine implements Tavern {
     final document = _decodeObject(await file.readAsString(), 'Lorebook');
     Map<String, Object?> value = document;
     String? sourceName;
+    TavernImportReport? report;
     if (!document.containsKey('entries') && document['format'] == 'dshgo-lorebook') {
-      if (document['version'] != 1 || document['book'] is! Map<String, Object?> || document['stWorldName'] is! String) {
+      if (document['version'] != 1 ||
+          document['book'] is! Map<String, Object?> ||
+          (document['stWorldName'] != null && document['stWorldName'] is! String)) {
         throw const FormatException('Unsupported or invalid stored lorebook.');
       }
       value = document['book']! as Map<String, Object?>;
-      sourceName = document['stWorldName']! as String;
+      sourceName = document['stWorldName'] as String?;
+      if (document['importReport'] != null) {
+        report = TavernImportReport.fromJson(document['importReport']! as Map<String, Object?>);
+      }
     }
     if ((_bookRevisions[id] ?? 0) == revision) {
       _books[id] = value;
+      if (report == null) {
+        _bookImportReports.remove(id);
+      } else {
+        _bookImportReports[id] = report;
+      }
       if (sourceName == null) {
         _bookSourceNames.remove(id);
       } else {
@@ -2759,7 +2906,9 @@ class _DisplayJob {
 
 int _displaySeed(String identity) {
   var hash = 2166136261;
-  for (final unit in identity.codeUnits) hash = ((hash ^ unit) * 16777619) & 0x7fffffff;
+  for (final unit in identity.codeUnits) {
+    hash = ((hash ^ unit) * 16777619) & 0x7fffffff;
+  }
   return hash;
 }
 

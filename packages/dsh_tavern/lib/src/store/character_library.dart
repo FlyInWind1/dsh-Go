@@ -9,6 +9,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../api.dart';
+import '../import_report.dart';
 import '../io/card_codec.dart';
 import '../regex_library.dart';
 
@@ -60,18 +61,23 @@ class CharacterLibrary {
     Uint8List bytes, {
     String? fileName,
     Future<void> Function(TavernCard card)? beforeSave,
+    Future<TavernImportReport> Function(TavernCard card)? inspect,
   }) => _exclusive(() async {
     await _tidy();
     // Decode/ZIP inflate/thumbnail conversion cannot stall Flutter's isolate.
     final decoded = await _decodeImport(bytes);
     final (card, portrait) = decoded;
     await beforeSave?.call(card);
+    final report = await inspect?.call(card);
     final importedAt = _now().toUtc();
     final id = _newId();
     final staging = await _characters.createTemp('.staging-');
     final destination = Directory('${_characters.path}/$id');
     try {
       await File('${staging.path}/card.json').writeAsString(jsonEncode(card.json), flush: true);
+      if (report != null) {
+        await File('${staging.path}/import-report.json').writeAsString(jsonEncode(report.toJson()), flush: true);
+      }
       await File('${staging.path}/original.${card.sourceFormat.name}').writeAsBytes(bytes, flush: true);
       if (card.png != null) await File('${staging.path}/source.png').writeAsBytes(card.png!, flush: true);
       if (portrait != null) await File('${staging.path}/portrait.png').writeAsBytes(portrait, flush: true);
@@ -114,6 +120,50 @@ class CharacterLibrary {
     await _tidy();
     return _read(id);
   });
+
+  Future<TavernImportReport?> readImportReport(String id) => _exclusive(() async {
+    _requireId(id);
+    await _tidy();
+    final directory = Directory('${_characters.path}/$id');
+    final type = await FileSystemEntity.type(directory.path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return null;
+    if (type != FileSystemEntityType.directory) throw const FileSystemException('Character folder is not a directory');
+    final file = File('${_characters.path}/$id/import-report.json');
+    if (!await file.exists()) return null;
+    final report = TavernImportReport.fromJson(jsonDecode(await file.readAsString()) as Map<String, Object?>);
+    if (report.kind != TavernImportKind.character) throw const FormatException('Invalid character import report.');
+    // Staleness needs JSON and the resource manifest, not original/portrait or
+    // embedded file bytes. Opening the report must not load every card asset.
+    final json = jsonDecode(await File('${directory.path}/card.json').readAsString()) as Map<String, Object?>;
+    final metadata = jsonDecode(await File('${directory.path}/library.json').readAsString()) as Map<String, Object?>;
+    if (metadata['version'] != 1 || metadata['resources'] is! List<Object?>) {
+      throw const TavernImportError('资料库元数据无效。');
+    }
+    final resources = (metadata['resources']! as List<Object?>).cast<String>();
+    return report.withStale(
+      report.fingerprint != importFingerprint(TavernImportKind.character, json, embeddedAssetPaths: resources),
+    );
+  });
+
+  /// The same queue protects edits/deletion and the inspected snapshot, so a
+  /// slow compatibility probe cannot publish a report for a newer revision.
+  Future<TavernImportReport> recheckImport(String id, Future<TavernImportReport> Function(TavernCard card) inspect) =>
+      _exclusive(() async {
+        _requireId(id);
+        await _tidy();
+        final record = await _read(id);
+        if (record == null) throw const TavernImportError('角色不存在。');
+        final report = await inspect(record.card);
+        final file = File('${_characters.path}/$id/import-report.json');
+        final pending = File('${file.path}.writing');
+        try {
+          await pending.writeAsString(jsonEncode(report.toJson()), flush: true);
+          await pending.rename(file.path);
+        } finally {
+          if (await pending.exists()) await pending.delete();
+        }
+        return report;
+      });
 
   /// Returns the complete V3 `data` object, detached from the stored card.
   /// Unknown and read-only fields stay available to a character editor.

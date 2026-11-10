@@ -2,18 +2,36 @@
 // plus the two native ST decorators at commit 7e8663cd9c184a550b37238218bdd32c6efc68e9.
 part of 'world_info.dart';
 
-class _DecoratorHeaderLine {
-  const _DecoratorHeaderLine({required this.number, required this.isFallback, required this.name, required this.value});
+/// One lexical header line. No macro expansion, fallback choice or runtime
+/// context is evaluated by this descriptor.
+class WorldInfoDecoratorHeaderLine {
+  const WorldInfoDecoratorHeaderLine({
+    required this.number,
+    required this.offset,
+    required this.isFallback,
+    required this.name,
+    required this.value,
+  });
+
+  /// One-based line number in the original content.
   final int number;
+
+  /// Zero-based UTF-16 offset of the first @ in the original content.
+  final int offset;
   final bool isFallback;
   final String? name;
   final String value;
 }
 
+/// Reads the same leading header boundary used by execution and regex intake.
+/// The returned list is immutable; ordinary body lines are not decorators.
+List<WorldInfoDecoratorHeaderLine> worldInfoDecoratorHeader(String content) =>
+    List.unmodifiable(_decoratorHeader(content).lines);
+
 /// Shared lexical boundary for execution and import inspection. This does not
 /// decide runtime fallback eligibility or evaluate any macro.
-({List<_DecoratorHeaderLine> lines, int end}) _decoratorHeader(String text) {
-  final lines = <_DecoratorHeaderLine>[];
+({List<WorldInfoDecoratorHeaderLine> lines, int end}) _decoratorHeader(String text) {
+  final lines = <WorldInfoDecoratorHeaderLine>[];
   var offset = 0;
   var number = 0;
   while (offset < text.length) {
@@ -21,13 +39,20 @@ class _DecoratorHeaderLine {
     if (line == null || line.end == offset) break;
     final raw = line[0]!.replaceFirst(RegExp(r'[\r\n]+$'), '');
     if (!raw.startsWith('@@')) break;
+    final lineOffset = offset;
     offset = line.end;
     number++;
     final isFallback = raw.startsWith('@@@');
     final body = raw.substring(isFallback ? 3 : 2);
     final parsed = RegExp(r'^([a-z_]+)(?:[ \t]+(.*))?$').firstMatch(body);
     lines.add(
-      _DecoratorHeaderLine(number: number, isFallback: isFallback, name: parsed?[1], value: (parsed?[2] ?? '').trim()),
+      WorldInfoDecoratorHeaderLine(
+        number: number,
+        offset: lineOffset,
+        isFallback: isFallback,
+        name: parsed?[1],
+        value: (parsed?[2] ?? '').trim(),
+      ),
     );
   }
   return (lines: lines, end: offset);

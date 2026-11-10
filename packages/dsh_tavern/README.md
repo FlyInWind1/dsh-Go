@@ -107,3 +107,37 @@ T20的结构化导入诊断供后续T22体检接入；T22统一持久体检接�
 filename去路径及.json后另存stWorldName，不能用raw.name显示标题代替来源；仅当raw缺name才以filename补显示名。raw与来源在同一个本地envelope原子发布，旧raw文件仍可读，公开读/导出只含原生raw。summary.stWorldName供导出命名，put保留来源。当前分支world_info对应的精确stLorebookIds映射优先，并统一同ID各scope的原生timer hash/key；无来源证据才回退本地ID。read/put/delete同队列，同时捕获raw与来源；不承诺跨多个资源事务。
 
 新测试登记207例：worker19、protected display115、WI34、façade/library33、来源身份6；已有113例WI及105例同步regex保留。登记数不是通过数，实际format/analyze/test和平台退出结果以owner回执为准。来源固定ST 1.19.0提交7e8663cd的public/script.js、regex、utils和world-info；未读JS-Slash-Runner。
+
+
+# T22：持久化导入体检
+
+四个新导入入口（importCard / importPreset / importLorebook / importRegexScripts）会保存结构化能力报告。App可在角色页或对应资料详情页常驻展示；本层只提供数据和接口，DeferredTavern / PreviewTavern转发由主线补。
+
+| 接口 | 合同 |
+|---|---|
+| readImportReport(kind, assetId) | 读已保存报告；旧资料没有报告、或资源已不存在时为null。不会试编译、展开宏或执行脚本。 |
+| recheckImport(kind, assetId) | 对当前资料显式重检并保存；缺失资源报错。复用T21受控编译，不执行用户宏或脚本。 |
+
+kind为character / preset / lorebook / regex。报告包含version、checkedAt、counts、verdict、findings、renderLevel、fingerprint和stale。三个总评为usable（能用）、partial（部分能用）、preserveOnly（只保留不执行），描述已识别的能力，不保证动态内容在所有场景均会生效。用户关闭的条目、空合法书或未触发的关键词不是兼容错误。
+
+每个finding单独带path、code、message、kind；可带identifier、原文行号及从零计的UTF-16 offset，conditional/fallback保留条件与后备路线。unsupported表示已知未实现，invalid表示该已知结构或模式无效，deferred表示需运行时上下文，unknown表示不解释的保留数据；条件性结果不冒充无条件失效。数量是声明及检查的数量，不能当作本次执行次数。原生书的存储条目、V3去重后的执行条目分别计数。
+
+报告是checkedAt时的快照。fingerprint对已检查的JSON、独立预设外壳和嵌入资源路径作规范化哈希；对象键序不影响，数组顺序有意义。此值用于检测编辑，不是签名，也不判断未读取的资源内容。编辑后读出旧报告并标stale，直到显式重检。重检保留原文、当前raw、库名、选择和内容更新时间；不会趁机正规化宽容旧预设。引擎版本升级可能增加能力，旧报告仍是原检查时刻的记录，可显式刷新。
+
+渲染级别仅是建议：0原生、1单消息WebView、2整页画布。2需要明确脚本、助手依赖或跨消息样式证据；说明里提到插件名称、普通HTML、CSS字符串或代码示例不足以判定。后端不启用任何WebView或脚本执行。静态未发现HTML不能证明运行时宏或正则结果不会生成HTML。
+
+保存边界：卡的report文件在同一个staging目录里随整卡rename发布；预设nullable import_report_json在schema3的同笔INSERT保存；正则report跟随其资料记录；世界书report和原生来源名跟raw同一个本地外壳发布。报告读取与编辑/删除共用所属资源队列。读取角色报告只读card.json和资源清单，不加载原始卡、头像或所有资源字节。重检失败保留旧报告，删除随资料删除。
+
+角色报告读取仍沿用旧_tidy清理残留，因此不承诺绝对零文件写。正则重检同时刷新T21的diagnostics，可能改变后续回合的兼容执行资格；原始数据及disabled不变。数组正则初报使用原$[i]，按单个ID重检使用当前单条的$；不是所有报告路径都对应保留的sourceText。
+
+schema0/1/2通过原有逐级事务迁移到3，既有预设报告为null，不伪造“零问题”。旧裸世界书、T21带来源名的外壳、无报告的regex记录继续读取；无文件名的世界书可用新外壳保存report而不虚构stWorldName。导出不把内部报告混进卡、预设、正则或世界书原生JSON。
+
+非法顶层输入继续按原入口拒绝，不生成不存在资源的“只保留”记录。低层CharacterLibrary/ChatStore及旧setPreset/setSettings宽容桥接可以产生无报告旧式记录；显式recheckImport为这些记录补报。新导入的regex数组逐记录保存报告，保留原数组位置。
+
+中央检查把每处脚本、助手脚本或变量配置、无效正则、未实现的世界书特性、banned宏分别定位。未知供应商字段保持不解释；正常空返回宏、禁用条目和条件性装饰器不冒充引擎缺失。预设附件逐项定位，分享包的工具转换、正文提取、自定义工具后前缀分别提示。正则只使用T21已有受控试编译回执，不再执行第二次编译，动态输入仍为deferred。
+
+HTML/CSS只是有限的静态正面检测：资源路径参与计数和fingerprint，资源字节不扫描；不展开实体、CSS转义、srcdoc、宏或正则动态输出，不下载远程内容。Markdown代码、HTML注释、JSON数据script和普通插件名称不作为脚本证据。0不构成动态输出无脚本的保证，2也不表示后端会执行脚本或改变用户开关。
+
+新增110项登记用例：中央分类60、世界书27、存储及迁移8、四类入口集成15。包括旧库补报、编辑后stale、真正v2升级、SQL及文件发布失败、重开/导出隔离、静态检测正反例。110是运行前登记数；实际结果以正式交付回执为准。本层同时修正032指出的4项T21样式info（两处花括号、worker惰性空值赋值、fixture空值元素），不改变其判断或断言。
+
+本层静态分类与持久化测试尚须owner运行。固定ST原文、Python SQLite辅助验证、词法检查和独立源码复核均不替代Dart formatter/analyzer/test结果。

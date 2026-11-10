@@ -4,6 +4,7 @@ library;
 
 export 'src/api.dart';
 export 'src/engine.dart';
+export 'src/import_report.dart';
 export 'src/inspection.dart';
 export 'src/lorebook_library.dart';
 export 'src/io/card_codec.dart';

@@ -589,6 +589,14 @@ class PreviewTavern implements Tavern, TavernPreview {
     _presetsChanged.add(null);
   }
 
+  /// The preview files no import reports.
+  @override
+  Future<TavernImportReport?> readImportReport(TavernImportKind kind, String assetId) async => null;
+
+  @override
+  Future<TavernImportReport> recheckImport(TavernImportKind kind, String assetId) =>
+      throw UnsupportedError('The preview keeps no import reports');
+
   @override
   Future<List<TavernRegexScript>> listRegexScripts() async => const [];
 

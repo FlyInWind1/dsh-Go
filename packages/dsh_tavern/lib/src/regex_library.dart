@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'import_report.dart';
 import 'regex/regex_types.dart';
 
 /// Dynamic patterns are deferred; importing never expands macros.
@@ -63,13 +64,23 @@ final class TavernRegexScript {
     required Map<String, Object?> raw,
     required this.importedAt,
     Iterable<TavernRegexDiagnostic> diagnostics = const [],
+    TavernImportReport? importReport,
   }) : _raw = _copy(raw),
-       diagnostics = List.unmodifiable(diagnostics);
+       diagnostics = List.unmodifiable(diagnostics),
+       _importReport = importReport;
   final String id;
   final String sourceText;
   final Map<String, Object?> _raw;
   final DateTime importedAt;
   final List<TavernRegexDiagnostic> diagnostics;
+  final TavernImportReport? _importReport;
+  TavernImportReport? get importReport {
+    final report = _importReport;
+    return report == null
+        ? null
+        : report.withStale(report.fingerprint != importFingerprint(TavernImportKind.regex, _raw));
+  }
+
   Map<String, Object?> get raw => _copy(_raw);
   String get name => _raw['scriptName'] is String ? _raw['scriptName']! as String : '';
   bool get enabled => !_truthy(_raw['disabled']);

@@ -8,6 +8,7 @@
 
 import 'dart:typed_data';
 
+import 'import_report.dart';
 import 'inspection.dart';
 import 'lorebook_library.dart';
 import 'persona.dart';
@@ -270,6 +271,16 @@ class TavernModelConfig {
 /// The tavern. One per app; [open] it on the app's support directory.
 abstract interface class Tavern {
   // Library ------------------------------------------------------------------
+
+  /// The saved capability snapshot, or null for a missing/legacy asset. Edited
+  /// content marks the snapshot stale; reading does not run compatibility work.
+  Future<TavernImportReport?> readImportReport(TavernImportKind kind, String assetId);
+
+  /// Explicitly inspects the current asset, including legacy imports, and
+  /// atomically replaces its report. No macros or embedded scripts execute.
+  /// Regex rechecks also refresh compatibility diagnostics used by subsequent
+  /// executions; the user's original data and disabled flag are not changed.
+  Future<TavernImportReport> recheckImport(TavernImportKind kind, String assetId);
 
   /// Every character, newest chat first, then newest import. Emits the current
   /// list first.

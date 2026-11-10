@@ -25,13 +25,13 @@ void main() {
     await directory.delete(recursive: true);
   });
 
-  test('a fresh file executes both real migrations and supports presets, tree state, and FTS', () {
+  test('a fresh file executes the full real migration chain and supports presets, tree state, and FTS', () {
     final database = sqlite3.open(path);
     expect(_version(database), 0);
     final opened = ChatStore.fromDatabase(database, clock: () => now);
     store = opened;
-    expect(ChatStore.schemaVersion, 2);
-    expect(_version(database), 2);
+    expect(ChatStore.schemaVersion, greaterThanOrEqualTo(2));
+    expect(_version(database), ChatStore.schemaVersion);
     expect(
       _tableNames(database),
       containsAll([
@@ -101,7 +101,7 @@ void main() {
     });
     expect(opened.search('beacon').single.nodeId, 'a');
     _inspect(path, (database) {
-      expect(_version(database), 2);
+      expect(_version(database), ChatStore.schemaVersion);
       expect(_legacyData(database), before['data']);
       final oldDefinitions = before['definitions']! as List<Map<String, Object?>>;
       final keys = oldDefinitions.map((row) => '${row['type']}:${row['name']}').toSet();
@@ -140,7 +140,7 @@ void main() {
     expect(recovered.defaultPresetId, isNull);
     expect(recovered.createPreset(name: 'recovered', sourceText: '{}', raw: {}).name, 'recovered');
     _inspect(path, (database) {
-      expect(_version(database), 2);
+      expect(_version(database), ChatStore.schemaVersion);
       expect(database.select('SELECT hex(payload) AS value FROM unrelated').single['value'], '00017FFF');
       expect(database.select('PRAGMA foreign_key_check'), isEmpty);
     });
@@ -172,13 +172,13 @@ void main() {
     expect(recovered.search('beacon').single.nodeId, 'a');
     expect(recovered.nodeState('chat', 'b')['variables'], {'n': 9});
     _inspect(path, (database) {
-      expect(_version(database), 2);
+      expect(_version(database), ChatStore.schemaVersion);
       expect(_legacyData(database), before['data']);
       expect(database.select('PRAGMA foreign_key_check'), isEmpty);
     });
   });
 
-  test('current v2 reopening retains presets, selections, exact source, and unknown database columns', () async {
+  test('current schema reopening retains presets, selections, exact source, and unknown database columns', () async {
     final database = sqlite3.open(path);
     final first = ChatStore.fromDatabase(database, clock: () => now);
     store = first;

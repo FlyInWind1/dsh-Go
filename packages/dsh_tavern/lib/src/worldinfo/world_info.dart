@@ -250,6 +250,12 @@ List<WorldInfoRegexInput> worldInfoRegexInputs(WorldInfoBook book) {
 
 final _worldInfoMacroAlias = RegExp(r'<(?:USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>', caseSensitive: false);
 
+/// Original stored rows with their source paths and the loader's exact UID
+/// normalization, including rows shadowed by duplicate V3 IDs. This inspection
+/// does not change [book] or evaluate its entries.
+Iterable<({WorldInfoEntry entry, String path})> worldInfoStoredEntries(WorldInfoBook book) =>
+    _regexInspectionEntries(book);
+
 Iterable<({WorldInfoEntry entry, String path})> _regexInspectionEntries(WorldInfoBook book) sync* {
   final entries = book.raw['entries'];
   if (entries is List<Object?>) {
@@ -645,8 +651,9 @@ class WorldInfoEngine {
               !sticky) {
             continue;
           }
-          if (phase == WorldInfoScanPhase.recursion && settings.recursive && entry.excludeRecursion && !sticky)
+          if (phase == WorldInfoScanPhase.recursion && settings.recursive && entry.excludeRecursion && !sticky) {
             continue;
+          }
           final decorators = item.decorators;
           _MatchReason? reason;
           if (decorators.activate) {

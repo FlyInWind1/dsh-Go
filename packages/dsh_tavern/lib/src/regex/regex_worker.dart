@@ -395,9 +395,7 @@ void _workerMain(SendPort replies) {
       final sensitive = message['caseSensitive']! as bool;
       final key = (dialectName, pattern, sensitive);
       var program = cache.remove(key);
-      if (program == null) {
-        program = compileRegexProgram(pattern, RegexDialect.values.byName(dialectName), caseSensitive: sensitive);
-      }
+      program ??= compileRegexProgram(pattern, RegexDialect.values.byName(dialectName), caseSensitive: sensitive);
       if (cache.length >= 1000) {
         cache.remove(cache.keys.first);
       }

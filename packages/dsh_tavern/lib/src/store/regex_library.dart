@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math';
 
 import '../api.dart';
+import '../import_report.dart';
+import '../io/import_intake.dart';
 import '../io/regex_intake.dart';
 import '../regex/regex_types.dart';
 import '../regex_library.dart';
@@ -47,6 +49,9 @@ final class RegexLibrary {
             for (final item in value['diagnostics']! as List<Object?>)
               TavernRegexDiagnostic.fromJson(item! as Map<String, Object?>),
           ],
+          importReport: value['importReport'] == null
+              ? null
+              : TavernImportReport.fromJson(value['importReport']! as Map<String, Object?>),
         ),
       );
     }
@@ -75,24 +80,36 @@ final class RegexLibrary {
     if (values.any((value) => value is! Map<String, Object?>)) {
       throw const TavernImportError('正则文件须为单个对象或对象数组。');
     }
-    final prepared = <({Map<String, Object?> raw, TavernRegexDiagnostic diagnostic})>[];
+    final prepared = <({Map<String, Object?> raw, TavernRegexDiagnostic diagnostic, String path})>[];
     for (var index = 0; index < values.length; index++) {
       final raw = values[index]! as Map<String, Object?>;
-      final diagnostic = await inspectRegexScript(raw, worker, path: value is List<Object?> ? '\$[$index]' : r'$');
-      prepared.add((raw: raw, diagnostic: diagnostic));
+      final path = value is List<Object?> ? '\$[$index]' : r'$';
+      final diagnostic = await inspectRegexScript(raw, worker, path: path);
+      prepared.add((raw: raw, diagnostic: diagnostic, path: path));
     }
     return _exclusive(() async {
       final ids = _scripts.map((value) => value.id).toSet();
-      final records = [
-        for (final value in prepared)
+      final records = <TavernRegexScript>[];
+      for (final value in prepared) {
+        final at = _clock().toUtc();
+        final report = assessImport(
+          kind: TavernImportKind.regex,
+          document: value.raw,
+          path: value.path,
+          regexDiagnostics: [value.diagnostic],
+          checkedAt: at,
+        );
+        records.add(
           TavernRegexScript(
             id: _newId(ids),
             raw: value.raw,
             sourceText: text,
-            importedAt: _clock().toUtc(),
+            importedAt: at,
             diagnostics: [value.diagnostic],
+            importReport: report,
           ),
-      ];
+        );
+      }
       if (records.isNotEmpty) await _save([..._scripts, ...records]);
       return TavernRegexImportResult(records);
     });
@@ -106,6 +123,7 @@ final class RegexLibrary {
       raw: {...original.raw, 'disabled': !enabled},
       importedAt: original.importedAt,
       diagnostics: original.diagnostics,
+      importReport: original.importReport,
     );
     await _save([for (final script in _scripts) script.id == id ? updated : script]);
     return updated;
@@ -117,6 +135,37 @@ final class RegexLibrary {
       for (final script in _scripts)
         if (script.id != id) script,
     ]);
+  });
+
+  Future<TavernImportReport?> readImportReport(String id) => _exclusive(() async {
+    final matches = _scripts.where((value) => value.id == id);
+    if (matches.isEmpty) return null;
+    final record = matches.single;
+    final report = record.importReport;
+    if (report == null) return null;
+    if (report.kind != TavernImportKind.regex) throw const FormatException('Invalid regex import report.');
+    return report.withStale(report.fingerprint != importFingerprint(TavernImportKind.regex, record.raw));
+  });
+
+  Future<TavernImportReport> recheckImport(String id) => _exclusive(() async {
+    final record = _require(id);
+    final diagnostic = await inspectRegexScript(record.raw, worker);
+    final report = assessImport(
+      kind: TavernImportKind.regex,
+      document: record.raw,
+      regexDiagnostics: [diagnostic],
+      checkedAt: _clock().toUtc(),
+    );
+    final updated = TavernRegexScript(
+      id: id,
+      sourceText: record.sourceText,
+      raw: record.raw,
+      importedAt: record.importedAt,
+      diagnostics: [diagnostic],
+      importReport: report,
+    );
+    await _save([for (final script in _scripts) script.id == id ? updated : script]);
+    return report;
   });
 
   String exportScripts({String? id}) =>
@@ -145,6 +194,7 @@ final class RegexLibrary {
             'sourceText': script.sourceText,
             'importedAt': script.importedAt.toIso8601String(),
             'diagnostics': [for (final issue in script.diagnostics) issue.toJson()],
+            if (script.importReport != null) 'importReport': script.importReport!.toJson(),
           },
       ],
     });
