@@ -459,7 +459,9 @@ class PreviewTavern implements Tavern, TavernPreview {
     String? speaker,
     num? depth,
     bool reasoning = false,
-  }) async => TavernDisplayResult(text: text ?? _chats[chatId]?.nodes[nodeId]?.text ?? '');
+  }) async => TavernDisplayResult(
+    text: text ?? _chats[chatId]?.nodes[nodeId]?.text ?? (throw StateError('No message $nodeId in $chatId')),
+  );
 
   final _presets = <String, TavernPreset>{};
   final _presetsChanged = StreamController<void>.broadcast();

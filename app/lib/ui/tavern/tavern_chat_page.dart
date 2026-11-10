@@ -581,6 +581,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream)
         else
           _MessageRow(
+            chatId: widget.chatId,
             key: ValueKey(m.nodeId),
             message: m,
             last: m.nodeId == lastCharacter,
@@ -846,6 +847,7 @@ enum _MessageAction { copy, edit, regenerate, continueReply, inspect, hide, dele
 class _MessageRow extends StatelessWidget {
   const _MessageRow({
     super.key,
+    required this.chatId,
     required this.message,
     required this.last,
     required this.busy,
@@ -855,6 +857,7 @@ class _MessageRow extends StatelessWidget {
     this.lead = '',
   });
 
+  final String chatId;
   final TavernMessage message;
   final bool last;
   final bool busy;
@@ -898,7 +901,9 @@ class _MessageRow extends StatelessWidget {
     if (message.role == TavernRole.user) {
       return GestureDetector(
         onLongPress: onMenu,
-        child: _YourLine(text: message.text),
+        child: _YourLine(
+          child: _Shown(chatId: chatId, message: message),
+        ),
       );
     }
     final alternatives = last || message.siblingCount > 1;
@@ -911,7 +916,7 @@ class _MessageRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
-          MarkdownBody(text: message.text, selectable: false),
+          _Shown(chatId: chatId, message: message),
           if (alternatives) ...[
             const SizedBox(height: 4),
             if (last)
@@ -945,7 +950,7 @@ class _MessageRow extends StatelessWidget {
           if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           Opacity(
             opacity: user ? 0.78 : 1,
-            child: MarkdownBody(text: message.text, selectable: false),
+            child: _Shown(chatId: chatId, message: message),
           ),
           if (alternatives) ...[
             const SizedBox(height: 4),
@@ -1110,10 +1115,34 @@ Widget _beside(Widget? stage, Widget story) => stage == null
 
 /// Your line in the bubble layout: the app's bubble, with the story's
 /// Markdown and colours inside (your *actions* in italics, as hers are).
-class _YourLine extends StatelessWidget {
-  const _YourLine({required this.text});
+/// A message as shown (docs/design/roleplay-roadmap.md P0, engine T21): its
+/// text through the display regex of the card, the preset and the library,
+/// never stored. The text as written until that comes, or if it cannot.
+final tavernShownTextProvider = FutureProvider.autoDispose.family<String, (String, String, String)>((ref, key) async {
+  final (chatId, nodeId, text) = key;
+  final shown = await ref.watch(tavernProvider).displayText(chatId, nodeId: nodeId, text: text);
+  return shown.superseded ? text : shown.text;
+});
 
-  final String text;
+/// [message]'s text as [tavernShownTextProvider] shows it.
+class _Shown extends ConsumerWidget {
+  const _Shown({required this.chatId, required this.message});
+
+  final String chatId;
+  final TavernMessage message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shown = ref.watch(tavernShownTextProvider((chatId, message.nodeId, message.text))).value;
+    return MarkdownBody(text: shown ?? message.text, selectable: false);
+  }
+}
+
+class _YourLine extends StatelessWidget {
+  const _YourLine({required this.child});
+
+  /// The line, as shown.
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -1131,7 +1160,7 @@ class _YourLine extends StatelessWidget {
               // The bubble's own text colour for the narration.
               child: Theme(
                 data: theme.copyWith(colorScheme: theme.colorScheme.copyWith(onSurface: surfaces.onUserBubble)),
-                child: MarkdownBody(text: text, selectable: false),
+                child: child,
               ),
             ),
           ),
