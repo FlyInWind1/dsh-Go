@@ -18943,6 +18943,52 @@ class L10nZh extends L10n {
   String get tavernPaletteRose => '粉';
 
   @override
+  String get tavernStage => '舞台';
+
+  @override
+  String get tavernStageState => '状态';
+
+  @override
+  String get tavernStageDirector => '导演';
+
+  @override
+  String get tavernStageTurn => '本回合';
+
+  @override
+  String get tavernStageStateEmpty => '这张卡还没有状态';
+
+  @override
+  String get tavernStageStateNote => '卡里定义了状态以后，好感、属性、背包、时间地点都会在这里，每回合变了什么会标出来（「+5」），你也能直接改。没定义的老卡会在这里列出它的变量。';
+
+  @override
+  String get tavernStageDirectorEmpty => '导演还没上场';
+
+  @override
+  String get tavernStageDirectorNote =>
+      '打开导演后，它会在每回合之后在后台读剧情：给下一回合留一条看不见的提示，记下自己的笔记（默认藏着，怕剧透），再在输入框上方给你三个建议回复。它不替你说话，也不写正文。';
+
+  @override
+  String get tavernStageTurnNone => '还没有可看的回合';
+
+  @override
+  String get tavernStageTokensIn => '提示词';
+
+  @override
+  String get tavernStageCache => '缓存命中';
+
+  @override
+  String get tavernStageTokensOut => '回复';
+
+  @override
+  String get tavernStageWorld => '这回合用上的世界书';
+
+  @override
+  String get tavernStageWorldNone => '这回合没有条目被触发';
+
+  @override
+  String get tavernStageInspect => '看完整的检视';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

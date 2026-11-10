@@ -138,7 +138,7 @@ class _Body extends StatelessWidget {
         if (hits.isNotEmpty)
           SettingsSection(
             title: l10n.tavernInspectWorld(hits.length),
-            children: [for (final hit in hits) _WorldHitTile(hit: hit)],
+            children: [for (final hit in hits) TavernWorldHitTile(hit: hit)],
           ),
         if (excluded.isNotEmpty)
           SettingsSection(
@@ -276,8 +276,8 @@ class _RoleTag extends StatelessWidget {
 }
 
 /// A lorebook entry that went in: its name, the key that matched, and why.
-class _WorldHitTile extends StatelessWidget {
-  const _WorldHitTile({required this.hit});
+class TavernWorldHitTile extends StatelessWidget {
+  const TavernWorldHitTile({super.key, required this.hit});
 
   final Map<Object?, Object?> hit;
 

@@ -499,5 +499,20 @@
   "tavernPalettePlain": "Plain",
   "tavernPaletteEmber": "Warm",
   "tavernPaletteOcean": "Cool",
-  "tavernPaletteRose": "Rose"
+  "tavernPaletteRose": "Rose",
+  "tavernStage": "Stage",
+  "tavernStageState": "State",
+  "tavernStageDirector": "Director",
+  "tavernStageTurn": "This turn",
+  "tavernStageStateEmpty": "This card keeps no state yet",
+  "tavernStageStateNote": "Once a card defines its state, relations, numbers, belongings and the time and place show here, each turn's changes marked (\"+5\"), and you can change them yourself. An older card without one lists its variables here.",
+  "tavernStageDirectorEmpty": "No director yet",
+  "tavernStageDirectorNote": "With the director on, it reads the story in the background after each turn: it leaves the next turn an unseen hint, keeps its own notes (hidden by default, they may spoil), and puts three suggested replies over the box. It never speaks for you or writes the story.",
+  "tavernStageTurnNone": "No turn to look at yet",
+  "tavernStageTokensIn": "Prompt",
+  "tavernStageCache": "Cache hit",
+  "tavernStageTokensOut": "Reply",
+  "tavernStageWorld": "Lorebook entries this turn",
+  "tavernStageWorldNone": "No entry came up this turn",
+  "tavernStageInspect": "See the whole inspection"
 }

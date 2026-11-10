@@ -34598,6 +34598,96 @@ abstract class L10n {
   /// **'粉'**
   String get tavernPaletteRose;
 
+  /// No description provided for @tavernStage.
+  ///
+  /// In zh, this message translates to:
+  /// **'舞台'**
+  String get tavernStage;
+
+  /// No description provided for @tavernStageState.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态'**
+  String get tavernStageState;
+
+  /// No description provided for @tavernStageDirector.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演'**
+  String get tavernStageDirector;
+
+  /// No description provided for @tavernStageTurn.
+  ///
+  /// In zh, this message translates to:
+  /// **'本回合'**
+  String get tavernStageTurn;
+
+  /// No description provided for @tavernStageStateEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡还没有状态'**
+  String get tavernStageStateEmpty;
+
+  /// No description provided for @tavernStageStateNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡里定义了状态以后，好感、属性、背包、时间地点都会在这里，每回合变了什么会标出来（「+5」），你也能直接改。没定义的老卡会在这里列出它的变量。'**
+  String get tavernStageStateNote;
+
+  /// No description provided for @tavernStageDirectorEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演还没上场'**
+  String get tavernStageDirectorEmpty;
+
+  /// No description provided for @tavernStageDirectorNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开导演后，它会在每回合之后在后台读剧情：给下一回合留一条看不见的提示，记下自己的笔记（默认藏着，怕剧透），再在输入框上方给你三个建议回复。它不替你说话，也不写正文。'**
+  String get tavernStageDirectorNote;
+
+  /// No description provided for @tavernStageTurnNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有可看的回合'**
+  String get tavernStageTurnNone;
+
+  /// No description provided for @tavernStageTokensIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词'**
+  String get tavernStageTokensIn;
+
+  /// No description provided for @tavernStageCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存命中'**
+  String get tavernStageCache;
+
+  /// No description provided for @tavernStageTokensOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复'**
+  String get tavernStageTokensOut;
+
+  /// No description provided for @tavernStageWorld.
+  ///
+  /// In zh, this message translates to:
+  /// **'这回合用上的世界书'**
+  String get tavernStageWorld;
+
+  /// No description provided for @tavernStageWorldNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这回合没有条目被触发'**
+  String get tavernStageWorldNone;
+
+  /// No description provided for @tavernStageInspect.
+  ///
+  /// In zh, this message translates to:
+  /// **'看完整的检视'**
+  String get tavernStageInspect;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

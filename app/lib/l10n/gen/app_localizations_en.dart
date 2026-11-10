@@ -19989,6 +19989,53 @@ class L10nEn extends L10n {
   String get tavernPaletteRose => 'Rose';
 
   @override
+  String get tavernStage => 'Stage';
+
+  @override
+  String get tavernStageState => 'State';
+
+  @override
+  String get tavernStageDirector => 'Director';
+
+  @override
+  String get tavernStageTurn => 'This turn';
+
+  @override
+  String get tavernStageStateEmpty => 'This card keeps no state yet';
+
+  @override
+  String get tavernStageStateNote =>
+      'Once a card defines its state, relations, numbers, belongings and the time and place show here, each turn\'s changes marked (\"+5\"), and you can change them yourself. An older card without one lists its variables here.';
+
+  @override
+  String get tavernStageDirectorEmpty => 'No director yet';
+
+  @override
+  String get tavernStageDirectorNote =>
+      'With the director on, it reads the story in the background after each turn: it leaves the next turn an unseen hint, keeps its own notes (hidden by default, they may spoil), and puts three suggested replies over the box. It never speaks for you or writes the story.';
+
+  @override
+  String get tavernStageTurnNone => 'No turn to look at yet';
+
+  @override
+  String get tavernStageTokensIn => 'Prompt';
+
+  @override
+  String get tavernStageCache => 'Cache hit';
+
+  @override
+  String get tavernStageTokensOut => 'Reply';
+
+  @override
+  String get tavernStageWorld => 'Lorebook entries this turn';
+
+  @override
+  String get tavernStageWorldNone => 'No entry came up this turn';
+
+  @override
+  String get tavernStageInspect => 'See the whole inspection';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

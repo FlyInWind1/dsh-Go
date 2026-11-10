@@ -49,6 +49,7 @@ import 'tavern_inspector_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_reading.dart';
+import 'tavern_stage_panel.dart';
 import 'tavern_storybook_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
@@ -73,6 +74,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// Scrolled back into the story, away from the newest lines: the chips over
   /// the box fold away for the reading (back when typing).
   final _readingBack = ValueNotifier(false);
+
+  /// The frame's Scaffold: 舞台 slides in from its right edge.
+  final _scaffold = GlobalKey<ScaffoldState>();
+
+  /// Wide enough for 舞台 to stand beside the story instead of sliding in.
+  static const _stageBesideFrom = 900.0;
+  static const _stageWidth = 340.0;
 
   /// The character's Live2D model in the visual novel, when she has one; set
   /// once it can't be shown, and the card's picture stands in.
@@ -691,9 +699,21 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     ];
 
     final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
+    final beside = MediaQuery.sizeOf(context).width >= _stageBesideFrom;
+    TavernStagePanel stage({double topInset = 0}) =>
+        TavernStagePanel(chatId: widget.chatId, turn: messages?.lastOrNull?.nodeId, topInset: topInset);
     return BotChatFrame(
       // The chat's picture, when it has one; the page's gradient otherwise.
       backdrop: (child) => WallpaperBackdrop.scene(picture: scene, child: child),
+      scaffoldKey: _scaffold,
+      endDrawer: beside
+          ? null
+          : Drawer(
+              key: const ValueKey('tavern-stage-drawer'),
+              width: (MediaQuery.sizeOf(context).width * 0.88).clamp(0, 380),
+              backgroundColor: Colors.transparent,
+              child: AppBackdrop(glow: false, child: SafeArea(child: stage())),
+            ),
       header: BotChatHeader(
         face: ClipOval(
           child: TavernPortrait(name: name, path: character?.avatarPath, radius: 0, initialSize: 16),
@@ -703,79 +723,85 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         tone: tone,
         scrolledUnder: _scrolled,
         onDetails: () => unawaited(_quickLook(characterId, name)),
+        // 舞台 in place of ⓘ (the title opens the quick look); beside the story
+        // on a wide screen, it needs no key.
+        action: beside ? null : (AppIcons.sidebar, l10n.tavernStage, () => _scaffold.currentState?.openEndDrawer()),
       ),
       // The story under 酒馆设置's text size and spacing.
-      body: TavernReading(
-        child: layout == TavernLayout.visualNovel
-            ? TavernVisualNovelView(
-                pages: [
-                  ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: _streamText),
-                  if (_running && _streamText.isNotEmpty && !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
-                    TavernPage(
-                      TavernMessage(
-                        nodeId: _streamNode ?? '',
-                        role: TavernRole.character,
-                        speaker: name,
-                        text: '',
-                        at: DateTime(0),
-                      ),
-                      _streamText,
-                      streaming: true,
-                    ),
-                ],
-                name: name,
-                avatarPath: character?.avatarPath,
-                stage: switch (characterId == null || _stageFailed
-                    ? null
-                    : ref.watch(tavernLive2dProvider(characterId)).value) {
-                  final store? => CompanionStage(
-                    key: ValueKey(store.root.path),
-                    store: store,
-                    controller: _stage,
-                    events: _stageEvents,
-                    bare: true,
-                  ),
-                  null => null,
-                },
-                onPage: _cue,
-                topInset: topInset,
-                onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
-                footer: (m, lastPage) =>
-                    lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
-                    ? _Alternatives(
-                        message: m,
-                        last: m.nodeId == lastCharacter,
-                        busy: _running,
-                        onSibling: (d) => unawaited(_sibling(m, d)),
-                      )
-                    : null,
-              )
-            : NotificationListener<ScrollNotification>(
-                onNotification: (n) {
-                  if (n.metrics.axis == Axis.vertical) {
-                    _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
-                    _readingBack.value = n.metrics.pixels > 240;
-                    // The list runs newest first: what is left above is older.
-                    if (n.metrics.extentAfter < 600) unawaited(_loadOlder());
-                  }
-                  return false;
-                },
-                child: ListView(
-                  key: const ValueKey('tavern-transcript'),
-                  reverse: true,
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
-                  children: [
-                    for (final row in rows.reversed)
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: row),
-                    if (_hasOlder)
-                      const Padding(
-                        key: ValueKey('tavern-older'),
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: QuietSpinner()),
+      body: _beside(
+        beside ? stage(topInset: topInset) : null,
+        TavernReading(
+          child: layout == TavernLayout.visualNovel
+              ? TavernVisualNovelView(
+                  pages: [
+                    ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: _streamText),
+                    if (_running && _streamText.isNotEmpty && !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
+                      TavernPage(
+                        TavernMessage(
+                          nodeId: _streamNode ?? '',
+                          role: TavernRole.character,
+                          speaker: name,
+                          text: '',
+                          at: DateTime(0),
+                        ),
+                        _streamText,
+                        streaming: true,
                       ),
                   ],
+                  name: name,
+                  avatarPath: character?.avatarPath,
+                  stage: switch (characterId == null || _stageFailed
+                      ? null
+                      : ref.watch(tavernLive2dProvider(characterId)).value) {
+                    final store? => CompanionStage(
+                      key: ValueKey(store.root.path),
+                      store: store,
+                      controller: _stage,
+                      events: _stageEvents,
+                      bare: true,
+                    ),
+                    null => null,
+                  },
+                  onPage: _cue,
+                  topInset: topInset,
+                  onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
+                  footer: (m, lastPage) =>
+                      lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
+                      ? _Alternatives(
+                          message: m,
+                          last: m.nodeId == lastCharacter,
+                          busy: _running,
+                          onSibling: (d) => unawaited(_sibling(m, d)),
+                        )
+                      : null,
+                )
+              : NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    if (n.metrics.axis == Axis.vertical) {
+                      _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
+                      _readingBack.value = n.metrics.pixels > 240;
+                      // The list runs newest first: what is left above is older.
+                      if (n.metrics.extentAfter < 600) unawaited(_loadOlder());
+                    }
+                    return false;
+                  },
+                  child: ListView(
+                    key: const ValueKey('tavern-transcript'),
+                    reverse: true,
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
+                    children: [
+                      for (final row in rows.reversed)
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: row),
+                      if (_hasOlder)
+                        const Padding(
+                          key: ValueKey('tavern-older'),
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: QuietSpinner()),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
       bottom: [
         _ErrorSlot(
@@ -1125,6 +1151,17 @@ class _HiddenTag extends StatelessWidget {
 
 /// ‹ 2/5 ›: the previous and next alternative; past the last one (on the last
 /// reply) › writes a new one.
+/// The story, with 舞台 at its right when there is room for both.
+Widget _beside(Widget? stage, Widget story) => stage == null
+    ? story
+    : Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: story),
+          SizedBox(width: _TavernChatPageState._stageWidth, child: stage),
+        ],
+      );
+
 /// Your line in the bubble layout: the app's bubble, with the story's
 /// Markdown and colours inside (your *actions* in italics, as hers are).
 class _YourLine extends StatelessWidget {
