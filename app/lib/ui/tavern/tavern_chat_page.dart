@@ -7,6 +7,7 @@
 import 'dart:async';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -96,10 +97,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   List<TavernMessage>? _messages;
 
-  /// The reply being written: its node and the text so far.
+  /// The reply being written: its node, and the text so far. Only the reply
+  /// listens to the text: a piece arriving rebuilds it, not the page and every
+  /// message on it.
   String? _streamNode;
-  String _streamText = '';
-  String _streamReasoning = '';
+  final _stream = ValueNotifier<_Streamed>(_nothing);
   String? _error;
 
   /// The error's button: 「重试」 when trying again can help, 「设置」 when
@@ -143,6 +145,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     unawaited(_changes?.cancel());
     if (_running) _tavern.stop(widget.chatId);
     unawaited(_turn?.cancel());
+    _stream.dispose();
     _voice.removeListener(_reportVoice);
     _voice.dispose();
     // The page is gone, and its dictation with it.
@@ -192,9 +195,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _error = null;
       _action = null;
       _streamNode = null;
-      _streamText = '';
-      _streamReasoning = '';
     });
+    _stream.value = _nothing;
     _turn = start().listen(
       (event) {
         if (!mounted) return;
@@ -203,15 +205,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             setState(() => _streamNode = message.nodeId);
             unawaited(_reload());
           case TavernTextDelta(:final nodeId, :final text):
-            setState(() {
-              _streamNode ??= nodeId;
-              _streamText += text;
-            });
+            _adopt(nodeId);
+            _stream.value = (text: _stream.value.text + text, reasoning: _stream.value.reasoning);
           case TavernReasoningDelta(:final nodeId, :final text):
-            setState(() {
-              _streamNode ??= nodeId;
-              _streamReasoning += text;
-            });
+            _adopt(nodeId);
+            _stream.value = (text: _stream.value.text, reasoning: _stream.value.reasoning + text);
           case TavernTurnDone():
             _finish();
           case TavernTurnFailed(:final kind, :final detail, :final partial):
@@ -244,16 +242,20 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
   }
 
+  /// The reply's node, once known: the page places the reply by it.
+  void _adopt(String nodeId) {
+    if (_streamNode == null) setState(() => _streamNode = nodeId);
+  }
+
   void _finish({String? error, ({String label, VoidCallback onPressed})? action}) {
     unawaited(_turn?.cancel());
     setState(() {
       _turn = null;
       _streamNode = null;
-      _streamText = '';
-      _streamReasoning = '';
       _error = error;
       _action = action;
     });
+    _stream.value = _nothing;
     unawaited(_reload());
   }
 
@@ -684,7 +686,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final rows = <Widget>[
       for (final m in messages ?? const <TavernMessage>[])
         if (m.nodeId == _streamNode)
-          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), text: _streamText, reasoning: _streamReasoning)
+          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream)
         else
           _MessageRow(
             key: ValueKey(m.nodeId),
@@ -697,8 +699,15 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             lead: name,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
-        _StreamingReply(key: const ValueKey('stream-pending'), text: _streamText, reasoning: _streamReasoning),
+        _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream),
     ];
+
+    // Read here, not in the 视觉小说 builder below, which reruns on every
+    // piece of the reply.
+    final live2d = layout != TavernLayout.visualNovel || characterId == null || _stageFailed
+        ? null
+        : ref.watch(tavernLive2dProvider(characterId)).value;
+    final revealRate = ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond));
 
     final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
     final beside = MediaQuery.sizeOf(context).width >= _stageBesideFrom;
@@ -734,49 +743,52 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         beside ? stage(topInset: topInset) : null,
         TavernReading(
           child: layout == TavernLayout.visualNovel
-              ? TavernVisualNovelView(
-                  pages: [
-                    ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: _streamText),
-                    if (_running && _streamText.isNotEmpty && !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
-                      TavernPage(
-                        TavernMessage(
-                          nodeId: _streamNode ?? '',
-                          role: TavernRole.character,
-                          speaker: name,
-                          text: '',
-                          at: DateTime(0),
+              ? ValueListenableBuilder(
+                  valueListenable: _stream,
+                  builder: (context, streamed, _) => TavernVisualNovelView(
+                    pages: [
+                      ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: streamed.text),
+                      if (_running &&
+                          streamed.text.isNotEmpty &&
+                          !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
+                        TavernPage(
+                          TavernMessage(
+                            nodeId: _streamNode ?? '',
+                            role: TavernRole.character,
+                            speaker: name,
+                            text: '',
+                            at: DateTime(0),
+                          ),
+                          streamed.text,
+                          streaming: true,
                         ),
-                        _streamText,
-                        streaming: true,
+                    ],
+                    name: name,
+                    avatarPath: character?.avatarPath,
+                    stage: switch (live2d) {
+                      final store? => CompanionStage(
+                        key: ValueKey(store.root.path),
+                        store: store,
+                        controller: _stage,
+                        events: _stageEvents,
+                        bare: true,
                       ),
-                  ],
-                  name: name,
-                  avatarPath: character?.avatarPath,
-                  stage: switch (characterId == null || _stageFailed
-                      ? null
-                      : ref.watch(tavernLive2dProvider(characterId)).value) {
-                    final store? => CompanionStage(
-                      key: ValueKey(store.root.path),
-                      store: store,
-                      controller: _stage,
-                      events: _stageEvents,
-                      bare: true,
-                    ),
-                    null => null,
-                  },
-                  onPage: _cue,
-                  revealRate: ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond)),
-                  topInset: topInset,
-                  onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
-                  footer: (m, lastPage) =>
-                      lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
-                      ? _Alternatives(
-                          message: m,
-                          last: m.nodeId == lastCharacter,
-                          busy: _running,
-                          onSibling: (d) => unawaited(_sibling(m, d)),
-                        )
-                      : null,
+                      null => null,
+                    },
+                    onPage: _cue,
+                    revealRate: revealRate,
+                    topInset: topInset,
+                    onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
+                    footer: (m, lastPage) =>
+                        lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
+                        ? _Alternatives(
+                            message: m,
+                            last: m.nodeId == lastCharacter,
+                            busy: _running,
+                            onSibling: (d) => unawaited(_sibling(m, d)),
+                          )
+                        : null,
+                  ),
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: (n) {
@@ -793,8 +805,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     reverse: true,
                     padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
                     children: [
+                      // Keyed by message: a new one below keeps each row's
+                      // state with its message, not with its place.
                       for (final row in rows.reversed)
-                        Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: row),
+                        Padding(key: row.key, padding: const EdgeInsets.symmetric(vertical: 6), child: row),
                       if (_hasOlder)
                         const Padding(
                           key: ValueKey('tavern-older'),
@@ -1262,22 +1276,33 @@ class _Alternatives extends StatelessWidget {
   }
 }
 
-class _StreamingReply extends StatelessWidget {
-  const _StreamingReply({super.key, required this.text, this.reasoning = ''});
+/// What has arrived of the reply being written.
+typedef _Streamed = ({String text, String reasoning});
 
-  final String text;
-  final String reasoning;
+const _Streamed _nothing = (text: '', reasoning: '');
+
+/// The reply being written, rebuilt alone as each piece arrives.
+class _StreamingReply extends StatelessWidget {
+  const _StreamingReply({super.key, required this.stream});
+
+  final ValueListenable<_Streamed> stream;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning, active: text.isEmpty, streaming: true),
-      if (text.isEmpty && reasoning.isEmpty)
-        const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
-      else if (text.isNotEmpty)
-        MarkdownBody(text: text, streaming: true, selectable: false),
-    ],
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: stream,
+    builder: (context, streamed, _) {
+      final (:text, :reasoning) = streamed;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning, active: text.isEmpty, streaming: true),
+          if (text.isEmpty && reasoning.isEmpty)
+            const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
+          else if (text.isNotEmpty)
+            MarkdownBody(text: text, streaming: true, selectable: false),
+        ],
+      );
+    },
   );
 }
 
