@@ -19792,6 +19792,46 @@ class L10nEn extends L10n {
   String get tavernBackgroundRemove => 'Remove the picture';
 
   @override
+  String get tavernDice => 'Roll dice';
+
+  @override
+  String get tavernDiceCount => 'Dice';
+
+  @override
+  String get tavernDiceModifier => 'Modifier';
+
+  @override
+  String get tavernDiceFewer => 'One die fewer';
+
+  @override
+  String get tavernDiceMore => 'One more die';
+
+  @override
+  String get tavernDiceModifierDown => 'Modifier −1';
+
+  @override
+  String get tavernDiceModifierUp => 'Modifier +1';
+
+  @override
+  String get tavernDiceRoll => 'Roll';
+
+  @override
+  String get tavernDiceAgain => 'Roll again';
+
+  @override
+  String get tavernDiceUse => 'Put it in the box';
+
+  @override
+  String tavernDiceLine(String notation, int total, String working) {
+    return '🎲 $notation rolled $total$working';
+  }
+
+  @override
+  String tavernDiceWorking(String working) {
+    return ' ($working)';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

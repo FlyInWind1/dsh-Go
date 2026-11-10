@@ -11562,6 +11562,38 @@
   "tavernBackgroundNone": "无",
   "tavernBackgroundChange": "换一张",
   "tavernBackgroundRemove": "去掉背景图",
+  "tavernDice": "掷骰",
+  "tavernDiceCount": "个数",
+  "tavernDiceModifier": "加值",
+  "tavernDiceFewer": "少一个骰子",
+  "tavernDiceMore": "多一个骰子",
+  "tavernDiceModifierDown": "加值减 1",
+  "tavernDiceModifierUp": "加值加 1",
+  "tavernDiceRoll": "掷",
+  "tavernDiceAgain": "再掷一次",
+  "tavernDiceUse": "放进输入框",
+  "tavernDiceLine": "🎲 {notation} 掷出 {total}{working}",
+  "@tavernDiceLine": {
+    "placeholders": {
+      "notation": {
+        "type": "String"
+      },
+      "total": {
+        "type": "int"
+      },
+      "working": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDiceWorking": "（{working}）",
+  "@tavernDiceWorking": {
+    "placeholders": {
+      "working": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

@@ -18757,6 +18757,46 @@ class L10nZh extends L10n {
   String get tavernBackgroundRemove => '去掉背景图';
 
   @override
+  String get tavernDice => '掷骰';
+
+  @override
+  String get tavernDiceCount => '个数';
+
+  @override
+  String get tavernDiceModifier => '加值';
+
+  @override
+  String get tavernDiceFewer => '少一个骰子';
+
+  @override
+  String get tavernDiceMore => '多一个骰子';
+
+  @override
+  String get tavernDiceModifierDown => '加值减 1';
+
+  @override
+  String get tavernDiceModifierUp => '加值加 1';
+
+  @override
+  String get tavernDiceRoll => '掷';
+
+  @override
+  String get tavernDiceAgain => '再掷一次';
+
+  @override
+  String get tavernDiceUse => '放进输入框';
+
+  @override
+  String tavernDiceLine(String notation, int total, String working) {
+    return '🎲 $notation 掷出 $total$working';
+  }
+
+  @override
+  String tavernDiceWorking(String working) {
+    return '（$working）';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

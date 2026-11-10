@@ -371,5 +371,37 @@
   "tavernBackground": "Background picture",
   "tavernBackgroundNone": "None",
   "tavernBackgroundChange": "Change",
-  "tavernBackgroundRemove": "Remove the picture"
+  "tavernBackgroundRemove": "Remove the picture",
+  "tavernDice": "Roll dice",
+  "tavernDiceCount": "Dice",
+  "tavernDiceModifier": "Modifier",
+  "tavernDiceFewer": "One die fewer",
+  "tavernDiceMore": "One more die",
+  "tavernDiceModifierDown": "Modifier −1",
+  "tavernDiceModifierUp": "Modifier +1",
+  "tavernDiceRoll": "Roll",
+  "tavernDiceAgain": "Roll again",
+  "tavernDiceUse": "Put it in the box",
+  "tavernDiceLine": "🎲 {notation} rolled {total}{working}",
+  "@tavernDiceLine": {
+    "placeholders": {
+      "notation": {
+        "type": "String"
+      },
+      "total": {
+        "type": "int"
+      },
+      "working": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDiceWorking": " ({working})",
+  "@tavernDiceWorking": {
+    "placeholders": {
+      "working": {
+        "type": "String"
+      }
+    }
+  }
 }

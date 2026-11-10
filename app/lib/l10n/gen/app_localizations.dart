@@ -34262,6 +34262,78 @@ abstract class L10n {
   /// **'去掉背景图'**
   String get tavernBackgroundRemove;
 
+  /// No description provided for @tavernDice.
+  ///
+  /// In zh, this message translates to:
+  /// **'掷骰'**
+  String get tavernDice;
+
+  /// No description provided for @tavernDiceCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'个数'**
+  String get tavernDiceCount;
+
+  /// No description provided for @tavernDiceModifier.
+  ///
+  /// In zh, this message translates to:
+  /// **'加值'**
+  String get tavernDiceModifier;
+
+  /// No description provided for @tavernDiceFewer.
+  ///
+  /// In zh, this message translates to:
+  /// **'少一个骰子'**
+  String get tavernDiceFewer;
+
+  /// No description provided for @tavernDiceMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'多一个骰子'**
+  String get tavernDiceMore;
+
+  /// No description provided for @tavernDiceModifierDown.
+  ///
+  /// In zh, this message translates to:
+  /// **'加值减 1'**
+  String get tavernDiceModifierDown;
+
+  /// No description provided for @tavernDiceModifierUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'加值加 1'**
+  String get tavernDiceModifierUp;
+
+  /// No description provided for @tavernDiceRoll.
+  ///
+  /// In zh, this message translates to:
+  /// **'掷'**
+  String get tavernDiceRoll;
+
+  /// No description provided for @tavernDiceAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'再掷一次'**
+  String get tavernDiceAgain;
+
+  /// No description provided for @tavernDiceUse.
+  ///
+  /// In zh, this message translates to:
+  /// **'放进输入框'**
+  String get tavernDiceUse;
+
+  /// No description provided for @tavernDiceLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'🎲 {notation} 掷出 {total}{working}'**
+  String tavernDiceLine(String notation, int total, String working);
+
+  /// No description provided for @tavernDiceWorking.
+  ///
+  /// In zh, this message translates to:
+  /// **'（{working}）'**
+  String tavernDiceWorking(String working);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

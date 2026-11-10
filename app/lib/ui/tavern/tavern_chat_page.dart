@@ -39,6 +39,7 @@ import '../theme/theme.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
+import 'tavern_dice_sheet.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
@@ -240,6 +241,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (_running || last == null || last.role != TavernRole.character) return;
     unawaited(HapticFeedback.selectionClick());
     _run(() => _tavern.continueReply(widget.chatId, last.nodeId));
+  }
+
+  /// 掷骰: what came up joins whatever is in the box, on a line of its own.
+  Future<void> _dice() async {
+    final line = await showTavernDice(context);
+    if (line == null || !mounted) return;
+    final before = _input.text.trimRight();
+    final text = before.isEmpty ? line : '$before\n$line';
+    _input.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _focus.requestFocus();
   }
 
   /// 帮我写: the model writes your next line into the composer. Nothing is
@@ -668,14 +682,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           onStop: _stop,
           placeholder: l10n.tavernComposerHint(name),
           leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
-          tray: switch (ref.watch(tavernQuickRepliesProvider)) {
-            final quick when quick.isNotEmpty && !_running && messages != null => _QuickReplyRow(
-              replies: quick,
-              onSend: _sendQuick,
-              onEdit: _editQuick,
-            ),
-            _ => null,
-          },
+          tray: !_running && messages != null
+              ? _QuickReplyRow(
+                  replies: ref.watch(tavernQuickRepliesProvider),
+                  onSend: _sendQuick,
+                  onEdit: _editQuick,
+                  onDice: () => unawaited(_dice()),
+                )
+              : null,
           // While the box is empty: 帮我写 (an idea to start from) and, after
           // a reply, 接着写 (it goes on).
           accessory: ValueListenableBuilder<TextEditingValue>(
@@ -848,13 +862,15 @@ class _MessageRow extends StatelessWidget {
   }
 }
 
-/// 快速回复 above the composer: tap sends, long-press puts it in the box.
+/// The capsules above the composer (§6): 快速回复 (tap sends, long-press puts
+/// it in the box), then 掷骰.
 class _QuickReplyRow extends StatelessWidget {
-  const _QuickReplyRow({required this.replies, required this.onSend, required this.onEdit});
+  const _QuickReplyRow({required this.replies, required this.onSend, required this.onEdit, required this.onDice});
 
   final List<String> replies;
   final ValueChanged<String> onSend;
   final ValueChanged<String> onEdit;
+  final VoidCallback onDice;
 
   /// The first line, kept short enough for a capsule.
   static String _label(String reply) {
@@ -871,13 +887,24 @@ class _QuickReplyRow extends StatelessWidget {
         key: const ValueKey('tavern-quick-replies'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: replies.length,
+        itemCount: replies.length + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => GestureDetector(
-          key: ValueKey('tavern-qr-$i'),
-          onLongPress: () => onEdit(replies[i]),
-          child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
-        ),
+        itemBuilder: (context, i) => i == replies.length
+            ? CapsuleChoiceChip(
+                key: const ValueKey('tavern-dice'),
+                label: context.l10n.tavernDice,
+                selected: false,
+                onSelected: onDice,
+              )
+            : GestureDetector(
+                key: ValueKey('tavern-qr-$i'),
+                onLongPress: () => onEdit(replies[i]),
+                child: CapsuleChoiceChip(
+                  label: _label(replies[i]),
+                  selected: false,
+                  onSelected: () => onSend(replies[i]),
+                ),
+              ),
       ),
     ),
   );
