@@ -22,6 +22,7 @@ import 'tavern_chat_files.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
 import 'tavern_live2d_tile.dart';
+import 'tavern_report_page.dart';
 import 'tavern_lorebook_page.dart';
 import 'tavern_widgets.dart';
 
@@ -238,6 +239,26 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                   onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
                 ),
               TavernLive2dTile(character: character),
+              // What of the card runs here, and what is kept but not run.
+              SettingsTile(
+                key: const ValueKey('tavern-character-report'),
+                icon: AppIcons.info,
+                tinted: false,
+                title: l10n.tavernReport,
+                value: Text(switch (ref
+                    .watch(tavernImportReportProvider((TavernImportKind.character, character.id)))
+                    .value) {
+                  final report? => tavernVerdictText(l10n, report.verdict),
+                  null => '',
+                }),
+                onTap: () => Navigator.of(context).push(
+                  TavernImportReportPage.route(
+                    kind: TavernImportKind.character,
+                    assetId: character.id,
+                    name: character.name,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

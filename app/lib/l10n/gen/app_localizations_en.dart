@@ -19373,6 +19373,56 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernReport => 'Import check';
+
+  @override
+  String get tavernVerdictUsable => 'Works';
+
+  @override
+  String get tavernVerdictPartial => 'Partly works';
+
+  @override
+  String get tavernVerdictPreserve => 'Kept, not run';
+
+  @override
+  String tavernReportChecked(String time) {
+    return 'Checked $time';
+  }
+
+  @override
+  String get tavernReportStale => 'Changed since this check';
+
+  @override
+  String get tavernReportRecheck => 'Check again';
+
+  @override
+  String get tavernReportNone => 'Not checked yet';
+
+  @override
+  String get tavernReportNoneMessage => 'This was imported before checks existed; check it now.';
+
+  @override
+  String get tavernReportCheckNow => 'Check now';
+
+  @override
+  String get tavernReportRender0 => 'Suggested display: native';
+
+  @override
+  String get tavernReportRender1 => 'Suggested display: a web view in the message';
+
+  @override
+  String get tavernReportRender2 => 'Suggested display: a whole-page canvas';
+
+  @override
+  String get tavernReportCounts => 'Contains';
+
+  @override
+  String get tavernReportFindings => 'Not run, or worth a look';
+
+  @override
+  String get tavernReportNoFindings => 'Nothing to look at';
+
+  @override
   String get tavernPresetForChat => 'This chat\'s preset';
 
   @override

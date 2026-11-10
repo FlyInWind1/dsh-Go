@@ -33524,6 +33524,102 @@ abstract class L10n {
   /// **'{count} 个'**
   String tavernPresetCount(int count);
 
+  /// No description provided for @tavernReport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入体检'**
+  String get tavernReport;
+
+  /// No description provided for @tavernVerdictUsable.
+  ///
+  /// In zh, this message translates to:
+  /// **'能用'**
+  String get tavernVerdictUsable;
+
+  /// No description provided for @tavernVerdictPartial.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分能用'**
+  String get tavernVerdictPartial;
+
+  /// No description provided for @tavernVerdictPreserve.
+  ///
+  /// In zh, this message translates to:
+  /// **'只保留，不执行'**
+  String get tavernVerdictPreserve;
+
+  /// No description provided for @tavernReportChecked.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查于 {time}'**
+  String tavernReportChecked(String time);
+
+  /// No description provided for @tavernReportStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'资料改过了，这份体检是旧的'**
+  String get tavernReportStale;
+
+  /// No description provided for @tavernReportRecheck.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新检查'**
+  String get tavernReportRecheck;
+
+  /// No description provided for @tavernReportNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有体检'**
+  String get tavernReportNone;
+
+  /// No description provided for @tavernReportNoneMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'这份资料是加体检之前导入的，检查一下就有了。'**
+  String get tavernReportNoneMessage;
+
+  /// No description provided for @tavernReportCheckNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查一下'**
+  String get tavernReportCheckNow;
+
+  /// No description provided for @tavernReportRender0.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议显示方式：原生'**
+  String get tavernReportRender0;
+
+  /// No description provided for @tavernReportRender1.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议显示方式：单条消息里的网页'**
+  String get tavernReportRender1;
+
+  /// No description provided for @tavernReportRender2.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议显示方式：整页画布'**
+  String get tavernReportRender2;
+
+  /// No description provided for @tavernReportCounts.
+  ///
+  /// In zh, this message translates to:
+  /// **'里面有'**
+  String get tavernReportCounts;
+
+  /// No description provided for @tavernReportFindings.
+  ///
+  /// In zh, this message translates to:
+  /// **'没执行或要留意的'**
+  String get tavernReportFindings;
+
+  /// No description provided for @tavernReportNoFindings.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有要留意的'**
+  String get tavernReportNoFindings;
+
   /// No description provided for @tavernPresetForChat.
   ///
   /// In zh, this message translates to:

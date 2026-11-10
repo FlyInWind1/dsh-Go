@@ -18369,6 +18369,56 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernReport => '导入体检';
+
+  @override
+  String get tavernVerdictUsable => '能用';
+
+  @override
+  String get tavernVerdictPartial => '部分能用';
+
+  @override
+  String get tavernVerdictPreserve => '只保留，不执行';
+
+  @override
+  String tavernReportChecked(String time) {
+    return '检查于 $time';
+  }
+
+  @override
+  String get tavernReportStale => '资料改过了，这份体检是旧的';
+
+  @override
+  String get tavernReportRecheck => '重新检查';
+
+  @override
+  String get tavernReportNone => '还没有体检';
+
+  @override
+  String get tavernReportNoneMessage => '这份资料是加体检之前导入的，检查一下就有了。';
+
+  @override
+  String get tavernReportCheckNow => '检查一下';
+
+  @override
+  String get tavernReportRender0 => '建议显示方式：原生';
+
+  @override
+  String get tavernReportRender1 => '建议显示方式：单条消息里的网页';
+
+  @override
+  String get tavernReportRender2 => '建议显示方式：整页画布';
+
+  @override
+  String get tavernReportCounts => '里面有';
+
+  @override
+  String get tavernReportFindings => '没执行或要留意的';
+
+  @override
+  String get tavernReportNoFindings => '没有要留意的';
+
+  @override
   String get tavernPresetForChat => '这段对话用的预设';
 
   @override
