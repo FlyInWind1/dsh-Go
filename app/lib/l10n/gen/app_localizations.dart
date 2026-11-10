@@ -33236,6 +33236,18 @@ abstract class L10n {
   /// **'先在设置里填 DeepSeek API Key'**
   String get tavernErrorNoKey;
 
+  /// No description provided for @tavernKeyMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没填 DeepSeek API Key，填好就能开始。'**
+  String get tavernKeyMissing;
+
+  /// No description provided for @tavernKeyMissingAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'去填写'**
+  String get tavernKeyMissingAction;
+
   /// No description provided for @tavernErrorBadKey.
   ///
   /// In zh, this message translates to:

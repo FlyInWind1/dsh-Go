@@ -701,6 +701,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         ),
       ),
       bottom: [
+        // No key yet: say so before the first line, not after it fails.
+        if (!preview && _error == null && !ref.watch(settingsProvider.select((s) => s.hasApiKey)))
+          _KeyMissing(onAdd: _openKeySettings),
         _ErrorSlot(
           error: _error,
           action: _action,
@@ -1184,6 +1187,38 @@ class _StreamingReply extends StatelessWidget {
       );
     },
   );
+}
+
+/// Over the composer while no DeepSeek key is set: what is missing, and where
+/// it goes.
+class _KeyMissing extends StatelessWidget {
+  const _KeyMissing({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final dsh = DshColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassSurface(
+        key: const ValueKey('tavern-key-missing'),
+        tier: GlassTier.card,
+        borderRadius: AppShape.radiusLg,
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        child: Row(
+          children: [
+            Icon(AppIcons.noApiKey, size: 18, color: dsh.textTertiary),
+            const SizedBox(width: 10),
+            Expanded(child: Text(l10n.tavernKeyMissing, style: theme.textTheme.bodySmall)),
+            TextButton(onPressed: onAdd, child: Text(l10n.tavernKeyMissingAction)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// The last turn's error over the composer, with 「重试」 when it can retry.

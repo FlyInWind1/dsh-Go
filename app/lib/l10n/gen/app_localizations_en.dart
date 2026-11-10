@@ -19204,6 +19204,12 @@ class L10nEn extends L10n {
   String get tavernErrorNoKey => 'Add a DeepSeek API key in Settings first';
 
   @override
+  String get tavernKeyMissing => 'Add your DeepSeek API key, and the story can start.';
+
+  @override
+  String get tavernKeyMissingAction => 'Add key';
+
+  @override
   String get tavernErrorBadKey => 'The API key was refused; check it in Settings';
 
   @override

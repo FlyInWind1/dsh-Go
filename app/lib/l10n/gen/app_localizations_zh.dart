@@ -18208,6 +18208,12 @@ class L10nZh extends L10n {
   String get tavernErrorNoKey => '先在设置里填 DeepSeek API Key';
 
   @override
+  String get tavernKeyMissing => '还没填 DeepSeek API Key，填好就能开始。';
+
+  @override
+  String get tavernKeyMissingAction => '去填写';
+
+  @override
   String get tavernErrorBadKey => 'API Key 不对，去设置里检查一下';
 
   @override

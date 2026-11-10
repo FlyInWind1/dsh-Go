@@ -5524,6 +5524,8 @@
   "tavernPrevious": "Previous reply",
   "tavernNext": "Next reply",
   "tavernErrorNoKey": "Add a DeepSeek API key in Settings first",
+  "tavernKeyMissing": "Add your DeepSeek API key, and the story can start.",
+  "tavernKeyMissingAction": "Add key",
   "tavernErrorBadKey": "The API key was refused; check it in Settings",
   "tavernErrorBusy": "The model is busy; try again in a moment",
   "tavernErrorNetwork": "Can't connect; check the network and retry",

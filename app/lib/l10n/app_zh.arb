@@ -11259,6 +11259,8 @@
   "tavernPrevious": "上一个回答",
   "tavernNext": "下一个回答",
   "tavernErrorNoKey": "先在设置里填 DeepSeek API Key",
+  "tavernKeyMissing": "还没填 DeepSeek API Key，填好就能开始。",
+  "tavernKeyMissingAction": "去填写",
   "tavernErrorBadKey": "API Key 不对，去设置里检查一下",
   "tavernErrorBusy": "模型现在有点忙，稍后再试",
   "tavernErrorNetwork": "连不上，检查网络后重试",
