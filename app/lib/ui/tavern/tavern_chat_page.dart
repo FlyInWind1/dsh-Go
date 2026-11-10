@@ -32,6 +32,7 @@ import '../chat/widgets/notice_row.dart';
 import '../chat/widgets/stream_row.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_sheet.dart';
+import '../common/brief_notice.dart';
 import '../common/capsule_chip.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
@@ -537,18 +538,34 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       case _MessageAction.hide:
         if (!_running) await _tavern.setHidden(widget.chatId, message.nodeId, !message.hidden);
       case _MessageAction.delete:
-        // Nothing brings them back: say how many go, and ask first.
+        // Gone at once, with 撤销 for a while (engine T24: hidden until the
+        // library is next opened); [tavernDeleteAskFrom] or more ask first.
         if (_running) return;
         final at = _messages?.indexWhere((m) => m.nodeId == message.nodeId) ?? -1;
         final count = at < 0 ? 1 : _messages!.length - at;
         final l10n = context.l10n;
-        final ok = await confirmTavernDelete(
-          context,
-          title: l10n.tavernDeleteFromTitle(count),
-          message: l10n.tavernDeleteFromMessage,
+        final messenger = ScaffoldMessenger.of(context);
+        if (count >= tavernDeleteAskFrom) {
+          final ok = await confirmTavernDelete(
+            context,
+            title: l10n.tavernDeleteFromTitle(count),
+            message: l10n.tavernDeleteFromUndoable,
+          );
+          if (!ok || !mounted || _running) return;
+        }
+        final token = await _tavern.deleteFrom(widget.chatId, message.nodeId);
+        messenger.showUndoNotice(
+          l10n.tavernDeletedCount(count),
+          undoLabel: l10n.tavernUndo,
+          window: tavernUndoWindow,
+          onUndo: () => unawaited(_undoDelete(token, messenger, l10n.tavernUndoFailed)),
         );
-        if (ok && mounted && !_running) await _tavern.deleteFrom(widget.chatId, message.nodeId);
     }
+  }
+
+  Future<void> _undoDelete(String token, ScaffoldMessengerState messenger, String failed) async {
+    // False: something since took its place, or the library was reopened.
+    if (!await _tavern.undoDeleteFrom(widget.chatId, token)) messenger.showBriefNotice(failed);
   }
 
   /// The stage plays [page]: thinking while a reply starts, then the cues.
@@ -1277,6 +1294,12 @@ class _Alternatives extends StatelessWidget {
     );
   }
 }
+
+/// From this many messages on, deleting asks first; fewer go at once.
+const tavernDeleteAskFrom = 10;
+
+/// How long a deletion's 撤销 stays up.
+const tavernUndoWindow = Duration(seconds: 6);
 
 /// What has arrived of the reply being written.
 typedef _Streamed = ({String text, String reasoning});

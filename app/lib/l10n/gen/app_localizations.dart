@@ -35486,6 +35486,24 @@ abstract class L10n {
   /// **'{seconds} 秒'**
   String tavernThinkingSeconds(int seconds);
 
+  /// No description provided for @tavernDeletedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, =1{删掉了 1 条} other{删掉了 {count} 条}}'**
+  String tavernDeletedCount(int count);
+
+  /// No description provided for @tavernDeleteFromUndoable.
+  ///
+  /// In zh, this message translates to:
+  /// **'从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。'**
+  String get tavernDeleteFromUndoable;
+
+  /// No description provided for @tavernUndoFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能撤销'**
+  String get tavernUndoFailed;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

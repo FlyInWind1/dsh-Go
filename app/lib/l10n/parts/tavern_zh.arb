@@ -677,5 +677,9 @@
   "tavernPrefillNote": "开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。",
   "tavernPresetPromptEmpty": "空着",
   "tavernThinkingSeconds": "{seconds} 秒",
-  "@tavernThinkingSeconds": {"placeholders": {"seconds": {"type": "int"}}}
+  "@tavernThinkingSeconds": {"placeholders": {"seconds": {"type": "int"}}},
+  "tavernDeletedCount": "{count, plural, =1{删掉了 1 条} other{删掉了 {count} 条}}",
+  "@tavernDeletedCount": {"placeholders": {"count": {"type": "int"}}},
+  "tavernDeleteFromUndoable": "从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。",
+  "tavernUndoFailed": "没能撤销"
 }

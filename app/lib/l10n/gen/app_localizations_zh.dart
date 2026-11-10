@@ -19425,6 +19425,18 @@ class L10nZh extends L10n {
   }
 
   @override
+  String tavernDeletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '删掉了 $count 条', one: '删掉了 1 条');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromUndoable => '从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。';
+
+  @override
+  String get tavernUndoFailed => '没能撤销';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

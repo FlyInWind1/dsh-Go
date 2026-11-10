@@ -20486,6 +20486,24 @@ class L10nEn extends L10n {
   }
 
   @override
+  String tavernDeletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Deleted $count messages',
+      one: 'Deleted 1 message',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromUndoable =>
+      'From this one to the latest, with their alternatives and branches. You can undo for a few seconds after.';
+
+  @override
+  String get tavernUndoFailed => 'Couldn\'t undo';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override
