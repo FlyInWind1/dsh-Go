@@ -126,7 +126,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// the key is missing or refused.
   ({String label, VoidCallback onPressed})? _action;
 
-  bool get _running => _turn != null;
+  bool get _running => _turn != null && !_rejoining;
+
+  /// Listening for a reply from before this page opened, none seen yet: not
+  /// running until one shows.
+  bool _rejoining = false;
+
+  /// The running turn writes into the box (帮我写), not the story.
+  bool _drafting = false;
 
   /// Dictation into the box (§6), the main chat's: the system's recognizer,
   /// or the engine's voice model where the on-device host has it.
@@ -145,6 +152,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     super.initState();
     _changes = _tavern.pathChanges(widget.chatId).listen((_) => unawaited(_reload()));
     unawaited(_reload());
+    // A reply left running when the page was last closed (engine T24).
+    _run(() => _tavern.resumeTurn(widget.chatId), rejoin: true);
     _voice = VoiceInputController(
       input: _input,
       bridge: ref.read(voiceBridgeProvider),
@@ -161,7 +170,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   @override
   void dispose() {
     unawaited(_changes?.cancel());
-    if (_running) _tavern.stop(widget.chatId);
+    // A reply goes on without the page (engine T24) and is picked up when it
+    // opens again; a line being written into this page's box has nowhere to go.
+    if (_running && _drafting) _tavern.stop(widget.chatId);
     unawaited(_turn?.cancel());
     _stream.dispose();
     _live.dispose();
@@ -212,13 +223,18 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (mounted) setState(() => _loadingOlder = false);
   }
 
-  void _run(Stream<TavernEvent> Function() start, {String? draft}) {
+  void _run(Stream<TavernEvent> Function() start, {String? draft, bool rejoin = false}) {
+    // A rejoin still listening for nothing must not end this turn when it closes.
+    unawaited(_turn?.cancel());
     _immersive.value = false;
-    setState(() {
-      _error = null;
-      _action = null;
-      _streamNode = null;
-    });
+    _rejoining = rejoin;
+    if (!rejoin) {
+      setState(() {
+        _error = null;
+        _action = null;
+        _streamNode = null;
+      });
+    }
     _stream.value = _nothing;
     _live.reset();
     _stopThinking();
@@ -227,10 +243,32 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       (event) {
         if (!mounted) return;
         switch (event) {
-          // Only a rejoined turn (resumeTurn) opens with one; this page's own
-          // turns start with TavernTurnStarted.
-          case TavernTurnSnapshot():
-            break;
+          // A rejoined turn (resumeTurn) opens with what it has so far; this
+          // page's own turns start with TavernTurnStarted.
+          case TavernTurnSnapshot(generationType: 'impersonate'):
+            // Someone else's box: not this page's to show.
+            unawaited(_turn?.cancel());
+            setState(() {
+              _turn = null;
+              _rejoining = false;
+            });
+          case TavernTurnSnapshot(:final message, :final startedAt):
+            setState(() {
+              _rejoining = false;
+              _streamNode = message?.nodeId;
+            });
+            if (message != null) {
+              _stream.value = (text: message.text, reasoning: message.reasoning ?? '');
+              _live.text = message.text;
+              // Still thinking: the count goes on from when the turn began.
+              if (message.text.isEmpty && (message.reasoning ?? '').isNotEmpty) {
+                _thinking.value = DateTime.now().difference(startedAt).inSeconds;
+                _thinkingTick = Timer.periodic(
+                  const Duration(seconds: 1),
+                  (_) => _thinking.value = _thinking.value! + 1,
+                );
+              }
+            }
           case TavernTurnStarted(:final message):
             setState(() => _streamNode = message.nodeId);
             unawaited(_reload());
@@ -296,7 +334,16 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         }
       },
       onDone: () {
-        if (mounted && _running) _finish();
+        if (!mounted || _turn == null) return;
+        if (_rejoining) {
+          // Nothing was running.
+          setState(() {
+            _turn = null;
+            _rejoining = false;
+          });
+        } else {
+          _finish();
+        }
       },
     );
   }
@@ -405,6 +452,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _error = null;
       _action = null;
     });
+    _drafting = true;
     _turn = _tavern
         .impersonate(widget.chatId)
         .listen(
@@ -437,6 +485,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   void _endDraft({(TavernFailure, String?)? failure}) {
     unawaited(_turn?.cancel());
+    _drafting = false;
     final l10n = context.l10n;
     setState(() {
       _turn = null;
