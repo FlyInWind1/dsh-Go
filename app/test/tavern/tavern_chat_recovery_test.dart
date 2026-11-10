@@ -1,6 +1,7 @@
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/ui/chat/widgets/thinking_pill.dart';
+import 'package:dsh_app/ui/tavern/tavern_character_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
 import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
@@ -145,12 +146,18 @@ void main() {
     expect(find.textContaining('地下室'), findsOneWidget);
   });
 
-  testWidgets('the title opens a quick look where this chat picks its own layout', (tester) async {
+  testWidgets('the title opens the character; 舞台 › 本局 is where this chat picks its own layout', (tester) async {
     final chat = await _open(tester, PreviewTavern(tick: const Duration(milliseconds: 1)));
 
     await tester.tap(find.byKey(const ValueKey('bot-title')));
     await tester.pumpAndSettle();
-    expect(find.text('角色详情'), findsOneWidget);
+    expect(find.byType(TavernCharacterPage), findsOneWidget);
+    Navigator.of(tester.element(find.byType(TavernCharacterPage))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('bot-action')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-stage-session')), findsOneWidget); // 本局 first
     await tester.ensureVisible(find.byKey(const ValueKey('tavern-chat-layout')));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-chat-layout')), matching: find.text('小说')));

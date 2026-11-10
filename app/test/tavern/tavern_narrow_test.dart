@@ -106,10 +106,11 @@ void main() {
     final chat = await tester.runAsync(() => _chat(tavern));
     await _narrow(tester, tavern, TavernChatPage(chatId: chat!));
 
-    await tester.tap(find.byKey(const ValueKey('bot-title')));
+    // 舞台, its 本局 page first, scrolled through.
+    await tester.tap(find.byKey(const ValueKey('bot-action')));
     await tester.pumpAndSettle();
-    await _through(tester, find.byType(SingleChildScrollView).last);
-    Navigator.of(tester.element(find.byKey(const ValueKey('tavern-chat-layout')))).pop();
+    await _through(tester, find.byKey(const ValueKey('tavern-stage')));
+    Scaffold.of(tester.element(find.byKey(const ValueKey('tavern-stage')))).closeEndDrawer();
     await tester.pumpAndSettle();
 
     await tester.longPress(find.textContaining('地下室').last);

@@ -56,8 +56,9 @@ Future<String> _open(WidgetTester tester, {_FakeImport? import, String? chatId, 
   return chat;
 }
 
+/// 舞台 › 本局, where the chat's background is picked.
 Future<void> _quickLook(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('bot-title')));
+  await tester.tap(find.byKey(const ValueKey('bot-action')));
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.byKey(const ValueKey('tavern-chat-background')));
   await tester.pumpAndSettle();

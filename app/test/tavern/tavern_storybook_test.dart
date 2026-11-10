@@ -174,10 +174,15 @@ void main() {
       chat = await tavern.createChat('sample-innkeeper');
     });
 
-    testWidgets('the quick look opens it', (tester) async {
+    testWidgets('舞台 › 本局 opens it', (tester) async {
       await open(tester, TavernChatPage(chatId: chat));
-      await tester.tap(find.byKey(const ValueKey('bot-title')));
+      await tester.tap(find.byKey(const ValueKey('bot-action')));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('tavern-chat-storybook')),
+        200,
+        scrollable: find.descendant(of: find.byKey(const ValueKey('tavern-stage')), matching: find.byType(Scrollable)),
+      );
       await tester.ensureVisible(find.byKey(const ValueKey('tavern-chat-storybook')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('tavern-chat-storybook')));

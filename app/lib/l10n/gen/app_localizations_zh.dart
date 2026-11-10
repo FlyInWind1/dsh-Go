@@ -19009,6 +19009,18 @@ class L10nZh extends L10n {
   String get tavernStage => '舞台';
 
   @override
+  String get tavernStageSession => '本局';
+
+  @override
+  String get tavernSessionUsing => '正在用';
+
+  @override
+  String get tavernSessionLook => '外观';
+
+  @override
+  String get tavernSessionMore => '更多';
+
+  @override
   String get tavernStageState => '状态';
 
   @override

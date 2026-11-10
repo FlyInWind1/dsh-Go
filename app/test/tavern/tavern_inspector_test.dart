@@ -116,8 +116,13 @@ void main() {
     final chat = await tavern.createChat('sample-innkeeper');
     await _open(tester, tavern, TavernChatPage(chatId: chat));
 
-    await tester.tap(find.byKey(const ValueKey('bot-title')));
+    await tester.tap(find.byKey(const ValueKey('bot-action')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('tavern-chat-inspect')),
+      200,
+      scrollable: find.descendant(of: find.byKey(const ValueKey('tavern-stage')), matching: find.byType(Scrollable)),
+    );
     await tester.tap(find.byKey(const ValueKey('tavern-chat-inspect')));
     await tester.pumpAndSettle();
 

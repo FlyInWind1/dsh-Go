@@ -34724,6 +34724,30 @@ abstract class L10n {
   /// **'舞台'**
   String get tavernStage;
 
+  /// No description provided for @tavernStageSession.
+  ///
+  /// In zh, this message translates to:
+  /// **'本局'**
+  String get tavernStageSession;
+
+  /// No description provided for @tavernSessionUsing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在用'**
+  String get tavernSessionUsing;
+
+  /// No description provided for @tavernSessionLook.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观'**
+  String get tavernSessionLook;
+
+  /// No description provided for @tavernSessionMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get tavernSessionMore;
+
   /// No description provided for @tavernStageState.
   ///
   /// In zh, this message translates to:

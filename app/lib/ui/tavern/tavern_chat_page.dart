@@ -31,9 +31,7 @@ import '../chat/voice/voice_controller.dart';
 import '../chat/widgets/notice_row.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_sheet.dart';
-import '../common/brief_notice.dart';
 import '../common/capsule_chip.dart';
-import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
@@ -45,7 +43,6 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import '../wallpaper/wallpaper_backdrop.dart';
 import 'tavern_character_page.dart';
-import 'tavern_chat_files.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
 import 'tavern_inspector_page.dart';
@@ -53,7 +50,6 @@ import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_reading.dart';
 import 'tavern_stage_panel.dart';
-import 'tavern_storybook_page.dart';
 import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
 
@@ -407,151 +403,6 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
   }
 
-  /// The title's sheet: the character's page, and this chat's own layout.
-  Future<void> _quickLook(String? characterId, String name) => showAppSheet<void>(
-    context,
-    builder: (sheet) => Consumer(
-      builder: (context, ref, _) {
-        final l10n = context.l10n;
-        final own = ref.watch(tavernChatLayoutProvider(widget.chatId));
-        final controller = ref.read(tavernChatLayoutProvider(widget.chatId).notifier);
-        final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
-        return SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SheetTitleBar(name),
-                if (characterId != null)
-                  SheetGroup(
-                    margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
-                    children: [
-                      SettingsTile(
-                        key: const ValueKey('tavern-character-details'),
-                        icon: AppIcons.info,
-                        tinted: false,
-                        title: l10n.tavernCharacterDetails,
-                        onTap: () {
-                          Navigator.of(sheet).pop();
-                          unawaited(Navigator.of(this.context).push(TavernCharacterPage.route(characterId)));
-                        },
-                      ),
-                    ],
-                  ),
-                SheetGroup(
-                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
-                  children: [
-                    SettingsTile(
-                      key: const ValueKey('tavern-chat-persona'),
-                      icon: AppIcons.profile,
-                      tinted: false,
-                      title: l10n.tavernPersona,
-                      value: Text(
-                        ref.watch(tavernPersonaSelectionProvider(widget.chatId)).value?.persona?.name ??
-                            l10n.tavernPersonaNone,
-                      ),
-                      onTap: _running
-                          ? null
-                          : () {
-                              Navigator.of(sheet).pop();
-                              unawaited(showTavernPersonaPicker(this.context, widget.chatId));
-                            },
-                    ),
-                    SettingsTile(
-                      key: const ValueKey('tavern-chat-inspect'),
-                      icon: AppIcons.code,
-                      tinted: false,
-                      title: l10n.tavernInspectLatest,
-                      onTap: () {
-                        Navigator.of(sheet).pop();
-                        unawaited(Navigator.of(this.context).push(TavernInspectorPage.route(widget.chatId)));
-                      },
-                    ),
-                    SettingsTile(
-                      key: const ValueKey('tavern-chat-export'),
-                      icon: AppIcons.share,
-                      tinted: false,
-                      title: l10n.tavernExportChat,
-                      onTap: () {
-                        Navigator.of(sheet).pop();
-                        unawaited(exportTavernChat(this.context, ref, widget.chatId, title: name));
-                      },
-                    ),
-                    SettingsTile(
-                      key: const ValueKey('tavern-chat-storybook'),
-                      icon: AppIcons.bookmark,
-                      tinted: false,
-                      title: l10n.tavernStorybookMenu,
-                      onTap: () {
-                        Navigator.of(sheet).pop();
-                        final avatar = ref
-                            .read(tavernCharactersProvider)
-                            .value
-                            ?.where((c) => c.id == characterId)
-                            .firstOrNull
-                            ?.avatarPath;
-                        unawaited(
-                          Navigator.of(
-                            this.context,
-                          ).push(TavernStorybookPage.route(chatId: widget.chatId, character: name, avatarPath: avatar)),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                SheetGroup(
-                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
-                  children: [
-                    SettingsSegmentTile<TavernLayout>(
-                      key: const ValueKey('tavern-chat-layout'),
-                      title: l10n.tavernChatLayout,
-                      tinted: false,
-                      segments: [
-                        PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
-                        PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
-                        PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
-                      ],
-                      selected: own ?? ref.watch(tavernSettingsProvider.select((s) => s.layout)),
-                      onChanged: (layout) => unawaited(controller.set(layout)),
-                    ),
-                    if (own != null)
-                      SettingsTile(
-                        key: const ValueKey('tavern-chat-layout-follow'),
-                        icon: AppIcons.restart,
-                        tinted: false,
-                        title: l10n.tavernFollowSettings,
-                        onTap: () => unawaited(controller.set(null)),
-                      ),
-                    SettingsTile(
-                      key: const ValueKey('tavern-chat-background'),
-                      icon: AppIcons.addImage,
-                      tinted: false,
-                      title: l10n.tavernBackground,
-                      value: Text(scene == null ? l10n.tavernBackgroundNone : l10n.tavernBackgroundChange),
-                      onTap: () => unawaited(_chooseBackground()),
-                    ),
-                    if (scene != null)
-                      SettingsTile(
-                        key: const ValueKey('tavern-chat-background-remove'),
-                        icon: AppIcons.remove,
-                        tinted: false,
-                        title: l10n.tavernBackgroundRemove,
-                        chevron: false,
-                        onTap: () => unawaited(ref.read(tavernChatBackgroundProvider(widget.chatId).notifier).remove()),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
-
   Future<void> _menu(TavernMessage message, {required bool last}) async {
     final l10n = context.l10n;
     final character = message.role == TavernRole.character;
@@ -646,21 +497,6 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     onActivity: (_) {},
   );
 
-  /// A picture from the gallery under this chat; says so when one can't be used.
-  Future<void> _chooseBackground() async {
-    final l10n = context.l10n;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final problem = await ref.read(tavernChatBackgroundProvider(widget.chatId).notifier).choose();
-    final text = switch (problem) {
-      null || LaunchImportProblem.cancelled => null,
-      LaunchImportProblem.unavailable => l10n.wallpaperUnavailable,
-      LaunchImportProblem.tooLarge || LaunchImportProblem.overLimit => l10n.wallpaperTooLarge,
-      LaunchImportProblem.unsupported => l10n.wallpaperUnsupported,
-      LaunchImportProblem.unreadable => l10n.wallpaperUnreadable,
-    };
-    if (text != null) messenger?.showBriefNotice(text);
-  }
-
   /// A whole page for the message (long replies need room); saves only a change.
   Future<void> _edit(TavernMessage message) async {
     final speaker = message.role == TavernRole.user ? context.l10n.tavernYou : message.speaker;
@@ -721,8 +557,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
     final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
     final beside = MediaQuery.sizeOf(context).width >= _stageBesideFrom;
-    TavernStagePanel stage({double topInset = 0}) =>
-        TavernStagePanel(chatId: widget.chatId, turn: messages?.lastOrNull?.nodeId, topInset: topInset);
+    TavernStagePanel stage({double topInset = 0}) => TavernStagePanel(
+      chatId: widget.chatId,
+      turn: messages?.lastOrNull?.nodeId,
+      topInset: topInset,
+      characterId: characterId,
+      name: name,
+      busy: _running,
+    );
     return BotChatFrame(
       // The chat's picture, when it has one; the page's gradient otherwise.
       backdrop: (child) => WallpaperBackdrop.scene(picture: scene, child: child),
@@ -743,7 +585,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         status: status,
         tone: tone,
         scrolledUnder: _scrolled,
-        onDetails: () => unawaited(_quickLook(characterId, name)),
+        // The title is the character's: its page. The chat's own things are in 舞台 › 本局.
+        onDetails: () {
+          if (characterId != null) unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
+        },
         // 舞台 in place of ⓘ (the title opens the quick look); beside the story
         // on a wide screen, it needs no key.
         action: beside ? null : (AppIcons.sidebar, l10n.tavernStage, () => _scaffold.currentState?.openEndDrawer()),

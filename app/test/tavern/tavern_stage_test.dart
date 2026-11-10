@@ -1,5 +1,7 @@
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
+import 'package:dsh_app/tavern/tavern_settings.dart';
+import 'package:dsh_app/ui/tavern/tavern_character_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_inspector_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_stage_panel.dart';
@@ -64,13 +66,16 @@ Future<String> _open(WidgetTester tester, PreviewTavern tavern, {Size size = con
 }
 
 void main() {
-  testWidgets('on a phone 舞台 slides in from the header, 本回合 first, with this turn\'s figures', (tester) async {
+  testWidgets('on a phone 舞台 slides in from the header; 本回合 has this turn\'s figures', (tester) async {
     await _open(tester, _Recorded());
     expect(find.byType(TavernStagePanel), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('bot-action')));
     await tester.pumpAndSettle();
     expect(find.byType(TavernStagePanel), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-stage-session')), findsOneWidget); // 本局 first
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-stage-tabs')), matching: find.text('本回合')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('tavern-stage-usage')), findsOneWidget);
     expect(find.text('200'), findsOneWidget); // the prompt
     expect(find.text('75%'), findsOneWidget); // 150 of 200 from the cache
@@ -99,9 +104,44 @@ void main() {
     expect(find.byKey(const ValueKey('tavern-stage-director')), findsOneWidget);
   });
 
+  testWidgets('本局: the model and look of this chat, and the way to its character', (tester) async {
+    await _open(tester, _Recorded());
+    await tester.tap(find.byKey(const ValueKey('bot-action')));
+    await tester.pumpAndSettle();
+    for (final key in [
+      'tavern-session-model',
+      'tavern-session-thinking',
+      'tavern-chat-persona',
+      'tavern-chat-layout',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
+    }
+
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-session-model')), matching: find.text('V4 Pro')),
+    );
+    await tester.pumpAndSettle();
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(TavernSettingsController.modelKey), tavernModels[1]);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('tavern-character-details')),
+      200,
+      scrollable: find.descendant(of: find.byKey(const ValueKey('tavern-stage')), matching: find.byType(Scrollable)),
+    );
+    await tester.tap(find.byKey(const ValueKey('tavern-character-details')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TavernCharacterPage), findsOneWidget);
+    Navigator.of(tester.element(find.byType(TavernCharacterPage))).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(TavernStagePanel), findsNothing); // the drawer closed on the way
+  });
+
   testWidgets('with no turn on record, 本回合 says so', (tester) async {
     await _open(tester, _Recorded(empty: true));
     await tester.tap(find.byKey(const ValueKey('bot-action')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-stage-tabs')), matching: find.text('本回合')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('tavern-stage-turn-none')), findsOneWidget);
   });

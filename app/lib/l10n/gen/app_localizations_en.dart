@@ -20062,6 +20062,18 @@ class L10nEn extends L10n {
   String get tavernStage => 'Stage';
 
   @override
+  String get tavernStageSession => 'This chat';
+
+  @override
+  String get tavernSessionUsing => 'In use';
+
+  @override
+  String get tavernSessionLook => 'Look';
+
+  @override
+  String get tavernSessionMore => 'More';
+
+  @override
   String get tavernStageState => 'State';
 
   @override
