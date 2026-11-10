@@ -1,4 +1,4 @@
-// ST continuation, injection ordering and world-info integration follow
+// ST continuation, display regex, injection ordering and world-info integration follow
 // SillyTavern public/script.js, scripts/constants.js and scripts/world-info.js
 // at 7e8663cd9c184a550b37238218bdd32c6efc68e9 (1.19.0, AGPL-3.0).
 import 'dart:async';
@@ -10,18 +10,25 @@ import 'dart:typed_data';
 import 'api.dart';
 import 'inspection.dart';
 import 'io/chat_jsonl.dart';
+import 'io/preset_codec.dart';
+import 'io/regex_intake.dart';
 import 'io/st_chat_document.dart';
 import 'llm/model_client.dart';
+import 'lorebook_library.dart';
 import 'macros/macro_engine.dart';
 import 'persona.dart';
+import 'preset_library.dart';
 import 'prompt/character_fields.dart';
 import 'prompt/preset.dart';
 import 'prompt/prompt_assembler.dart';
 import 'prompt/prompt_types.dart';
 import 'regex/regex_engine.dart';
+import 'regex/regex_worker.dart';
+import 'regex_library.dart';
 import 'store/character_library.dart';
 import 'store/chat_store.dart';
 import 'store/persona_store.dart';
+import 'store/regex_library.dart';
 import 'worldinfo/world_info.dart';
 
 /// App convenience factory. [directory] is the actual tavern data directory,
@@ -67,6 +74,8 @@ class TavernEngine implements Tavern {
     this._counter,
     this._clock,
     this._random,
+    this._regexWorker,
+    this._regexLibrary,
   ) {
     _globalVariables = _map(_document['globalVariables']);
     _storeSubscription = _store.changes.listen((chatId) {
@@ -110,8 +119,11 @@ class TavernEngine implements Tavern {
     if (document['version'] != 1) throw const FormatException('Unsupported Tavern settings version.');
     final now = clock ?? DateTime.now;
     final personas = await PersonaStore.open(directory);
+    final regexWorker = RegexWorker();
+    final regexLibrary = RegexLibrary(directory, regexWorker, clock: now);
     ChatStore? store;
     try {
+      await regexLibrary.initialize();
       store = ChatStore.open('${directory.path}/tavern.sqlite3', clock: now);
       return TavernEngine._(
         directory,
@@ -124,8 +136,11 @@ class TavernEngine implements Tavern {
         counter,
         now,
         random ?? Random.secure().nextDouble,
+        regexWorker,
+        regexLibrary,
       );
     } catch (_) {
+      await regexWorker.close();
       await store?.close();
       await personas.close();
       rethrow;
@@ -142,7 +157,13 @@ class TavernEngine implements Tavern {
   final PromptTokenCounter _counter;
   final DateTime Function() _clock;
   final double Function() _random;
+  final RegexWorker _regexWorker;
+  final RegexLibrary _regexLibrary;
+  // WI cannot queue behind obsolete 120ms display requests.
+  final _keywordWorker = RegexWorker();
+  late final _worldInfoEngine = WorldInfoEngine(worker: _keywordWorker);
   late final _chatCodec = ChatJsonlCodec(clock: _clock);
+  final _presetCodec = const PresetCodec();
   late final Map<String, Object?> _globalVariables;
   late final StreamSubscription<String> _storeSubscription;
   final _charactersChanged = StreamController<void>.broadcast();
@@ -152,6 +173,7 @@ class TavernEngine implements Tavern {
   final _mutations = <String, Future<void>>{};
   final _deletingCharacters = <String>{};
   final _deletingPersonas = <String>{};
+  final _deletingPresets = <String>{};
   final _operations = <Future<void>>{};
   final _inspections = <String, TavernInspection>{};
   // A null entry is a tombstone: never fall back to an older disk snapshot
@@ -159,14 +181,19 @@ class TavernEngine implements Tavern {
   final _latestInspections = <String, TavernTurnInspection?>{};
   final _liveVariables = <String, ({String? leaf, Map<String, Object?> values})>{};
   final _books = <String, Map<String, Object?>>{};
+  final _bookSourceNames = <String, String>{};
   final _bookRevisions = <String, int>{};
+  final _displayQueues = <(String, String?, bool), _DisplayQueue>{};
   Future<List<StoredCharacter>>? _characterCache;
   Future<void> _libraryQueue = Future.value();
   Future<void> _personaQueue = Future.value();
+  Future<void> _presetQueue = Future.value();
   Future<void> _fileQueue = Future.value();
+  Future<void> _bookQueue = Future.value();
   Future<void>? _closeFuture;
   var _closing = false;
   var _closed = false;
+  var _globalPresetUpdate = false;
   var _temporaryId = 0;
 
   void _ensureOpen() {
@@ -198,6 +225,13 @@ class TavernEngine implements Tavern {
   Future<T> _personaOperation<T>(Future<T> Function() action) {
     final result = _personaQueue.then((_) => action());
     _personaQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  // Preset operations take this queue before any chat mutation barrier.
+  Future<T> _presetOperation<T>(FutureOr<T> Function() action) {
+    final result = _presetQueue.then((_) => action());
+    _presetQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return result;
   }
 
@@ -298,10 +332,17 @@ class TavernEngine implements Tavern {
   @override
   Future<TavernCharacter> importCard(Uint8List bytes, {String? fileName}) => _operation(
     () => _libraryOperation(() async {
-      final stored = await _library.importCard(bytes, fileName: fileName);
+      var diagnostics = <TavernRegexDiagnostic>[];
+      final stored = await _library.importCard(
+        bytes,
+        fileName: fileName,
+        beforeSave: (card) async {
+          diagnostics = await _checkCardRegex(card.data);
+        },
+      );
       _characterCache = null;
       _notifyLists();
-      return stored.toCharacter();
+      return stored.toCharacter(regexDiagnostics: diagnostics);
     }),
   );
 
@@ -438,6 +479,9 @@ class TavernEngine implements Tavern {
       final record = await _record(characterId);
       if (record == null) throw const TavernImportError('角色不存在。');
       if (_deletingCharacters.contains(characterId)) throw StateError('Character deletion is running.');
+      if (_globalPresetUpdate || _deletingPresets.contains(_resolvePreset().selection.effectivePresetId)) {
+        throw StateError('Preset selection is changing.');
+      }
       final data = record.card.data;
       final greetings = <String>[_string(data['first_mes']), ..._strings(data['alternate_greetings'])];
       RangeError.checkValidIndex(greeting, greetings, 'greeting');
@@ -588,6 +632,304 @@ class TavernEngine implements Tavern {
     return _paths.stream.where((id) => id == chatId).map<void>((_) {});
   }
 
+  List<TavernPresetSummary> _presetSummaries() => [
+    for (final value in _store.listPresets())
+      TavernPresetSummary(
+        id: value.id,
+        name: value.name,
+        createdAt: value.createdAt,
+        updatedAt: value.updatedAt,
+        hasEnvelope: value.hasEnvelope,
+      ),
+  ];
+
+  TavernPreset _presetView(StoredPreset value) => TavernPreset(
+    id: value.id,
+    name: value.name,
+    sourceText: value.sourceText,
+    raw: value.raw,
+    envelope: value.envelope,
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+  );
+
+  StoredPreset _requirePreset(String id) => _store.preset(id) ?? (throw StateError('Unknown preset: $id'));
+
+  @override
+  Future<List<TavernPresetSummary>> listPresets() => _operation(_presetSummaries);
+
+  @override
+  Stream<List<TavernPresetSummary>> watchPresets() {
+    _ensureOpen();
+    return _watch(_store.presetChanges, _presetSummaries);
+  }
+
+  @override
+  Future<TavernPreset?> preset(String presetId) => _operation(() {
+    final value = _store.preset(presetId);
+    return value == null ? null : _presetView(value);
+  });
+
+  @override
+  Future<TavernPresetImportResult> importPreset(String text, {String? fileName}) => _operation(() async {
+    final decoded = _presetCodec.decode(text, fileName: fileName);
+    final diagnostics = await inspectRegexScripts(_map(decoded.raw['extensions'])['regex_scripts'], _regexWorker);
+    return _presetOperation(() {
+      final value = _store.createPreset(
+        name: decoded.name,
+        sourceText: text,
+        raw: decoded.raw,
+        envelope: decoded.envelope,
+      );
+      return TavernPresetImportResult(_presetView(value), decoded.issues, regexDiagnostics: diagnostics);
+    });
+  });
+
+  TavernPresetImportResult _savePresetEdit(StoredPreset original, Map<String, Object?> raw, {String? name}) {
+    final envelope = original.envelope;
+    if (name != null && envelope != null) envelope['metadata'] = {..._map(envelope['metadata']), 'name': name};
+    final decoded = _presetCodec.validate(raw, envelope: envelope);
+    final value = _store.updatePreset(
+      original.id,
+      name: name ?? original.name,
+      raw: decoded.raw,
+      envelope: decoded.envelope,
+    );
+    return TavernPresetImportResult(_presetView(value), decoded.issues);
+  }
+
+  @override
+  Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name}) =>
+      _operation(() {
+        final captured = _copy(patch);
+        return _presetOperation(() {
+          final original = _requirePreset(presetId);
+          final raw = _merge(original.raw, captured);
+          _guardPresetCarrier(original.raw, raw);
+          return _savePresetEdit(original, raw, name: name);
+        });
+      });
+
+  @override
+  Future<String> exportPreset(String presetId) => _operation(() {
+    final value = _requirePreset(presetId);
+    return _presetCodec.encode(value.raw, envelope: value.envelope);
+  });
+
+  Map<String, Object?> _knownPrompt(Map<String, Object?> raw, String identifier) {
+    final definitions = ChatPreset(raw).settings['prompts']! as List<Object?>;
+    for (final value in definitions.whereType<Map<String, Object?>>()) {
+      if (value['identifier'] == identifier) return _copy(value);
+    }
+    throw ArgumentError.value(identifier, 'identifier', 'Unknown prompt');
+  }
+
+  void _guardPresetCarrier(Map<String, Object?> previous, Map<String, Object?> next) {
+    final before = _map(_map(previous['extensions'])['dshgo']);
+    final after = _map(_map(next['extensions'])['dshgo']);
+    const key = 'presetEnvelope';
+    if (before.containsKey(key) != after.containsKey(key) || !_presetJsonEquals(before[key], after[key])) {
+      throw ArgumentError(
+        'extensions.dshgo.presetEnvelope is an export-owned carrier; edit the preset fields instead.',
+      );
+    }
+  }
+
+  bool _presetJsonEquals(Object? left, Object? right) {
+    if (left is Map<String, Object?> && right is Map<String, Object?>) {
+      return left.length == right.length &&
+          left.entries.every(
+            (entry) => right.containsKey(entry.key) && _presetJsonEquals(entry.value, right[entry.key]),
+          );
+    }
+    if (left is List<Object?> && right is List<Object?>) {
+      if (left.length != right.length) return false;
+      for (var i = 0; i < left.length; i++) {
+        if (!_presetJsonEquals(left[i], right[i])) return false;
+      }
+      return true;
+    }
+    return left == right;
+  }
+
+  Map<String, Object?> _editableOrder(Map<String, Object?> raw) {
+    final groups = raw['prompt_order'] is List<Object?>
+        ? List<Object?>.of(raw['prompt_order']! as List<Object?>)
+        : <Object?>[];
+    raw['prompt_order'] = groups;
+    for (final group in groups.whereType<Map<String, Object?>>()) {
+      if (presetString(group['character_id']) == '100001') return group;
+    }
+    final effective = ChatPreset(raw).settings['prompt_order']! as List<Object?>;
+    final group = _copy(
+      effective.whereType<Map<String, Object?>>().firstWhere(
+        (entry) => presetString(entry['character_id']) == '100001',
+      ),
+    );
+    group['character_id'] = 100001;
+    groups.add(group);
+    return group;
+  }
+
+  @override
+  Future<TavernPresetImportResult> updatePresetPrompt(String presetId, String identifier, Map<String, Object?> patch) =>
+      _operation(() {
+        final captured = _copy(patch);
+        if (captured.containsKey('identifier') && captured['identifier'] != identifier) {
+          throw ArgumentError('A prompt identifier is stable; replace prompts and order together to rename it.');
+        }
+        return _presetOperation(() {
+          final original = _requirePreset(presetId);
+          final raw = original.raw;
+          final inherited = _knownPrompt(raw, identifier);
+          final definitions = raw['prompts'] is List<Object?>
+              ? List<Object?>.of(raw['prompts']! as List<Object?>)
+              : <Object?>[];
+          final index = definitions.indexWhere(
+            (value) => value is Map<String, Object?> && value['identifier'] == identifier,
+          );
+          final previous = index < 0 ? inherited : definitions[index]! as Map<String, Object?>;
+          final updated = _merge(previous, captured);
+          if (index < 0) {
+            definitions.add(updated);
+          } else {
+            definitions[index] = updated;
+          }
+          raw['prompts'] = definitions;
+          if (captured.containsKey('content') && const ['main', 'nsfw', 'jailbreak'].contains(identifier)) {
+            raw.remove('${identifier}_prompt');
+          }
+          return _savePresetEdit(original, raw);
+        });
+      });
+
+  @override
+  Future<TavernPresetImportResult> setPresetOrder(String presetId, List<String> identifiers) => _operation(() {
+    final captured = List<String>.of(identifiers);
+    if (captured.toSet().length != captured.length) throw ArgumentError('Prompt order identifiers must be unique.');
+    return _presetOperation(() {
+      final original = _requirePreset(presetId);
+      final raw = original.raw;
+      for (final id in captured) {
+        _knownPrompt(raw, id);
+      }
+      final group = _editableOrder(raw);
+      final old = group['order'] is List<Object?> ? group['order']! as List<Object?> : const <Object?>[];
+      group['order'] = [
+        for (final id in captured)
+          {
+            ...?old.whereType<Map<String, Object?>>().where((entry) => entry['identifier'] == id).firstOrNull,
+            'identifier': id,
+            if (!old.whereType<Map<String, Object?>>().any((entry) => entry['identifier'] == id)) 'enabled': true,
+          },
+      ];
+      return _savePresetEdit(original, raw);
+    });
+  });
+
+  @override
+  Future<TavernPresetImportResult> setPresetPromptEnabled(String presetId, String identifier, bool enabled) =>
+      _operation(
+        () => _presetOperation(() {
+          final original = _requirePreset(presetId);
+          final raw = original.raw;
+          _knownPrompt(raw, identifier);
+          final group = _editableOrder(raw);
+          final order = group['order'] is List<Object?>
+              ? List<Object?>.of(group['order']! as List<Object?>)
+              : <Object?>[];
+          final index = order.indexWhere((entry) => entry is Map<String, Object?> && entry['identifier'] == identifier);
+          if (index < 0) {
+            order.add({'identifier': identifier, 'enabled': enabled});
+          } else {
+            order[index] = {...order[index]! as Map<String, Object?>, 'enabled': enabled};
+          }
+          group['order'] = order;
+          return _savePresetEdit(original, raw);
+        }),
+      );
+
+  ({StoredPreset? preset, TavernPresetSelection selection}) _resolvePreset([StoredChat? chat]) {
+    final bound = chat?.presetId;
+    final defaultId = _store.defaultPresetId;
+    final missing = <String>[];
+    ({StoredPreset? preset, TavernPresetSelection selection}) result(
+      PresetSelectionSource source, [
+      StoredPreset? value,
+    ]) => (
+      preset: value,
+      selection: TavernPresetSelection(
+        source: source,
+        boundPresetId: bound,
+        defaultPresetId: defaultId,
+        effectivePresetId: value?.id,
+        missingPresetIds: List<String>.unmodifiable(missing),
+      ),
+    );
+    if (bound != null) {
+      final value = _store.preset(bound);
+      if (value != null) return result(PresetSelectionSource.chat, value);
+      missing.add(bound);
+    }
+    if (chat != null && chat.settings.containsKey('preset')) return result(PresetSelectionSource.chatInline);
+    if (defaultId != null) {
+      final value = _store.preset(defaultId);
+      if (value != null) return result(PresetSelectionSource.globalDefault, value);
+      missing.add(defaultId);
+    }
+    if (_map(_document['settings']).containsKey('preset')) return result(PresetSelectionSource.globalInline);
+    return result(PresetSelectionSource.stDefault);
+  }
+
+  @override
+  Future<TavernPresetSelection> presetSelection({String? chatId}) =>
+      _operation(() => _resolvePreset(chatId == null ? null : _store.chat(chatId)).selection);
+
+  @override
+  Future<void> setDefaultPreset(String? presetId) =>
+      _operation(() => _presetOperation(() => _store.setDefaultPreset(presetId)));
+
+  @override
+  Future<void> bindPreset(String chatId, String? presetId) => _operation(
+    () => _presetOperation(() async {
+      if (presetId != null) _requirePreset(presetId);
+      final chat = _store.chat(chatId);
+      if (chat.presetId == presetId && !chat.settings.containsKey('preset')) return;
+      await _withMutation(
+        chatId,
+        () => _store.transaction(() {
+          final settings = _store.chat(chatId).settings;
+          settings.remove('preset');
+          _store.updateChat(chatId, settings: settings);
+          _store.bindPreset(chatId, presetId);
+        }),
+      );
+    }),
+  );
+
+  @override
+  Future<void> deletePreset(String presetId) => _operation(
+    () => _presetOperation(() async {
+      _deletingPresets.add(presetId);
+      try {
+        final affected = <String>{};
+        for (final summary in _store.listChats()) {
+          final chat = _store.chat(summary.id);
+          if (chat.presetId == presetId ||
+              _resolvePreset(chat).selection.effectivePresetId == presetId ||
+              _turns[chat.id]?.presetId == presetId) {
+            affected.add(chat.id);
+          }
+        }
+        await _withMutations(affected, () {
+          _store.deletePreset(presetId);
+        });
+      } finally {
+        _deletingPresets.remove(presetId);
+      }
+    }),
+  );
+
   @override
   void configure(TavernModelConfig config) {
     _ensureOpen();
@@ -618,25 +960,109 @@ class TavernEngine implements Tavern {
   @override
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) => _operation(() {
     final captured = _copy(patch);
-    if (chatId == null) {
-      _document['settings'] = _merge(_map(_document['settings']), captured);
-      return _saveDocument();
-    }
-    return _withMutation(chatId, () {
-      _store.updateChat(chatId, settings: _merge(_store.chat(chatId).settings, captured));
-    });
+    return _presetOperation(() => _setSettingsCaptured(captured, chatId: chatId));
   });
 
-  Future<void> setPreset(ChatPreset preset, {String? chatId}) => _operation(() async {
-    if (chatId == null) {
-      _document['settings'] = {..._map(_document['settings']), 'preset': preset.raw};
-      await _saveDocument();
-    } else {
-      await _withMutation(chatId, () {
-        _store.updateChat(chatId, settings: {..._store.chat(chatId).settings, 'preset': preset.raw});
-      });
-    }
+  Future<void> setPreset(ChatPreset preset, {String? chatId}) => _operation(() {
+    final captured = preset.raw;
+    return _presetOperation(() => _setSettingsCaptured({'preset': captured}, chatId: chatId, replacePreset: true));
   });
+
+  Map<String, Object?> _mergeSettingsPatch(
+    Map<String, Object?> previous,
+    Map<String, Object?> patch, {
+    String? scopePresetId,
+    bool replacePreset = false,
+  }) {
+    final result = _merge(previous, patch);
+    if (!patch.containsKey('preset')) return result;
+    final value = patch['preset'];
+    if (value is Map<String, Object?> && !replacePreset) {
+      // An inherited global/default record is never the chat scope's base.
+      final selected = scopePresetId == null ? null : _store.preset(scopePresetId);
+      final raw = _merge(selected?.raw ?? _map(previous['preset']), value);
+      if (selected?.envelope != null) _guardPresetCarrier(selected!.raw, raw);
+      result['preset'] = raw;
+    } else {
+      result['preset'] = value;
+    }
+    return result;
+  }
+
+  void _selectLegacyPreset(Object? value, {String? chatId, Map<String, Object?>? envelope, String? inheritedName}) {
+    String? id;
+    if (value is Map<String, Object?>) {
+      final suppliedName = value['name'];
+      final name =
+          inheritedName ??
+          (suppliedName is String && suppliedName.trim().isNotEmpty
+              ? suppliedName
+              : (chatId == null ? '默认预设' : '对话预设'));
+      if (envelope != null) envelope['preset'] = {..._map(envelope['preset']), 'data': _copy(value)};
+      id = _store.createPreset(name: name, sourceText: jsonEncode(value), raw: value, envelope: envelope).id;
+    }
+    if (chatId == null) {
+      _store.setDefaultPreset(id);
+    } else {
+      _store.bindPreset(chatId, id);
+    }
+  }
+
+  Future<void> _setSettingsCaptured(Map<String, Object?> patch, {String? chatId, bool replacePreset = false}) async {
+    if (chatId == null) {
+      final hasPreset = patch.containsKey('preset');
+      _globalPresetUpdate = hasPreset;
+      try {
+        final selectedId = _store.defaultPresetId;
+        final inherited = !replacePreset && patch['preset'] is Map<String, Object?> && selectedId != null
+            ? _store.preset(selectedId)
+            : null;
+        final settings = _mergeSettingsPatch(
+          _map(_document['settings']),
+          patch,
+          scopePresetId: selectedId,
+          replacePreset: replacePreset,
+        );
+        // This legacy mixed API has no transaction spanning a file and SQL.
+        // Keep its established in-memory/file behavior, then commit selection.
+        _document['settings'] = settings;
+        await _saveDocument();
+        if (hasPreset) {
+          _store.transaction(
+            () =>
+                _selectLegacyPreset(settings['preset'], envelope: inherited?.envelope, inheritedName: inherited?.name),
+          );
+        }
+      } finally {
+        _globalPresetUpdate = false;
+      }
+    } else {
+      await _withMutation(
+        chatId,
+        () => _store.transaction(() {
+          final chat = _store.chat(chatId);
+          final inherited = !replacePreset && patch['preset'] is Map<String, Object?> && chat.presetId != null
+              ? _store.preset(chat.presetId!)
+              : null;
+          final settings = _mergeSettingsPatch(
+            chat.settings,
+            patch,
+            scopePresetId: chat.presetId,
+            replacePreset: replacePreset,
+          );
+          _store.updateChat(chatId, settings: settings);
+          if (patch.containsKey('preset')) {
+            _selectLegacyPreset(
+              settings['preset'],
+              chatId: chatId,
+              envelope: inherited?.envelope,
+              inheritedName: inherited?.name,
+            );
+          }
+        }),
+      );
+    }
+  }
 
   Future<void> setGlobalVariables(Map<String, Object?> variables) => _operation(() async {
     final copy = _copy(variables);
@@ -669,6 +1095,162 @@ class TavernEngine implements Tavern {
     final value = _storedLatestInspection(chat);
     return value != null && _inspectionAnchorExists(value) ? value : null;
   });
+
+  @override
+  Future<TavernDisplayResult> displayText(
+    String chatId, {
+    String? nodeId,
+    String? text,
+    TavernRole? role,
+    String? speaker,
+    num? depth,
+    bool reasoning = false,
+  }) => _operation(() {
+    _store.chat(chatId);
+    if (nodeId == null && text == null) throw ArgumentError('Supply a stored node or original text.');
+    if (depth != null && (!depth.isFinite || depth < 0)) throw ArgumentError.value(depth, 'depth');
+    final node = nodeId == null ? null : _store.node(chatId, nodeId);
+    final raw = text ?? (reasoning ? node!.message.reasoning ?? '' : node!.message.text);
+    final displayRole = role ?? node?.message.role ?? TavernRole.character;
+    final displaySpeaker =
+        speaker ?? node?.message.speaker ?? (displayRole == TavernRole.system ? 'SillyTavern System' : null);
+    final key = (chatId, nodeId, reasoning);
+    final queue = _displayQueues.putIfAbsent(key, _DisplayQueue.new);
+    final job = _DisplayJob(
+      ++queue.version,
+      chatId,
+      nodeId,
+      raw,
+      displayRole,
+      depth,
+      reasoning,
+      displaySpeaker,
+      (role == TavernRole.system || (node != null && (node.message.hidden || _systemMessage(node)))) &&
+          displaySpeaker == 'SillyTavern System',
+    );
+    // Advance before replacing pending work, so an already active job also
+    // becomes stale at its next rule/await boundary.
+    final previous = queue.pending;
+    if (previous != null) previous.result.complete(TavernDisplayResult(text: previous.text, superseded: true));
+    queue.pending = job;
+    if (!queue.running) unawaited(_drainDisplay(key, queue));
+    return job.result.future;
+  });
+
+  Future<void> _drainDisplay((String, String?, bool) key, _DisplayQueue queue) async {
+    queue.running = true;
+    try {
+      while (queue.pending != null) {
+        final job = queue.pending!;
+        queue.pending = null;
+        bool current() => !_closing && !_closed && queue.version == job.version;
+        try {
+          final result = current()
+              ? await _display(job, current)
+              : TavernDisplayResult(text: job.text, superseded: true);
+          job.result.complete(
+            TavernDisplayResult(
+              text: result.text,
+              warnings: result.warnings,
+              replacements: result.replacements,
+              superseded: result.superseded || !current(),
+            ),
+          );
+        } catch (error, stack) {
+          if (current()) {
+            job.result.completeError(error, stack);
+          } else {
+            job.result.complete(TavernDisplayResult(text: job.text, superseded: true));
+          }
+        }
+      }
+    } finally {
+      queue.running = false;
+      if (identical(_displayQueues[key], queue)) _displayQueues.remove(key);
+    }
+  }
+
+  Future<TavernDisplayResult> _display(_DisplayJob job, bool Function() current) async {
+    // Fixed ST messageFormatting first reclassifies hidden/comment messages
+    // as displayable; only is_system with its actual system speaker bypasses.
+    if (job.isSystem) return TavernDisplayResult(text: job.text);
+    final chat = _store.chat(job.chatId);
+    final path = _historyTo(job.chatId, chat.currentLeafId);
+    final targetIndex = job.nodeId == null ? -1 : path.indexWhere((node) => node.message.nodeId == job.nodeId);
+    final history = job.nodeId != null && targetIndex < 0 ? _historyTo(job.chatId, job.nodeId) : path;
+    final leaf = history.lastOrNull?.message.nodeId;
+    final state = _stateAt(job.chatId, leaf);
+    final metadata = _chatCodec.metadataForNode(_store, job.chatId, nodeId: leaf);
+    final live = _liveVariables[job.chatId];
+    final active = _turns[job.chatId];
+    final onCurrentPath = job.nodeId == null || targetIndex >= 0;
+    final activeVariables = onCurrentPath && active?.environment != null ? active!.variables : null;
+    final local = _runtimeCopy(
+      activeVariables ??
+          (onCurrentPath && live != null && live.leaf == leaf
+              ? live.values
+              : leaf == null
+              ? chat.variables
+              : _map(state['variables'])),
+    );
+    final global = _runtimeCopy(_globalVariables);
+    final settings = _personaSettings(_effectiveSettings(chat, metadata), _personas.resolve(personaId: chat.personaId));
+    final config = _config;
+    final now = _clock();
+    final record = await _record(chat.characterId);
+    if (!current()) return TavernDisplayResult(text: job.text, superseded: true);
+    if (record == null) throw const TavernImportError('角色不存在。');
+    final contextTarget = job.nodeId ?? active?.reply?.nodeId;
+    if (!job.reasoning && contextTarget != null) {
+      final index = history.indexWhere((node) => node.message.nodeId == contextTarget);
+      if (index >= 0) history[index] = _nodeWithText(history[index], job.text);
+    }
+    final random = Random(_displaySeed('${job.chatId}\u0000${job.nodeId ?? ''}\u0000${job.reasoning}'));
+    final environment = _MacroEnvironment(
+      _effectiveCard(record.card.data, settings),
+      settings,
+      local,
+      global,
+      history,
+      config,
+      now,
+      random.nextDouble,
+      _macroChatIdentity(chat, state, metadata, state['chatJsonlSourceFile'] as String?, node: history.lastOrNull),
+      '',
+      active?.generationType ?? 'normal',
+      chatIdHash: _finiteNumber(metadata['chat_id_hash']),
+      pickRerollSeed: metadata['pick_reroll_seed'],
+      characterId: chat.characterId,
+    );
+    final placement = job.reasoning
+        ? RegexPlacement.reasoning
+        : switch (job.role) {
+            TavernRole.user => RegexPlacement.userInput,
+            TavernRole.narrator => RegexPlacement.slashCommand,
+            _ => RegexPlacement.aiOutput,
+          };
+    num? depth = job.depth;
+    if (depth == null && job.nodeId != null) {
+      final usable = history.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
+      final index = usable.indexWhere((node) => node.message.nodeId == job.nodeId);
+      if (index >= 0) depth = usable.length - index - 1;
+    }
+    final rendered = await environment.regex.applyDisplay(
+      job.text,
+      placement: placement,
+      worker: _regexWorker,
+      depth: depth,
+      characterOverride: job.characterOverride ?? (job.role == TavernRole.user ? environment.userName : null),
+      expand: environment.regexExpand,
+      isCancelled: () => !current(),
+    );
+    return TavernDisplayResult(
+      text: rendered.text,
+      warnings: rendered.warnings,
+      replacements: rendered.replacements,
+      superseded: rendered.cancelled || !current(),
+    );
+  }
 
   StoredNode? _inspectionNode(String chatId, String nodeId) {
     try {
@@ -747,29 +1329,250 @@ class TavernEngine implements Tavern {
     }
   }
 
-  Future<void> putLorebook(String id, Map<String, Object?> json) => _operation(() async {
-    _requireBookId(id);
-    final book = WorldInfoBook.fromJson(id: id, source: WorldInfoSource.global, json: json);
-    await _writeJson(File('${directory.path}/lorebooks/$id.json'), book.raw);
-    _bookRevisions.update(id, (revision) => revision + 1, ifAbsent: () => 1);
-    _books[id] = _copy(book.raw);
+  @override
+  Future<List<TavernRegexScript>> listRegexScripts() => _operation(() => _regexLibrary.scripts);
+  @override
+  Future<TavernRegexImportResult> importRegexScripts(String text) =>
+      _operation(() => _regexLibrary.importScripts(text));
+  @override
+  Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) =>
+      _operation(() => _regexLibrary.setEnabled(regexId, enabled));
+  @override
+  Future<void> deleteRegex(String regexId) => _operation(() => _regexLibrary.delete(regexId));
+  @override
+  Future<String> exportRegex({String? regexId}) => _operation(() => _regexLibrary.exportScripts(id: regexId));
+
+  Future<List<TavernRegexDiagnostic>> _checkCardRegex(Map<String, Object?> data) async {
+    final result = [
+      ...await inspectRegexScripts(
+        _map(data['extensions'])['regex_scripts'],
+        _regexWorker,
+        path: r'$.data.extensions.regex_scripts',
+      ),
+    ];
+    final embedded = data['character_book'];
+    if (embedded is Map<String, Object?>) {
+      try {
+        final book = WorldInfoBook.fromJson(id: 'card', source: WorldInfoSource.character, json: embedded);
+        result.addAll(await _checkWorldBookRegex(book, path: r'$.data.character_book'));
+      } on FormatException {
+        result.add(
+          const TavernRegexDiagnostic(
+            path: r'$.data.character_book',
+            status: TavernRegexCompatibility.skipped,
+            code: 'invalid-world-book',
+            message: '内嵌世界书结构无法解析，原始数据保留；无法完成关键词试编译。',
+          ),
+        );
+      }
+    }
+    return List.unmodifiable(result);
+  }
+
+  Future<List<TavernRegexDiagnostic>> _checkWorldBookRegex(WorldInfoBook book, {String path = r'$'}) async {
+    final result = <TavernRegexDiagnostic>[];
+    for (final input in worldInfoRegexInputs(book)) {
+      final checked = input.isDynamic
+          ? const RegexCompileResult(
+              status: RegexCompileStatus.skipped,
+              code: 'runtime-check',
+              message: '关键词依赖运行时宏，导入不展开；实际使用时再受控检查。',
+            )
+          : await _keywordWorker.compile(input.pattern, dialect: input.dialect, caseSensitive: input.caseSensitive);
+      result.add(
+        regexCompileDiagnostic(
+          checked,
+          path: '$path.${input.path}',
+          identifier: input.uid,
+          line: input.line,
+          decorator: input.decorator,
+          keyIndex: input.keyIndex,
+          conditional: input.conditional,
+          fallback: input.isFallback,
+        ),
+      );
+    }
+    return List.unmodifiable(result);
+  }
+
+  Future<T> _bookOperation<T>(FutureOr<T> Function() action) {
+    final result = _bookQueue.then((_) => action());
+    _bookQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  @override
+  Future<List<TavernLorebookSummary>> listLorebooks() => _operation(
+    () => _bookOperation(() async {
+      final folder = Directory('${directory.path}/lorebooks');
+      if (!await folder.exists()) return <TavernLorebookSummary>[];
+      final result = <TavernLorebookSummary>[];
+      await for (final entry in folder.list(followLinks: false)) {
+        if (entry is! File || !entry.path.endsWith('.json')) continue;
+        final name = entry.uri.pathSegments.last;
+        final id = name.substring(0, name.length - 5);
+        final raw = await _readBookNow(id);
+        if (raw == null) continue;
+        final book = WorldInfoBook.fromJson(id: id, source: WorldInfoSource.global, json: raw);
+        result.add(
+          TavernLorebookSummary(
+            id: id,
+            name: book.name,
+            entryCount: book.entries.length,
+            stWorldName: _bookSourceNames[id],
+          ),
+        );
+      }
+      result.sort((a, b) {
+        final name = a.name.compareTo(b.name);
+        return name != 0 ? name : a.id.compareTo(b.id);
+      });
+      return List<TavernLorebookSummary>.unmodifiable(result);
+    }),
+  );
+
+  @override
+  Future<TavernLorebookImportResult> importLorebook(String text, {String? fileName}) => _operation(() async {
+    final WorldInfoBook parsed;
+    final suppliedName = fileName
+        ?.replaceAll('\\', '/')
+        .split('/')
+        .last
+        .replaceFirst(RegExp(r'\.json$', caseSensitive: false), '');
+    final sourceName = suppliedName == null || suppliedName.isEmpty ? null : suppliedName;
+    try {
+      final raw = _decodeObject(text.startsWith('\uFEFF') ? text.substring(1) : text, 'Lorebook');
+      if (!raw.containsKey('name') && sourceName != null) {
+        raw['name'] = sourceName;
+      }
+      parsed = WorldInfoBook.fromJson(id: 'import', source: WorldInfoSource.global, json: raw);
+    } on FormatException {
+      throw const TavernImportError('世界书JSON格式无效。');
+    } on JsonUnsupportedObjectError {
+      throw const TavernImportError('世界书只能包含合法JSON数值。');
+    }
+    final diagnostics = await _checkWorldBookRegex(parsed);
+    return _bookOperation(() async {
+      final random = Random.secure();
+      String id;
+      do {
+        id = List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      } while (await FileSystemEntity.type('${directory.path}/lorebooks/$id.json', followLinks: false) !=
+          FileSystemEntityType.notFound);
+      await _writeBookNow(id, parsed.raw, stWorldName: sourceName);
+      final book = WorldInfoBook.fromJson(id: id, source: WorldInfoSource.global, json: parsed.raw);
+      return TavernLorebookImportResult(
+        TavernLorebook(
+          id: id,
+          name: book.name,
+          entryCount: book.entries.length,
+          stWorldName: sourceName,
+          raw: book.raw,
+        ),
+        diagnostics,
+      );
+    });
   });
 
+  @override
+  Future<void> putLorebook(String id, Map<String, Object?> json) => _operation(() {
+    _requireBookId(id);
+    final book = WorldInfoBook.fromJson(id: id, source: WorldInfoSource.global, json: json);
+    return _bookOperation(() async {
+      await _readBookNow(id);
+      await _writeBookNow(id, book.raw);
+    });
+  });
+
+  Future<void> _writeBookNow(String id, Map<String, Object?> raw, {String? stWorldName}) async {
+    final sourceName = stWorldName ?? _bookSourceNames[id];
+    // Source identity and raw data share one atomic file publication. Valid
+    // legacy books have entries at the root; this local envelope does not.
+    await _writeJson(
+      File('${directory.path}/lorebooks/$id.json'),
+      sourceName == null ? raw : {'format': 'dshgo-lorebook', 'version': 1, 'stWorldName': sourceName, 'book': raw},
+    );
+    _bookRevisions.update(id, (revision) => revision + 1, ifAbsent: () => 1);
+    _books[id] = _copy(raw);
+    if (sourceName != null) _bookSourceNames[id] = sourceName;
+  }
+
+  @override
   Future<Map<String, Object?>?> lorebook(String id) => _operation(() async {
     _requireBookId(id);
     final value = await _readBook(id);
     return value == null ? null : _copy(value);
   });
 
+  @override
+  Future<String> exportLorebook(String id) => _operation(() async {
+    final raw = await _readBook(id);
+    if (raw == null) throw const TavernImportError('世界书不存在。');
+    return jsonEncode(raw);
+  });
+
+  @override
+  Future<void> deleteLorebook(String id) => _operation(() {
+    _requireBookId(id);
+    return _bookOperation(() async {
+      final file = File('${directory.path}/lorebooks/$id.json');
+      if (await file.exists()) await file.delete();
+      _bookRevisions.update(id, (revision) => revision + 1, ifAbsent: () => 1);
+      _books.remove(id);
+      _bookSourceNames.remove(id);
+    });
+  });
+
   /// A global binding applies to all chats; a chat binding overrides that
   /// source's global list. Character-specific bindings may be set globally via
   /// settings.characterLorebooks[characterId]. Card-embedded books always join.
-  Future<void> bindLorebooks(List<String> ids, {WorldInfoSource source = WorldInfoSource.global, String? chatId}) {
+  @override
+  Future<void> bindLorebooks(
+    List<String> ids, {
+    WorldInfoSource source = WorldInfoSource.global,
+    String? chatId,
+    String? characterId,
+    String? personaId,
+  }) {
     for (final id in ids) {
       _requireBookId(id);
     }
+    final captured = List<String>.of(ids);
+    if ([chatId, characterId, personaId].where((value) => value != null).length > 1 ||
+        (characterId != null && source != WorldInfoSource.character) ||
+        (personaId != null && source != WorldInfoSource.persona)) {
+      throw ArgumentError('Select one matching chat, character or persona scope.');
+    }
+    if (characterId != null) {
+      return _operation(
+        () => _libraryOperation(
+          () => _presetOperation(() async {
+            if (_deletingCharacters.contains(characterId) || await _record(characterId) == null) {
+              throw const TavernImportError('角色不存在或正在删除。');
+            }
+            await _setSettingsCaptured({
+              'characterLorebooks': {characterId: captured},
+            });
+          }),
+        ),
+      );
+    }
+    if (personaId != null) {
+      return _operation(
+        () => _personaOperation(
+          () => _presetOperation(() async {
+            if (_deletingPersonas.contains(personaId) || _personas.get(personaId) == null) {
+              throw const TavernImportError('人设不存在或正在删除。');
+            }
+            await _setSettingsCaptured({
+              'personaLorebooks': {personaId: captured},
+            });
+          }),
+        ),
+      );
+    }
     return setSettings({
-      'lorebooks': {source.name: List<String>.of(ids)},
+      'lorebooks': {source.name: captured},
     }, chatId: chatId);
   }
 
@@ -795,19 +1598,65 @@ class TavernEngine implements Tavern {
     }
     // A selected preset is one complete preset, not a field-by-field mixture
     // with whichever global preset happened to be selected previously.
-    if (chat != null && chat.settings.containsKey('preset')) result['preset'] = _map(chat.settings['preset']);
+    final selection = _resolvePreset(chat);
+    if (selection.preset != null) {
+      result['preset'] = selection.preset!.raw;
+    } else if (chat != null && chat.settings.containsKey('preset')) {
+      result['preset'] = _map(chat.settings['preset']);
+    }
+    final overrides = _map(result['presetOverrides']);
+    final sampling = <String, Object?>{
+      for (final key in const [
+        'temperature',
+        'top_p',
+        'presence_penalty',
+        'frequency_penalty',
+        'openai_max_tokens',
+        'openai_max_context',
+      ])
+        if (overrides.containsKey(key)) key: overrides[key],
+    };
+    if (sampling.isNotEmpty) result['preset'] = {..._map(result['preset']), ...sampling};
+    // Project only after every global/source/chat merge. A read->set roundtrip
+    // cannot duplicate the collection or replace it with a supplied snapshot.
+    result.remove('managedRegexScripts');
+    final managed = _regexLibrary.executionScripts;
+    if (managed.isNotEmpty) result['managedRegexScripts'] = managed;
     return result;
   }
 
-  Future<Map<String, Object?>?> _readBook(String id) async {
+  Future<Map<String, Object?>?> _readBook(String id) => _bookOperation(() => _readBookNow(id));
+
+  Future<({Map<String, Object?> raw, String? stWorldName})?> _readBookSnapshot(String id) => _bookOperation(() async {
+    final raw = await _readBookNow(id);
+    return raw == null ? null : (raw: raw, stWorldName: _bookSourceNames[id]);
+  });
+
+  Future<Map<String, Object?>?> _readBookNow(String id) async {
     _requireBookId(id);
     final cached = _books[id];
     if (cached != null) return cached;
     final revision = _bookRevisions[id] ?? 0;
     final file = File('${directory.path}/lorebooks/$id.json');
     if (!await file.exists()) return null;
-    final value = _decodeObject(await file.readAsString(), 'Lorebook');
-    if ((_bookRevisions[id] ?? 0) == revision) _books[id] = value;
+    final document = _decodeObject(await file.readAsString(), 'Lorebook');
+    Map<String, Object?> value = document;
+    String? sourceName;
+    if (!document.containsKey('entries') && document['format'] == 'dshgo-lorebook') {
+      if (document['version'] != 1 || document['book'] is! Map<String, Object?> || document['stWorldName'] is! String) {
+        throw const FormatException('Unsupported or invalid stored lorebook.');
+      }
+      value = document['book']! as Map<String, Object?>;
+      sourceName = document['stWorldName']! as String;
+    }
+    if ((_bookRevisions[id] ?? 0) == revision) {
+      _books[id] = value;
+      if (sourceName == null) {
+        _bookSourceNames.remove(id);
+      } else {
+        _bookSourceNames[id] = sourceName;
+      }
+    }
     return value;
   }
 
@@ -1054,8 +1903,11 @@ class TavernEngine implements Tavern {
           _ensureOpen();
           final chat = _store.chat(chatId);
           final selection = _personas.resolve(personaId: chat.personaId);
+          final presetSelection = _resolvePreset(chat).selection;
           if (_turns.containsKey(chatId) ||
               _mutations.containsKey(chatId) ||
+              _globalPresetUpdate ||
+              _deletingPresets.contains(presetSelection.effectivePresetId) ||
               _deletingCharacters.contains(chat.characterId) ||
               _deletingPersonas.contains(selection.persona?.id)) {
             controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
@@ -1078,6 +1930,7 @@ class TavernEngine implements Tavern {
             selection,
             metadata,
             sourceFile is String ? sourceFile : null,
+            presetSelection.effectivePresetId,
           );
           turn = running;
           _turns[chatId] = running;
@@ -1222,7 +2075,19 @@ class TavernEngine implements Tavern {
         continuing: turn.kind == _TurnKind.continueReply,
       );
       final eligibleHistory = promptHistory.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
-      final books = await turn.cancellation.wait(_loadBooks(turn.chat.characterId, data, turn.settings));
+      final activeWorldName = turn.metadata['world_info'];
+      final activeBookId = activeWorldName is String
+          ? _map(turn.chat.settings['stLorebookIds'])[activeWorldName]
+          : null;
+      final books = await turn.cancellation.wait(
+        _loadBooks(
+          turn.chat.characterId,
+          data,
+          turn.settings,
+          personaId: turn.personaSelection.persona?.id,
+          stWorldNames: {if (activeWorldName is String && activeBookId is String) activeBookId: activeWorldName},
+        ),
+      );
       turn.cancellation.check();
       if (books.missing.isNotEmpty) {
         _setInspection(turn, turn.inspection.copyWith(worldInfo: {'missing': books.missing}));
@@ -1240,7 +2105,7 @@ class TavernEngine implements Tavern {
           if (content.isNotEmpty) scanInjections.add(content);
         }
       }
-      var world = const WorldInfoEngine().evaluate(
+      var world = await _worldInfoEngine.evaluate(
         WorldInfoInput(
           books: books.loaded,
           messages: [
@@ -1250,6 +2115,7 @@ class TavernEngine implements Tavern {
           maxContext: environment.maxContext - environment.maxResponse,
           tokenCount: _counter.countText,
           random: _random,
+          checkCancelled: turn.cancellation.check,
           expand: (text) => environment.expand(text, const {}),
           settings: WorldInfoSettings.fromJson(_map(turn.settings['worldInfo'])),
           scanInjections: scanInjections,
@@ -1509,8 +2375,10 @@ class TavernEngine implements Tavern {
   Future<({List<WorldInfoBook> loaded, List<Map<String, Object?>> missing})> _loadBooks(
     String characterId,
     Map<String, Object?> data,
-    Map<String, Object?> settings,
-  ) async {
+    Map<String, Object?> settings, {
+    String? personaId,
+    Map<String, String> stWorldNames = const {},
+  }) async {
     final result = <WorldInfoBook>[];
     final missing = <Map<String, Object?>>[];
     final bindings = _map(settings['lorebooks']);
@@ -1518,14 +2386,23 @@ class TavernEngine implements Tavern {
       final ids = <String>[
         ..._strings(bindings[source.name]),
         if (source == WorldInfoSource.character) ..._strings(_map(settings['characterLorebooks'])[characterId]),
+        if (source == WorldInfoSource.persona && personaId != null)
+          ..._strings(_map(settings['personaLorebooks'])[personaId]),
       ];
       for (final id in ids) {
-        final json = await _readBook(id);
-        if (json == null) {
+        final saved = await _readBookSnapshot(id);
+        if (saved == null) {
           missing.add({'bookId': id, 'source': source.name, 'reason': 'missing'});
           continue;
         }
-        result.add(WorldInfoBook.fromJson(id: id, source: source, json: json));
+        result.add(
+          WorldInfoBook.fromJson(
+            id: id,
+            source: source,
+            json: saved.raw,
+            stWorldName: stWorldNames[id] ?? saved.stWorldName,
+          ),
+        );
       }
     }
     final embedded = data['character_book'];
@@ -1827,12 +2704,16 @@ class TavernEngine implements Tavern {
     for (final turn in _turns.values) {
       turn.cancellation.cancel();
     }
+    // Unblock guarded work before waiting for operations that may own it.
+    await Future.wait([_regexWorker.close(), _keywordWorker.close()]);
     while (_turns.isNotEmpty || _operations.isNotEmpty) {
       await Future.wait<void>([..._operations, for (final turn in _turns.values) turn.done.future]);
     }
     await _fileQueue;
     await _libraryQueue;
     await _personaQueue;
+    await _presetQueue;
+    await _bookQueue;
     await _storeSubscription.cancel();
     _liveVariables.clear();
     _latestInspections.clear();
@@ -1844,6 +2725,42 @@ class TavernEngine implements Tavern {
     await _personas.close();
     await _store.close();
   }
+}
+
+class _DisplayQueue {
+  int version = 0;
+  bool running = false;
+  _DisplayJob? pending;
+}
+
+class _DisplayJob {
+  _DisplayJob(
+    this.version,
+    this.chatId,
+    this.nodeId,
+    this.text,
+    this.role,
+    this.depth,
+    this.reasoning,
+    this.characterOverride,
+    this.isSystem,
+  );
+  final int version;
+  final String chatId;
+  final String? nodeId;
+  final String text;
+  final TavernRole role;
+  final num? depth;
+  final bool reasoning;
+  final String? characterOverride;
+  final bool isSystem;
+  final result = Completer<TavernDisplayResult>();
+}
+
+int _displaySeed(String identity) {
+  var hash = 2166136261;
+  for (final unit in identity.codeUnits) hash = ((hash ^ unit) * 16777619) & 0x7fffffff;
+  return hash;
 }
 
 class _CreateChatSaveFailure implements Exception {
@@ -1873,6 +2790,7 @@ class _Turn {
     this.personaSelection,
     this.metadata,
     this.sourceFile,
+    this.presetId,
   ) {
     inspection = TavernTurnInspection(
       chatId: chat.id,
@@ -1893,6 +2811,7 @@ class _Turn {
   final PersonaSelection personaSelection;
   final Map<String, Object?> metadata;
   final String? sourceFile;
+  final String? presetId;
   final cancellation = ModelCancellation();
   final done = Completer<void>();
   bool abandoned = false;
@@ -1983,7 +2902,10 @@ class _MacroEnvironment {
   final outlets = <String, String>{};
   late Map<String, Object?> _presetSettings;
   late final RegexEngine regex = RegexEngine(
-    globalScripts: RegexEngine.readScripts(settings['globalRegexScripts'] ?? settings['regex']),
+    globalScripts: [
+      ...RegexEngine.readScripts(settings['globalRegexScripts'] ?? settings['regex']),
+      ...RegexEngine.readScripts(settings['managedRegexScripts']),
+    ],
     presetScripts: settings['presetRegexEnabled'] == false
         ? const []
         : RegexEngine.readScripts(_map(_presetSettings['extensions'])['regex_scripts']),
@@ -2219,6 +3141,8 @@ Map<String, Object?> _worldInfoTrace(
   List<Map<String, Object?>> missingBooks = const [],
 }) => _copy({
   if (missingBooks.isNotEmpty) 'missing': missingBooks,
+  if (world.regexDiagnostics.isNotEmpty)
+    'regexDiagnostics': [for (final value in world.regexDiagnostics) value.toJson()],
   'budget': world.budget,
   'overflowed': world.overflowed,
   'scanRounds': world.scanRounds,

@@ -1,22 +1,30 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dsh_tavern/src/regex/regex_worker.dart';
 import 'package:dsh_tavern/src/worldinfo/world_info.dart';
 import 'package:test/test.dart';
 
+late RegexWorker _worker;
+
 void main() {
-  const engine = WorldInfoEngine();
+  late WorldInfoEngine engine;
+  setUpAll(() {
+    _worker = RegexWorker();
+    engine = WorldInfoEngine(worker: _worker);
+  });
+  tearDownAll(() => _worker.close());
   final cases = jsonDecode(File('test/fixtures/worldinfo-oracle.json').readAsStringSync()) as List<Object?>;
   for (final item in cases) {
     final fixture = item as Map<String, Object?>;
-    test('ST source oracle: ${fixture['name']}', () {
+    test('ST source oracle: ${fixture['name']}', () async {
       final books = [for (final value in fixture['books'] as List<Object?>) _book(value as Map<String, Object?>)];
       final original = jsonEncode(books.map((book) => book.raw).toList());
       final random = fixture['random'] as List<Object?>? ?? [];
       final macros = fixture['macros'] as Map<String, Object?>? ?? {};
       final expansions = <String>[];
       var randomUsed = 0;
-      final result = engine.evaluate(
+      final result = await engine.evaluate(
         WorldInfoInput(
           books: books,
           messages: [for (final value in fixture['messages'] as List<Object?>) _message(value as Map<String, Object?>)],
@@ -55,7 +63,7 @@ void main() {
     });
   }
 
-  test('V3 raw documents remain detached and retain unused fields', () {
+  test('V3 raw documents remain detached and retain unused fields', () async {
     final source = <String, Object?>{
       'name': '原书',
       'unknown': {
@@ -78,7 +86,7 @@ void main() {
     };
     final original = jsonEncode(source);
     final book = WorldInfoBook.fromJson(id: 'card', source: WorldInfoSource.character, json: source);
-    final result = engine.evaluate(_input([book], expand: (text) => text.replaceAll('{{line}}', '展开')));
+    final result = await engine.evaluate(_input([book], expand: (text) => text.replaceAll('{{line}}', '展开')));
     expect(result.afterText, '展开');
     expect(result.activated.single.originalContent, '{{line}}');
     expect(result.activated.single.uid, '0');
@@ -91,7 +99,7 @@ void main() {
     expect(book.name, '原书');
   });
 
-  test('ST object-key order is independent from the entries uid order', () {
+  test('ST object-key order is independent from the entries uid order', () async {
     final book = WorldInfoBook.fromJson(
       id: 'order',
       source: WorldInfoSource.character,
@@ -99,12 +107,12 @@ void main() {
         'entries': {'z': _entry(1), 'a': _entry(0)},
       },
     );
-    final result = engine.evaluate(_input([book]));
+    final result = await engine.evaluate(_input([book]));
     expect(result.activated.map((hit) => hit.uid), ['1', '0']);
     expect(result.before.map((hit) => hit.uid), ['0', '1']);
   });
 
-  test('numeric JS object keys precede other keys and remain stable at equal order', () {
+  test('numeric JS object keys precede other keys and remain stable at equal order', () async {
     final book = WorldInfoBook.fromJson(
       id: 'order',
       source: WorldInfoSource.character,
@@ -112,10 +120,10 @@ void main() {
         'entries': {'10': _entry(10), '2': _entry(2), '01': _entry(1), 'a': _entry(99)},
       },
     );
-    expect(engine.evaluate(_input([book])).activated.map((hit) => hit.uid), ['2', '10', '1', '99']);
+    expect((await engine.evaluate(_input([book]))).activated.map((hit) => hit.uid), ['2', '10', '1', '99']);
   });
 
-  test('V3 duplicate ids follow ST conversion while preserving the original array', () {
+  test('V3 duplicate ids follow ST conversion while preserving the original array', () async {
     final book = WorldInfoBook.fromJson(
       id: 'duplicate',
       source: WorldInfoSource.character,
@@ -136,11 +144,11 @@ void main() {
         ],
       },
     );
-    expect(engine.evaluate(_input([book])).afterText, 'last');
+    expect((await engine.evaluate(_input([book]))).afterText, 'last');
     expect(book.raw['entries'] as List<Object?>, hasLength(2));
   });
 
-  test('memory participates in the character strategy with its own trace source', () {
+  test('memory participates in the character strategy with its own trace source', () async {
     final memory = WorldInfoBook.fromJson(
       id: 'memory',
       source: WorldInfoSource.memory,
@@ -155,12 +163,12 @@ void main() {
         'entries': {'0': _entry(0)},
       },
     );
-    final result = engine.evaluate(_input([character, memory]));
+    final result = await engine.evaluate(_input([character, memory]));
     expect(result.activated.map((hit) => hit.bookId), ['memory', 'character']);
     expect(result.activated.first.source, WorldInfoSource.memory);
   });
 
-  test('duplicate book bindings use global source before scanning priorities', () {
+  test('duplicate book bindings use global source before scanning priorities', () async {
     final json = <String, Object?>{
       'entries': {'0': _entry(0)},
     };
@@ -168,11 +176,11 @@ void main() {
       for (final source in [WorldInfoSource.character, WorldInfoSource.chat, WorldInfoSource.global])
         WorldInfoBook.fromJson(id: 'same', source: source, json: json),
     ];
-    final result = engine.evaluate(_input(books));
+    final result = await engine.evaluate(_input(books));
     expect(result.activated.single.source, WorldInfoSource.global);
   });
 
-  test('same input has the same result and empty books perform no random work', () {
+  test('same input has the same result and empty books perform no random work', () async {
     final book = WorldInfoBook.fromJson(
       id: 'one',
       source: WorldInfoSource.character,
@@ -181,13 +189,13 @@ void main() {
       },
     );
     final input = _input([book]);
-    expect(_result(engine.evaluate(input)), _result(engine.evaluate(input)));
-    final empty = engine.evaluate(_input([]));
+    expect(_result(await engine.evaluate(input)), _result(await engine.evaluate(input)));
+    final empty = await engine.evaluate(_input([]));
     expect(empty.activated, isEmpty);
     expect(empty.scanRounds, 0);
   });
 
-  test('invalid books and dependency return values fail visibly', () {
+  test('invalid books and dependency return values fail visibly', () async {
     expect(() => WorldInfoBook.fromJson(id: 'bad', source: WorldInfoSource.global, json: {}), throwsFormatException);
     expect(
       () => WorldInfoBook.fromJson(
@@ -206,8 +214,8 @@ void main() {
         'entries': {'0': _entry(0)..['probability'] = 50},
       },
     );
-    expect(
-      () => engine.evaluate(
+    await expectLater(
+      engine.evaluate(
         WorldInfoInput(
           books: [book],
           messages: const [WorldInfoMessage('beacon')],
@@ -218,8 +226,8 @@ void main() {
       ),
       throwsArgumentError,
     );
-    expect(
-      () => engine.evaluate(
+    await expectLater(
+      engine.evaluate(
         WorldInfoInput(
           books: [book],
           messages: const [WorldInfoMessage('beacon')],

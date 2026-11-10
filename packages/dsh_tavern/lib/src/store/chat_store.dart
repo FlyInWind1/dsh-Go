@@ -59,6 +59,45 @@ class StoredNode {
   final Map<String, Object?> original;
 }
 
+/// A saved preset and its original import text. JSON returned by the store is
+/// detached; execution uses [raw], never the archived [sourceText].
+class StoredPreset {
+  const StoredPreset({
+    required this.id,
+    required this.name,
+    required this.sourceText,
+    required this.raw,
+    required this.createdAt,
+    required this.updatedAt,
+    this.envelope,
+  });
+
+  final String id;
+  final String name;
+  final String sourceText;
+  final Map<String, Object?> raw;
+  final Map<String, Object?>? envelope;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+}
+
+/// Library metadata only. Listing presets does not load or decode their JSON.
+class StoredPresetSummary {
+  const StoredPresetSummary({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.hasEnvelope,
+  });
+
+  final String id;
+  final String name;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool hasEnvelope;
+}
+
 /// The SQLite owner. Methods are synchronous so a tree edit and its remembered
 /// path cannot be interleaved by a streaming callback on this isolate.
 ///
@@ -93,22 +132,28 @@ class ChatStore {
     return ChatStore._(database, clock: clock, createId: createId);
   }
 
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   // Keys are destination versions. Future upgrades register every successor
   // here and increase schemaVersion; no existing schema is dropped or replayed.
   // Steps run inside one transaction and must not manage transactions themselves.
-  static const _schemaMigrations = <int, String>{1: _schemaV1};
+  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2};
   final Database _db;
   final DateTime Function() _clock;
   final String Function() _createId;
   final _changes = StreamController<String>.broadcast();
+  final _presetChanges = StreamController<void>.broadcast();
   final _changedChats = <String>{};
+  var _presetsChanged = false;
   var _transactionDepth = 0;
   ({Object error, StackTrace stackTrace})? _transactionFailure;
   var _closed = false;
 
   Stream<String> get changes => _changes.stream;
+
+  /// Preset records and selections changed in a committed outer transaction.
+  /// Several edits in one transaction emit once; rolled-back edits never emit.
+  Stream<void> get presetChanges => _presetChanges.stream;
 
   void _initialize() {
     if (!_db.autocommit) {
@@ -168,6 +213,7 @@ class ChatStore {
     }
     final depth = _transactionDepth;
     final previousChanges = Set<String>.of(_changedChats);
+    final previousPresetChanges = _presetsChanged;
     final savepoint = 'tavern_$depth';
     var started = false;
     var completed = false;
@@ -211,17 +257,24 @@ class ChatStore {
       _transactionDepth = depth;
       if (!completed) {
         _changedChats.clear();
+        _presetsChanged = false;
         if (depth > 0 && _transactionFailure == null) {
           _changedChats.addAll(previousChanges);
+          _presetsChanged = previousPresetChanges;
         }
       }
       if (depth == 0) _transactionFailure = null;
     }
     if (depth == 0) {
       final changed = List<String>.of(_changedChats);
+      final presetsChanged = _presetsChanged;
       _changedChats.clear();
+      _presetsChanged = false;
       for (final chatId in changed) {
         _changes.add(chatId);
+      }
+      if (presetsChanged) {
+        _presetChanges.add(null);
       }
     }
     return value;
@@ -234,6 +287,157 @@ class ChatStore {
     }
     if (_transactionDepth > 0 && _db.autocommit) {
       throw StateError('SQLite aborted the enclosing chat transaction.');
+    }
+  }
+
+  /// Saves already parsed JSON. Import validation and envelope/raw agreement
+  /// belong to the codec; both documents commit with the original text here.
+  StoredPreset createPreset({
+    required String name,
+    required String sourceText,
+    required Map<String, Object?> raw,
+    Map<String, Object?>? envelope,
+  }) => transaction(() {
+    final id = _createId();
+    final at = _clock().millisecondsSinceEpoch;
+    _db.execute(
+      '''INSERT INTO presets (id, name, source_text, raw_json, envelope_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)''',
+      [id, name, sourceText, jsonEncode(raw), envelope == null ? null : jsonEncode(envelope), at, at],
+    );
+    _presetsChanged = true;
+    return preset(id)!;
+  });
+
+  StoredPreset? preset(String id) {
+    _ensureOpen();
+    // sqlite3 decodes TEXT with Dart's UTF-8 decoder, which removes one
+    // leading BOM. Guard the archived text during decoding and remove only
+    // that guard below; source_text itself and the schema remain unchanged.
+    final rows = _db.select(
+      '''SELECT id, name, char(1) || source_text AS guarded_source_text,
+                raw_json, envelope_json, created_at, updated_at
+         FROM presets WHERE id = ?''',
+      [id],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    final row = rows.single;
+    return StoredPreset(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      sourceText: (row['guarded_source_text'] as String).substring(1),
+      raw: _map(row['raw_json']),
+      envelope: row['envelope_json'] == null ? null : _map(row['envelope_json']),
+      createdAt: _date(row['created_at']),
+      updatedAt: _date(row['updated_at']),
+    );
+  }
+
+  List<StoredPresetSummary> listPresets() {
+    _ensureOpen();
+    final rows = _db.select('''SELECT id, name, created_at, updated_at, envelope_json IS NOT NULL AS has_envelope
+         FROM presets ORDER BY updated_at DESC, id''');
+    return [
+      for (final row in rows)
+        StoredPresetSummary(
+          id: row['id'] as String,
+          name: row['name'] as String,
+          createdAt: _date(row['created_at']),
+          updatedAt: _date(row['updated_at']),
+          hasEnvelope: row['has_envelope'] == 1,
+        ),
+    ];
+  }
+
+  /// Replaces the editable documents together, retaining source_text and the
+  /// original creation time. The caller merges only its intended fields.
+  StoredPreset updatePreset(
+    String id, {
+    required String name,
+    required Map<String, Object?> raw,
+    required Map<String, Object?>? envelope,
+  }) => transaction(() {
+    _requirePreset(id);
+    _db.execute(
+      '''UPDATE presets SET name = ?, raw_json = ?, envelope_json = ?, updated_at = ? WHERE id = ?''',
+      [name, jsonEncode(raw), envelope == null ? null : jsonEncode(envelope), _clock().millisecondsSinceEpoch, id],
+    );
+    _presetsChanged = true;
+    return preset(id)!;
+  });
+
+  String? get defaultPresetId {
+    _ensureOpen();
+    return _db
+            .select('SELECT default_preset_id FROM preset_preferences WHERE singleton = 1')
+            .single['default_preset_id']
+        as String?;
+  }
+
+  /// Null clears the library default. It does not rewrite chat bindings.
+  void setDefaultPreset(String? id) => transaction(() {
+    if (id != null) {
+      _requirePreset(id);
+    }
+    if (defaultPresetId == id) {
+      return;
+    }
+    _db.execute('UPDATE preset_preferences SET default_preset_id = ? WHERE singleton = 1', [id]);
+    _presetsChanged = true;
+  });
+
+  /// Changes only the binding. The facade handles active-turn barriers and
+  /// any deliberate removal of a legacy settings.preset in the same batch.
+  void bindPreset(String chatId, String? id) => transaction(() {
+    final row = _chatRow(chatId);
+    if (id != null) {
+      _requirePreset(id);
+    }
+    if (row['preset_id'] == id) {
+      return;
+    }
+    _db.execute('UPDATE chats SET preset_id = ? WHERE id = ?', [id, chatId]);
+    _touch(chatId);
+    _presetsChanged = true;
+  });
+
+  List<String> chatsBoundToPreset(String id) {
+    _ensureOpen();
+    return [
+      for (final row in _db.select('SELECT id FROM chats WHERE preset_id = ? ORDER BY id', [id])) row['id'] as String,
+    ];
+  }
+
+  /// Atomically clears the bindings/default and deletes the record. The return
+  /// value reports whether a record existed; stale legacy bindings are cleaned
+  /// even if it did not. The facade drains affected turns before calling this.
+  bool deletePreset(String id) => transaction(() {
+    final existed = _db.select('SELECT 1 FROM presets WHERE id = ?', [id]).isNotEmpty;
+    final chats = chatsBoundToPreset(id);
+    final wasDefault = defaultPresetId == id;
+    if (!existed && chats.isEmpty && !wasDefault) {
+      return false;
+    }
+    if (chats.isNotEmpty) {
+      _db.execute('UPDATE chats SET preset_id = NULL, updated_at = ? WHERE preset_id = ?', [
+        _clock().millisecondsSinceEpoch,
+        id,
+      ]);
+      _changedChats.addAll(chats);
+    }
+    if (wasDefault) {
+      _db.execute('UPDATE preset_preferences SET default_preset_id = NULL WHERE singleton = 1');
+    }
+    _db.execute('DELETE FROM presets WHERE id = ?', [id]);
+    _presetsChanged = true;
+    return existed;
+  });
+
+  void _requirePreset(String id) {
+    if (_db.select('SELECT 1 FROM presets WHERE id = ?', [id]).isEmpty) {
+      throw StateError('Preset not found: $id');
     }
   }
 
@@ -699,6 +903,7 @@ class ChatStore {
     _closed = true;
     _db.close();
     await _changes.close();
+    await _presetChanges.close();
   }
 
   void _activate(String chatId, String nodeId) {
@@ -915,5 +1120,23 @@ CREATE TRIGGER nodes_fts_update AFTER UPDATE OF text, speaker ON nodes BEGIN
   INSERT INTO nodes_fts(nodes_fts, rowid, text, speaker) VALUES ('delete', old.seq, old.text, old.speaker);
   INSERT INTO nodes_fts(rowid, text, speaker) VALUES (new.seq, new.text, new.speaker);
 END;
+''';
+
+  static const _schemaV2 = '''
+CREATE TABLE presets (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  source_text TEXT NOT NULL,
+  raw_json TEXT NOT NULL,
+  envelope_json TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE preset_preferences (
+  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+  default_preset_id TEXT REFERENCES presets(id) ON DELETE SET NULL
+);
+INSERT INTO preset_preferences(singleton, default_preset_id) VALUES (1, NULL);
+CREATE INDEX chats_preset ON chats(preset_id);
 ''';
 }

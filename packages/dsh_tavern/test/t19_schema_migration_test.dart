@@ -5,8 +5,8 @@ import 'package:dsh_tavern/src/store/chat_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
-// Real SQLite files exercise the registered 0 -> 1 step. There is no
-// synthetic production v2 or testing override for the migration registry.
+// These bootstrap/reopen regressions also run against later real schemas.
+// T20 separately checks genuine v1 files and rollback during its v2 step.
 void main() {
   late Directory directory;
   late String path;

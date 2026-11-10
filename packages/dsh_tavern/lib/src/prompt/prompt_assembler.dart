@@ -175,6 +175,23 @@ final class _AssemblyRun {
   _AssemblyRun(this.input, this.counter) : settings = input.preset.settings {
     type = input.generationType.trim().toLowerCase();
     if (type.isEmpty) type = 'normal';
+    final extensions = settings['extensions'];
+    final dshgo = extensions is Map<String, Object?> ? extensions['dshgo'] : null;
+    final prefill = dshgo is Map<String, Object?> ? dshgo['prefill'] : null;
+    enhancedPrefillEnabled = prefill is Map<String, Object?> && prefill['enabled'] == true;
+    prefillTarget = prefill is Map<String, Object?> && prefill['target'] == 'reasoning' ? 'reasoning' : 'content';
+    final prefillMode =
+        enhancedPrefillEnabled ||
+        input.assistantPrefill.isNotEmpty ||
+        (type == 'continue' && settings['continue_prefill'] == true);
+    tools = prefillMode ? const [] : input.tools;
+    if (prefillMode && input.tools.isNotEmpty) {
+      excluded.add(
+        PromptExclusion('tools', 'prefill-mode-tools', [
+          PromptSource('control', 'tools', details: {'count': input.tools.length}),
+        ]),
+      );
+    }
     final nickname = input.card['nickname'];
     characterName = nickname is String && nickname.isNotEmpty ? nickname : field('name');
     budget = number('openai_max_context', 4095) - number('openai_max_tokens', 300);
@@ -183,6 +200,9 @@ final class _AssemblyRun {
   final PromptInput input;
   final PromptTokenCounter counter;
   final Map<String, Object?> settings;
+  late final bool enhancedPrefillEnabled;
+  late final String prefillTarget;
+  late final List<Map<String, Object?>> tools;
   late final String characterName;
   late String type;
   late final int budget;
@@ -583,6 +603,22 @@ final class _AssemblyRun {
 
   PromptAssembly run() {
     prepare();
+    final prefillSource = PromptSource(
+      'preset',
+      'assistant_prefill',
+      details: {'enhanced': true, 'target': prefillTarget},
+    );
+    PromptSegment? configuredPrefill;
+    if (enhancedPrefillEnabled && type == 'continue') {
+      excluded.add(PromptExclusion('assistant_prefill', 'enhanced-prefill-continue', [prefillSource]));
+    } else if (enhancedPrefillEnabled && setting('assistant_prefill').isNotEmpty) {
+      final text = expand(setting('assistant_prefill'));
+      if (_hasPrefillText(text)) {
+        configuredPrefill = message(_Prompt('enhancedAssistantPrefill', text, [prefillSource], role: 'assistant'));
+      } else {
+        excluded.add(PromptExclusion('assistant_prefill', 'empty-prefill', [prefillSource]));
+      }
+    }
     for (final id in [
       'worldInfoBefore',
       'main',
@@ -645,8 +681,8 @@ final class _AssemblyRun {
         }
       }
     }
-    if (input.tools.isNotEmpty) {
-      final toolData = {'tools': input.tools, if (input.toolChoice != null) 'tool_choice': input.toolChoice};
+    if (tools.isNotEmpty) {
+      final toolData = {'tools': tools, if (input.toolChoice != null) 'tool_choice': input.toolChoice};
       remaining -= counter.countMessage({'role': 'user', 'content': jsonEncode(toolData)});
       makeRoom(0);
     }
@@ -677,6 +713,9 @@ final class _AssemblyRun {
     for (final prefill in worldPrefill) {
       reserve(prefill);
     }
+    if (configuredPrefill != null) {
+      spend(configuredPrefill);
+    }
     history = injectDepth(absolute, depthExtensions, history);
     if (input.pinExamples) {
       addExamples();
@@ -692,10 +731,12 @@ final class _AssemblyRun {
     for (final prefill in worldPrefill) {
       commitReserved(prefill);
     }
-    // Explicit CCV3 prefill is the last tail item, after send_if_empty and all
-    // generation controls. DeepSeek's existing pass concatenates assistant
-    // messages and marks the surviving final message as prefix when supported.
+    // CCV3 prefill follows all native controls. An explicitly enabled preset
+    // prefix may follow it; its reasoning channel keeps a separate boundary.
     tail.addAll(worldPrefill);
+    if (configuredPrefill != null) {
+      tail.add(configuredPrefill);
+    }
     // The decorator says "reaches" maximum context, including an exact fit.
     // This has no effect without optional fragments and never re-expands text.
     makeRoom(1);
@@ -705,13 +746,31 @@ final class _AssemblyRun {
     ].where((segment) => !removed(segment)).toList();
     if (settings['squash_system_messages'] == true) flattened = squash(flattened);
     final before = flattened.where(meaningful).toList();
+    final last = before.lastOrNull;
+    final enhancedTail =
+        enhancedPrefillEnabled &&
+        type != 'continue' &&
+        last != null &&
+        last.message['role'] == 'assistant' &&
+        _hasPrefillText(presetContent(last.message['content'])) &&
+        !last.message.containsKey('tool_calls') &&
+        !last.message.containsKey('tool_call_id') &&
+        last.sources.isNotEmpty &&
+        last.sources.every((source) => source.kind == 'preset');
+    if (enhancedTail && prefillTarget == 'reasoning' && !input.deepseek) {
+      excluded.add(PromptExclusion(before.last.id, 'reasoning-prefill-unsupported', before.last.sources));
+    } else if (enhancedPrefillEnabled && type != 'continue' && prefillTarget == 'reasoning' && !enhancedTail) {
+      excluded.add(PromptExclusion('assistant_prefill', 'no-preset-prefill-tail', [prefillSource]));
+    }
     final after = input.deepseek
         ? postProcessDeepSeek(
             before,
             userName: input.userName,
             characterName: characterName,
             groupNames: input.groupNames,
-            tools: input.tools,
+            tools: tools,
+            enhancedPrefill: enhancedTail,
+            reasoningPrefill: enhancedTail && prefillTarget == 'reasoning' && settings['show_thoughts'] == true,
             counter: counter,
           )
         : before;
@@ -723,7 +782,7 @@ final class _AssemblyRun {
             model: input.model,
             generationType: type,
             stops: stops,
-            tools: input.tools,
+            tools: tools,
             toolChoice: input.toolChoice,
           )
         : genericBody(after, stops);
@@ -1149,10 +1208,15 @@ final class _AssemblyRun {
     'top_p': presetSamplingNumber(settings['top_p']),
     if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
     if (presetJsNumber(settings['seed']) >= 0) 'seed': settings['seed'],
-    if (input.tools.isNotEmpty) 'tools': input.tools,
-    if (input.tools.isNotEmpty && input.toolChoice != null) 'tool_choice': input.toolChoice,
+    if (tools.isNotEmpty) 'tools': tools,
+    if (tools.isNotEmpty && input.toolChoice != null) 'tool_choice': input.toolChoice,
   };
 }
+
+// JS trim's exact WhiteSpace/LineTerminator set. In particular U+0085 NEL is
+// meaningful text; Dart String.trim would incorrectly discard that prefix.
+bool _hasPrefillText(String value) =>
+    RegExp(r'[^\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]').hasMatch(value);
 
 String sanitizeName(String name) {
   final normalized = name.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');

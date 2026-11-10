@@ -1,14 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dsh_tavern/src/regex/regex_worker.dart';
 import 'package:dsh_tavern/src/worldinfo/world_info.dart';
 import 'package:test/test.dart';
 
+late RegexWorker _worker;
+
 void main() {
+  setUpAll(() {
+    _worker = RegexWorker();
+  });
+  tearDownAll(() => _worker.close());
   final fixtures = jsonDecode(File('test/fixtures/worldinfo-timed-oracle.json').readAsStringSync()) as List<Object?>;
   for (final raw in fixtures) {
     final fixture = raw! as Map<String, Object?>;
-    test('actual ST timed source: ${fixture['name']}', () {
+    test('actual ST timed source: ${fixture['name']}', () async {
       final books = [for (final value in fixture['books']! as List<Object?>) _book(value! as Map<String, Object?>)];
       final metadata = fixture['metadata'] as Map<String, Object?>? ?? {};
       final state = metadata['timedWorldInfo'] as Map<String, Object?>? ?? {};
@@ -16,7 +23,7 @@ void main() {
       final random = fixture['random'] as List<Object?>? ?? [];
       var randomUsed = 0;
       final expansions = <String>[];
-      final result = const WorldInfoEngine().evaluate(
+      final result = await WorldInfoEngine(worker: _worker).evaluate(
         WorldInfoInput(
           books: books,
           messages: [
@@ -89,7 +96,7 @@ void main() {
       jsonDecode(File('test/fixtures/worldinfo-timed-edge-oracle.json').readAsStringSync()) as Map<String, Object?>;
   for (final raw in edgeOracle['vectors']! as List<Object?>) {
     final fixture = raw! as Map<String, Object?>;
-    test('actual ST timed edge source: ${fixture['name']}', () {
+    test('actual ST timed edge source: ${fixture['name']}', () async {
       // Decode the original JSON text here: pre-decoding/reserializing in the
       // JavaScript harness would erase unsafe-integer UID conversion cases.
       final book = WorldInfoBook.fromJson(
@@ -102,7 +109,7 @@ void main() {
       final before = jsonEncode({'book': book.raw, 'state': state});
       final draws = fixture['random']! as List<Object?>;
       var used = 0;
-      final result = const WorldInfoEngine().evaluate(
+      final result = await WorldInfoEngine(worker: _worker).evaluate(
         WorldInfoInput(
           books: [book],
           messages: [for (final item in fixture['messages']! as List<Object?>) _message(item! as Map<String, Object?>)],

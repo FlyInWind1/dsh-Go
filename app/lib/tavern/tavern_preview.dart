@@ -446,6 +446,111 @@ class PreviewTavern implements Tavern, TavernPreview {
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) async =>
       _mergeSettings(chatId == null ? _globalSettings : _chatSettings.putIfAbsent(chatId, () => {}), patch);
 
+  // The preview keeps no libraries: no presets, regex scripts or lorebooks of
+  // its own, and its text shows as written. Importing into one says so.
+
+  static UnsupportedError _noLibrary() => UnsupportedError('The preview keeps no presets, regex or lorebooks');
+
+  @override
+  Future<TavernDisplayResult> displayText(
+    String chatId, {
+    String? nodeId,
+    String? text,
+    TavernRole? role,
+    String? speaker,
+    num? depth,
+    bool reasoning = false,
+  }) async => TavernDisplayResult(text: text ?? _chats[chatId]?.nodes[nodeId]?.text ?? '');
+
+  @override
+  Future<List<TavernPresetSummary>> listPresets() async => const [];
+
+  @override
+  Stream<List<TavernPresetSummary>> watchPresets() => Stream.value(const []);
+
+  @override
+  Future<TavernPreset?> preset(String presetId) async => null;
+
+  @override
+  Future<TavernPresetImportResult> importPreset(String text, {String? fileName}) => throw _noLibrary();
+
+  @override
+  Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name}) =>
+      throw _noLibrary();
+
+  @override
+  Future<TavernPresetImportResult> updatePresetPrompt(String presetId, String identifier, Map<String, Object?> patch) =>
+      throw _noLibrary();
+
+  @override
+  Future<TavernPresetImportResult> setPresetOrder(String presetId, List<String> identifiers) => throw _noLibrary();
+
+  @override
+  Future<TavernPresetImportResult> setPresetPromptEnabled(String presetId, String identifier, bool enabled) =>
+      throw _noLibrary();
+
+  @override
+  Future<String> exportPreset(String presetId) => throw _noLibrary();
+
+  @override
+  Future<TavernPresetSelection> presetSelection({String? chatId}) async => const TavernPresetSelection(
+    source: PresetSelectionSource.stDefault,
+    boundPresetId: null,
+    defaultPresetId: null,
+    effectivePresetId: null,
+  );
+
+  @override
+  Future<void> setDefaultPreset(String? presetId) async {}
+
+  @override
+  Future<void> bindPreset(String chatId, String? presetId) async {}
+
+  @override
+  Future<void> deletePreset(String presetId) async {}
+
+  @override
+  Future<List<TavernRegexScript>> listRegexScripts() async => const [];
+
+  @override
+  Future<TavernRegexImportResult> importRegexScripts(String text) => throw _noLibrary();
+
+  @override
+  Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) => throw _noLibrary();
+
+  @override
+  Future<void> deleteRegex(String regexId) async {}
+
+  @override
+  Future<String> exportRegex({String? regexId}) async => '[]';
+
+  @override
+  Future<List<TavernLorebookSummary>> listLorebooks() async => const [];
+
+  @override
+  Future<TavernLorebookImportResult> importLorebook(String text, {String? fileName}) => throw _noLibrary();
+
+  @override
+  Future<Map<String, Object?>?> lorebook(String id) async => null;
+
+  @override
+  Future<void> putLorebook(String id, Map<String, Object?> json) => throw _noLibrary();
+
+  @override
+  Future<String> exportLorebook(String id) => throw _noLibrary();
+
+  @override
+  Future<void> deleteLorebook(String id) async {}
+
+  @override
+  Future<void> bindLorebooks(
+    List<String> ids, {
+    WorldInfoSource source = WorldInfoSource.global,
+    String? chatId,
+    String? characterId,
+    String? personaId,
+  }) async {}
+
   @override
   Future<void> close() async => _listChanged.close();
 }

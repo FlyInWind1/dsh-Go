@@ -4,6 +4,9 @@
 // Commit: 7e8663cd9c184a550b37238218bdd32c6efc68e9 (AGPL-3.0).
 // Upstream regexFromString also credits https://github.com/IonicaBizau/regex-parser.js.
 
+import 'regex_program.dart';
+import 'regex_worker.dart';
+
 /// ST's numeric placement values; zero and four are legacy import values.
 abstract final class RegexPlacement {
   static const userInput = 1;
@@ -106,7 +109,8 @@ final class RegexScript {
   final bool _valid;
 }
 
-/// Pure synchronous execution. This class neither persists text nor counts
+/// Text transforms with legacy synchronous and protected display paths.
+/// This class neither persists text nor counts
 /// chat depth. Callers supply a complete message for write-back, and a separate
 /// copy for prompt/display. No write-back script is reapplied to prompt copies.
 final class RegexEngine {
@@ -162,6 +166,181 @@ final class RegexEngine {
     return result;
   }
 
+  /// Detached display rendering. User patterns run in [worker]; macros stay
+  /// in their caller's independent display context, in ST's original order.
+  /// Skipped rules retain the last completed text without replaying macros.
+  /// The synchronous prompt/write-back API remains outside this protection.
+  Future<RegexDisplayResult> applyDisplay(
+    String input, {
+    required int placement,
+    required RegexWorker worker,
+    bool isEdit = false,
+    num? depth,
+    String? characterOverride,
+    RegexMacroExpansion? expand,
+    bool Function()? isCancelled,
+  }) async {
+    final warnings = <RegexDisplayWarning>[];
+    var result = input;
+    var replacements = 0;
+    var rules = 0;
+    RegexDisplayResult finish({bool cancelled = false}) =>
+        RegexDisplayResult(text: result, warnings: warnings, replacements: replacements, cancelled: cancelled);
+    void warn(RegexScript script, int index, String code, String message) {
+      warnings.add(
+        RegexDisplayWarning(
+          ruleId: script.id,
+          ruleName: script.scriptName,
+          ruleIndex: index,
+          reason: code,
+          message: message,
+        ),
+      );
+    }
+
+    if (isCancelled?.call() == true) {
+      return finish(cancelled: true);
+    }
+    if (!enabled || input.isEmpty) {
+      return finish();
+    }
+    final limits = worker.limits;
+    if (regexUtf8Length(input, stopAfter: limits.maxInputBytes) > limits.maxInputBytes) {
+      warnings.add(
+        const RegexDisplayWarning(
+          ruleId: '',
+          ruleName: '',
+          ruleIndex: -1,
+          reason: 'input-limit',
+          message: '显示原文超过保护上限，返回原文。',
+        ),
+      );
+      return finish();
+    }
+    final substitute = expand ?? _identityExpansion;
+    for (var index = 0; index < _scripts.length; index++) {
+      if (isCancelled?.call() == true) {
+        return finish(cancelled: true);
+      }
+      final script = _scripts[index];
+      if (!script.markdownOnly ||
+          script.disabled ||
+          (isEdit && !script.runOnEdit) ||
+          !script.placement.contains(placement) ||
+          script.findRegex.isEmpty ||
+          result.isEmpty) {
+        continue;
+      }
+      if (depth != null) {
+        final minimum = script.minDepth;
+        final maximum = script.maxDepth;
+        if ((minimum != null && minimum >= -1 && depth < minimum) ||
+            (maximum != null && maximum >= 0 && depth > maximum)) {
+          continue;
+        }
+      }
+      if (!script._valid) {
+        warn(script, index, 'invalid-script', '正则条目的已知字段类型不兼容，已跳过。');
+        continue;
+      }
+      if (rules >= limits.maxRules) {
+        warn(script, index, 'rule-limit', '本次显示已达规则上限，后续规则跳过。');
+        break;
+      }
+      rules++;
+      try {
+        final pattern = switch (script.substituteRegex) {
+          1 => substitute(script.findRegex),
+          2 => substitute(script.findRegex, postProcess: sanitizeRegexMacro),
+          _ => script.findRegex,
+        };
+        if (isCancelled?.call() == true) {
+          return finish(cancelled: true);
+        }
+        final template = script.replaceString.replaceAll(_matchMacro, r'$0');
+        final references = <String>{};
+        var referenceBytes = 0;
+        for (final reference in _captureReference.allMatches(template)) {
+          final key = _referenceKey(reference);
+          if (!references.contains(key)) {
+            referenceBytes += regexUtf8Length(key) + 16;
+            if (referenceBytes > limits.maxCaptureBytes) {
+              throw const _DisplayLimit('capture-limit', '捕获引用描述超过内部传输上限。');
+            }
+            references.add(key);
+          }
+        }
+        final captures = await worker.findCaptures(
+          pattern,
+          result,
+          references: references,
+          maxMatches: limits.maxReplacements - replacements,
+        );
+        if (isCancelled?.call() == true) {
+          return finish(cancelled: true);
+        }
+        if (captures.compilation.status != RegexCompileStatus.compatible || captures.skipped) {
+          warn(script, index, captures.code ?? 'incompatible-pattern', captures.message ?? '正则不兼容或暂不可执行，已跳过。');
+          continue;
+        }
+        if (captures.code == 'literal-fallback') {
+          warn(script, index, 'literal-fallback', captures.message!);
+        }
+        final output = _BoundedText(limits.maxOutputBytes);
+        var previousEnd = 0;
+        for (final match in captures.matches) {
+          if (isCancelled?.call() == true) {
+            return finish(cancelled: true);
+          }
+          output.add(result.substring(previousEnd, match.start));
+          if (replacements >= limits.maxReplacements) {
+            throw const _DisplayLimit('replacement-limit', '本次显示累计替换已达上限。');
+          }
+          // Attempted replacements also count when a later macro/output check
+          // fails. Effects already run remain in the detached display context.
+          replacements++;
+          final replacement = _replaceDisplayTemplate(
+            script,
+            template,
+            (reference) => _captured(match, result, reference),
+            substitute,
+            characterOverride,
+            limits.maxOutputBytes,
+          );
+          output.add(substitute(replacement));
+          previousEnd = match.end;
+        }
+        output.add(result.substring(previousEnd));
+        result = output.toString();
+      } on _DisplayLimit catch (error) {
+        warn(script, index, error.code, error.message);
+      } catch (_) {
+        warn(script, index, 'replacement-error', '显示规则的宏或替换失败，保留前一条规则的文本。');
+      }
+    }
+    return finish();
+  }
+
+  /// Import checks never execute macros. A dynamic pattern is checked after
+  /// its runtime expansion inside the same protected worker path.
+  static Future<RegexCompileResult> checkScript(RegexScript script, RegexExecutor executor) async {
+    if (!script._valid) {
+      return const RegexCompileResult(
+        status: RegexCompileStatus.incompatible,
+        code: 'invalid-script',
+        message: '正则条目的已知字段类型不兼容。',
+      );
+    }
+    if (script.substituteRegex == 1 || script.substituteRegex == 2) {
+      return const RegexCompileResult(
+        status: RegexCompileStatus.skipped,
+        code: 'runtime-check',
+        message: '模式依赖运行时宏，执行时再受控编译。',
+      );
+    }
+    return executor.compile(script.findRegex);
+  }
+
   /// Direct execution, like ST's /regex command: placement/phase/edit/depth
   /// selection is bypassed, while disabled and invalid-pattern guards remain.
   String runScript(RegexScript script, String input, {String? characterOverride, RegexMacroExpansion? expand}) {
@@ -180,25 +359,13 @@ final class RegexEngine {
     for (final match in matches) {
       output.write(input.substring(previousEnd, match.start));
       final template = script.replaceString.replaceAll(_matchMacro, r'$0');
-      final replacement = template.replaceAllMapped(_captureReference, (reference) {
-        final capture = _capture(match, input, reference);
-        if (!_truthy(capture)) return '';
-        var filtered = capture;
-        for (final trim in script.trimStrings) {
-          final text = substitute(trim, characterOverride: characterOverride);
-          if (filtered is! String) {
-            throw StateError(
-              'ST regex ${script.scriptName}: ${reference[0]} is not a string capture and cannot be trimmed',
-            );
-          }
-          filtered = filtered.replaceAll(text, '');
-        }
-        if (filtered is String) return filtered;
-        if (filtered is num) return filtered.toString();
-        // The JS callback's final named-groups argument has a null prototype:
-        // it cannot be converted to a replacement string, even without trims.
-        throw StateError('ST regex ${script.scriptName}: ${reference[0]} resolves to the named-groups object');
-      });
+      final replacement = _replaceTemplate(
+        script,
+        template,
+        (reference) => _capture(match, input, reference),
+        substitute,
+        characterOverride,
+      );
       output.write(substitute(replacement));
       previousEnd = match.end;
     }
@@ -246,8 +413,6 @@ final class RegexEngine {
 
 final _matchMacro = RegExp(r'\{\{match\}\}', caseSensitive: false);
 final _captureReference = RegExp(r'\$(\d+)|\$<([^>]+)>');
-final _regexLiteral = RegExp(r'(/?)(.+)\1([a-z]*)', caseSensitive: false);
-final _validFlags = RegExp(r'^(?!.*?(.).*?\1)[gmixXsuUAJ]+$');
 
 final class _CompiledRegex {
   const _CompiledRegex(this.regex, this.global);
@@ -256,33 +421,8 @@ final class _CompiledRegex {
 }
 
 _CompiledRegex? _regexFromString(String input) {
-  final parsed = _regexLiteral.firstMatch(input);
-  if (parsed == null) return null;
-  var pattern = parsed[2]!;
-  var flags = parsed[3]!;
-  if (flags.isNotEmpty && !_validFlags.hasMatch(flags)) {
-    // ST falls back to RegExp(input), including delimiters and invalid flags.
-    pattern = input;
-    flags = '';
-  }
-  // These pass ST's historical parser whitelist but fail JavaScript RegExp.
-  if (flags.contains(RegExp('[xXUAJ]'))) return null;
-  try {
-    return _CompiledRegex(
-      RegExp(
-        pattern,
-        caseSensitive: !flags.contains('i'),
-        multiLine: flags.contains('m'),
-        unicode: flags.contains('u'),
-        dotAll: flags.contains('s'),
-      ),
-      flags.contains('g'),
-    );
-  } on FormatException {
-    return null;
-  } on ArgumentError {
-    return null;
-  }
+  final program = compileRegexProgram(input, RegexDialect.script);
+  return program.regex == null ? null : _CompiledRegex(program.regex!, program.global);
 }
 
 Object? _capture(RegExpMatch match, String input, Match reference) {
@@ -344,3 +484,133 @@ String _arrayString(List<Object?> values) => values
       return value.toString();
     })
     .join(',');
+
+String _replaceTemplate(
+  RegexScript script,
+  String template,
+  Object? Function(Match) capture,
+  RegexMacroExpansion substitute,
+  String? characterOverride,
+) => template.replaceAllMapped(
+  _captureReference,
+  (reference) => _replaceCapture(script, reference, capture(reference), substitute, characterOverride),
+);
+
+// The protected path must bound capture expansion before assembling the whole
+// replacement. A repeated reference can otherwise allocate far more than the
+// output limit before the outer text builder sees the result. Macro callbacks
+// still run on the owner; their internal allocations are outside this worker.
+String _replaceDisplayTemplate(
+  RegexScript script,
+  String template,
+  Object? Function(Match) capture,
+  RegexMacroExpansion substitute,
+  String? characterOverride,
+  int maximum,
+) {
+  // An existing macro template may itself exceed the output budget and shrink
+  // when expanded. Permit its original size, but no extra capture growth past
+  // the greater of that size and the output budget. The outer builder still
+  // enforces the strict final-output limit after expansion.
+  final templateBytes = regexUtf8Length(template);
+  final output = _BoundedText(templateBytes > maximum ? templateBytes : maximum);
+  var offset = 0;
+  for (final reference in _captureReference.allMatches(template)) {
+    output.add(template.substring(offset, reference.start));
+    output.add(_replaceCapture(script, reference, capture(reference), substitute, characterOverride));
+    offset = reference.end;
+  }
+  output.add(template.substring(offset));
+  return output.toString();
+}
+
+String _replaceCapture(
+  RegexScript script,
+  Match reference,
+  Object? value,
+  RegexMacroExpansion substitute,
+  String? characterOverride,
+) {
+  if (!_truthy(value)) {
+    return '';
+  }
+  var filtered = value;
+  for (final trim in script.trimStrings) {
+    final text = substitute(trim, characterOverride: characterOverride);
+    if (filtered is! String) {
+      throw StateError('ST regex ${script.scriptName}: ${reference[0]} is not a string capture and cannot be trimmed');
+    }
+    filtered = filtered.replaceAll(text, '');
+  }
+  if (filtered is String) {
+    return filtered;
+  }
+  if (filtered is num) {
+    return filtered.toString();
+  }
+  throw StateError('ST regex ${script.scriptName}: ${reference[0]} resolves to the named-groups object');
+}
+
+String _referenceKey(Match reference) {
+  final number = reference[1];
+  return number == null ? 'n:${reference[2]}' : (int.tryParse(number)?.toString() ?? number);
+}
+
+Object? _captured(RegexCapture match, String input, Match reference) {
+  final number = reference[1];
+  if (number != null) {
+    final index = int.tryParse(number);
+    if (index == null) {
+      return null;
+    }
+    if (index <= match.groupCount) {
+      return match.groups[index.toString()];
+    }
+    if (index == match.groupCount + 1) {
+      return match.start;
+    }
+    if (index == match.groupCount + 2) {
+      return input;
+    }
+    if (index == match.groupCount + 3 && match.hasNamedGroups) {
+      return const _NamedGroups();
+    }
+    return null;
+  }
+  return match.groups['n:${reference[2]}'];
+}
+
+final class _DisplayLimit implements Exception {
+  const _DisplayLimit(this.code, this.message);
+  final String code;
+  final String message;
+}
+
+final class _BoundedText {
+  _BoundedText(this.maximum);
+  final int maximum;
+  final _buffer = StringBuffer();
+  var _bytes = 0;
+  int? _lastUnit;
+
+  void add(String text) {
+    if (text.isEmpty) {
+      return;
+    }
+    final previous = _lastUnit;
+    final first = text.codeUnitAt(0);
+    final joinsPair =
+        previous != null && previous >= 0xd800 && previous <= 0xdbff && first >= 0xdc00 && first <= 0xdfff;
+    final correction = joinsPair ? 2 : 0;
+    final size = regexUtf8Length(text, stopAfter: maximum - _bytes + correction) - correction;
+    if (_bytes + size > maximum) {
+      throw const _DisplayLimit('output-limit', '规则输出超过保护上限，保留前一条规则的文本。');
+    }
+    _bytes += size;
+    _buffer.write(text);
+    _lastUnit = text.codeUnitAt(text.length - 1);
+  }
+
+  @override
+  String toString() => _buffer.toString();
+}

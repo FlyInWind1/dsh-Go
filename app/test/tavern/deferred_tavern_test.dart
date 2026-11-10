@@ -24,4 +24,20 @@ void main() {
     expect(events.whereType<TavernReasoningDelta>(), isNotEmpty);
     expect(events.last, isA<TavernTurnDone>());
   });
+
+  test('the libraries and the display pass reach the engine once it opens (T20, T21)', () async {
+    final preview = PreviewTavern(tick: Duration.zero);
+    final chat = await preview.createChat('sample-innkeeper');
+    final deferred = DeferredTavern(Future.value(preview));
+
+    expect(await deferred.listPresets(), isEmpty);
+    expect(await deferred.watchPresets().first, isEmpty);
+    expect((await deferred.presetSelection(chatId: chat)).source, PresetSelectionSource.stDefault);
+    expect(await deferred.listRegexScripts(), isEmpty);
+    expect(await deferred.listLorebooks(), isEmpty);
+    expect((await deferred.displayText(chat, text: '*她笑了*')).text, '*她笑了*');
+    // The preview keeps no libraries: importing into one says so.
+    await expectLater(deferred.importPreset('{}'), throwsUnsupportedError);
+    await expectLater(deferred.importLorebook('{}'), throwsUnsupportedError);
+  });
 }

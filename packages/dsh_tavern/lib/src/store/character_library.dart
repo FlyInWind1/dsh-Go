@@ -10,6 +10,7 @@ import 'dart:typed_data';
 
 import '../api.dart';
 import '../io/card_codec.dart';
+import '../regex_library.dart';
 
 class StoredCharacter {
   const StoredCharacter({required this.id, required this.card, required this.importedAt, this.avatarPath});
@@ -19,13 +20,19 @@ class StoredCharacter {
   final DateTime importedAt;
   final String? avatarPath;
 
-  TavernCharacter toCharacter({int chatCount = 0, DateTime? lastChatAt, String? language}) => card.toCharacter(
+  TavernCharacter toCharacter({
+    int chatCount = 0,
+    DateTime? lastChatAt,
+    String? language,
+    List<TavernRegexDiagnostic> regexDiagnostics = const [],
+  }) => card.toCharacter(
     id,
     importedAt: importedAt,
     avatarPath: avatarPath,
     chatCount: chatCount,
     lastChatAt: lastChatAt,
     language: language,
+    regexDiagnostics: regexDiagnostics,
   );
 }
 
@@ -49,11 +56,16 @@ class CharacterLibrary {
     return run;
   }
 
-  Future<StoredCharacter> importCard(Uint8List bytes, {String? fileName}) => _exclusive(() async {
+  Future<StoredCharacter> importCard(
+    Uint8List bytes, {
+    String? fileName,
+    Future<void> Function(TavernCard card)? beforeSave,
+  }) => _exclusive(() async {
     await _tidy();
     // Decode/ZIP inflate/thumbnail conversion cannot stall Flutter's isolate.
     final decoded = await _decodeImport(bytes);
     final (card, portrait) = decoded;
+    await beforeSave?.call(card);
     final importedAt = _now().toUtc();
     final id = _newId();
     final staging = await _characters.createTemp('.staging-');

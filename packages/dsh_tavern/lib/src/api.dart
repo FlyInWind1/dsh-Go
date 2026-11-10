@@ -9,7 +9,30 @@
 import 'dart:typed_data';
 
 import 'inspection.dart';
+import 'lorebook_library.dart';
 import 'persona.dart';
+import 'preset_library.dart';
+import 'regex_library.dart';
+import 'worldinfo/world_info.dart' show WorldInfoSource;
+
+enum PresetSelectionSource { chat, chatInline, globalDefault, globalInline, stDefault }
+
+/// Selection for a newly admitted turn. Missing legacy ids fall through to
+/// the next complete preset without rewriting the stored chat binding.
+class TavernPresetSelection {
+  const TavernPresetSelection({
+    required this.source,
+    required this.boundPresetId,
+    required this.defaultPresetId,
+    required this.effectivePresetId,
+    this.missingPresetIds = const [],
+  });
+  final PresetSelectionSource source;
+  final String? boundPresetId;
+  final String? defaultPresetId;
+  final String? effectivePresetId;
+  final List<String> missingPresetIds;
+}
 
 /// One character in the library: the card's V3 `data` plus what the library
 /// knows about it.
@@ -30,6 +53,7 @@ class TavernCharacter {
     this.chatCount = 0,
     this.lastChatAt,
     this.importedAt,
+    this.regexDiagnostics = const [],
   });
 
   final String id;
@@ -56,6 +80,10 @@ class TavernCharacter {
   final int chatCount;
   final DateTime? lastChatAt;
   final DateTime? importedAt;
+
+  /// Checks returned by a new import. Unified persistent intake reports are
+  /// separate; reading an older library entry need not populate this.
+  final List<TavernRegexDiagnostic> regexDiagnostics;
 }
 
 /// A conversation in the list.
@@ -105,8 +133,8 @@ class TavernMessage {
   /// Display name: the character's or the persona's.
   final String speaker;
 
-  /// The stored text (after write-back regex). Display regex and Markdown run
-  /// in the canvas, not here.
+  /// The stored text (after write-back regex). Use displayText for an ephemeral
+  /// display-regex copy; Markdown rendering remains the caller's responsibility.
   final String text;
   final String? reasoning;
   final DateTime at;
@@ -268,7 +296,7 @@ abstract interface class Tavern {
 
   /// A PNG / JSON / CHARX card (sniffed from the bytes, not the name), or an
   /// ST lorebook JSON (then it throws [TavernImportError] with
-  /// [TavernImportError.isLorebook]; lorebooks import elsewhere later).
+  /// [TavernImportError.isLorebook]; use importLorebook for those files).
   Future<TavernCharacter> importCard(Uint8List bytes, {String? fileName});
 
   Future<Uint8List> exportCard(String characterId, {TavernCardFormat format = TavernCardFormat.png});
@@ -362,6 +390,24 @@ abstract interface class Tavern {
   /// Estimates and this call's provider-reported usage are separate fields.
   Future<TavernTurnInspection?> inspectTurn(String chatId, {String? nodeId});
 
+  /// Recomputes from original text or a stored node. No display result, macro
+  /// variable or random state is persisted. A node plus text supplies the latest
+  /// complete stream. With no node this is the chat's single live-text channel
+  /// for each reasoning flag. Ignore results marked superseded by a newer call.
+  /// Hidden messages still run display regex, but do not count toward automatic
+  /// depth. Only system messages named "SillyTavern System" bypass; this is the
+  /// default speaker for raw system text. Raw text has no inferred depth. Supply
+  /// a speaker for custom raw narration so trim macros receive its display name.
+  Future<TavernDisplayResult> displayText(
+    String chatId, {
+    String? nodeId,
+    String? text,
+    TavernRole? role,
+    String? speaker,
+    num? depth,
+    bool reasoning = false,
+  });
+
   // Turns --------------------------------------------------------------------
 
   /// Appends [text] as the user's message and streams the character's reply.
@@ -395,6 +441,83 @@ abstract interface class Tavern {
 
   Future<void> setHidden(String chatId, String nodeId, bool hidden);
 
+  // Presets ------------------------------------------------------------------
+
+  Future<List<TavernPresetSummary>> listPresets();
+  Stream<List<TavernPresetSummary>> watchPresets();
+  Future<TavernPreset?> preset(String presetId);
+
+  /// Saves without selecting. Original text and unknown fields are retained;
+  /// validation issues identify the precise prompt and JSON path.
+  Future<TavernPresetImportResult> importPreset(String text, {String? fileName});
+
+  /// Merges objects and replaces arrays/scalars in the current ST document.
+  /// Sampling keys use their native ST names. The original source is unchanged.
+  /// Name is a library label; package metadata is synchronized when present.
+  /// For plain ST exports the caller chooses the corresponding file name.
+  /// extensions.dshgo.presetEnvelope is an export-owned carrier; edits that
+  /// change it are rejected, so an opaque wrapper cannot be silently lost.
+  Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name});
+  Future<TavernPresetImportResult> updatePresetPrompt(String presetId, String identifier, Map<String, Object?> patch);
+
+  /// Reorders the first 100001 group's complete list. Existing entry fields
+  /// survive; new entries start enabled. Omitted identifiers leave this group.
+  Future<TavernPresetImportResult> setPresetOrder(String presetId, List<String> identifiers);
+  Future<TavernPresetImportResult> setPresetPromptEnabled(String presetId, String identifier, bool enabled);
+
+  /// Native ST JSON, with preserved project data under extensions.dshgo.
+  Future<String> exportPreset(String presetId);
+  Future<TavernPresetSelection> presetSelection({String? chatId});
+  Future<void> setDefaultPreset(String? presetId);
+
+  /// Clears the legacy inline chat preset. Null restores default inheritance;
+  /// this differs from setSettings({'preset': null}), which selects ST defaults.
+  Future<void> bindPreset(String chatId, String? presetId);
+
+  /// Deletes the library record and clears its bindings/default atomically.
+  /// Independently stored legacy inline settings remain a fallback; deletion
+  /// of a generated legacy record does not erase that separate configuration.
+  Future<void> deletePreset(String presetId);
+
+  // Managed global regex scripts --------------------------------------------
+
+  /// This imported collection follows legacy inline global rules in settings,
+  /// and precedes preset and character scripts.
+  Future<List<TavernRegexScript>> listRegexScripts();
+  Future<TavernRegexImportResult> importRegexScripts(String text);
+  Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled);
+  Future<void> deleteRegex(String regexId);
+
+  /// One native ST object when id is given; otherwise the ordered array.
+  Future<String> exportRegex({String? regexId});
+
+  // Independent world books -------------------------------------------------
+
+  Future<List<TavernLorebookSummary>> listLorebooks();
+
+  /// Keeps a supplied filename (without .json) as native timer identity,
+  /// separately from the raw display title. An active imported chat mapping
+  /// can supply its own exact ST name. Raw read/export omit local metadata.
+  Future<TavernLorebookImportResult> importLorebook(String text, {String? fileName});
+  Future<Map<String, Object?>?> lorebook(String id);
+  Future<void> putLorebook(String id, Map<String, Object?> json);
+  Future<String> exportLorebook(String id);
+
+  /// Retains source bindings. Future turns diagnose and skip the missing id;
+  /// an already captured book remains usable.
+  Future<void> deleteLorebook(String id);
+
+  /// Empty ids clears this binding. Character/persona identity scopes use their
+  /// matching source. chatId can also override a legacy global source. Missing
+  /// ids remain and are diagnosed when a turn loads them.
+  Future<void> bindLorebooks(
+    List<String> ids, {
+    WorldInfoSource source = WorldInfoSource.global,
+    String? chatId,
+    String? characterId,
+    String? personaId,
+  });
+
   // Settings -----------------------------------------------------------------
 
   /// Where model calls go from now on.
@@ -402,11 +525,17 @@ abstract interface class Tavern {
 
   /// A detached effective settings snapshot: global, imported source, then
   /// explicit chat settings. Reading does not evaluate macros or world info.
+  /// managedRegexScripts is a read-only library projection; settings cannot
+  /// override it or add a second copy of the imported collection.
   Future<Map<String, Object?>> readSettings({String? chatId});
 
   /// Recursively merges objects; arrays/scalars replace their previous values.
   /// Null is a stored value, not a deletion. Chat changes cancel and await its
   /// active turn. Global changes apply to turns admitted after this call.
+  /// presetOverrides overlays only temperature/top_p/presence_penalty/
+  /// frequency_penalty/openai_max_tokens/openai_max_context after selection.
+  /// Legacy global patches containing preset write settings.json before the
+  /// SQLite selection; a second-step failure leaves the file change committed.
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId});
 
   Future<void> close();

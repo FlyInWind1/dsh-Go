@@ -165,6 +165,120 @@ class DeferredTavern implements Tavern {
     _open?.configure(config);
   }
 
+  // Display regex, presets, regex scripts and lorebooks (T20, T21) -----------
+
+  @override
+  Future<TavernDisplayResult> displayText(
+    String chatId, {
+    String? nodeId,
+    String? text,
+    TavernRole? role,
+    String? speaker,
+    num? depth,
+    bool reasoning = false,
+  }) async => (await _ready).displayText(
+    chatId,
+    nodeId: nodeId,
+    text: text,
+    role: role,
+    speaker: speaker,
+    depth: depth,
+    reasoning: reasoning,
+  );
+
+  @override
+  Future<List<TavernPresetSummary>> listPresets() async => (await _ready).listPresets();
+
+  @override
+  Stream<List<TavernPresetSummary>> watchPresets() => _stream((t) => t.watchPresets());
+
+  @override
+  Future<TavernPreset?> preset(String presetId) async => (await _ready).preset(presetId);
+
+  @override
+  Future<TavernPresetImportResult> importPreset(String text, {String? fileName}) async =>
+      (await _ready).importPreset(text, fileName: fileName);
+
+  @override
+  Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name}) async =>
+      (await _ready).updatePreset(presetId, patch, name: name);
+
+  @override
+  Future<TavernPresetImportResult> updatePresetPrompt(
+    String presetId,
+    String identifier,
+    Map<String, Object?> patch,
+  ) async => (await _ready).updatePresetPrompt(presetId, identifier, patch);
+
+  @override
+  Future<TavernPresetImportResult> setPresetOrder(String presetId, List<String> identifiers) async =>
+      (await _ready).setPresetOrder(presetId, identifiers);
+
+  @override
+  Future<TavernPresetImportResult> setPresetPromptEnabled(String presetId, String identifier, bool enabled) async =>
+      (await _ready).setPresetPromptEnabled(presetId, identifier, enabled);
+
+  @override
+  Future<String> exportPreset(String presetId) async => (await _ready).exportPreset(presetId);
+
+  @override
+  Future<TavernPresetSelection> presetSelection({String? chatId}) async =>
+      (await _ready).presetSelection(chatId: chatId);
+
+  @override
+  Future<void> setDefaultPreset(String? presetId) async => (await _ready).setDefaultPreset(presetId);
+
+  @override
+  Future<void> bindPreset(String chatId, String? presetId) async => (await _ready).bindPreset(chatId, presetId);
+
+  @override
+  Future<void> deletePreset(String presetId) async => (await _ready).deletePreset(presetId);
+
+  @override
+  Future<List<TavernRegexScript>> listRegexScripts() async => (await _ready).listRegexScripts();
+
+  @override
+  Future<TavernRegexImportResult> importRegexScripts(String text) async => (await _ready).importRegexScripts(text);
+
+  @override
+  Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) async =>
+      (await _ready).setRegexEnabled(regexId, enabled);
+
+  @override
+  Future<void> deleteRegex(String regexId) async => (await _ready).deleteRegex(regexId);
+
+  @override
+  Future<String> exportRegex({String? regexId}) async => (await _ready).exportRegex(regexId: regexId);
+
+  @override
+  Future<List<TavernLorebookSummary>> listLorebooks() async => (await _ready).listLorebooks();
+
+  @override
+  Future<TavernLorebookImportResult> importLorebook(String text, {String? fileName}) async =>
+      (await _ready).importLorebook(text, fileName: fileName);
+
+  @override
+  Future<Map<String, Object?>?> lorebook(String id) async => (await _ready).lorebook(id);
+
+  @override
+  Future<void> putLorebook(String id, Map<String, Object?> json) async => (await _ready).putLorebook(id, json);
+
+  @override
+  Future<String> exportLorebook(String id) async => (await _ready).exportLorebook(id);
+
+  @override
+  Future<void> deleteLorebook(String id) async => (await _ready).deleteLorebook(id);
+
+  @override
+  Future<void> bindLorebooks(
+    List<String> ids, {
+    WorldInfoSource source = WorldInfoSource.global,
+    String? chatId,
+    String? characterId,
+    String? personaId,
+  }) async =>
+      (await _ready).bindLorebooks(ids, source: source, chatId: chatId, characterId: characterId, personaId: personaId);
+
   @override
   Future<Map<String, Object?>> readSettings({String? chatId}) async => (await _ready).readSettings(chatId: chatId);
 

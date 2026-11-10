@@ -2,29 +2,56 @@
 // plus the two native ST decorators at commit 7e8663cd9c184a550b37238218bdd32c6efc68e9.
 part of 'world_info.dart';
 
+class _DecoratorHeaderLine {
+  const _DecoratorHeaderLine({required this.number, required this.isFallback, required this.name, required this.value});
+  final int number;
+  final bool isFallback;
+  final String? name;
+  final String value;
+}
+
+/// Shared lexical boundary for execution and import inspection. This does not
+/// decide runtime fallback eligibility or evaluate any macro.
+({List<_DecoratorHeaderLine> lines, int end}) _decoratorHeader(String text) {
+  final lines = <_DecoratorHeaderLine>[];
+  var offset = 0;
+  var number = 0;
+  while (offset < text.length) {
+    final line = RegExp(r'[^\r\n]*(?:\r\n|\r|\n|$)').matchAsPrefix(text, offset);
+    if (line == null || line.end == offset) break;
+    final raw = line[0]!.replaceFirst(RegExp(r'[\r\n]+$'), '');
+    if (!raw.startsWith('@@')) break;
+    offset = line.end;
+    number++;
+    final isFallback = raw.startsWith('@@@');
+    final body = raw.substring(isFallback ? 3 : 2);
+    final parsed = RegExp(r'^([a-z_]+)(?:[ \t]+(.*))?$').firstMatch(body);
+    lines.add(
+      _DecoratorHeaderLine(number: number, isFallback: isFallback, name: parsed?[1], value: (parsed?[2] ?? '').trim()),
+    );
+  }
+  return (lines: lines, end: offset);
+}
+
+List<String>? _decoratorKeys(String text) {
+  final keys = text.split(',').map((value) => value.trim()).toList();
+  return keys.any((value) => value.isEmpty) ? null : keys;
+}
+
 /// Full V3 semantics. ST's limited parser is kept separately for timer hashes.
 class _Decorators {
   _Decorators(this.entry, this.input) {
     final text = entry.content;
-    var offset = 0;
+    final header = _decoratorHeader(text);
     var fallback = false;
-    while (offset < text.length) {
-      final line = RegExp(r'[^\r\n]*(?:\r\n|\r|\n|$)').matchAsPrefix(text, offset);
-      if (line == null || line.end == offset) break;
-      final raw = line[0]!.replaceFirst(RegExp(r'[\r\n]+$'), '');
-      if (!raw.startsWith('@@')) break;
-      offset = line.end;
-      final isFallback = raw.startsWith('@@@');
-      if (isFallback && !fallback) continue;
-      final body = raw.substring(isFallback ? 3 : 2);
-      final parsed = RegExp(r'^([a-z_]+)(?:[ \t]+(.*))?$').firstMatch(body);
-      if (parsed == null) {
+    for (final line in header.lines) {
+      if (line.isFallback && !fallback) continue;
+      final name = line.name;
+      if (name == null) {
         fallback = true;
         continue;
       }
-      final name = parsed[1]!;
-      final value = (parsed[2] ?? '').trim();
-      final accepted = _parse(name, value);
+      final accepted = _parse(name, line.value);
       fallback = accepted == null || (name != 'additional_keys' && values.containsKey(name));
       if (!fallback) {
         if (name == 'additional_keys') {
@@ -36,7 +63,7 @@ class _Decorators {
     }
     // V3 requires trimming newlines adjacent to decorator lines, but not the
     // ordinary content's spaces or trailing newlines.
-    content = offset == 0 ? text : text.substring(offset).replaceFirst(RegExp(r'^[\r\n]+'), '');
+    content = header.end == 0 ? text : text.substring(header.end).replaceFirst(RegExp(r'^[\r\n]+'), '');
   }
 
   final WorldInfoEntry entry;
@@ -89,8 +116,7 @@ class _Decorators {
     }
     if (name == 'additional_keys' || name == 'exclude_keys') {
       if (name == 'exclude_keys' && entry.useRegex) return null;
-      final keys = text.split(',').map((value) => value.trim()).toList();
-      return keys.any((value) => value.isEmpty) ? null : keys;
+      return _decoratorKeys(text);
     }
     if (name == 'is_user_icon') return input.userIconName == null || text.isEmpty || text.contains(',') ? null : text;
     if (name == 'disable_ui_prompt') {
@@ -129,7 +155,8 @@ class _Decorators {
         : math.min(input.messages.length, math.max(0, (input.messages.length - reverse).toInt()));
   }
 
-  bool allows(_ScanBuffer buffer, WorldInfoScanPhase phase) {
+  Future<bool> allows(_ScanBuffer buffer, WorldInfoScanPhase phase) async {
+    buffer.checkCancelled();
     final after = values['activate_only_after'] as num?;
     if (after != null && input.assistantMessageCount! < after) return false;
     final every = values['activate_only_every'] as num?;
@@ -140,30 +167,42 @@ class _Decorators {
     if (icon != null && input.userIconName != icon) return false;
     if (ignoreOnMaxContext && input.contextAtCapacity == true) return false;
     final text = buffer.get(entry, phase, scanDepth: scanDepth);
-    for (final group in additionalKeys) {
-      final expanded = group.map(input.expand).toList();
-      if (entry.useRegex && expanded.any((key) => _v3Regex(key, entry) == null)) return false;
-      if (!expanded.any((key) => key.isNotEmpty && buffer.matches(text, key.trim(), entry))) return false;
+    for (var groupIndex = 0; groupIndex < additionalKeys.length; groupIndex++) {
+      final expanded = additionalKeys[groupIndex].map(buffer.expand).toList();
+      if (entry.useRegex) {
+        for (var index = 0; index < expanded.length; index++) {
+          await buffer.validate(expanded[index], entry, phase, 'content.@@additional_keys[$groupIndex][$index]');
+          buffer.checkCancelled();
+        }
+      }
+      var matched = false;
+      for (var index = 0; index < expanded.length; index++) {
+        final key = expanded[index];
+        if (key.isEmpty) continue;
+        matched = await buffer.matches(
+          text,
+          key.trim(),
+          entry,
+          phase,
+          'content.@@additional_keys[$groupIndex][$index]',
+        );
+        buffer.checkCancelled();
+        if (matched) break;
+      }
+      if (!matched) return false;
     }
     final excluded = values['exclude_keys'] as List<String>?;
     if (excluded != null) {
-      for (final key in excluded) {
-        final expanded = input.expand(key);
-        if (expanded.isNotEmpty && buffer.matches(text, expanded.trim(), entry)) return false;
+      for (var index = 0; index < excluded.length; index++) {
+        final expanded = buffer.expand(excluded[index]);
+        final found =
+            expanded.isNotEmpty &&
+            await buffer.matches(text, expanded.trim(), entry, phase, 'content.@@exclude_keys[$index]');
+        buffer.checkCancelled();
+        if (found) return false;
       }
     }
     return true;
-  }
-}
-
-(RegExp, bool)? _v3Regex(String text, WorldInfoEntry entry, {bool caseSensitive = false}) {
-  // V3 explicitly uses /pattern/flags examples. A malformed literal is invalid,
-  // never a plain substring fallback. Bare patterns remain supported as well.
-  if (text.startsWith('/')) return _keywordRegex(text);
-  try {
-    return (RegExp(text, caseSensitive: entry.caseSensitive ?? caseSensitive), false);
-  } on FormatException {
-    return null;
   }
 }
 

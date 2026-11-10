@@ -39,7 +39,12 @@ final class EstimatedTokenCounter implements PromptTokenCounter {
 
   @override
   int countMessage(Map<String, Object?> message) {
-    if (message['content'] == '' && !message.containsKey('name') && !message.containsKey('tool_calls')) return 0;
+    if (message['content'] == '' &&
+        (message['reasoning_content'] == null || message['reasoning_content'] == '') &&
+        !message.containsKey('name') &&
+        !message.containsKey('tool_calls')) {
+      return 0;
+    }
     final text = message.values.map((value) => value is String ? value : jsonEncode(value)).join('\n\n');
     // Estimated wrapper overhead, not a claim about the supplier's billed usage.
     return countText(text) + 2;

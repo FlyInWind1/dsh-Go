@@ -11,6 +11,7 @@ import 'package:archive/archive.dart';
 import 'package:image/image.dart' as image;
 
 import '../api.dart';
+import '../regex_library.dart';
 
 /// A card's complete JSON, plus the bytes its container carried.
 ///
@@ -91,6 +92,7 @@ class TavernCard {
     int chatCount = 0,
     DateTime? lastChatAt,
     String? language,
+    List<TavernRegexDiagnostic> regexDiagnostics = const [],
   }) {
     final extensions = _map(data['extensions']);
     final helper = _map(extensions['tavern_helper']);
@@ -112,6 +114,7 @@ class TavernCard {
       chatCount: chatCount,
       lastChatAt: lastChatAt,
       importedAt: importedAt,
+      regexDiagnostics: regexDiagnostics,
     );
   }
 }

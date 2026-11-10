@@ -654,7 +654,7 @@ void main() {
     expect(result.remainingBudget, 3);
   });
 
-  test('prefill retains the existing DeepSeek tool-request limitation', () {
+  test('ADD04 prefill mode removes newly configured tools before budgeting', () {
     final result = _assemble(
       deepseek: true,
       prefill: [_world('p', 'W', role: 'assistant')],
@@ -670,7 +670,10 @@ void main() {
     );
     expect(result.afterPostProcessing.last.message['role'], 'assistant');
     expect(result.afterPostProcessing.last.message['content'], 'W');
-    expect(result.afterPostProcessing.last.message.containsKey('prefix'), isFalse);
+    expect(result.afterPostProcessing.last.message['prefix'], isTrue);
+    expect(result.body.containsKey('tools'), isFalse);
+    expect(result.body.containsKey('tool_choice'), isFalse);
+    expect(result.excluded.any((item) => item.reason == 'prefill-mode-tools'), isTrue);
   });
 
   test('trimming expanded content never replays a macro and cannot leak its source through squash or DeepSeek', () {

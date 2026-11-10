@@ -8,12 +8,17 @@ import 'prompt_types.dart';
 
 /// The text-only `semi_tools` path used by ST's native DeepSeek backend.
 /// It preserves historical tool messages even when no new tools are configured.
+/// [enhancedPrefill] identifies a verified final preset assistant, not a history
+/// message. [reasoningPrefill] additionally requires the caller's thinking mode
+/// and explicit target selection; it keeps that tail separate before merging.
 List<PromptSegment> postProcessDeepSeek(
   List<PromptSegment> input, {
   required String userName,
   required String characterName,
   List<String> groupNames = const [],
   List<Map<String, Object?>> tools = const [],
+  bool enhancedPrefill = false,
+  bool reasoningPrefill = false,
   required PromptTokenCounter counter,
 }) {
   var messages = <PromptSegment>[];
@@ -41,7 +46,8 @@ List<PromptSegment> postProcessDeepSeek(
     message.remove('reasoning_content');
     messages.add(_segment(item, message, counter));
   }
-  messages = _merge(messages, counter);
+  final separateTail = enhancedPrefill && reasoningPrefill;
+  messages = _merge(messages, counter, separateTail: separateTail);
   if (messages.isEmpty) {
     const message = <String, Object?>{'role': 'user', 'content': "Let's get started."};
     messages.add(
@@ -59,10 +65,16 @@ List<PromptSegment> postProcessDeepSeek(
       messages[i] = _segment(item, {...item.message, 'role': 'user'}, counter);
     }
   }
-  messages = _merge(messages, counter);
+  messages = _merge(messages, counter, separateTail: separateTail);
   final hasTools = tools.isNotEmpty || messages.any((message) => message.message['role'] == 'tool');
-  if (!hasTools && messages.last.message['role'] == 'assistant') {
-    messages[messages.length - 1] = _segment(messages.last, {...messages.last.message, 'prefix': true}, counter);
+  if ((!hasTools || enhancedPrefill) && messages.last.message['role'] == 'assistant') {
+    final last = messages.last;
+    final message = {...last.message, 'prefix': true};
+    if (separateTail) {
+      message['reasoning_content'] = _reasoningPrefixText(message['content']! as String);
+      message['content'] = '';
+    }
+    messages[messages.length - 1] = _segment(last, message, counter);
   }
   for (var i = 0; i < messages.length; i++) {
     final item = messages[i];
@@ -81,16 +93,25 @@ PromptSegment _segment(PromptSegment original, Map<String, Object?> message, Pro
       tokens: counter.countMessage(_countable(message)),
     );
 
-Map<String, Object?> _countable(Map<String, Object?> message) => {
-  'role': message['role'],
-  'content': message['content'],
-  if (message.containsKey('name')) 'name': message['name'],
-};
+Map<String, Object?> _countable(Map<String, Object?> message) {
+  final reasoning = message['reasoning_content'];
+  final content = message['content'];
+  // Include CoT input in the existing role/content counter contract.
+  return {
+    'role': message['role'],
+    'content': reasoning is String && reasoning.isNotEmpty
+        ? [reasoning, if (content is String && content.isNotEmpty) content].join('\n\n')
+        : content,
+    if (message.containsKey('name')) 'name': message['name'],
+  };
+}
 
-List<PromptSegment> _merge(List<PromptSegment> input, PromptTokenCounter counter) {
+List<PromptSegment> _merge(List<PromptSegment> input, PromptTokenCounter counter, {bool separateTail = false}) {
   final result = <PromptSegment>[];
-  for (final item in input) {
+  for (var index = 0; index < input.length; index++) {
+    final item = input[index];
     if (result.isNotEmpty &&
+        !(separateTail && index == input.length - 1) &&
         result.last.message['role'] == item.message['role'] &&
         item.message['content'] != '' &&
         item.message['role'] != 'tool') {
@@ -109,6 +130,42 @@ List<PromptSegment> _merge(List<PromptSegment> input, PromptTokenCounter counter
     }
   }
   return result;
+}
+
+// Prefix tag behavior follows the MIT dsh-preset-enhance implementation,
+// src/lib/deepseek-beta.mts, commit a7717ddc76f3985cf6a71ac6ee463911886b15a5.
+// Copyright (c) 2026 bychv
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+String _reasoningPrefixText(String text) {
+  final open = RegExp(
+    r'^\s*<\s*(think|thinking)\s*>[ \t]*(?:\r?\n)?',
+    caseSensitive: false,
+    unicode: true,
+  ).firstMatch(text);
+  if (open == null) {
+    return text;
+  }
+  final rest = text.substring(open.end);
+  final close = RegExp('</\\s*${open[1]}\\s*>', caseSensitive: false, unicode: true).firstMatch(rest);
+  if (close == null) {
+    return rest;
+  }
+  final after = rest.substring(close.end).replaceFirst(RegExp(r'^\r?\n'), '');
+  return '${rest.substring(0, close.start)}${after.isEmpty ? '' : '\n$after'}';
 }
 
 /// Produces the actual DeepSeek request, not the browser-to-ST intermediate body.
@@ -145,7 +202,8 @@ Map<String, Object?> deepSeekRequestBody({
         _ => 'high',
       },
   };
-  if (tools.isNotEmpty) {
+  // Prefix turns do not mount new tools; historical tool messages survive.
+  if (tools.isNotEmpty && !messages.any((message) => message.message['prefix'] == true)) {
     final copy = jsonDecode(jsonEncode(tools)) as List<Object?>;
     for (final tool in copy.whereType<Map<String, Object?>>()) {
       final function = tool['function'];
