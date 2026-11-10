@@ -186,7 +186,8 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
             _SectionLabel(l10n.tavernContinue),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 132,
+                // The card's text grows with the system's; its padding doesn't.
+                height: MediaQuery.textScalerOf(context).scale(108) + 24,
                 child: ListView.separated(
                   key: const ValueKey('tavern-continue'),
                   scrollDirection: Axis.horizontal,
