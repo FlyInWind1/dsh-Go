@@ -1,5 +1,7 @@
-// 酒馆's home (docs/design/roleplay-ui.md §1): the chats to pick up again, then
-// every character. Back returns to 工作; the 模式 key switches elsewhere.
+// 酒馆's home (docs/design/roleplay-ui.md §1, roleplay-roadmap.md §4), in four
+// sections: 书架 (the chats to pick up again, then every character), 对话
+// (every chat, newest first), 资源库 (what a story is built with) and 我的
+// (酒馆设置). Back returns to 工作; the 模式 key switches elsewhere.
 
 import 'dart:async';
 
@@ -10,19 +12,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_quick_replies.dart';
 import '../bots/bot_format.dart' show shortTime;
+import '../common/app_sheet.dart';
 import '../common/capsule_chip.dart';
 import '../common/search_capsule.dart';
 import '../features/feature_kit.dart';
 import '../modes/mode_switch.dart';
+import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_character_edit_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_personas.dart';
+import 'tavern_quick_replies_page.dart';
 import 'tavern_settings_page.dart';
 import 'tavern_widgets.dart';
+
+/// The home's four sections.
+enum TavernSection { shelf, chats, library, me }
 
 class TavernHomePage extends ConsumerStatefulWidget {
   const TavernHomePage({super.key});
@@ -39,6 +49,7 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
   final _search = TextEditingController();
   String _query = '';
   String? _tag;
+  var _section = TavernSection.shelf;
 
   @override
   void dispose() {
@@ -72,12 +83,7 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
     final l10n = context.l10n;
     final characters = ref.watch(tavernCharactersProvider);
     final chats = ref.watch(tavernChatsProvider(null)).value ?? const [];
-    final all = characters.value;
-    final byId = {for (final c in all ?? const <TavernCharacter>[]) c.id: c};
-    final searchable = (all?.length ?? 0) >= TavernHomePage.searchFrom;
-    final filtering = _tag != null || _query.trim().isNotEmpty;
-    final list = all?.where(_matches).toList();
-    final tags = _topTags(all ?? const []);
+    final byId = {for (final c in characters.value ?? const <TavernCharacter>[]) c.id: c};
     return AppPage(
       title: l10n.tavernTitle,
       actions: [
@@ -87,138 +93,308 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
           tooltip: l10n.tavernImport,
           onPressed: () => unawaited(_import()),
         ),
-        GlassIconButton(
-          key: const ValueKey('tavern-settings'),
-          icon: AppIcons.settings,
-          tooltip: l10n.tavernSettings,
-          onPressed: () => Navigator.of(context).push(TavernSettingsPage.route()),
-        ),
         const ModeKey(current: AppMode.tavern, size: 44, tier: GlassTier.chrome),
       ],
       slivers: [
-        // The engine could not open its folder or database: say so, and let
-        // a retry open it afresh rather than spin forever.
-        if (list == null && characters.hasError)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: EmptyView(
-              key: const ValueKey('tavern-open-failed'),
-              icon: AppIcons.error,
-              title: l10n.tavernOpenFailed,
-              message: l10n.tavernOpenFailedMessage,
-              actionLabel: l10n.commonRetry,
-              onAction: () => ref.invalidate(tavernProvider),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SegmentedPill<TavernSection>(
+              key: const ValueKey('tavern-sections'),
+              expand: true,
+              segments: [
+                PillSegment(TavernSection.shelf, l10n.tavernSectionShelf),
+                PillSegment(TavernSection.chats, l10n.tavernSectionChats),
+                PillSegment(TavernSection.library, l10n.tavernSectionLibrary),
+                PillSegment(TavernSection.me, l10n.tavernSectionMe),
+              ],
+              selected: _section,
+              onChanged: (section) => setState(() => _section = section),
             ),
-          )
-        else if (list == null)
-          const SliverToBoxAdapter(child: QuietSpinner())
-        else if (all!.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: EmptyView(
-              icon: AppIcons.tavern,
-              title: l10n.tavernEmptyTitle,
-              message: l10n.tavernEmptyMessage,
-              action: Column(
-                mainAxisSize: MainAxisSize.min,
+          ),
+        ),
+        ...switch (_section) {
+          TavernSection.shelf => _shelf(characters, chats, byId),
+          TavernSection.chats => _chats(chats, byId),
+          TavernSection.library => [_library()],
+          // 酒馆设置, right here.
+          TavernSection.me => [
+            SliverPadding(
+              key: const ValueKey('tavern-me'),
+              padding: const EdgeInsets.only(bottom: 24),
+              sliver: SliverList.list(children: tavernSettingsGroups(context, ref)),
+            ),
+          ],
+        },
+      ],
+    );
+  }
+
+  /// 书架: the chats to pick up again, then every character.
+  List<Widget> _shelf(
+    AsyncValue<List<TavernCharacter>> characters,
+    List<TavernChatSummary> chats,
+    Map<String, TavernCharacter> byId,
+  ) {
+    final l10n = context.l10n;
+    final all = characters.value;
+    final searchable = (all?.length ?? 0) >= TavernHomePage.searchFrom;
+    final filtering = _tag != null || _query.trim().isNotEmpty;
+    final list = all?.where(_matches).toList();
+    final tags = _topTags(all ?? const []);
+    return [
+      // The engine could not open its folder or database: say so, and let
+      // a retry open it afresh rather than spin forever.
+      if (list == null && characters.hasError)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyView(
+            key: const ValueKey('tavern-open-failed'),
+            icon: AppIcons.error,
+            title: l10n.tavernOpenFailed,
+            message: l10n.tavernOpenFailedMessage,
+            actionLabel: l10n.commonRetry,
+            onAction: () => ref.invalidate(tavernProvider),
+          ),
+        )
+      else if (list == null)
+        const SliverToBoxAdapter(child: QuietSpinner())
+      else if (all!.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyView(
+            icon: AppIcons.tavern,
+            title: l10n.tavernEmptyTitle,
+            message: l10n.tavernEmptyMessage,
+            action: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  key: const ValueKey('tavern-empty-import'),
+                  onPressed: () => unawaited(_import()),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                  child: Text(l10n.tavernImport),
+                ),
+                const SizedBox(height: 8),
+                // A card to start from before you have your own.
+                TextButton(
+                  key: const ValueKey('tavern-try-sample'),
+                  onPressed: () => unawaited(_trySample()),
+                  child: Text(l10n.tavernTrySample),
+                ),
+              ],
+            ),
+          ),
+        )
+      else ...[
+        if (searchable)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OutlinedButton(
-                    key: const ValueKey('tavern-empty-import'),
-                    onPressed: () => unawaited(_import()),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                  SearchCapsule(
+                    key: const ValueKey('tavern-search'),
+                    controller: _search,
+                    hint: l10n.tavernSearchHint,
+                    onChanged: (q) => setState(() => _query = q),
+                    onClear: () => setState(() {
+                      _search.clear();
+                      _query = '';
+                    }),
+                  ),
+                  if (tags.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final tag in [null, ...tags]) ...[
+                            CapsuleChoiceChip(
+                              label: tag ?? l10n.tavernAllTags,
+                              selected: _tag == tag,
+                              onSelected: () => setState(() => _tag = tag),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
                     ),
-                    child: Text(l10n.tavernImport),
-                  ),
-                  const SizedBox(height: 8),
-                  // A card to start from before you have your own.
-                  TextButton(
-                    key: const ValueKey('tavern-try-sample'),
-                    onPressed: () => unawaited(_trySample()),
-                    child: Text(l10n.tavernTrySample),
-                  ),
+                  ],
                 ],
               ),
             ),
-          )
-        else ...[
-          if (searchable)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SearchCapsule(
-                      key: const ValueKey('tavern-search'),
-                      controller: _search,
-                      hint: l10n.tavernSearchHint,
-                      onChanged: (q) => setState(() => _query = q),
-                      onClear: () => setState(() {
-                        _search.clear();
-                        _query = '';
-                      }),
-                    ),
-                    if (tags.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            for (final tag in [null, ...tags]) ...[
-                              CapsuleChoiceChip(
-                                label: tag ?? l10n.tavernAllTags,
-                                selected: _tag == tag,
-                                onSelected: () => setState(() => _tag = tag),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+          ),
+        if (chats.isNotEmpty && !filtering) ...[
+          _SectionLabel(l10n.tavernContinue),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              // The card's text grows with the system's; its padding doesn't.
+              height: MediaQuery.textScalerOf(context).scale(108) + 24,
+              child: ListView.separated(
+                key: const ValueKey('tavern-continue'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: chats.length.clamp(0, 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, i) => _ContinueCard(chat: chats[i], character: byId[chats[i].characterId]),
               ),
-            ),
-          if (chats.isNotEmpty && !filtering) ...[
-            _SectionLabel(l10n.tavernContinue),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                // The card's text grows with the system's; its padding doesn't.
-                height: MediaQuery.textScalerOf(context).scale(108) + 24,
-                child: ListView.separated(
-                  key: const ValueKey('tavern-continue'),
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: chats.length.clamp(0, 8),
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, i) => _ContinueCard(chat: chats[i], character: byId[chats[i].characterId]),
-                ),
-              ),
-            ),
-          ],
-          _SectionLabel(l10n.tavernCharacters),
-          if (list.isEmpty)
-            SliverToBoxAdapter(
-              child: EmptyView(icon: AppIcons.noResults, title: l10n.tavernNoMatch, compact: true),
-            ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 220,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.62,
-              ),
-              itemCount: list.length,
-              itemBuilder: (context, i) => _CharacterTile(character: list[i]),
             ),
           ),
         ],
+        _SectionLabel(l10n.tavernCharacters),
+        if (list.isEmpty)
+          SliverToBoxAdapter(
+            child: EmptyView(icon: AppIcons.noResults, title: l10n.tavernNoMatch, compact: true),
+          ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          sliver: SliverGrid.builder(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 220,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.62,
+            ),
+            itemCount: list.length,
+            itemBuilder: (context, i) => _CharacterTile(character: list[i]),
+          ),
+        ),
       ],
+    ];
+  }
+
+  /// 对话: every chat, the newest first.
+  List<Widget> _chats(List<TavernChatSummary> chats, Map<String, TavernCharacter> byId) {
+    final l10n = context.l10n;
+    if (chats.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyView(
+            key: const ValueKey('tavern-no-chats'),
+            icon: AppIcons.tavern,
+            title: l10n.tavernNoChats,
+            message: l10n.tavernNoChatsMessage,
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        key: const ValueKey('tavern-chats'),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        sliver: SliverList.separated(
+          itemCount: chats.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, i) => _ChatRow(chat: chats[i], character: byId[chats[i].characterId]),
+        ),
+      ),
+    ];
+  }
+
+  /// 资源库: what stories are built with. Presets, lorebooks and regex join
+  /// as the engine opens them to the App (roleplay-roadmap.md §3).
+  Widget _library() {
+    final l10n = context.l10n;
+    final persona = ref.watch(tavernPersonaSelectionProvider(null)).value?.persona;
+    return SliverToBoxAdapter(
+      child: SheetGroup(
+        key: const ValueKey('tavern-library'),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          SettingsTile(
+            key: const ValueKey('tavern-library-personas'),
+            icon: AppIcons.profile,
+            title: l10n.tavernDefaultPersona,
+            value: Text(persona?.name ?? l10n.tavernPersonaNotSet),
+            onTap: () => unawaited(Navigator.of(context).push(TavernPersonasPage.route())),
+          ),
+          SettingsTile(
+            key: const ValueKey('tavern-library-quick-replies'),
+            icon: AppIcons.reply,
+            title: l10n.tavernQuickReplies,
+            value: Text(switch (ref.watch(tavernQuickRepliesProvider).length) {
+              0 => l10n.tavernPersonaNotSet,
+              final n => l10n.tavernQuickReplyCount(n),
+            }),
+            onTap: () => unawaited(Navigator.of(context).push(TavernQuickRepliesPage.route())),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A chat in 对话: who, when, how long, and the last line on its path.
+class _ChatRow extends ConsumerWidget {
+  const _ChatRow({required this.chat, required this.character});
+
+  final TavernChatSummary chat;
+  final TavernCharacter? character;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final dsh = DshColors.of(context);
+    final name = character?.name ?? chat.title;
+    return GlassSurface(
+      key: ValueKey('tavern-chat-row-${chat.id}'),
+      tier: GlassTier.card,
+      borderRadius: AppShape.radiusLg,
+      padding: const EdgeInsets.all(12),
+      onTap: () => Navigator.of(context).push(TavernChatPage.route(chat.id)),
+      onLongPress: () => unawaited(
+        showTavernActions(context, [
+          (AppIcons.delete, context.l10n.tavernDeleteChat, () => deleteTavernChat(context, ref, chat.id)),
+        ]),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: TavernPortrait(name: name, path: character?.avatarPath, radius: AppShape.md, initialSize: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${context.l10n.tavernMessageCount(chat.messageCount)} · ${shortTime(chat.updatedAt)}',
+                      style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  plainPreview(chat.lastText ?? ''),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

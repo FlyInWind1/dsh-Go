@@ -18273,6 +18273,24 @@ class L10nZh extends L10n {
   String get tavernSettingsDisplay => '显示';
 
   @override
+  String get tavernSectionShelf => '书架';
+
+  @override
+  String get tavernSectionChats => '对话';
+
+  @override
+  String get tavernSectionLibrary => '资源库';
+
+  @override
+  String get tavernSectionMe => '我的';
+
+  @override
+  String get tavernNoChats => '还没有对话';
+
+  @override
+  String get tavernNoChatsMessage => '在书架里点开一个角色，开始第一段对话。';
+
+  @override
   String get tavernSettingsGeneration => '生成';
 
   @override

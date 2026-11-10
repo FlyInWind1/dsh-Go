@@ -33356,6 +33356,42 @@ abstract class L10n {
   /// **'显示'**
   String get tavernSettingsDisplay;
 
+  /// No description provided for @tavernSectionShelf.
+  ///
+  /// In zh, this message translates to:
+  /// **'书架'**
+  String get tavernSectionShelf;
+
+  /// No description provided for @tavernSectionChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话'**
+  String get tavernSectionChats;
+
+  /// No description provided for @tavernSectionLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源库'**
+  String get tavernSectionLibrary;
+
+  /// No description provided for @tavernSectionMe.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的'**
+  String get tavernSectionMe;
+
+  /// No description provided for @tavernNoChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有对话'**
+  String get tavernNoChats;
+
+  /// No description provided for @tavernNoChatsMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'在书架里点开一个角色，开始第一段对话。'**
+  String get tavernNoChatsMessage;
+
   /// No description provided for @tavernSettingsGeneration.
   ///
   /// In zh, this message translates to:

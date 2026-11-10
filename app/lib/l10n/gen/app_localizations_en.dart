@@ -19275,6 +19275,24 @@ class L10nEn extends L10n {
   String get tavernSettingsDisplay => 'Display';
 
   @override
+  String get tavernSectionShelf => 'Shelf';
+
+  @override
+  String get tavernSectionChats => 'Chats';
+
+  @override
+  String get tavernSectionLibrary => 'Library';
+
+  @override
+  String get tavernSectionMe => 'Me';
+
+  @override
+  String get tavernNoChats => 'No chats yet';
+
+  @override
+  String get tavernNoChatsMessage => 'Open a character on the shelf to start your first chat.';
+
+  @override
   String get tavernSettingsGeneration => 'Generation';
 
   @override
