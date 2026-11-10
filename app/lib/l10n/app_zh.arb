@@ -11558,6 +11558,10 @@
     }
   },
   "tavernEditMessage": "编辑消息",
+  "tavernBackground": "背景图",
+  "tavernBackgroundNone": "无",
+  "tavernBackgroundChange": "换一张",
+  "tavernBackgroundRemove": "去掉背景图",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

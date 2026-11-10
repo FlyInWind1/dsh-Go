@@ -367,5 +367,9 @@
       }
     }
   },
-  "tavernEditMessage": "编辑消息"
+  "tavernEditMessage": "编辑消息",
+  "tavernBackground": "背景图",
+  "tavernBackgroundNone": "无",
+  "tavernBackgroundChange": "换一张",
+  "tavernBackgroundRemove": "去掉背景图"
 }

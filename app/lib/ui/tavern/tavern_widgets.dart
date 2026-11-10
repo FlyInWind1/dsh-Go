@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/l10n.dart';
+import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_provider.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
@@ -74,16 +75,30 @@ Future<bool> deleteTavernCharacter(BuildContext context, WidgetRef ref, TavernCh
     title: l10n.tavernDeleteCharacterTitle(character.name),
     message: l10n.tavernDeleteCharacterMessage,
   );
-  if (ok) await ref.read(tavernProvider).deleteCharacter(character.id);
-  return ok;
+  if (!ok) return false;
+  final tavern = ref.read(tavernProvider);
+  // Its chats go with it, and so do their pictures.
+  // Never held up by it: without the list, the pictures just stay.
+  final chats = await tavern
+      .watchChats(characterId: character.id)
+      .first
+      .timeout(const Duration(seconds: 3))
+      .catchError((_) => <TavernChatSummary>[]);
+  await tavern.deleteCharacter(character.id);
+  for (final chat in chats) {
+    await forgetTavernBackground(chat.id);
+  }
+  return true;
 }
 
 /// Asks, then deletes one chat. True when it was deleted.
 Future<bool> deleteTavernChat(BuildContext context, WidgetRef ref, String chatId) async {
   final l10n = context.l10n;
   final ok = await _confirmDelete(context, title: l10n.tavernDeleteChatTitle, message: l10n.tavernDeleteChatMessage);
-  if (ok) await ref.read(tavernProvider).deleteChat(chatId);
-  return ok;
+  if (!ok) return false;
+  await ref.read(tavernProvider).deleteChat(chatId);
+  await forgetTavernBackground(chatId);
+  return true;
 }
 
 Future<bool> _confirmDelete(BuildContext context, {required String title, required String message}) async {

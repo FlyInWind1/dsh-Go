@@ -19780,6 +19780,18 @@ class L10nEn extends L10n {
   String get tavernEditMessage => 'Edit message';
 
   @override
+  String get tavernBackground => 'Background picture';
+
+  @override
+  String get tavernBackgroundNone => 'None';
+
+  @override
+  String get tavernBackgroundChange => 'Change';
+
+  @override
+  String get tavernBackgroundRemove => 'Remove the picture';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

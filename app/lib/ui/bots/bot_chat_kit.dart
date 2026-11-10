@@ -221,18 +221,22 @@ class _RoundKey extends StatelessWidget {
 /// The page: the transcript fills the space between the header (floating
 /// over it) and the bottom column (cards, error, composer).
 class BotChatFrame extends StatelessWidget {
-  const BotChatFrame({super.key, required this.header, required this.body, required this.bottom});
+  const BotChatFrame({super.key, required this.header, required this.body, required this.bottom, this.backdrop});
 
   final Widget header;
   final Widget body;
   final List<Widget> bottom;
 
+  /// What the page stands on, around [child]; null: the usual gradient ([AppBackdrop]).
+  final Widget Function(Widget child)? backdrop;
+
   @override
   Widget build(BuildContext context) {
+    final backdrop = this.backdrop ?? (child) => AppBackdrop(child: child);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: dshSystemOverlay(Theme.of(context).brightness),
-      child: AppBackdrop(
-        child: Scaffold(
+      child: backdrop(
+        Scaffold(
           backgroundColor: Colors.transparent,
           resizeToAvoidBottomInset: true,
           // A phone on its side: clear of the cutout on both sides.

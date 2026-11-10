@@ -18745,6 +18745,18 @@ class L10nZh extends L10n {
   String get tavernEditMessage => '编辑消息';
 
   @override
+  String get tavernBackground => '背景图';
+
+  @override
+  String get tavernBackgroundNone => '无';
+
+  @override
+  String get tavernBackgroundChange => '换一张';
+
+  @override
+  String get tavernBackgroundRemove => '去掉背景图';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

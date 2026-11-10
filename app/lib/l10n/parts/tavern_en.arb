@@ -367,5 +367,9 @@
       }
     }
   },
-  "tavernEditMessage": "Edit message"
+  "tavernEditMessage": "Edit message",
+  "tavernBackground": "Background picture",
+  "tavernBackgroundNone": "None",
+  "tavernBackgroundChange": "Change",
+  "tavernBackgroundRemove": "Remove the picture"
 }

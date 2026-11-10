@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../state/settings_state.dart';
+import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
@@ -23,6 +24,7 @@ import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_sheet.dart';
+import '../common/brief_notice.dart';
 import '../common/capsule_chip.dart';
 import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
@@ -32,6 +34,7 @@ import '../features/feature_kit.dart' show QuietSpinner;
 import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
+import '../wallpaper/wallpaper_backdrop.dart';
 import '../theme/theme.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
@@ -337,6 +340,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         final l10n = context.l10n;
         final own = ref.watch(tavernChatLayoutProvider(widget.chatId));
         final controller = ref.read(tavernChatLayoutProvider(widget.chatId).notifier);
+        final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
         return SafeArea(
           top: false,
           child: SingleChildScrollView(
@@ -425,6 +429,23 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                         title: l10n.tavernFollowSettings,
                         onTap: () => unawaited(controller.set(null)),
                       ),
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-background'),
+                      icon: AppIcons.addImage,
+                      tinted: false,
+                      title: l10n.tavernBackground,
+                      value: Text(scene == null ? l10n.tavernBackgroundNone : l10n.tavernBackgroundChange),
+                      onTap: () => unawaited(_chooseBackground()),
+                    ),
+                    if (scene != null)
+                      SettingsTile(
+                        key: const ValueKey('tavern-chat-background-remove'),
+                        icon: AppIcons.remove,
+                        tinted: false,
+                        title: l10n.tavernBackgroundRemove,
+                        chevron: false,
+                        onTap: () => unawaited(ref.read(tavernChatBackgroundProvider(widget.chatId).notifier).remove()),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -493,6 +514,21 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     }
   }
 
+  /// A picture from the gallery under this chat; says so when one can't be used.
+  Future<void> _chooseBackground() async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final problem = await ref.read(tavernChatBackgroundProvider(widget.chatId).notifier).choose();
+    final text = switch (problem) {
+      null || LaunchImportProblem.cancelled => null,
+      LaunchImportProblem.unavailable => l10n.wallpaperUnavailable,
+      LaunchImportProblem.tooLarge || LaunchImportProblem.overLimit => l10n.wallpaperTooLarge,
+      LaunchImportProblem.unsupported => l10n.wallpaperUnsupported,
+      LaunchImportProblem.unreadable => l10n.wallpaperUnreadable,
+    };
+    if (text != null) messenger?.showBriefNotice(text);
+  }
+
   /// A whole page for the message (long replies need room); saves only a change.
   Future<void> _edit(TavernMessage message) async {
     final speaker = message.role == TavernRole.user ? context.l10n.tavernYou : message.speaker;
@@ -543,7 +579,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         _StreamingReply(key: const ValueKey('stream-pending'), text: _streamText, reasoning: _streamReasoning),
     ];
 
+    final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
     return BotChatFrame(
+      // The chat's picture, when it has one; the page's gradient otherwise.
+      backdrop: (child) => WallpaperBackdrop.scene(picture: scene, child: child),
       header: BotChatHeader(
         face: ClipOval(
           child: TavernPortrait(name: name, path: character?.avatarPath, radius: 0, initialSize: 16),

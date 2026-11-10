@@ -34238,6 +34238,30 @@ abstract class L10n {
   /// **'编辑消息'**
   String get tavernEditMessage;
 
+  /// No description provided for @tavernBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景图'**
+  String get tavernBackground;
+
+  /// No description provided for @tavernBackgroundNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无'**
+  String get tavernBackgroundNone;
+
+  /// No description provided for @tavernBackgroundChange.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一张'**
+  String get tavernBackgroundChange;
+
+  /// No description provided for @tavernBackgroundRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'去掉背景图'**
+  String get tavernBackgroundRemove;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
