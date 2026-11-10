@@ -25,6 +25,7 @@ import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_personas.dart';
+import 'tavern_presets_page.dart';
 import 'tavern_storybook_page.dart';
 
 enum TavernStageTab { session, state, director, turn }
@@ -160,6 +161,8 @@ class _Session extends ConsumerWidget {
     final layout = ref.read(tavernChatLayoutProvider(chatId).notifier);
     final scene = ref.watch(tavernChatBackgroundProvider(chatId));
     final persona = ref.watch(tavernPersonaSelectionProvider(chatId)).value?.persona;
+    final preset = ref.watch(tavernPresetSelectionProvider(chatId)).value;
+    final presets = ref.watch(tavernPresetsProvider).value ?? const <TavernPresetSummary>[];
     final characterId = this.characterId;
 
     /// On a phone the panel is a drawer: close it on the way to a page.
@@ -199,6 +202,26 @@ class _Session extends ConsumerWidget {
               title: l10n.tavernPersona,
               value: Text(persona?.name ?? l10n.tavernPersonaNone),
               onTap: busy ? null : () => unawaited(showTavernPersonaPicker(context, chatId)),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-chat-preset'),
+              icon: AppIcons.article,
+              tinted: false,
+              title: l10n.tavernPresets,
+              // A long name stops short of the title; the picker says which the default is.
+              value: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(
+                  switch (preset) {
+                    null => '',
+                    TavernPresetSelection(:final boundPresetId?) => tavernPresetName(context, presets, boundPresetId),
+                    _ => l10n.tavernPresetFollow,
+                  },
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              onTap: busy ? null : () => unawaited(showTavernPresetPicker(context, chatId)),
             ),
           ],
         ),

@@ -16,6 +16,7 @@ import '../../tavern/tavern_provider.dart';
 import '../bots/bot_format.dart' show shortTime;
 import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
+import '../common/sheet_title_bar.dart';
 import '../features/feature_kit.dart';
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
@@ -66,6 +67,83 @@ Future<void> importTavernPresets(BuildContext context, WidgetRef ref) async {
   }
   ref.invalidate(tavernPresetSelectionProvider);
 }
+
+/// [presets]' name for [id]; SillyTavern's own for none.
+String tavernPresetName(BuildContext context, List<TavernPresetSummary> presets, String? id) =>
+    presets.where((p) => p.id == id).firstOrNull?.name ?? context.l10n.tavernPresetStDefault;
+
+/// The sheet where [chatId] picks its own preset, or follows the default.
+Future<void> showTavernPresetPicker(BuildContext context, String chatId) => showAppSheet<void>(
+  context,
+  builder: (sheet) => Consumer(
+    builder: (inner, ref, _) {
+      final l10n = inner.l10n;
+      final presets = ref.watch(tavernPresetsProvider).value ?? const <TavernPresetSummary>[];
+      final selection = ref.watch(tavernPresetSelectionProvider(chatId)).value;
+      final bound = selection?.boundPresetId;
+      // The sheet's ref goes with the sheet: what binding needs, taken first.
+      final tavern = ref.read(tavernProvider);
+      final container = ProviderScope.containerOf(inner, listen: false);
+      Future<void> bind(String? id) async {
+        Navigator.of(sheet).pop();
+        if (id == bound) return;
+        await tavern.bindPreset(chatId, id);
+        container.invalidate(tavernPresetSelectionProvider);
+      }
+
+      Widget tick(bool on) =>
+          on ? Icon(AppIcons.selected, size: 18, color: Theme.of(inner).colorScheme.primary) : const SizedBox.shrink();
+      return SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetTitleBar(l10n.tavernPresetForChat),
+            Flexible(
+              child: SingleChildScrollView(
+                child: SheetGroup(
+                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                  children: [
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-preset-follow'),
+                      icon: AppIcons.restart,
+                      tinted: false,
+                      title: l10n.tavernPresetFollowDefault(
+                        tavernPresetName(inner, presets, selection?.defaultPresetId),
+                      ),
+                      value: tick(bound == null),
+                      chevron: false,
+                      onTap: () => unawaited(bind(null)),
+                    ),
+                    for (final preset in presets)
+                      SettingsTile(
+                        key: ValueKey('tavern-chat-preset-${preset.id}'),
+                        icon: AppIcons.article,
+                        tinted: false,
+                        title: preset.name,
+                        value: tick(bound == preset.id),
+                        chevron: false,
+                        onTap: () => unawaited(bind(preset.id)),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (presets.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 16),
+                child: Text(
+                  l10n.tavernPresetPickerEmpty,
+                  style: Theme.of(inner).textTheme.bodySmall?.copyWith(color: DshColors.of(inner).textTertiary),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  ),
+);
 
 class TavernPresetsPage extends ConsumerWidget {
   const TavernPresetsPage({super.key});

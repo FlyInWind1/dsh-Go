@@ -19373,6 +19373,20 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernPresetForChat => 'This chat\'s preset';
+
+  @override
+  String get tavernPresetFollow => 'Default';
+
+  @override
+  String tavernPresetFollowDefault(String name) {
+    return 'Default ($name)';
+  }
+
+  @override
+  String get tavernPresetPickerEmpty => 'Import presets in Library › Presets to give this chat another.';
+
+  @override
   String get tavernSectionShelf => 'Shelf';
 
   @override

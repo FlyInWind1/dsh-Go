@@ -18369,6 +18369,20 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernPresetForChat => '这段对话用的预设';
+
+  @override
+  String get tavernPresetFollow => '跟随默认';
+
+  @override
+  String tavernPresetFollowDefault(String name) {
+    return '跟随默认（$name）';
+  }
+
+  @override
+  String get tavernPresetPickerEmpty => '在 资源库 › 预设 里导入以后，就能给这段对话换别的。';
+
+  @override
   String get tavernSectionShelf => '书架';
 
   @override

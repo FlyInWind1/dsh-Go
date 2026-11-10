@@ -137,6 +137,31 @@ void main() {
     expect(find.byType(TavernStagePanel), findsNothing); // the drawer closed on the way
   });
 
+  testWidgets('本局 gives this chat a preset of its own, or the default again', (tester) async {
+    final tavern = _Recorded();
+    final imported = (await tester.runAsync(() => tavern.importPreset('{"temperature": 1}', fileName: '长篇小说.json')))!;
+    final id = imported.preset.id;
+    final chat = await _open(tester, tavern);
+    await tester.tap(find.byKey(const ValueKey('bot-action')));
+    await tester.pumpAndSettle();
+    final tile = find.byKey(const ValueKey('tavern-chat-preset'));
+    expect(find.descendant(of: tile, matching: find.text('跟随默认')), findsOneWidget);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('tavern-chat-preset-$id')));
+    await tester.pumpAndSettle();
+    expect((await tavern.presetSelection(chatId: chat)).boundPresetId, id);
+    expect((await tavern.presetSelection()).defaultPresetId, isNull); // only this chat
+    expect(find.descendant(of: tile, matching: find.text('长篇小说')), findsOneWidget);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-chat-preset-follow')));
+    await tester.pumpAndSettle();
+    expect((await tavern.presetSelection(chatId: chat)).boundPresetId, isNull);
+  });
+
   testWidgets('with no turn on record, 本回合 says so', (tester) async {
     await _open(tester, _Recorded(empty: true));
     await tester.tap(find.byKey(const ValueKey('bot-action')));

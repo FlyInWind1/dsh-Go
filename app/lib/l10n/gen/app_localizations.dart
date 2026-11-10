@@ -33524,6 +33524,30 @@ abstract class L10n {
   /// **'{count} 个'**
   String tavernPresetCount(int count);
 
+  /// No description provided for @tavernPresetForChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段对话用的预设'**
+  String get tavernPresetForChat;
+
+  /// No description provided for @tavernPresetFollow.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随默认'**
+  String get tavernPresetFollow;
+
+  /// No description provided for @tavernPresetFollowDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随默认（{name}）'**
+  String tavernPresetFollowDefault(String name);
+
+  /// No description provided for @tavernPresetPickerEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 资源库 › 预设 里导入以后，就能给这段对话换别的。'**
+  String get tavernPresetPickerEmpty;
+
   /// No description provided for @tavernSectionShelf.
   ///
   /// In zh, this message translates to:

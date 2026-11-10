@@ -11366,6 +11366,17 @@
       }
     }
   },
+  "tavernPresetForChat": "这段对话用的预设",
+  "tavernPresetFollow": "跟随默认",
+  "tavernPresetFollowDefault": "跟随默认（{name}）",
+  "@tavernPresetFollowDefault": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPresetPickerEmpty": "在 资源库 › 预设 里导入以后，就能给这段对话换别的。",
   "tavernSectionShelf": "书架",
   "tavernSectionChats": "对话",
   "tavernSectionLibrary": "资源库",
