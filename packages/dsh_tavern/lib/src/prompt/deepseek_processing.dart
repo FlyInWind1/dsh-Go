@@ -3,6 +3,7 @@
 // Source commit: 7e8663cd9c184a550b37238218bdd32c6efc68e9 (1.19.0).
 import 'dart:convert';
 
+import 'preset.dart';
 import 'prompt_types.dart';
 
 /// The text-only `semi_tools` path used by ST's native DeepSeek backend.
@@ -120,17 +121,19 @@ Map<String, Object?> deepSeekRequestBody({
   List<Map<String, Object?>> tools = const [],
   Object? toolChoice,
 }) {
-  final thinking = settings['show_thoughts'] == true;
-  final topP = _number(settings['top_p'], 1);
-  final effort = settings['reasoning_effort'] as String? ?? 'auto';
+  final thinking = presetTruthy(settings['show_thoughts']);
+  final topP = _sampling(settings, 'top_p', 1);
+  final effort = settings.containsKey('reasoning_effort') ? settings['reasoning_effort'] : 'auto';
   final body = <String, Object?>{
     'messages': messages.map((message) => message.message).toList(),
     'model': model,
-    'temperature': _number(settings['temperature'], 1),
-    'max_tokens': _number(settings['openai_max_tokens'], 300).toInt(),
-    'stream': settings['stream_openai'] == true && generationType != 'quiet',
-    'presence_penalty': _number(settings['presence_penalty'], 0),
-    'frequency_penalty': _number(settings['frequency_penalty'], 0),
+    'temperature': _sampling(settings, 'temperature', 1),
+    // Both ST's frontend and sendDeepSeekRequest forward this value unchanged;
+    // only the prompt-budget calculation uses numeric coercion.
+    'max_tokens': settings.containsKey('openai_max_tokens') ? settings['openai_max_tokens'] : 300,
+    'stream': presetTruthy(settings['stream_openai']) && generationType != 'quiet',
+    'presence_penalty': _sampling(settings, 'presence_penalty', 0),
+    'frequency_penalty': _sampling(settings, 'frequency_penalty', 0),
     'top_p': topP == 0 ? 2.220446049250313e-16 : topP,
     if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
     // ST's normal DeepSeek frontend excludes seed, though its backend accepts it.
@@ -160,4 +163,5 @@ Map<String, Object?> deepSeekRequestBody({
   return body;
 }
 
-num _number(Object? value, num fallback) => value is num ? value : num.tryParse('$value') ?? fallback;
+num? _sampling(Map<String, Object?> settings, String key, num fallback) =>
+    settings.containsKey(key) ? presetSamplingNumber(settings[key]) : fallback;

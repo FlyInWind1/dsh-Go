@@ -46,6 +46,11 @@ final class ChatPreset {
       'function_calling': false,
       ...raw,
     };
+    // ST reads these switches by JS truthiness. Numeric settings stay raw:
+    // budgets, sampling Number(), and request forwarding are distinct reads.
+    for (final key in const ['stream_openai', 'show_thoughts', 'continue_prefill', 'squash_system_messages']) {
+      result[key] = presetTruthy(result[key]);
+    }
     final builtins = (defaults['prompts'] as List<Object?>).whereType<Map<String, Object?>>().toList();
     final supplied = result['prompts'];
     final prompts = supplied is List<Object?>
@@ -69,11 +74,23 @@ final class ChatPreset {
     final groups = orders is List<Object?>
         ? orders.whereType<Map<String, Object?>>().toList()
         : <Map<String, Object?>>[];
-    final active = groups.where((group) => '${group['character_id']}' == '100001').firstOrNull;
+    final active = groups.where((group) => presetString(group['character_id']) == '100001').firstOrNull;
     if (active == null || active['order'] is! List<Object?> || (active['order'] as List<Object?>).isEmpty) {
       final defaultGroups = defaults['prompt_order'] as List<Object?>;
       final fallback = defaultGroups.whereType<Map<String, Object?>>().firstWhere((g) => g['character_id'] == 100001);
       groups.add(_copy(fallback));
+    }
+    for (final group in groups) {
+      // PromptManager matches String(character_id). A present empty/null
+      // first match remains empty even after it appends a default group.
+      group['character_id'] = presetString(group['character_id']);
+      final order = group['order'];
+      group['order'] = order is List<Object?>
+          ? [
+              for (final entry in order.whereType<Map<String, Object?>>())
+                {...entry, 'enabled': presetTruthy(entry['enabled'])},
+            ]
+          : <Object?>[];
     }
     result['prompt_order'] = groups;
     return result;
@@ -133,4 +150,159 @@ final class ChatPreset {
     'show_external_models',
     'bypass_status_check',
   };
+}
+
+/// ST's direct JS truth-value checks, not a parser for words such as "false".
+bool presetTruthy(Object? value) =>
+    value != null && value != false && value != '' && !(value is num && (value == 0 || value.isNaN));
+
+/// The entry guard and String conversion used by ST substituteParams.
+String presetContent(Object? value) => presetTruthy(value) ? presetString(value) : '';
+
+/// JavaScript String for JSON-owned preset values.
+String presetString(Object? value) {
+  if (value == null) {
+    return 'null';
+  }
+  if (value is num) {
+    return _numberString(value);
+  }
+  if (value is List<Object?>) {
+    return value.map((item) => item == null ? '' : presetString(item)).join(',');
+  }
+  if (value is Map<String, Object?>) {
+    return '[object Object]';
+  }
+  return value.toString();
+}
+
+/// Finite JS Number conversion for executable settings. Invalid/nonfinite
+/// values use the field default: Dart's integer token budget cannot use NaN
+/// or Infinity. This fallback is a host tolerance policy, not a ST coercion.
+num presetNumber(Object? value, num fallback) {
+  final number = presetJsNumber(value);
+  return number.isFinite ? number : fallback;
+}
+
+/// ST's Number(value), followed by JSON.stringify's nonfinite-to-null rule.
+/// Used once at request construction, so an invalid string does not become a
+/// default sampler or get reinterpreted as Number(null) on a second pass.
+num? presetSamplingNumber(Object? value) {
+  final number = presetJsNumber(value);
+  return number.isFinite ? number : null;
+}
+
+/// Unbounded JS Number conversion, including NaN and infinities for coercive
+/// comparisons. Callers constructing JSON must use [presetSamplingNumber].
+num presetJsNumber(Object? value) {
+  final num number;
+  if (value == null) {
+    number = 0;
+  } else if (value is num) {
+    number = value.toDouble();
+  } else if (value is bool) {
+    number = value ? 1 : 0;
+  } else if (value is List<Object?>) {
+    return presetJsNumber(presetString(value));
+  } else if (value is String) {
+    var start = 0;
+    var end = value.length;
+    while (start < end && _numberWhitespace(value.codeUnitAt(start))) {
+      start++;
+    }
+    while (end > start && _numberWhitespace(value.codeUnitAt(end - 1))) {
+      end--;
+    }
+    final text = value.substring(start, end);
+    if (text.isEmpty) {
+      return 0;
+    }
+    if (text == 'Infinity' || text == '+Infinity') {
+      return double.infinity;
+    }
+    if (text == '-Infinity') {
+      return double.negativeInfinity;
+    }
+    final based = _basedNumber.firstMatch(text);
+    if (based != null) {
+      final radix = switch (based[1]!.toLowerCase()) {
+        'x' => 16,
+        'b' => 2,
+        _ => 8,
+      };
+      number = BigInt.tryParse(based[2]!, radix: radix)?.toDouble() ?? double.nan;
+    } else {
+      number = _decimalNumber.hasMatch(text) ? double.tryParse(text) ?? double.nan : double.nan;
+    }
+  } else {
+    return double.nan;
+  }
+  if (!number.isFinite) {
+    return number;
+  }
+  // Keep JSON integer spellings for ordinary API values, matching JS's one
+  // Number type without overflowing Dart's machine integer range.
+  if (number.abs() <= 9007199254740991 && number == number.truncateToDouble()) {
+    return number.toInt();
+  }
+  return number;
+}
+
+final _basedNumber = RegExp(r'^0([xbo])([0-9a-f]+)$', caseSensitive: false);
+final _decimalNumber = RegExp(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$');
+bool _numberWhitespace(int code) =>
+    (code >= 0x0009 && code <= 0x000d) ||
+    code == 0x0020 ||
+    code == 0x00a0 ||
+    code == 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) ||
+    code == 0x2028 ||
+    code == 0x2029 ||
+    code == 0x202f ||
+    code == 0x205f ||
+    code == 0x3000 ||
+    code == 0xfeff;
+
+String _numberString(num value) {
+  final number = value.toDouble();
+  if (number.isNaN) {
+    return 'NaN';
+  }
+  if (number == double.infinity) {
+    return 'Infinity';
+  }
+  if (number == double.negativeInfinity) {
+    return '-Infinity';
+  }
+  if (number == 0) {
+    return '0';
+  }
+  var raw = number.toString();
+  final e = raw.indexOf('e');
+  if (e < 0) {
+    return raw.endsWith('.0') ? raw.substring(0, raw.length - 2) : raw;
+  }
+  var mantissa = raw.substring(0, e);
+  if (mantissa.endsWith('.0')) {
+    mantissa = mantissa.substring(0, mantissa.length - 2);
+  }
+  final exponent = int.parse(raw.substring(e + 1));
+  if (exponent >= 21 || exponent < -6) {
+    return '${mantissa}e${exponent >= 0 ? '+' : ''}$exponent';
+  }
+  final negative = mantissa.startsWith('-');
+  if (negative) {
+    mantissa = mantissa.substring(1);
+  }
+  final point = mantissa.indexOf('.');
+  final digits = mantissa.replaceAll('.', '');
+  final decimal = (point < 0 ? mantissa.length : point) + exponent;
+  if (decimal <= 0) {
+    raw = '0.${''.padRight(-decimal, '0')}$digits';
+  } else if (decimal >= digits.length) {
+    raw = digits.padRight(decimal, '0');
+  } else {
+    raw = '${digits.substring(0, decimal)}.${digits.substring(decimal)}';
+  }
+  return negative ? '-$raw' : raw;
 }

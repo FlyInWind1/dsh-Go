@@ -36,18 +36,20 @@ class TavernInspection {
     required this.generationType,
     required this.at,
     this.preparedUiHits = const [],
+    this.missingBooks = const [],
   });
   final PromptAssembly prompt;
   final WorldInfoResult worldInfo;
   final String generationType;
   final DateTime at;
   final List<WorldInfoHit> preparedUiHits;
+  final List<Map<String, Object?>> missingBooks;
 
   Map<String, Object?> toJson() => _copy({
     'prompt': prompt.toJson(),
     'generationType': generationType,
     'at': at.toIso8601String(),
-    'worldInfo': _worldInfoTrace(worldInfo, preparedUiHits: preparedUiHits),
+    'worldInfo': _worldInfoTrace(worldInfo, preparedUiHits: preparedUiHits, missingBooks: missingBooks),
   });
 }
 
@@ -1222,6 +1224,9 @@ class TavernEngine implements Tavern {
       final eligibleHistory = promptHistory.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
       final books = await turn.cancellation.wait(_loadBooks(turn.chat.characterId, data, turn.settings));
       turn.cancellation.check();
+      if (books.missing.isNotEmpty) {
+        _setInspection(turn, turn.inspection.copyWith(worldInfo: {'missing': books.missing}));
+      }
       final initialInjections = _configuredInjections(
         turn.settings,
         prepared,
@@ -1237,7 +1242,7 @@ class TavernEngine implements Tavern {
       }
       var world = const WorldInfoEngine().evaluate(
         WorldInfoInput(
-          books: books,
+          books: books.loaded,
           messages: [
             for (final node in eligibleHistory) WorldInfoMessage(node.message.text, speaker: node.message.speaker),
           ],
@@ -1274,7 +1279,12 @@ class TavernEngine implements Tavern {
         ),
       );
       final preparedUiHits = world.activated.where((hit) => hit.disabledUiPrompt != null).toList();
-      _setInspection(turn, turn.inspection.copyWith(worldInfo: _worldInfoTrace(world, preparedUiHits: preparedUiHits)));
+      _setInspection(
+        turn,
+        turn.inspection.copyWith(
+          worldInfo: _worldInfoTrace(world, preparedUiHits: preparedUiHits, missingBooks: books.missing),
+        ),
+      );
       environment.outlets.addAll({
         for (final entry in world.outlets.entries) entry.key: entry.value.map((hit) => hit.content).join('\n'),
       });
@@ -1335,17 +1345,23 @@ class TavernEngine implements Tavern {
       world = world.withoutEntries(excludedWorldEntries);
       state['timedWorldInfo'] = _copy(world.timedWorldInfo);
       state['decoratorState'] = _copy(world.decoratorState);
-      _setInspection(turn, turn.inspection.copyWith(worldInfo: _worldInfoTrace(world, preparedUiHits: preparedUiHits)));
+      _setInspection(
+        turn,
+        turn.inspection.copyWith(
+          worldInfo: _worldInfoTrace(world, preparedUiHits: preparedUiHits, missingBooks: books.missing),
+        ),
+      );
       _inspections[chatId] = TavernInspection(
         prompt: assembly,
         worldInfo: world,
         generationType: turn.generationType,
         at: turn.at,
         preparedUiHits: preparedUiHits,
+        missingBooks: books.missing,
       );
       _captureAssembly(turn, assembly);
       turn.cancellation.check();
-      turn.postfix = _string(preset.settings['continue_postfix']);
+      turn.postfix = presetString(preset.settings['continue_postfix']);
       TavernMessage reply;
       if (turn.kind == _TurnKind.impersonate) {
         reply = TavernMessage(
@@ -1405,7 +1421,7 @@ class TavernEngine implements Tavern {
         turn,
         turn.inspection.copyWith(status: TavernInspectionStatus.completed, finishedAt: _clock()),
       );
-      turn.emit(TavernTurnDone(_latest(turn)));
+      turn.emit(TavernTurnDone(_latest(turn), finishReason: turn.finishReason));
       turn.terminal = true;
     } catch (error) {
       var failure = error is TavernModelException
@@ -1490,12 +1506,13 @@ class TavernEngine implements Tavern {
     }
   }
 
-  Future<List<WorldInfoBook>> _loadBooks(
+  Future<({List<WorldInfoBook> loaded, List<Map<String, Object?>> missing})> _loadBooks(
     String characterId,
     Map<String, Object?> data,
     Map<String, Object?> settings,
   ) async {
     final result = <WorldInfoBook>[];
+    final missing = <Map<String, Object?>>[];
     final bindings = _map(settings['lorebooks']);
     for (final source in WorldInfoSource.values) {
       final ids = <String>[
@@ -1504,7 +1521,10 @@ class TavernEngine implements Tavern {
       ];
       for (final id in ids) {
         final json = await _readBook(id);
-        if (json == null) throw const TavernImportError('绑定的世界书不存在。');
+        if (json == null) {
+          missing.add({'bookId': id, 'source': source.name, 'reason': 'missing'});
+          continue;
+        }
         result.add(WorldInfoBook.fromJson(id: id, source: source, json: json));
       }
     }
@@ -1512,7 +1532,7 @@ class TavernEngine implements Tavern {
     if (embedded is Map<String, Object?>) {
       result.add(WorldInfoBook.fromJson(id: '$characterId:card', source: WorldInfoSource.character, json: embedded));
     }
-    return result;
+    return (loaded: result, missing: missing);
   }
 
   Future<void> _consume(_Turn turn, Map<String, Object?> body) async {
@@ -1560,7 +1580,8 @@ class TavernEngine implements Tavern {
                   case ModelUsage(:final usage):
                     turn.usage = usage;
                     _setInspection(turn, turn.inspection.copyWith(reportedUsage: usage));
-                  case ModelFinished():
+                  case ModelFinished(:final reason):
+                    turn.finishReason = reason;
                     completed.complete();
                     return;
                 }
@@ -1891,6 +1912,7 @@ class _Turn {
   StringBuffer? text;
   StringBuffer? reasoning;
   TavernUsage? usage;
+  String? finishReason;
   Timer? flushTimer;
   String postfix = '';
   Map<String, Object?> variables = {};
@@ -1980,8 +2002,8 @@ class _MacroEnvironment {
       (settings['macroEngine'] == null && settings['experimental_macro_engine'] == false);
   String get userName => settings['userName'] is String ? settings['userName'] as String : 'User';
   String get persona => _string(settings['persona']);
-  int get maxContext => _integer(_presetSettings['openai_max_context'], 4095);
-  int get maxResponse => _integer(_presetSettings['openai_max_tokens'], 300);
+  int get maxContext => presetNumber(_presetSettings['openai_max_context'], 4095).toInt();
+  int get maxResponse => presetNumber(_presetSettings['openai_max_tokens'], 300).toInt();
 
   String expand(String text, Map<String, String> overrides) => _expand(text, overrides, true);
   String baseExpand(String text, Map<String, String> overrides) => _expand(text, overrides, false);
@@ -2191,7 +2213,12 @@ PromptFragment _worldFragment(WorldInfoHit hit) => PromptFragment(
   role: hit.roleOverride == null ? null : _role(hit.roleOverride),
   trimOnOverflow: hit.ignoreOnMaxContext,
 );
-Map<String, Object?> _worldInfoTrace(WorldInfoResult world, {List<WorldInfoHit> preparedUiHits = const []}) => _copy({
+Map<String, Object?> _worldInfoTrace(
+  WorldInfoResult world, {
+  List<WorldInfoHit> preparedUiHits = const [],
+  List<Map<String, Object?>> missingBooks = const [],
+}) => _copy({
+  if (missingBooks.isNotEmpty) 'missing': missingBooks,
   'budget': world.budget,
   'overflowed': world.overflowed,
   'scanRounds': world.scanRounds,

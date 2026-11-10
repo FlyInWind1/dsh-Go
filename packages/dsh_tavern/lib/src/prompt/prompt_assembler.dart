@@ -115,7 +115,7 @@ final class _Prompt {
   final String id;
   String content;
   List<PromptSource> sources;
-  String role;
+  Object? role;
   Map<String, Object?> data;
   final bool injected;
   PromptPlacement? placement;
@@ -201,9 +201,9 @@ final class _AssemblyRun {
   final charges = <PromptSegment, int>{};
   String persona = '';
 
-  int number(String key, int fallback) => (settings[key] as num?)?.toInt() ?? fallback;
-  String setting(String key) => settings[key] as String? ?? '';
-  String field(String key) => cardFields[key] ?? (input.card[key] as String? ?? '');
+  int number(String key, int fallback) => presetNumber(settings[key], fallback).toInt();
+  String setting(String key) => key == 'continue_postfix' ? presetString(settings[key]) : presetContent(settings[key]);
+  String field(String key) => cardFields[key] ?? presetContent(input.card[key]);
   _Prompt? get(String id) => prompts.where((prompt) => prompt.id == id).firstOrNull;
 
   String expand(String text, [Map<String, String> overrides = const {}]) {
@@ -249,7 +249,7 @@ final class _AssemblyRun {
 
   PromptSegment message(_Prompt prompt, {bool expandText = false, bool includeName = false}) {
     final content = expandText ? expand(prompt.content) : prompt.content;
-    final data = <String, Object?>{'role': prompt.role, 'content': content};
+    final data = <String, Object?>{'role': presetTruthy(prompt.role) ? prompt.role : 'system', 'content': content};
     final name = prompt.data['name'];
     if (includeName && name is String && name.isNotEmpty) data['name'] = sanitizeName(name);
     if (prompt.data['tool_calls'] != null) data['tool_calls'] = prompt.data['tool_calls'];
@@ -383,20 +383,29 @@ final class _AssemblyRun {
     disabled.addAll(uiDisabled);
     PromptSource cardSource(String key) => PromptSource('card', '${input.characterId}:$key', label: key);
     final definitions = (settings['prompts'] as List<Object?>).whereType<Map<String, Object?>>().toList();
-    final group = (settings['prompt_order'] as List<Object?>).whereType<Map<String, Object?>>().firstWhere(
-      (group) => '${group['character_id']}' == '100001',
-    );
-    final order = (group['order'] as List<Object?>).whereType<Map<String, Object?>>();
-    final seenOrder = <String>{};
+    final group = (settings['prompt_order'] as List<Object?>)
+        .whereType<Map<String, Object?>>()
+        .where((group) => '${group['character_id']}' == '100001')
+        .firstOrNull;
+    final rawOrder = group?['order'];
+    final order = rawOrder is List<Object?>
+        ? rawOrder.whereType<Map<String, Object?>>()
+        : const Iterable<Map<String, Object?>>.empty();
+    final seenOrder = <Object?>{};
     for (final entry in order) {
-      final id = entry['identifier'] as String? ?? '';
-      final definition = definitions.where((prompt) => prompt['identifier'] == id).firstOrNull;
-      if (seenOrder.add(id) && entry['enabled'] != true) disabled.add(id);
+      final rawId = entry['identifier'];
+      final id = rawId == null ? '' : presetString(rawId);
+      final definition = definitions.where((prompt) => prompt['identifier'] == rawId).firstOrNull;
+      if (seenOrder.add(rawId) && entry['enabled'] != true) disabled.add(id);
       if (definition == null) continue;
       final triggers = definition['injection_trigger'];
       final allowed =
           entry['enabled'] == true && (triggers is! List<Object?> || triggers.isEmpty || triggers.contains(type));
-      final source = PromptSource('preset', id, label: definition['name'] as String? ?? id);
+      final source = PromptSource(
+        'preset',
+        id,
+        label: definition['name'] == null ? id : presetString(definition['name']),
+      );
       if (uiDisabled.contains(id)) {
         final fieldKey = id == 'main' ? 'system_prompt' : 'post_history_instructions';
         excluded.add(
@@ -405,9 +414,7 @@ final class _AssemblyRun {
         // An empty main still anchors before/after-main extensions, including
         // when the preset places main at an absolute chat depth.
         if (id == 'main') {
-          prompts.add(
-            _Prompt(id, '', [source], role: definition['role'] as String? ?? 'system', data: {...definition}),
-          );
+          prompts.add(_Prompt(id, '', [source], role: definition['role'], data: {...definition}));
         }
         continue;
       }
@@ -418,9 +425,9 @@ final class _AssemblyRun {
       prompts.add(
         _Prompt(
           id,
-          expand(allowed ? definition['content'] as String? ?? '' : ''),
+          expand(allowed ? presetContent(definition['content']) : ''),
           [source],
-          role: definition['role'] as String? ?? 'system',
+          role: definition['role'],
           data: {...definition},
         ),
       );
@@ -430,7 +437,7 @@ final class _AssemblyRun {
       String id,
       String content,
       List<PromptSource> sources, {
-      String role = 'system',
+      Object? role = 'system',
       List<PromptFragment>? fragments,
     }) {
       final existing = get(id);
@@ -650,7 +657,7 @@ final class _AssemblyRun {
       final last = history.removeLast();
       final prefill = message(
         _Prompt('continuePrefill', last.content, last.sources, role: last.role, data: last.data),
-        includeName: number('names_behavior', 0) == 1,
+        includeName: settings['names_behavior'] == 1,
       );
       controls.add(prefill);
       reserve(prefill);
@@ -734,7 +741,7 @@ final class _AssemblyRun {
 
   List<_Prompt> historyPrompts() {
     final result = <_Prompt>[];
-    final names = number('names_behavior', 0);
+    final names = settings['names_behavior'];
     for (final item in input.history) {
       final sources = [PromptSource('history', item.id, label: item.name)];
       if (item.hidden || item.isSystem) {
@@ -947,7 +954,7 @@ final class _AssemblyRun {
     }
     final pool = history.reversed.toList();
     for (var i = 0; i < pool.length; i++) {
-      final segment = message(pool[i], expandText: true, includeName: number('names_behavior', 0) == 1);
+      final segment = message(pool[i], expandText: true, includeName: settings['names_behavior'] == 1);
       makeRoom(segment.tokens);
       if (removed(segment)) continue;
       if (segment.tokens > remaining) {
@@ -1134,14 +1141,14 @@ final class _AssemblyRun {
   Map<String, Object?> genericBody(List<PromptSegment> messages, List<String> stops) => {
     'messages': messages.map((segment) => segment.message).toList(),
     'model': input.model,
-    'temperature': settings['temperature'],
+    'temperature': presetSamplingNumber(settings['temperature']),
     'max_tokens': settings['openai_max_tokens'],
     'stream': settings['stream_openai'] == true && type != 'quiet',
-    'presence_penalty': settings['presence_penalty'],
-    'frequency_penalty': settings['frequency_penalty'],
-    'top_p': settings['top_p'],
+    'presence_penalty': presetSamplingNumber(settings['presence_penalty']),
+    'frequency_penalty': presetSamplingNumber(settings['frequency_penalty']),
+    'top_p': presetSamplingNumber(settings['top_p']),
     if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
-    if ((settings['seed'] as num? ?? -1) >= 0) 'seed': settings['seed'],
+    if (presetJsNumber(settings['seed']) >= 0) 'seed': settings['seed'],
     if (input.tools.isNotEmpty) 'tools': input.tools,
     if (input.tools.isNotEmpty && input.toolChoice != null) 'tool_choice': input.toolChoice,
   };

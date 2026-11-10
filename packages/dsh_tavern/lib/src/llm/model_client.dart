@@ -43,6 +43,13 @@ class TavernModelException implements Exception {
   String toString() => 'TavernModelException(${kind.name}): $detail';
 }
 
+/// Only failures before an accepted response are eligible. A successful HTTP
+/// response may already be billable even when its first token never arrives.
+class _RetryableModelException implements Exception {
+  const _RetryableModelException(this.cause);
+  final TavernModelException cause;
+}
+
 /// One cancellation per generation, including time spent obtaining the key.
 class ModelCancellation {
   final _cancelled = Completer<void>();
@@ -79,12 +86,17 @@ class TavernModelClient {
   /// [body] is the final, inspected request from the assembler. This method
   /// only supplies the configured model and transport stream setting.
   /// `stream: false` presets are also supported: one text/reasoning delta.
+  /// Connection errors while sending and HTTP 5xx get at most two retries,
+  /// after 250 and 500 ms. Accepted responses and 4xx are not retried; waiting
+  /// for headers or an accepted body to time out does not trigger a retry.
+  /// A known 5xx stays retryable if reading its error body fails or times out.
+  /// A lost response during send can still mean the server received the POST;
+  /// bounded retry cannot promise that the first attempt was not charged.
   Stream<ModelDelta> generate({
     required TavernModelConfig config,
     required Map<String, Object?> body,
     required ModelCancellation cancellation,
   }) async* {
-    http.Client? client;
     String? key;
     try {
       cancellation.check();
@@ -99,18 +111,92 @@ class TavernModelClient {
       if (config.deepseek) {
         payload.putIfAbsent('thinking', () => {'type': config.thinking ? 'enabled' : 'disabled'});
       }
-      final request = http.AbortableRequest('POST', endpoint(config), abortTrigger: cancellation.whenCancelled)
+      final encodedBody = jsonEncode(payload);
+      final uri = endpoint(config);
+      for (var attempt = 0; ; attempt++) {
+        try {
+          await for (final delta in _generateAttempt(
+            config,
+            uri,
+            key,
+            encodedBody,
+            payload['stream'] != false,
+            cancellation,
+          )) {
+            yield delta;
+          }
+          return;
+        } on _RetryableModelException catch (error) {
+          cancellation.check();
+          if (attempt >= 2) throw error.cause;
+          await cancellation.wait(Future<void>.delayed(Duration(milliseconds: 250 * (1 << attempt))));
+        }
+      }
+    } on TavernModelException {
+      rethrow;
+    } on http.RequestAbortedException {
+      throw const TavernModelException(TavernFailure.cancelled, 'cancelled');
+    } on TimeoutException {
+      cancellation.check();
+      throw const TavernModelException(TavernFailure.network, 'request_timeout');
+    } on http.ClientException {
+      cancellation.check();
+      throw const TavernModelException(TavernFailure.network, 'http_transport_failed');
+    } on FormatException {
+      cancellation.check();
+      throw const TavernModelException(TavernFailure.server, 'invalid_response_format');
+    } catch (_) {
+      cancellation.check();
+      // Do not expose callback/transport exception text: it may contain a key
+      // or the entire request. Known HTTP errors carry a bounded safe detail.
+      throw const TavernModelException(TavernFailure.network, 'model_call_failed');
+    }
+  }
+
+  Stream<ModelDelta> _generateAttempt(
+    TavernModelConfig config,
+    Uri uri,
+    String key,
+    String encodedBody,
+    bool streaming,
+    ModelCancellation cancellation,
+  ) async* {
+    http.Client? client;
+    try {
+      cancellation.check();
+      final request = http.AbortableRequest('POST', uri, abortTrigger: cancellation.whenCancelled)
         ..headers.addAll({'Content-Type': 'application/json', 'Authorization': 'Bearer $key'})
-        ..body = jsonEncode(payload);
+        ..body = encodedBody;
       client = _clientFactory();
-      final response = await cancellation.wait(client.send(request).timeout(idleTimeout));
+      cancellation.check();
+      http.StreamedResponse response;
+      try {
+        response = await cancellation.wait(client.send(request).timeout(idleTimeout));
+      } on http.RequestAbortedException {
+        rethrow;
+      } on http.ClientException {
+        cancellation.check();
+        throw const _RetryableModelException(TavernModelException(TavernFailure.network, 'http_transport_failed'));
+      }
       cancellation.check();
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        final error = await cancellation.wait(_errorBody(response.stream.timeout(idleTimeout)));
-        throw _apiError(response.statusCode, error, key);
+        String error;
+        try {
+          error = await cancellation.wait(_errorBody(response.stream.timeout(idleTimeout)));
+        } catch (_) {
+          cancellation.check();
+          // The HTTP status remains authoritative even if its error body was
+          // interrupted. Do not substitute raw transport exception messages.
+          error = 'error_response_body_unavailable';
+        }
+        final failure = _apiError(response.statusCode, error, key);
+        if (response.statusCode >= 500 && response.statusCode < 600) {
+          throw _RetryableModelException(failure);
+        }
+        throw failure;
       }
 
-      if (payload['stream'] == false) {
+      if (!streaming) {
         final text = await cancellation.wait(response.stream.bytesToString().timeout(idleTimeout));
         cancellation.check();
         final result = _object(jsonDecode(text));
@@ -178,24 +264,6 @@ class TavernModelClient {
       _checkFinish(finishReason);
       cancellation.check();
       yield ModelFinished(finishReason);
-    } on TavernModelException {
-      rethrow;
-    } on http.RequestAbortedException {
-      throw const TavernModelException(TavernFailure.cancelled, 'cancelled');
-    } on TimeoutException {
-      cancellation.check();
-      throw const TavernModelException(TavernFailure.network, 'request_timeout');
-    } on http.ClientException {
-      cancellation.check();
-      throw const TavernModelException(TavernFailure.network, 'http_transport_failed');
-    } on FormatException {
-      cancellation.check();
-      throw const TavernModelException(TavernFailure.server, 'invalid_response_format');
-    } catch (_) {
-      cancellation.check();
-      // Do not expose callback/transport exception text: it may contain a key
-      // or the entire request. Known HTTP errors carry a bounded safe detail.
-      throw const TavernModelException(TavernFailure.network, 'model_call_failed');
     } finally {
       client?.close();
     }
@@ -294,13 +362,16 @@ TavernModelException _apiError(int status, String body, String key) {
   final lowered = body.toLowerCase();
   final kind = switch (status) {
     401 || 403 => TavernFailure.badKey,
+    402 => TavernFailure.insufficientBalance,
     429 => TavernFailure.busy,
+    >= 500 && < 600 => TavernFailure.server,
     _
         when lowered.contains('context_length_exceeded') ||
             lowered.contains('maximum context length') ||
             lowered.contains('context window') ||
             lowered.contains('context too long') =>
       TavernFailure.contextTooLong,
+    400 || 422 => TavernFailure.invalidParameters,
     _ => TavernFailure.server,
   };
   var detail = body.replaceAll(key, '[redacted]');

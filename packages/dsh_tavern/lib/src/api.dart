@@ -155,13 +155,28 @@ class TavernReasoningDelta extends TavernEvent {
 }
 
 class TavernTurnDone extends TavernEvent {
-  const TavernTurnDone(this.message);
+  const TavernTurnDone(this.message, {this.finishReason});
 
   /// As stored: write-back regex applied, usage filled in.
   final TavernMessage message;
+
+  /// The provider's finish_reason, including length or content_filter. Null
+  /// means the transport did not report one; unknown future values are kept.
+  final String? finishReason;
 }
 
-enum TavernFailure { noKey, badKey, busy, network, server, contextTooLong, cancelled, invalidCard }
+enum TavernFailure {
+  noKey,
+  badKey,
+  busy,
+  network,
+  server,
+  contextTooLong,
+  cancelled,
+  invalidCard,
+  insufficientBalance,
+  invalidParameters,
+}
 
 class TavernTurnFailed extends TavernEvent {
   const TavernTurnFailed(this.kind, {this.detail, this.partial});

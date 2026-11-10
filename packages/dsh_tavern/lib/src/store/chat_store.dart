@@ -94,6 +94,11 @@ class ChatStore {
   }
 
   static const schemaVersion = 1;
+
+  // Keys are destination versions. Future upgrades register every successor
+  // here and increase schemaVersion; no existing schema is dropped or replayed.
+  // Steps run inside one transaction and must not manage transactions themselves.
+  static const _schemaMigrations = <int, String>{1: _schemaV1};
   final Database _db;
   final DateTime Function() _clock;
   final String Function() _createId;
@@ -110,19 +115,42 @@ class ChatStore {
       throw ArgumentError('ChatStore requires a connection without an active transaction.');
     }
     final version = _db.select('PRAGMA user_version').first['user_version'] as int;
-    if (version > schemaVersion) {
-      throw StateError('This tavern database uses schema $version; supported version is $schemaVersion.');
-    }
+    // Reject unsupported versions or an incomplete migration registry before
+    // persistent configuration such as journal_mode can alter the database.
+    final plan = _migrationPlan(version);
     _db.execute('PRAGMA foreign_keys = ON');
     _db.execute('PRAGMA busy_timeout = 5000');
     _db.execute('PRAGMA journal_mode = WAL');
     _db.execute('PRAGMA synchronous = FULL');
-    if (version == 0) {
+    if (plan.isNotEmpty) {
       transaction(() {
-        _db.execute(_schemaV1);
-        _db.execute('PRAGMA user_version = 1');
+        // Another connection may have upgraded while BEGIN IMMEDIATE waited.
+        // Build the executable plan from the version under the acquired lock.
+        final lockedVersion = _db.select('PRAGMA user_version').first['user_version'] as int;
+        for (final step in _migrationPlan(lockedVersion)) {
+          _db.execute(step.sql);
+          _db.execute('PRAGMA user_version = ${step.version}');
+        }
       });
     }
+  }
+
+  static List<({int version, String sql})> _migrationPlan(int version) {
+    if (version < 0) {
+      throw StateError('Invalid tavern database schema version: $version.');
+    }
+    if (version > schemaVersion) {
+      throw StateError('This tavern database uses schema $version; supported version is $schemaVersion.');
+    }
+    final steps = <({int version, String sql})>[];
+    for (var next = version + 1; next <= schemaVersion; next++) {
+      final sql = _schemaMigrations[next];
+      if (sql == null) {
+        throw StateError('Missing tavern schema migration from ${next - 1} to $next.');
+      }
+      steps.add((version: next, sql: sql));
+    }
+    return steps;
   }
 
   /// Batches synchronous operations atomically. Nested calls use savepoints;
