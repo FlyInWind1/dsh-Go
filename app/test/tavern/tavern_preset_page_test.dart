@@ -116,6 +116,7 @@ void main() {
   });
 
   prefillAndOrder();
+  promptText();
 }
 
 /// Brings [target] to the middle of the page, clear of the glass header.
@@ -192,5 +193,42 @@ void prefillAndOrder() {
     final prompts = tavernPresetPrompts(await _raw(tester, tavern, id));
     expect(prompts.map((p) => p.id), ['jailbreak', 'main', 'chatHistory']);
     expect(prompts.map((p) => p.enabled), [false, true, true]);
+  });
+}
+
+void promptText() {
+  test('a prompt carries its text; a placeholder has none', () {
+    final prompts = tavernPresetPrompts(jsonDecode(_preset) as Map<String, Object?>);
+    expect(prompts.map((p) => p.content), ['你是林晚。', null, '保持角色。']);
+  });
+
+  testWidgets('a prompt opens to its text; what is saved goes to that prompt alone', (tester) async {
+    final (tavern, id) = await _open(tester);
+    final main = find.byKey(const ValueKey('tavern-preset-prompt-main'));
+    await _center(tester, main);
+    expect(find.descendant(of: main, matching: find.text('你是林晚。')), findsOneWidget);
+
+    await tester.tap(find.descendant(of: main, matching: find.text('主提示')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TavernMessageEditPage), findsOneWidget);
+    expect(find.text('主提示'), findsWidgets); // the editor's title
+    await tester.enterText(find.byKey(const ValueKey('tavern-message-field')), '你是林晚，旅店的老板娘。\n只说一半。');
+    await tester.tap(find.byKey(const ValueKey('tavern-message-save')));
+    await tester.pumpAndSettle();
+
+    final raw = await _raw(tester, tavern, id);
+    expect(tavernPresetPrompts(raw).map((p) => p.content), ['你是林晚，旅店的老板娘。\n只说一半。', null, '保持角色。']);
+    expect(tavernPresetPrompts(raw).first.enabled, isTrue); // the switch untouched
+    expect(find.descendant(of: main, matching: find.text('你是林晚，旅店的老板娘。')), findsOneWidget);
+  });
+
+  testWidgets('the switch on a prompt with text turns it off without opening it', (tester) async {
+    final (tavern, id) = await _open(tester);
+    final main = find.byKey(const ValueKey('tavern-preset-prompt-main'));
+    await _center(tester, main);
+    await tester.tap(find.descendant(of: main, matching: find.byType(Switch)));
+    await tester.pumpAndSettle();
+    expect(find.byType(TavernMessageEditPage), findsNothing);
+    expect(tavernPresetPrompts(await _raw(tester, tavern, id)).first.enabled, isFalse);
   });
 }

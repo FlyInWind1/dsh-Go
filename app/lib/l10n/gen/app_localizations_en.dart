@@ -20478,6 +20478,9 @@ class L10nEn extends L10n {
       'When on, this goes to the model as the start of the reply, and it writes on from there. In Thinking it applies only with thinking on; otherwise it goes in the reply. Continuing a reply doesn\'t use it.';
 
   @override
+  String get tavernPresetPromptEmpty => 'Empty';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

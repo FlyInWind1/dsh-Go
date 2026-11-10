@@ -19417,6 +19417,9 @@ class L10nZh extends L10n {
   String get tavernPrefillNote => '开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。';
 
   @override
+  String get tavernPresetPromptEmpty => '空着';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

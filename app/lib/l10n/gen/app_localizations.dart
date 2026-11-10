@@ -35474,6 +35474,12 @@ abstract class L10n {
   /// **'开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。'**
   String get tavernPrefillNote;
 
+  /// No description provided for @tavernPresetPromptEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'空着'**
+  String get tavernPresetPromptEmpty;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

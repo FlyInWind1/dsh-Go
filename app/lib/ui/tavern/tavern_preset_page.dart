@@ -1,8 +1,8 @@
 // 资源库 › 预设 › one preset (docs/design/roleplay-roadmap.md P0, engine T20):
 // its numbers (context, reply length, temperature), its prefill (the text a
 // reply starts from, and whether it goes in the reply or the thinking), and
-// its prompts in the order they are sent: each switched on or off, the order
-// changed by dragging, as the engine edits them.
+// its prompts in the order they are sent: each opened to edit its text,
+// switched on or off, the order changed by dragging, as the engine edits them.
 
 import 'dart:async';
 
@@ -31,8 +31,8 @@ final tavernPresetProvider = FutureProvider.autoDispose.family<TavernPreset?, St
   return ref.watch(tavernProvider).preset(id);
 });
 
-/// A prompt as the order sends it.
-typedef TavernPresetPrompt = ({String id, String name, bool marker, bool enabled});
+/// A prompt as the order sends it; [content] is null for a placeholder.
+typedef TavernPresetPrompt = ({String id, String name, bool marker, bool enabled, String? content});
 
 /// [raw]'s prompts in the order they are sent: the 100001 group's order, else
 /// the first group with one, as the engine picks it.
@@ -53,9 +53,20 @@ List<TavernPresetPrompt> tavernPresetPrompts(Map<String, Object?> raw) {
           name: '${prompts['$id']?['name'] ?? id}',
           marker: prompts['$id']?['marker'] == true,
           enabled: entry['enabled'] != false,
+          content: prompts['$id']?['marker'] == true ? null : _contentOf(raw, prompts['$id'], '$id'),
         ),
   ];
 }
+
+/// A prompt's text: its own, else the legacy top-level field ST keeps for the
+/// three classic prompts.
+String _contentOf(Map<String, Object?> raw, Map<String, Object?>? prompt, String id) => switch (prompt?['content']) {
+  final String text => text,
+  _ => switch (raw['${id}_prompt']) {
+    final String text when const ['main', 'nsfw', 'jailbreak'].contains(id) => text,
+    _ => '',
+  },
+};
 
 class TavernPresetPage extends ConsumerWidget {
   const TavernPresetPage({super.key, required this.presetId});
@@ -92,6 +103,12 @@ class TavernPresetPage extends ConsumerWidget {
         },
       }),
     );
+    Future<void> editPrompt(TavernPresetPrompt prompt) async {
+      final text = await Navigator.of(context)
+          .push(TavernMessageEditPage.route(speaker: preset.name, text: prompt.content ?? '', title: prompt.name));
+      if (text != null) await tavern.updatePresetPrompt(presetId, prompt.id, {'content': text});
+    }
+
     Future<void> editPrefill() async {
       final text = await Navigator.of(context)
           .push(TavernMessageEditPage.route(speaker: preset.name, text: prefillText, title: l10n.tavernPrefill));
@@ -178,13 +195,28 @@ class TavernPresetPage extends ConsumerWidget {
                 child: Text(l10n.tavernPresetPromptsEmpty, style: quiet),
               ),
             for (final prompt in prompts)
-              SettingsSwitchTile(
-                key: ValueKey('tavern-preset-prompt-${prompt.id}'),
-                title: prompt.name,
-                subtitle: prompt.marker ? l10n.tavernPresetMarker : null,
-                value: prompt.enabled,
-                onChanged: (on) => unawaited(tavern.setPresetPromptEnabled(presetId, prompt.id, on)),
-              ),
+              if (prompt.content case final content?)
+                // A prompt with text: the row opens it, the switch turns it on or off.
+                MergeSemantics(
+                  key: ValueKey('tavern-preset-prompt-${prompt.id}'),
+                  child: SettingsTile(
+                    title: prompt.name,
+                    subtitle: content.trim().isEmpty ? l10n.tavernPresetPromptEmpty : _line(content),
+                    onTap: () => unawaited(editPrompt(prompt)),
+                    trailing: Switch(
+                      value: prompt.enabled,
+                      onChanged: (on) => unawaited(tavern.setPresetPromptEnabled(presetId, prompt.id, on)),
+                    ),
+                  ),
+                )
+              else
+                SettingsSwitchTile(
+                  key: ValueKey('tavern-preset-prompt-${prompt.id}'),
+                  title: prompt.name,
+                  subtitle: l10n.tavernPresetMarker,
+                  value: prompt.enabled,
+                  onChanged: (on) => unawaited(tavern.setPresetPromptEnabled(presetId, prompt.id, on)),
+                ),
             if (prompts.length > 1)
               SettingsTile(
                 key: const ValueKey('tavern-preset-order'),
