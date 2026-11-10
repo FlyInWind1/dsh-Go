@@ -33524,6 +33524,96 @@ abstract class L10n {
   /// **'{count} 个'**
   String tavernPresetCount(int count);
 
+  /// No description provided for @tavernRegex.
+  ///
+  /// In zh, this message translates to:
+  /// **'正则'**
+  String get tavernRegex;
+
+  /// No description provided for @tavernRegexImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入正则'**
+  String get tavernRegexImport;
+
+  /// No description provided for @tavernRegexOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开'**
+  String get tavernRegexOn;
+
+  /// No description provided for @tavernRegexOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关'**
+  String get tavernRegexOff;
+
+  /// No description provided for @tavernRegexEnable.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get tavernRegexEnable;
+
+  /// No description provided for @tavernRegexDisable.
+  ///
+  /// In zh, this message translates to:
+  /// **'停用'**
+  String get tavernRegexDisable;
+
+  /// No description provided for @tavernRegexExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出正则'**
+  String get tavernRegexExport;
+
+  /// No description provided for @tavernRegexDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除正则'**
+  String get tavernRegexDelete;
+
+  /// No description provided for @tavernRegexDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除正则「{name}」？'**
+  String tavernRegexDeleteTitle(String name);
+
+  /// No description provided for @tavernRegexImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入了 {count} 条正则'**
+  String tavernRegexImported(int count);
+
+  /// No description provided for @tavernRegexIncompatible.
+  ///
+  /// In zh, this message translates to:
+  /// **'这里运行不了，已跳过'**
+  String get tavernRegexIncompatible;
+
+  /// No description provided for @tavernRegexEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有全局正则'**
+  String get tavernRegexEmpty;
+
+  /// No description provided for @tavernRegexEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'SillyTavern 导出的正则 JSON（一条或一组）都能导入。全局正则对所有对话生效；卡和预设自带的正则跟着它们走。'**
+  String get tavernRegexEmptyMessage;
+
+  /// No description provided for @tavernRegexUnnamed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命名'**
+  String get tavernRegexUnnamed;
+
+  /// No description provided for @tavernRegexCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条'**
+  String tavernRegexCount(int count);
+
   /// No description provided for @tavernPresetEdit.
   ///
   /// In zh, this message translates to:

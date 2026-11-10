@@ -18369,6 +18369,57 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernRegex => '正则';
+
+  @override
+  String get tavernRegexImport => '导入正则';
+
+  @override
+  String get tavernRegexOn => '开';
+
+  @override
+  String get tavernRegexOff => '关';
+
+  @override
+  String get tavernRegexEnable => '启用';
+
+  @override
+  String get tavernRegexDisable => '停用';
+
+  @override
+  String get tavernRegexExport => '导出正则';
+
+  @override
+  String get tavernRegexDelete => '删除正则';
+
+  @override
+  String tavernRegexDeleteTitle(String name) {
+    return '删除正则「$name」？';
+  }
+
+  @override
+  String tavernRegexImported(int count) {
+    return '导入了 $count 条正则';
+  }
+
+  @override
+  String get tavernRegexIncompatible => '这里运行不了，已跳过';
+
+  @override
+  String get tavernRegexEmpty => '还没有全局正则';
+
+  @override
+  String get tavernRegexEmptyMessage => 'SillyTavern 导出的正则 JSON（一条或一组）都能导入。全局正则对所有对话生效；卡和预设自带的正则跟着它们走。';
+
+  @override
+  String get tavernRegexUnnamed => '未命名';
+
+  @override
+  String tavernRegexCount(int count) {
+    return '$count 条';
+  }
+
+  @override
   String get tavernPresetEdit => '编辑预设';
 
   @override

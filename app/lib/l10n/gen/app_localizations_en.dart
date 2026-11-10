@@ -19373,6 +19373,58 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernRegex => 'Regex';
+
+  @override
+  String get tavernRegexImport => 'Import regex';
+
+  @override
+  String get tavernRegexOn => 'On';
+
+  @override
+  String get tavernRegexOff => 'Off';
+
+  @override
+  String get tavernRegexEnable => 'Turn on';
+
+  @override
+  String get tavernRegexDisable => 'Turn off';
+
+  @override
+  String get tavernRegexExport => 'Export regex';
+
+  @override
+  String get tavernRegexDelete => 'Delete regex';
+
+  @override
+  String tavernRegexDeleteTitle(String name) {
+    return 'Delete the regex “$name”?';
+  }
+
+  @override
+  String tavernRegexImported(int count) {
+    return 'Imported $count regex scripts';
+  }
+
+  @override
+  String get tavernRegexIncompatible => 'Can\'t run here; skipped';
+
+  @override
+  String get tavernRegexEmpty => 'No global regex yet';
+
+  @override
+  String get tavernRegexEmptyMessage =>
+      'Regex JSON exported from SillyTavern, one script or a list, can be imported. Global regex applies to every chat; the regex a card or preset brings goes with it.';
+
+  @override
+  String get tavernRegexUnnamed => 'Untitled';
+
+  @override
+  String tavernRegexCount(int count) {
+    return '$count';
+  }
+
+  @override
   String get tavernPresetEdit => 'Edit preset';
 
   @override

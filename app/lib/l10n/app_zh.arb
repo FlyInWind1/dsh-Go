@@ -11366,6 +11366,42 @@
       }
     }
   },
+  "tavernRegex": "正则",
+  "tavernRegexImport": "导入正则",
+  "tavernRegexOn": "开",
+  "tavernRegexOff": "关",
+  "tavernRegexEnable": "启用",
+  "tavernRegexDisable": "停用",
+  "tavernRegexExport": "导出正则",
+  "tavernRegexDelete": "删除正则",
+  "tavernRegexDeleteTitle": "删除正则「{name}」？",
+  "@tavernRegexDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernRegexImported": "导入了 {count} 条正则",
+  "@tavernRegexImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernRegexIncompatible": "这里运行不了，已跳过",
+  "tavernRegexEmpty": "还没有全局正则",
+  "tavernRegexEmptyMessage": "SillyTavern 导出的正则 JSON（一条或一组）都能导入。全局正则对所有对话生效；卡和预设自带的正则跟着它们走。",
+  "tavernRegexUnnamed": "未命名",
+  "tavernRegexCount": "{count} 条",
+  "@tavernRegexCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tavernPresetEdit": "编辑预设",
   "tavernPresetParams": "参数",
   "tavernPresetPrompts": "提示词（按发送顺序）",

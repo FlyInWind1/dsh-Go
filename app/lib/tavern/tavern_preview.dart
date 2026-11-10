@@ -450,7 +450,7 @@ class PreviewTavern implements Tavern, TavernPreview {
   // Presets, kept in memory as the engine keeps them; no regex scripts or
   // lorebooks of its own (importing one says so), and its text shows as written.
 
-  static UnsupportedError _noLibrary() => UnsupportedError('The preview keeps no regex scripts or lorebooks');
+  static UnsupportedError _noLibrary() => UnsupportedError('The preview keeps no lorebooks');
 
   @override
   Future<TavernDisplayResult> displayText(
@@ -660,20 +660,48 @@ class PreviewTavern implements Tavern, TavernPreview {
   Future<TavernImportReport> recheckImport(TavernImportKind kind, String assetId) =>
       throw UnsupportedError('The preview keeps no import reports');
 
-  @override
-  Future<List<TavernRegexScript>> listRegexScripts() async => const [];
+  final _regex = <String, TavernRegexScript>{};
+  var _regexCount = 0;
 
   @override
-  Future<TavernRegexImportResult> importRegexScripts(String text) => throw _noLibrary();
+  Future<List<TavernRegexScript>> listRegexScripts() async => _regex.values.toList();
+
+  /// Global regex scripts, kept in memory: one ST script or a list of them.
+  @override
+  Future<TavernRegexImportResult> importRegexScripts(String text) async {
+    final json = jsonDecode(text.startsWith('\uFEFF') ? text.substring(1) : text);
+    final rules = json is List ? json : [json];
+    final scripts = [
+      for (final rule in rules.whereType<Map<String, Object?>>())
+        TavernRegexScript(id: 'regex-${_regexCount++}', sourceText: text, raw: rule, importedAt: DateTime.now()),
+    ];
+    if (scripts.isEmpty) throw const FormatException('No regex scripts');
+    for (final script in scripts) {
+      _regex[script.id] = script;
+    }
+    return TavernRegexImportResult(scripts);
+  }
 
   @override
-  Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) => throw _noLibrary();
+  Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) async {
+    final old = _regex[regexId]!;
+    return _regex[regexId] = TavernRegexScript(
+      id: old.id,
+      sourceText: old.sourceText,
+      raw: {...old.raw, 'disabled': !enabled},
+      importedAt: old.importedAt,
+      diagnostics: old.diagnostics,
+    );
+  }
 
   @override
-  Future<void> deleteRegex(String regexId) async {}
+  Future<void> deleteRegex(String regexId) async => _regex.remove(regexId);
 
   @override
-  Future<String> exportRegex({String? regexId}) async => '[]';
+  Future<String> exportRegex({String? regexId}) async => jsonEncode([
+    for (final s in _regex.values)
+      if (regexId == null || s.id == regexId) s.raw,
+  ]);
 
   @override
   Future<List<TavernLorebookSummary>> listLorebooks() async => const [];
