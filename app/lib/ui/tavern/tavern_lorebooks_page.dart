@@ -15,6 +15,7 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_provider.dart';
 import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
+import '../common/sheet_title_bar.dart';
 import '../features/feature_kit.dart';
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
@@ -158,6 +159,224 @@ class TavernLorebooksPage extends ConsumerWidget {
             ],
           ),
       ],
+    );
+  }
+}
+
+/// Who a binding belongs to: a chat, a character or a persona, by id. The
+/// global binding is the library page's own.
+typedef TavernLorebookScope = ({WorldInfoSource source, String id});
+
+/// The lorebooks bound to [TavernLorebookScope], beside the global ones: a
+/// chat's in its own settings, a character's and a persona's in the global
+/// settings by id.
+final tavernLorebookBindingProvider = FutureProvider.autoDispose.family<List<String>, TavernLorebookScope>((
+  ref,
+  scope,
+) async {
+  final tavern = ref.watch(tavernProvider);
+  final chat = scope.source == WorldInfoSource.chat;
+  final settings = await tavern.readSettings(chatId: chat ? scope.id : null);
+  final ids = switch (scope.source) {
+    WorldInfoSource.chat => switch (settings['lorebooks']) {
+      {'chat': final Object? ids} => ids,
+      _ => null,
+    },
+    WorldInfoSource.character => switch (settings['characterLorebooks']) {
+      final Map<String, Object?> byId => byId[scope.id],
+      _ => null,
+    },
+    WorldInfoSource.persona => switch (settings['personaLorebooks']) {
+      final Map<String, Object?> byId => byId[scope.id],
+      _ => null,
+    },
+    _ => null,
+  };
+  return [
+    if (ids is List<Object?>)
+      for (final id in ids) '$id',
+  ];
+});
+
+Future<void> _bind(Tavern tavern, TavernLorebookScope scope, List<String> ids) => switch (scope.source) {
+  WorldInfoSource.chat => tavern.bindLorebooks(ids, source: WorldInfoSource.chat, chatId: scope.id),
+  WorldInfoSource.character => tavern.bindLorebooks(ids, source: WorldInfoSource.character, characterId: scope.id),
+  WorldInfoSource.persona => tavern.bindLorebooks(ids, source: WorldInfoSource.persona, personaId: scope.id),
+  _ => tavern.bindLorebooks(ids),
+};
+
+/// A row saying how many lorebooks [scope] has bound; it opens the picker.
+class TavernLorebookBindingTile extends ConsumerWidget {
+  const TavernLorebookBindingTile({
+    super.key,
+    required this.scope,
+    required this.title,
+    required this.sheetTitle,
+    required this.note,
+    this.subtitle,
+    this.enabled = true,
+  });
+
+  final TavernLorebookScope scope;
+  final String title;
+  final String? subtitle;
+
+  /// The picker's title, and what the binding does, under it.
+  final String sheetTitle;
+  final String note;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final bound = ref.watch(tavernLorebookBindingProvider(scope)).value;
+    return SettingsTile(
+      icon: AppIcons.lorebook,
+      tinted: false,
+      title: title,
+      subtitle: subtitle,
+      value: Text(switch (bound) {
+        null => '',
+        [] => l10n.tavernLorebookNone,
+        final ids => l10n.tavernLorebookCount(ids.length),
+      }),
+      onTap: enabled
+          ? () => unawaited(showTavernLorebookPicker(context, scope: scope, title: sheetTitle, note: note))
+          : null,
+    );
+  }
+}
+
+/// The library's lorebooks, each on or off for [scope]; a change is saved at
+/// once. A book still bound after it was deleted shows too, to be let go.
+Future<void> showTavernLorebookPicker(
+  BuildContext context, {
+  required TavernLorebookScope scope,
+  required String title,
+  required String note,
+}) => showAppSheet<void>(
+  context,
+  builder: (sheet) => _LorebookPicker(scope: scope, title: title, note: note),
+);
+
+class _LorebookPicker extends ConsumerStatefulWidget {
+  const _LorebookPicker({required this.scope, required this.title, required this.note});
+
+  final TavernLorebookScope scope;
+  final String title;
+  final String note;
+
+  @override
+  ConsumerState<_LorebookPicker> createState() => _LorebookPickerState();
+}
+
+class _LorebookPickerState extends ConsumerState<_LorebookPicker> {
+  /// What this sheet has set, ahead of the engine; null until changed.
+  List<String>? _ids;
+
+  /// Saves run one after another, each with the whole list as it then was.
+  Future<void> _saving = Future.value();
+
+  void _set(List<String> current, String id, bool on) {
+    final ids = [
+      for (final b in current)
+        if (b != id) b,
+      if (on) id,
+    ];
+    setState(() => _ids = ids);
+    final l10n = context.l10n;
+    final tavern = ref.read(tavernProvider);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    _saving = _saving.then((_) async {
+      try {
+        await _bind(tavern, widget.scope, ids);
+      } on Object {
+        // Back to what the engine has.
+        if (mounted) setState(() => _ids = null);
+        messenger?.showBriefNotice(l10n.commonSaveFailed);
+      }
+      container.invalidate(tavernLorebookBindingProvider(widget.scope));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final library = ref.watch(tavernLorebooksProvider).value;
+    final bound = _ids ?? ref.watch(tavernLorebookBindingProvider(widget.scope)).value;
+    final known = {for (final book in library?.books ?? const <TavernLorebookSummary>[]) book.id};
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetTitleBar(widget.title),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 12),
+            child: Text(
+              widget.note,
+              style: theme.textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary, height: 1.5),
+            ),
+          ),
+          if (library == null || bound == null)
+            const QuietSpinner()
+          else if (library.books.isEmpty && bound.isEmpty)
+            SheetGroup(
+              margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+              children: [
+                SettingsTile(
+                  key: const ValueKey('tavern-bind-lorebook-library'),
+                  icon: AppIcons.add,
+                  tinted: false,
+                  title: l10n.tavernLorebookOpenLibrary,
+                  subtitle: l10n.tavernLorebookPickEmpty,
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    unawaited(navigator.push(TavernLorebooksPage.route()));
+                  },
+                ),
+              ],
+            )
+          else
+            Flexible(
+              child: SingleChildScrollView(
+                child: SheetGroup(
+                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                  children: [
+                    for (final book in library.books)
+                      SettingsSwitchTile(
+                        key: ValueKey('tavern-bind-lorebook-${book.id}'),
+                        icon: AppIcons.lorebook,
+                        tinted: false,
+                        title: book.name,
+                        subtitle: [
+                          l10n.tavernLorebookEntries(book.entryCount),
+                          if (library.global.contains(book.id)) l10n.tavernLorebookGlobal,
+                        ].join(' · '),
+                        value: bound.contains(book.id),
+                        onChanged: (on) => _set(bound, book.id, on),
+                      ),
+                    for (final id in bound)
+                      if (!known.contains(id))
+                        SettingsSwitchTile(
+                          key: ValueKey('tavern-bind-lorebook-$id'),
+                          icon: AppIcons.lorebook,
+                          tinted: false,
+                          title: l10n.tavernLorebookMissing,
+                          subtitle: l10n.tavernLorebookMissingSubtitle,
+                          value: true,
+                          onChanged: (on) => _set(bound, id, on),
+                        ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

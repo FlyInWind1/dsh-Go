@@ -25,6 +25,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_home_page.dart' show plainPreview;
+import 'tavern_lorebooks_page.dart';
 import 'tavern_widgets.dart';
 
 /// Where picked persona pictures are kept: the app's own copy, so the persona
@@ -516,6 +517,17 @@ class _TavernPersonaEditPageState extends ConsumerState<TavernPersonaEditPage> {
             value: _default ?? false,
             onChanged: enabled && _default != null ? (on) => setState(() => _default = on) : null,
           ),
+          // Saved as it changes, as the picker says; only once the persona exists.
+          if (widget.persona case final persona?)
+            TavernLorebookBindingTile(
+              key: const ValueKey('tavern-persona-lorebooks'),
+              scope: (source: WorldInfoSource.persona, id: persona.id),
+              title: l10n.tavernLorebooksBound,
+              subtitle: l10n.tavernLorebooksBoundPersona,
+              sheetTitle: l10n.tavernLorebookForPersona(persona.name),
+              note: l10n.tavernLorebookPersonaNote,
+              enabled: enabled,
+            ),
         ],
       ),
       if (editing)

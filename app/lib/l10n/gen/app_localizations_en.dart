@@ -20393,6 +20393,53 @@ class L10nEn extends L10n {
   String get tavernStageInspect => 'See the whole inspection';
 
   @override
+  String get tavernLorebookNone => 'None';
+
+  @override
+  String get tavernLorebooksBound => 'Bound lorebooks';
+
+  @override
+  String get tavernLorebooksBoundCharacter => 'Used in every chat with this character';
+
+  @override
+  String get tavernLorebooksBoundPersona => 'Used in every chat where you\'re this persona';
+
+  @override
+  String get tavernLorebookForChat => 'Lorebooks for this chat';
+
+  @override
+  String tavernLorebookForCharacter(String name) {
+    return 'Lorebooks for $name';
+  }
+
+  @override
+  String tavernLorebookForPersona(String name) {
+    return 'Lorebooks as $name';
+  }
+
+  @override
+  String get tavernLorebookChatNote => 'Used only in this chat. The ones marked Global are on in every chat anyway.';
+
+  @override
+  String get tavernLorebookCharacterNote =>
+      'Every chat with this character uses these, along with the card\'s own lorebook.';
+
+  @override
+  String get tavernLorebookPersonaNote => 'Every chat where you\'re this persona uses these.';
+
+  @override
+  String get tavernLorebookPickEmpty => 'No lorebooks in the library yet';
+
+  @override
+  String get tavernLorebookOpenLibrary => 'Import one in the library';
+
+  @override
+  String get tavernLorebookMissing => 'A deleted lorebook';
+
+  @override
+  String get tavernLorebookMissingSubtitle => 'Still bound and skipped when replying; turn off to unbind';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

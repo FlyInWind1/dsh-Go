@@ -646,5 +646,21 @@
   "tavernStageTokensOut": "回复",
   "tavernStageWorld": "这回合用上的世界书",
   "tavernStageWorldNone": "这回合没有条目被触发",
-  "tavernStageInspect": "看完整的检视"
+  "tavernStageInspect": "看完整的检视",
+  "tavernLorebookNone": "无",
+  "tavernLorebooksBound": "绑定的世界书",
+  "tavernLorebooksBoundCharacter": "这个角色的每段对话都会用",
+  "tavernLorebooksBoundPersona": "用这个人设的对话都会用",
+  "tavernLorebookForChat": "这段对话的世界书",
+  "tavernLorebookForCharacter": "「{name}」的世界书",
+  "@tavernLorebookForCharacter": {"placeholders": {"name": {"type": "String"}}},
+  "tavernLorebookForPersona": "用「{name}」时的世界书",
+  "@tavernLorebookForPersona": {"placeholders": {"name": {"type": "String"}}},
+  "tavernLorebookChatNote": "只在这段对话里用。标着「全局」的本来就对所有对话生效。",
+  "tavernLorebookCharacterNote": "这个角色的每段对话都会用，卡自带的世界书照常一起用。",
+  "tavernLorebookPersonaNote": "你用这个人设时，每段对话都会用。",
+  "tavernLorebookPickEmpty": "资源库里还没有世界书",
+  "tavernLorebookOpenLibrary": "去资源库导入",
+  "tavernLorebookMissing": "已删除的世界书",
+  "tavernLorebookMissingSubtitle": "还绑着，生成时会跳过；关掉就解除"
 }

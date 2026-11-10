@@ -19335,6 +19335,52 @@ class L10nZh extends L10n {
   String get tavernStageInspect => '看完整的检视';
 
   @override
+  String get tavernLorebookNone => '无';
+
+  @override
+  String get tavernLorebooksBound => '绑定的世界书';
+
+  @override
+  String get tavernLorebooksBoundCharacter => '这个角色的每段对话都会用';
+
+  @override
+  String get tavernLorebooksBoundPersona => '用这个人设的对话都会用';
+
+  @override
+  String get tavernLorebookForChat => '这段对话的世界书';
+
+  @override
+  String tavernLorebookForCharacter(String name) {
+    return '「$name」的世界书';
+  }
+
+  @override
+  String tavernLorebookForPersona(String name) {
+    return '用「$name」时的世界书';
+  }
+
+  @override
+  String get tavernLorebookChatNote => '只在这段对话里用。标着「全局」的本来就对所有对话生效。';
+
+  @override
+  String get tavernLorebookCharacterNote => '这个角色的每段对话都会用，卡自带的世界书照常一起用。';
+
+  @override
+  String get tavernLorebookPersonaNote => '你用这个人设时，每段对话都会用。';
+
+  @override
+  String get tavernLorebookPickEmpty => '资源库里还没有世界书';
+
+  @override
+  String get tavernLorebookOpenLibrary => '去资源库导入';
+
+  @override
+  String get tavernLorebookMissing => '已删除的世界书';
+
+  @override
+  String get tavernLorebookMissingSubtitle => '还绑着，生成时会跳过；关掉就解除';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

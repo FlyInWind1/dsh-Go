@@ -646,5 +646,21 @@
   "tavernStageTokensOut": "Reply",
   "tavernStageWorld": "Lorebook entries this turn",
   "tavernStageWorldNone": "No entry came up this turn",
-  "tavernStageInspect": "See the whole inspection"
+  "tavernStageInspect": "See the whole inspection",
+  "tavernLorebookNone": "None",
+  "tavernLorebooksBound": "Bound lorebooks",
+  "tavernLorebooksBoundCharacter": "Used in every chat with this character",
+  "tavernLorebooksBoundPersona": "Used in every chat where you're this persona",
+  "tavernLorebookForChat": "Lorebooks for this chat",
+  "tavernLorebookForCharacter": "Lorebooks for {name}",
+  "@tavernLorebookForCharacter": {"placeholders": {"name": {"type": "String"}}},
+  "tavernLorebookForPersona": "Lorebooks as {name}",
+  "@tavernLorebookForPersona": {"placeholders": {"name": {"type": "String"}}},
+  "tavernLorebookChatNote": "Used only in this chat. The ones marked Global are on in every chat anyway.",
+  "tavernLorebookCharacterNote": "Every chat with this character uses these, along with the card's own lorebook.",
+  "tavernLorebookPersonaNote": "Every chat where you're this persona uses these.",
+  "tavernLorebookPickEmpty": "No lorebooks in the library yet",
+  "tavernLorebookOpenLibrary": "Import one in the library",
+  "tavernLorebookMissing": "A deleted lorebook",
+  "tavernLorebookMissingSubtitle": "Still bound and skipped when replying; turn off to unbind"
 }

@@ -22,6 +22,7 @@ import 'tavern_chat_files.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
 import 'tavern_live2d_tile.dart';
+import 'tavern_lorebooks_page.dart';
 import 'tavern_report_page.dart';
 import 'tavern_lorebook_page.dart';
 import 'tavern_widgets.dart';
@@ -241,6 +242,14 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                   subtitle: l10n.tavernLorebookSubtitle,
                   onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
                 ),
+              TavernLorebookBindingTile(
+                key: const ValueKey('tavern-character-lorebooks'),
+                scope: (source: WorldInfoSource.character, id: character.id),
+                title: l10n.tavernLorebooksBound,
+                subtitle: l10n.tavernLorebooksBoundCharacter,
+                sheetTitle: l10n.tavernLorebookForCharacter(character.name),
+                note: l10n.tavernLorebookCharacterNote,
+              ),
               TavernLive2dTile(character: character),
               // What of the card runs here, and what is kept but not run.
               SettingsTile(

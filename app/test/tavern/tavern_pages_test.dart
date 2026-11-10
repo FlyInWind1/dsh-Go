@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -59,7 +60,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('开场白 1/2'), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('tavern-start')));
+    // To the middle: scrolled to the top it would sit under the glass header.
+    unawaited(Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('tavern-start'))), alignment: 0.5));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('tavern-start')));
     await tester.pumpAndSettle();
@@ -91,7 +93,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('tavern-character-sample-innkeeper')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('tavern-start')));
+    // To the middle: scrolled to the top it would sit under the glass header.
+    unawaited(Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('tavern-start'))), alignment: 0.5));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('tavern-start')));
     await tester.pumpAndSettle();

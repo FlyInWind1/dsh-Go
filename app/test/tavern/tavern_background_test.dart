@@ -76,7 +76,10 @@ void main() {
     expect(_shown(tester), isNull);
 
     await _quickLook(tester);
-    expect(find.text('无'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('tavern-chat-background')), matching: find.text('无')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('tavern-chat-background')));
     await tester.pumpAndSettle();
     expect(_shown(tester)?.path, _first.path);

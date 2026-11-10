@@ -24,6 +24,7 @@ import '../theme/theme.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
+import 'tavern_lorebooks_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
 import 'tavern_storybook_page.dart';
@@ -222,6 +223,14 @@ class _Session extends ConsumerWidget {
                 ),
               ),
               onTap: busy ? null : () => unawaited(showTavernPresetPicker(context, chatId)),
+            ),
+            TavernLorebookBindingTile(
+              key: const ValueKey('tavern-chat-lorebooks'),
+              scope: (source: WorldInfoSource.chat, id: chatId),
+              title: l10n.tavernLorebooks,
+              sheetTitle: l10n.tavernLorebookForChat,
+              note: l10n.tavernLorebookChatNote,
+              enabled: !busy,
             ),
           ],
         ),

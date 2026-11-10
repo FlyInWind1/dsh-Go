@@ -35318,6 +35318,90 @@ abstract class L10n {
   /// **'看完整的检视'**
   String get tavernStageInspect;
 
+  /// No description provided for @tavernLorebookNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无'**
+  String get tavernLorebookNone;
+
+  /// No description provided for @tavernLorebooksBound.
+  ///
+  /// In zh, this message translates to:
+  /// **'绑定的世界书'**
+  String get tavernLorebooksBound;
+
+  /// No description provided for @tavernLorebooksBoundCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色的每段对话都会用'**
+  String get tavernLorebooksBoundCharacter;
+
+  /// No description provided for @tavernLorebooksBoundPersona.
+  ///
+  /// In zh, this message translates to:
+  /// **'用这个人设的对话都会用'**
+  String get tavernLorebooksBoundPersona;
+
+  /// No description provided for @tavernLorebookForChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段对话的世界书'**
+  String get tavernLorebookForChat;
+
+  /// No description provided for @tavernLorebookForCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」的世界书'**
+  String tavernLorebookForCharacter(String name);
+
+  /// No description provided for @tavernLorebookForPersona.
+  ///
+  /// In zh, this message translates to:
+  /// **'用「{name}」时的世界书'**
+  String tavernLorebookForPersona(String name);
+
+  /// No description provided for @tavernLorebookChatNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'只在这段对话里用。标着「全局」的本来就对所有对话生效。'**
+  String get tavernLorebookChatNote;
+
+  /// No description provided for @tavernLorebookCharacterNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色的每段对话都会用，卡自带的世界书照常一起用。'**
+  String get tavernLorebookCharacterNote;
+
+  /// No description provided for @tavernLorebookPersonaNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'你用这个人设时，每段对话都会用。'**
+  String get tavernLorebookPersonaNote;
+
+  /// No description provided for @tavernLorebookPickEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'资源库里还没有世界书'**
+  String get tavernLorebookPickEmpty;
+
+  /// No description provided for @tavernLorebookOpenLibrary.
+  ///
+  /// In zh, this message translates to:
+  /// **'去资源库导入'**
+  String get tavernLorebookOpenLibrary;
+
+  /// No description provided for @tavernLorebookMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除的世界书'**
+  String get tavernLorebookMissing;
+
+  /// No description provided for @tavernLorebookMissingSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'还绑着，生成时会跳过；关掉就解除'**
+  String get tavernLorebookMissingSubtitle;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
