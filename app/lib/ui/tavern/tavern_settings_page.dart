@@ -10,6 +10,7 @@ import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../state/settings_state.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
 import '../common/app_sheet.dart';
 import '../modes/mode_switch.dart';
@@ -18,6 +19,7 @@ import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import 'tavern_personas.dart';
+import 'tavern_quick_replies_page.dart';
 
 class TavernSettingsPage extends ConsumerWidget {
   const TavernSettingsPage({super.key});
@@ -45,6 +47,16 @@ class TavernSettingsPage extends ConsumerWidget {
               title: l10n.tavernDefaultPersona,
               value: Text(defaultPersona?.name ?? l10n.tavernPersonaNotSet),
               onTap: () => unawaited(Navigator.of(context).push(TavernPersonasPage.route())),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-quick-replies'),
+              icon: AppIcons.reply,
+              title: l10n.tavernQuickReplies,
+              value: Text(switch (ref.watch(tavernQuickRepliesProvider).length) {
+                0 => l10n.tavernPersonaNotSet,
+                final n => l10n.tavernQuickReplyCount(n),
+              }),
+              onTap: () => unawaited(Navigator.of(context).push(TavernQuickRepliesPage.route())),
             ),
           ],
         ),

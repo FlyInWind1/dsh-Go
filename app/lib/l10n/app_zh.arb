@@ -11544,6 +11544,19 @@
     }
   },
   "tavernLinkIsPage": "这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。",
+  "tavernQuickReplies": "快速回复",
+  "tavernQuickRepliesEmpty": "还没有快速回复",
+  "tavernQuickRepliesNote": "对话里输入框上方会出现这些：点一下直接发出去，长按放进输入框再改。",
+  "tavernQuickReplyAdd": "加一条",
+  "tavernQuickReplyHint": "比如：*环顾四周，看有没有别人*",
+  "tavernQuickReplyCount": "{count} 条",
+  "@tavernQuickReplyCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

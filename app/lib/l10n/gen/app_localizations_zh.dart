@@ -18722,6 +18722,26 @@ class L10nZh extends L10n {
   String get tavernLinkIsPage => '这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。';
 
   @override
+  String get tavernQuickReplies => '快速回复';
+
+  @override
+  String get tavernQuickRepliesEmpty => '还没有快速回复';
+
+  @override
+  String get tavernQuickRepliesNote => '对话里输入框上方会出现这些：点一下直接发出去，长按放进输入框再改。';
+
+  @override
+  String get tavernQuickReplyAdd => '加一条';
+
+  @override
+  String get tavernQuickReplyHint => '比如：*环顾四周，看有没有别人*';
+
+  @override
+  String tavernQuickReplyCount(int count) {
+    return '$count 条';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

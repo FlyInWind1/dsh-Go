@@ -15,6 +15,7 @@ import '../../l10n/l10n.dart';
 import '../../state/settings_state.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
@@ -23,6 +24,7 @@ import '../chat/render/markdown_body.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
+import '../common/capsule_chip.dart';
 import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
@@ -212,6 +214,22 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   void _stop() => _tavern.stop(widget.chatId);
+
+  /// A quick reply sends as it is; on failure it waits in the box.
+  void _sendQuick(String text) {
+    if (_running) return;
+    unawaited(HapticFeedback.selectionClick());
+    _run(() => _tavern.send(widget.chatId, text), draft: text);
+  }
+
+  /// Long-press: the quick reply goes into the box to change first.
+  void _editQuick(String text) {
+    _input.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _focus.requestFocus();
+  }
 
   /// 帮我写: the model writes your next line into the composer. Nothing is
   /// sent or stored; edit it, then send. Stop keeps what has arrived.
@@ -613,6 +631,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           onStop: _stop,
           placeholder: l10n.tavernComposerHint(name),
           leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
+          tray: switch (ref.watch(tavernQuickRepliesProvider)) {
+            final quick when quick.isNotEmpty && !_running && messages != null => _QuickReplyRow(
+              replies: quick,
+              onSend: _sendQuick,
+              onEdit: _editQuick,
+            ),
+            _ => null,
+          },
           // 帮我写 while the box is empty: an idea to start from.
           accessory: ValueListenableBuilder<TextEditingValue>(
             valueListenable: _input,
@@ -764,6 +790,41 @@ class _MessageRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 快速回复 above the composer: tap sends, long-press puts it in the box.
+class _QuickReplyRow extends StatelessWidget {
+  const _QuickReplyRow({required this.replies, required this.onSend, required this.onEdit});
+
+  final List<String> replies;
+  final ValueChanged<String> onSend;
+  final ValueChanged<String> onEdit;
+
+  /// The first line, kept short enough for a capsule.
+  static String _label(String reply) {
+    final line = reply.trim().split('\n').first;
+    return line.characters.length > 16 ? '${line.characters.take(16)}…' : line;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: SizedBox(
+      height: 36,
+      child: ListView.separated(
+        key: const ValueKey('tavern-quick-replies'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: replies.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) => GestureDetector(
+          key: ValueKey('tavern-qr-$i'),
+          onLongPress: () => onEdit(replies[i]),
+          child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Swiping a reply sideways steps through its alternatives: left for the next

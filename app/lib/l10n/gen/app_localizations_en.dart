@@ -19755,6 +19755,28 @@ class L10nEn extends L10n {
       'That\'s a web page, not a card file. Find the download link to the .png or .json and try that.';
 
   @override
+  String get tavernQuickReplies => 'Quick replies';
+
+  @override
+  String get tavernQuickRepliesEmpty => 'No quick replies yet';
+
+  @override
+  String get tavernQuickRepliesNote =>
+      'They sit above the input in every chat: tap to send, long-press to put it in the box first.';
+
+  @override
+  String get tavernQuickReplyAdd => 'Add one';
+
+  @override
+  String get tavernQuickReplyHint => 'e.g. *looks around for anyone else*';
+
+  @override
+  String tavernQuickReplyCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '$_temp0';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

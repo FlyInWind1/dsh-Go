@@ -34196,6 +34196,42 @@ abstract class L10n {
   /// **'这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。'**
   String get tavernLinkIsPage;
 
+  /// No description provided for @tavernQuickReplies.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速回复'**
+  String get tavernQuickReplies;
+
+  /// No description provided for @tavernQuickRepliesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有快速回复'**
+  String get tavernQuickRepliesEmpty;
+
+  /// No description provided for @tavernQuickRepliesNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话里输入框上方会出现这些：点一下直接发出去，长按放进输入框再改。'**
+  String get tavernQuickRepliesNote;
+
+  /// No description provided for @tavernQuickReplyAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'加一条'**
+  String get tavernQuickReplyAdd;
+
+  /// No description provided for @tavernQuickReplyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'比如：*环顾四周，看有没有别人*'**
+  String get tavernQuickReplyHint;
+
+  /// No description provided for @tavernQuickReplyCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条'**
+  String tavernQuickReplyCount(int count);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

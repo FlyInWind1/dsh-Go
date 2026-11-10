@@ -353,5 +353,18 @@
       }
     }
   },
-  "tavernLinkIsPage": "That's a web page, not a card file. Find the download link to the .png or .json and try that."
+  "tavernLinkIsPage": "That's a web page, not a card file. Find the download link to the .png or .json and try that.",
+  "tavernQuickReplies": "Quick replies",
+  "tavernQuickRepliesEmpty": "No quick replies yet",
+  "tavernQuickRepliesNote": "They sit above the input in every chat: tap to send, long-press to put it in the box first.",
+  "tavernQuickReplyAdd": "Add one",
+  "tavernQuickReplyHint": "e.g. *looks around for anyone else*",
+  "tavernQuickReplyCount": "{count, plural, =1{1 line} other{{count} lines}}",
+  "@tavernQuickReplyCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
