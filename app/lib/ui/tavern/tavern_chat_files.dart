@@ -34,7 +34,7 @@ final tavernChatSinkProvider = Provider<Future<void> Function(List<TavernChatFil
     for (final f in files) {
       final file = File('${dir.path}/${f.fileName}');
       await file.writeAsBytes(f.bytes, flush: true);
-      shared.add(XFile(file.path, mimeType: 'application/x-ndjson', name: f.fileName));
+      shared.add(XFile(file.path, mimeType: tavernFileMime(f.fileName), name: f.fileName));
     }
     await SharePlus.instance.share(ShareParams(files: shared, fileNameOverrides: [for (final f in files) f.fileName]));
   },
@@ -99,9 +99,15 @@ Future<void> exportTavernChat(BuildContext context, WidgetRef ref, String chatId
   }
 }
 
-/// `<title>.jsonl` without path or reserved characters.
-@visibleForTesting
-String tavernChatFileName(String title) {
+/// What a file handed on is, from its name: chats, books, text.
+String tavernFileMime(String fileName) => switch (fileName.split('.').last.toLowerCase()) {
+  'epub' => 'application/epub+zip',
+  'txt' => 'text/plain',
+  _ => 'application/x-ndjson',
+};
+
+/// `<title>.jsonl` (or another [extension]) without path or reserved characters.
+String tavernChatFileName(String title, {String extension = 'jsonl'}) {
   final safe = title.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
-  return '${safe.isEmpty ? 'chat' : safe}.jsonl';
+  return '${safe.isEmpty ? 'chat' : safe}.$extension';
 }

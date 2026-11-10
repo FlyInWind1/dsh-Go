@@ -19832,6 +19832,92 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernStorybook => 'Storybook';
+
+  @override
+  String get tavernStorybookMenu => 'Export as a storybook';
+
+  @override
+  String get tavernStorybookTitle => 'Title';
+
+  @override
+  String tavernStorybookDefaultTitle(String name) {
+    return 'A story with $name';
+  }
+
+  @override
+  String tavernStorybookByline(String character, String you) {
+    return '$character and $you';
+  }
+
+  @override
+  String get tavernStorybookWhole => 'The whole story';
+
+  @override
+  String tavernStorybookWholeNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '$_temp0; hidden messages are left out. The EPUB opens in Apple Books and most reading apps.';
+  }
+
+  @override
+  String get tavernStorybookEpub => 'E-book (EPUB)';
+
+  @override
+  String get tavernStorybookText => 'Plain text (TXT)';
+
+  @override
+  String get tavernStorybookImage => 'Long image';
+
+  @override
+  String get tavernStorybookLatest => 'The latest';
+
+  @override
+  String tavernStorybookLines(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernStorybookSave => 'Save to photos';
+
+  @override
+  String get tavernStorybookShare => 'Share the image';
+
+  @override
+  String tavernStorybookEarlier(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count earlier lines are',
+      one: '1 earlier line is',
+    );
+    return '$_temp0 left out of the image; export the e-book for all of it.';
+  }
+
+  @override
+  String tavernStorybookEarlierShort(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '… $_temp0 before this …';
+  }
+
+  @override
+  String get tavernStorybookMadeWith => 'Written in the DSH Go tavern';
+
+  @override
+  String get tavernStorybookContents => 'Contents';
+
+  @override
+  String tavernStorybookChapter(int n) {
+    return 'Chapter $n';
+  }
+
+  @override
+  String get tavernStorybookSaved => 'Saved to photos';
+
+  @override
+  String get tavernStorybookFailed => 'Couldn’t export it; try again';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

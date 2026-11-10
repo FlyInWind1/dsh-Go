@@ -18797,6 +18797,83 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernStorybook => '故事书';
+
+  @override
+  String get tavernStorybookMenu => '导出成故事书';
+
+  @override
+  String get tavernStorybookTitle => '书名';
+
+  @override
+  String tavernStorybookDefaultTitle(String name) {
+    return '$name的故事';
+  }
+
+  @override
+  String tavernStorybookByline(String character, String you) {
+    return '$character 和 $you';
+  }
+
+  @override
+  String get tavernStorybookWhole => '整本';
+
+  @override
+  String tavernStorybookWholeNote(int count) {
+    return '一共 $count 句，隐藏的消息不放进去。EPUB 能用微信读书、Apple 图书等打开。';
+  }
+
+  @override
+  String get tavernStorybookEpub => '电子书（EPUB）';
+
+  @override
+  String get tavernStorybookText => '纯文本（TXT）';
+
+  @override
+  String get tavernStorybookImage => '长图';
+
+  @override
+  String get tavernStorybookLatest => '放最近';
+
+  @override
+  String tavernStorybookLines(int count) {
+    return '$count 句';
+  }
+
+  @override
+  String get tavernStorybookSave => '存到相册';
+
+  @override
+  String get tavernStorybookShare => '分享长图';
+
+  @override
+  String tavernStorybookEarlier(int count) {
+    return '前面还有 $count 句没放进图里，整段请导出电子书。';
+  }
+
+  @override
+  String tavernStorybookEarlierShort(int count) {
+    return '…… 前面还有 $count 句 ……';
+  }
+
+  @override
+  String get tavernStorybookMadeWith => '用 DSH Go 酒馆写成';
+
+  @override
+  String get tavernStorybookContents => '目录';
+
+  @override
+  String tavernStorybookChapter(int n) {
+    return '第 $n 章';
+  }
+
+  @override
+  String get tavernStorybookSaved => '已存到相册';
+
+  @override
+  String get tavernStorybookFailed => '没能导出，再试一次';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

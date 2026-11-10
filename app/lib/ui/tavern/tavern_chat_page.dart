@@ -46,6 +46,7 @@ import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_message_edit_page.dart';
+import 'tavern_storybook_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
@@ -449,6 +450,26 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       onTap: () {
                         Navigator.of(sheet).pop();
                         unawaited(exportTavernChat(this.context, ref, widget.chatId, title: name));
+                      },
+                    ),
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-storybook'),
+                      icon: AppIcons.bookmark,
+                      tinted: false,
+                      title: l10n.tavernStorybookMenu,
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        final avatar = ref
+                            .read(tavernCharactersProvider)
+                            .value
+                            ?.where((c) => c.id == characterId)
+                            .firstOrNull
+                            ?.avatarPath;
+                        unawaited(
+                          Navigator.of(
+                            this.context,
+                          ).push(TavernStorybookPage.route(chatId: widget.chatId, character: name, avatarPath: avatar)),
+                        );
                       },
                     ),
                   ],

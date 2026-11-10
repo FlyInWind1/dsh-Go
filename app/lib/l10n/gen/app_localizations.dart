@@ -34334,6 +34334,132 @@ abstract class L10n {
   /// **'（{working}）'**
   String tavernDiceWorking(String working);
 
+  /// No description provided for @tavernStorybook.
+  ///
+  /// In zh, this message translates to:
+  /// **'故事书'**
+  String get tavernStorybook;
+
+  /// No description provided for @tavernStorybookMenu.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出成故事书'**
+  String get tavernStorybookMenu;
+
+  /// No description provided for @tavernStorybookTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'书名'**
+  String get tavernStorybookTitle;
+
+  /// No description provided for @tavernStorybookDefaultTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}的故事'**
+  String tavernStorybookDefaultTitle(String name);
+
+  /// No description provided for @tavernStorybookByline.
+  ///
+  /// In zh, this message translates to:
+  /// **'{character} 和 {you}'**
+  String tavernStorybookByline(String character, String you);
+
+  /// No description provided for @tavernStorybookWhole.
+  ///
+  /// In zh, this message translates to:
+  /// **'整本'**
+  String get tavernStorybookWhole;
+
+  /// No description provided for @tavernStorybookWholeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'一共 {count} 句，隐藏的消息不放进去。EPUB 能用微信读书、Apple 图书等打开。'**
+  String tavernStorybookWholeNote(int count);
+
+  /// No description provided for @tavernStorybookEpub.
+  ///
+  /// In zh, this message translates to:
+  /// **'电子书（EPUB）'**
+  String get tavernStorybookEpub;
+
+  /// No description provided for @tavernStorybookText.
+  ///
+  /// In zh, this message translates to:
+  /// **'纯文本（TXT）'**
+  String get tavernStorybookText;
+
+  /// No description provided for @tavernStorybookImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'长图'**
+  String get tavernStorybookImage;
+
+  /// No description provided for @tavernStorybookLatest.
+  ///
+  /// In zh, this message translates to:
+  /// **'放最近'**
+  String get tavernStorybookLatest;
+
+  /// No description provided for @tavernStorybookLines.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 句'**
+  String tavernStorybookLines(int count);
+
+  /// No description provided for @tavernStorybookSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'存到相册'**
+  String get tavernStorybookSave;
+
+  /// No description provided for @tavernStorybookShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享长图'**
+  String get tavernStorybookShare;
+
+  /// No description provided for @tavernStorybookEarlier.
+  ///
+  /// In zh, this message translates to:
+  /// **'前面还有 {count} 句没放进图里，整段请导出电子书。'**
+  String tavernStorybookEarlier(int count);
+
+  /// No description provided for @tavernStorybookEarlierShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'…… 前面还有 {count} 句 ……'**
+  String tavernStorybookEarlierShort(int count);
+
+  /// No description provided for @tavernStorybookMadeWith.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 DSH Go 酒馆写成'**
+  String get tavernStorybookMadeWith;
+
+  /// No description provided for @tavernStorybookContents.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录'**
+  String get tavernStorybookContents;
+
+  /// No description provided for @tavernStorybookChapter.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {n} 章'**
+  String tavernStorybookChapter(int n);
+
+  /// No description provided for @tavernStorybookSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已存到相册'**
+  String get tavernStorybookSaved;
+
+  /// No description provided for @tavernStorybookFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能导出，再试一次'**
+  String get tavernStorybookFailed;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -403,5 +403,78 @@
         "type": "String"
       }
     }
-  }
+  },
+  "tavernStorybook": "故事书",
+  "tavernStorybookMenu": "导出成故事书",
+  "tavernStorybookTitle": "书名",
+  "tavernStorybookDefaultTitle": "{name}的故事",
+  "@tavernStorybookDefaultTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStorybookByline": "{character} 和 {you}",
+  "@tavernStorybookByline": {
+    "placeholders": {
+      "character": {
+        "type": "String"
+      },
+      "you": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStorybookWhole": "整本",
+  "tavernStorybookWholeNote": "一共 {count} 句，隐藏的消息不放进去。EPUB 能用微信读书、Apple 图书等打开。",
+  "@tavernStorybookWholeNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookEpub": "电子书（EPUB）",
+  "tavernStorybookText": "纯文本（TXT）",
+  "tavernStorybookImage": "长图",
+  "tavernStorybookLatest": "放最近",
+  "tavernStorybookLines": "{count} 句",
+  "@tavernStorybookLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookSave": "存到相册",
+  "tavernStorybookShare": "分享长图",
+  "tavernStorybookEarlier": "前面还有 {count} 句没放进图里，整段请导出电子书。",
+  "@tavernStorybookEarlier": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookEarlierShort": "…… 前面还有 {count} 句 ……",
+  "@tavernStorybookEarlierShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookMadeWith": "用 DSH Go 酒馆写成",
+  "tavernStorybookContents": "目录",
+  "tavernStorybookChapter": "第 {n} 章",
+  "@tavernStorybookChapter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookSaved": "已存到相册",
+  "tavernStorybookFailed": "没能导出，再试一次"
 }

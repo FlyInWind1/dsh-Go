@@ -403,5 +403,78 @@
         "type": "String"
       }
     }
-  }
+  },
+  "tavernStorybook": "Storybook",
+  "tavernStorybookMenu": "Export as a storybook",
+  "tavernStorybookTitle": "Title",
+  "tavernStorybookDefaultTitle": "A story with {name}",
+  "@tavernStorybookDefaultTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStorybookByline": "{character} and {you}",
+  "@tavernStorybookByline": {
+    "placeholders": {
+      "character": {
+        "type": "String"
+      },
+      "you": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStorybookWhole": "The whole story",
+  "tavernStorybookWholeNote": "{count, plural, =1{1 line} other{{count} lines}}; hidden messages are left out. The EPUB opens in Apple Books and most reading apps.",
+  "@tavernStorybookWholeNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookEpub": "E-book (EPUB)",
+  "tavernStorybookText": "Plain text (TXT)",
+  "tavernStorybookImage": "Long image",
+  "tavernStorybookLatest": "The latest",
+  "tavernStorybookLines": "{count, plural, =1{1 line} other{{count} lines}}",
+  "@tavernStorybookLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookSave": "Save to photos",
+  "tavernStorybookShare": "Share the image",
+  "tavernStorybookEarlier": "{count, plural, =1{1 earlier line is} other{{count} earlier lines are}} left out of the image; export the e-book for all of it.",
+  "@tavernStorybookEarlier": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookEarlierShort": "… {count, plural, =1{1 line} other{{count} lines}} before this …",
+  "@tavernStorybookEarlierShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookMadeWith": "Written in the DSH Go tavern",
+  "tavernStorybookContents": "Contents",
+  "tavernStorybookChapter": "Chapter {n}",
+  "@tavernStorybookChapter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStorybookSaved": "Saved to photos",
+  "tavernStorybookFailed": "Couldn’t export it; try again"
 }
