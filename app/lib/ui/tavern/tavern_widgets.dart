@@ -15,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
+import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_provider.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
@@ -88,6 +89,7 @@ Future<bool> deleteTavernCharacter(BuildContext context, WidgetRef ref, TavernCh
   for (final chat in chats) {
     await forgetTavernBackground(chat.id);
   }
+  await forgetTavernLive2d(ref.read(tavernLive2dRootProvider), character.id);
   return true;
 }
 

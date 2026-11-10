@@ -476,5 +476,13 @@
     }
   },
   "tavernStorybookSaved": "已存到相册",
-  "tavernStorybookFailed": "没能导出，再试一次"
+  "tavernStorybookFailed": "没能导出，再试一次",
+  "tavernLive2d": "Live2D 形象",
+  "tavernLive2dSubtitle": "视觉小说排版里用它代替卡面，会动、说话时会张嘴",
+  "tavernLive2dNone": "未导入",
+  "tavernLive2dSet": "已导入",
+  "tavernLive2dImported": "导入好了，切到视觉小说排版就能看到她。",
+  "tavernLive2dReplace": "换一个",
+  "tavernLive2dRemove": "去掉 Live2D 形象",
+  "tavernLive2dNoRuntime": "手机上还没有 Live2D 运行库：先在伙伴小屋装一个形象，或者导入完整的素材包。"
 }

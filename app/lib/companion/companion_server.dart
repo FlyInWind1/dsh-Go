@@ -30,7 +30,7 @@ const _contentTypes = {
 };
 
 /// The page's own files, under `assets/companion/`.
-const _appFiles = {'index.html', 'scene.js', 'stage.js', 'stage.css'};
+const _appFiles = {'index.html', 'bare.js', 'scene.js', 'stage.js', 'stage.css'};
 
 class CompanionServer {
   CompanionServer._(this._server, this._token, this._assets, this._pack);

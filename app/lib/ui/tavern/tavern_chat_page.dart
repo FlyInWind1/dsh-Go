@@ -18,6 +18,7 @@ import '../../state/voice_model_state.dart';
 import '../../state/voice_settings.dart';
 import '../../state/voice_state.dart';
 import '../../tavern/tavern_backgrounds.dart';
+import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
@@ -25,6 +26,7 @@ import '../../tavern/tavern_settings.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
 import '../chat/voice/voice_controller.dart';
+import '../companion/companion_stage.dart';
 import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
 import '../chat/widgets/thinking_pill.dart';
@@ -66,6 +68,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   final _scrolled = ValueNotifier(0.0);
+
+  /// The character's Live2D model in the visual novel, when she has one; set
+  /// once it can't be shown, and the card's picture stands in.
+  final _stage = CompanionStageController();
+  bool _stageFailed = false;
+
+  /// The page the stage last played, played again when it (re)loads.
+  TavernPage? _staged;
   late final Tavern _tavern = ref.read(tavernProvider);
   StreamSubscription<void>? _changes;
   StreamSubscription<TavernEvent>? _turn;
@@ -582,6 +592,33 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     }
   }
 
+  /// The stage plays [page]: thinking while a reply starts, then the cues.
+  void _cue(TavernPage page) {
+    _staged = page;
+    if (page.streaming) {
+      _stage.command('mood', {'mood': 'thinking'});
+      return;
+    }
+    for (final (type, args) in tavernStageCues(you: page.message.role == TavernRole.user, text: page.text)) {
+      _stage.command(type, args);
+    }
+  }
+
+  late final _stageEvents = CompanionStageEvents(
+    onReady: () {
+      if (_staged case final page?) _cue(page);
+    },
+    onFailed: (why) {
+      debugPrint('tavern: Live2D stage failed: $why');
+      if (mounted) setState(() => _stageFailed = true);
+    },
+    onTouch: (_, _) {},
+    onWake: () {},
+    onMood: (_) {},
+    onObject: (_) {},
+    onActivity: (_) {},
+  );
+
   /// A picture from the gallery under this chat; says so when one can't be used.
   Future<void> _chooseBackground() async {
     final l10n = context.l10n;
@@ -680,6 +717,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               ],
               name: name,
               avatarPath: character?.avatarPath,
+              stage: switch (characterId == null || _stageFailed
+                  ? null
+                  : ref.watch(tavernLive2dProvider(characterId)).value) {
+                final store? => CompanionStage(
+                  key: ValueKey(store.root.path),
+                  store: store,
+                  controller: _stage,
+                  events: _stageEvents,
+                  bare: true,
+                ),
+                null => null,
+              },
+              onPage: _cue,
               topInset: topInset,
               onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
               footer: (m, lastPage) =>

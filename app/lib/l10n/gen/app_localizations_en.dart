@@ -19918,6 +19918,31 @@ class L10nEn extends L10n {
   String get tavernStorybookFailed => 'Couldn’t export it; try again';
 
   @override
+  String get tavernLive2d => 'Live2D model';
+
+  @override
+  String get tavernLive2dSubtitle => 'Stands in for the card picture in the visual novel layout, moving as she talks';
+
+  @override
+  String get tavernLive2dNone => 'None';
+
+  @override
+  String get tavernLive2dSet => 'Imported';
+
+  @override
+  String get tavernLive2dImported => 'Imported. Switch the chat to the visual novel layout to see her.';
+
+  @override
+  String get tavernLive2dReplace => 'Replace it';
+
+  @override
+  String get tavernLive2dRemove => 'Remove the model';
+
+  @override
+  String get tavernLive2dNoRuntime =>
+      'There’s no Live2D runtime on this phone yet: set one up in the companion room first, or import a whole pack.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -34460,6 +34460,54 @@ abstract class L10n {
   /// **'没能导出，再试一次'**
   String get tavernStorybookFailed;
 
+  /// No description provided for @tavernLive2d.
+  ///
+  /// In zh, this message translates to:
+  /// **'Live2D 形象'**
+  String get tavernLive2d;
+
+  /// No description provided for @tavernLive2dSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'视觉小说排版里用它代替卡面，会动、说话时会张嘴'**
+  String get tavernLive2dSubtitle;
+
+  /// No description provided for @tavernLive2dNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'未导入'**
+  String get tavernLive2dNone;
+
+  /// No description provided for @tavernLive2dSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入'**
+  String get tavernLive2dSet;
+
+  /// No description provided for @tavernLive2dImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入好了，切到视觉小说排版就能看到她。'**
+  String get tavernLive2dImported;
+
+  /// No description provided for @tavernLive2dReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一个'**
+  String get tavernLive2dReplace;
+
+  /// No description provided for @tavernLive2dRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'去掉 Live2D 形象'**
+  String get tavernLive2dRemove;
+
+  /// No description provided for @tavernLive2dNoRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'手机上还没有 Live2D 运行库：先在伙伴小屋装一个形象，或者导入完整的素材包。'**
+  String get tavernLive2dNoRuntime;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -22,6 +22,7 @@ import 'tavern_chat_files.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_lorebook_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
+import 'tavern_live2d_tile.dart';
 import 'tavern_widgets.dart';
 
 class TavernCharacterPage extends ConsumerStatefulWidget {
@@ -193,11 +194,11 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
               ],
             ),
           ),
-        if (character.hasLorebook)
-          SliverToBoxAdapter(
-            child: SheetGroup(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              children: [
+        SliverToBoxAdapter(
+          child: SheetGroup(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              if (character.hasLorebook)
                 SettingsTile(
                   key: const ValueKey('tavern-lorebook'),
                   icon: AppIcons.lorebook,
@@ -206,9 +207,10 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                   subtitle: l10n.tavernLorebookSubtitle,
                   onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
                 ),
-              ],
-            ),
+              TavernLive2dTile(character: character),
+            ],
           ),
+        ),
         if (character.description.isNotEmpty || character.creatorNotes.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(

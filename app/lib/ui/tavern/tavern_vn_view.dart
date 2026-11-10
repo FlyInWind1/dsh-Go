@@ -40,6 +40,8 @@ class TavernVisualNovelView extends StatefulWidget {
     required this.topInset,
     required this.onMenu,
     required this.footer,
+    this.stage,
+    this.onPage,
   });
 
   final List<TavernPage> pages;
@@ -52,6 +54,12 @@ class TavernVisualNovelView extends StatefulWidget {
 
   /// Under the box on the last page: the reply's alternatives.
   final Widget? Function(TavernMessage message, bool lastPage) footer;
+
+  /// The character's Live2D stage, in place of the card's picture.
+  final Widget? stage;
+
+  /// A page came up: a new one, or one reached by stepping back and forth.
+  final ValueChanged<TavernPage>? onPage;
 
   @override
   State<TavernVisualNovelView> createState() => _TavernVisualNovelViewState();
@@ -84,6 +92,22 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
     if (at > 0) setState(() => _page = at - 1);
   }
 
+  /// The page last told to [TavernVisualNovelView.onPage]: its message, where
+  /// it is, and whether it was still being written.
+  (String, int, bool)? _told;
+
+  void _tell(TavernPage? page, int at) {
+    final onPage = widget.onPage;
+    if (page == null || onPage == null) return;
+    final key = (page.message.nodeId, at, page.streaming);
+    if (key == _told) return;
+    _told = key;
+    // After this frame: the page is on screen before the stage reacts to it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onPage(page);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,6 +118,8 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
     final page = pages.isEmpty ? null : pages[at];
     final user = page?.message.role == TavernRole.user;
     final speaker = page == null ? widget.name : (user ? context.l10n.tavernYou : page.message.speaker);
+    _tell(page, at);
+    final stage = widget.stage;
     return Stack(
       children: [
         Positioned.fill(
@@ -107,23 +133,39 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
             ),
           ),
         ),
-        // The character, dimmed a little while you speak.
-        Positioned(
-          left: 40,
-          right: 40,
-          top: widget.topInset + 8,
-          bottom: 190,
-          child: Center(
-            child: AnimatedOpacity(
-              opacity: user ? 0.55 : 1,
-              duration: AppMotion.of(context, AppMotion.standard),
-              child: AspectRatio(
-                aspectRatio: 2 / 3,
-                child: TavernPortrait(name: widget.name, path: widget.avatarPath, radius: AppShape.xl, initialSize: 96),
+        // Her Live2D model, across the stage: she listens while you speak.
+        if (stage != null)
+          Positioned(
+            key: const ValueKey('tavern-vn-stage'),
+            left: 0,
+            right: 0,
+            top: widget.topInset,
+            bottom: 170,
+            child: stage,
+          )
+        // Else the card's picture, dimmed a little while you speak.
+        else
+          Positioned(
+            left: 40,
+            right: 40,
+            top: widget.topInset + 8,
+            bottom: 190,
+            child: Center(
+              child: AnimatedOpacity(
+                opacity: user ? 0.55 : 1,
+                duration: AppMotion.of(context, AppMotion.standard),
+                child: AspectRatio(
+                  aspectRatio: 2 / 3,
+                  child: TavernPortrait(
+                    name: widget.name,
+                    path: widget.avatarPath,
+                    radius: AppShape.xl,
+                    initialSize: 96,
+                  ),
+                ),
               ),
             ),
           ),
-        ),
         Positioned(
           left: 12,
           right: 12,

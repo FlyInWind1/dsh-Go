@@ -18874,6 +18874,30 @@ class L10nZh extends L10n {
   String get tavernStorybookFailed => '没能导出，再试一次';
 
   @override
+  String get tavernLive2d => 'Live2D 形象';
+
+  @override
+  String get tavernLive2dSubtitle => '视觉小说排版里用它代替卡面，会动、说话时会张嘴';
+
+  @override
+  String get tavernLive2dNone => '未导入';
+
+  @override
+  String get tavernLive2dSet => '已导入';
+
+  @override
+  String get tavernLive2dImported => '导入好了，切到视觉小说排版就能看到她。';
+
+  @override
+  String get tavernLive2dReplace => '换一个';
+
+  @override
+  String get tavernLive2dRemove => '去掉 Live2D 形象';
+
+  @override
+  String get tavernLive2dNoRuntime => '手机上还没有 Live2D 运行库：先在伙伴小屋装一个形象，或者导入完整的素材包。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
