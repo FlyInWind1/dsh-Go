@@ -5690,6 +5690,7 @@
   "tavernQuickReplyAdd": "Add one",
   "tavernQuickReplyHint": "e.g. *looks around for anyone else*",
   "tavernQuickReplyCount": "{count, plural, =1{1 line} other{{count} lines}}",
+  "tavernEditMessage": "Edit message",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

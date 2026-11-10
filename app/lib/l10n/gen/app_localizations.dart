@@ -34232,6 +34232,12 @@ abstract class L10n {
   /// **'{count} 条'**
   String tavernQuickReplyCount(int count);
 
+  /// No description provided for @tavernEditMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑消息'**
+  String get tavernEditMessage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

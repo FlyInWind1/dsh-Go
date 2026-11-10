@@ -366,5 +366,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tavernEditMessage": "Edit message"
 }

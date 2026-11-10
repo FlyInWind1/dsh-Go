@@ -218,6 +218,27 @@ void main() {
     expect(find.byKey(const ValueKey('tavern-older')), findsNothing);
   });
 
+  testWidgets('editing a message opens a whole page and saves only a change', (tester) async {
+    final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
+    final chat = await _open(tester, tavern);
+
+    await tester.longPress(find.textContaining('炉子还热着'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('tavern-menu-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-menu-edit')));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑消息'), findsWidgets);
+    expect(find.text('林晚'), findsWidgets); // who said it
+
+    await tester.enterText(find.byKey(const ValueKey('tavern-message-field')), '「进来吧。」');
+    await tester.tap(find.byKey(const ValueKey('tavern-message-save')));
+    await tester.pumpAndSettle();
+
+    expect((await tavern.path(chat)).last.text, '「进来吧。」');
+    expect(find.text('「进来吧。」'), findsOneWidget);
+  });
+
   testWidgets('帮我写 drafts the next line into the box without sending it', (tester) async {
     final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
     final chat = await _open(tester, tavern);

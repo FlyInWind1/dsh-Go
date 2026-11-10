@@ -22,7 +22,6 @@ import '../chat/composer.dart';
 import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
 import '../chat/widgets/thinking_pill.dart';
-import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
 import '../common/capsule_chip.dart';
 import '../common/sheet_title_bar.dart';
@@ -37,6 +36,7 @@ import '../theme/theme.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
+import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
@@ -484,22 +484,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     }
   }
 
+  /// A whole page for the message (long replies need room); saves only a change.
   Future<void> _edit(TavernMessage message) async {
-    final l10n = context.l10n;
-    final field = TextEditingController(text: message.text);
-    final text = await showAppDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.commonEdit),
-        content: TextField(controller: field, maxLines: 10, minLines: 3, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l10n.commonCancel)),
-          TextButton(onPressed: () => Navigator.of(context).pop(field.text), child: Text(l10n.commonSave)),
-        ],
-      ),
-    );
-    field.dispose();
-    if (text != null && text != message.text) await _tavern.edit(widget.chatId, message.nodeId, text);
+    final speaker = message.role == TavernRole.user ? context.l10n.tavernYou : message.speaker;
+    final text = await Navigator.of(context).push(TavernMessageEditPage.route(speaker: speaker, text: message.text));
+    if (text != null && text != message.text && mounted) await _tavern.edit(widget.chatId, message.nodeId, text);
   }
 
   @override

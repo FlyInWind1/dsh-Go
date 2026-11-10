@@ -366,5 +366,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tavernEditMessage": "编辑消息"
 }
