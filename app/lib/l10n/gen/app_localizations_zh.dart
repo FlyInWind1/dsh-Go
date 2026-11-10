@@ -18898,6 +18898,36 @@ class L10nZh extends L10n {
   String get tavernLive2dNoRuntime => '手机上还没有 Live2D 运行库：先在伙伴小屋装一个形象，或者导入完整的素材包。';
 
   @override
+  String get tavernTextSize => '正文字号';
+
+  @override
+  String get tavernTextSmall => '小';
+
+  @override
+  String get tavernTextMedium => '中';
+
+  @override
+  String get tavernTextLarge => '大';
+
+  @override
+  String get tavernTextHuge => '特大';
+
+  @override
+  String get tavernLineHeight => '行距';
+
+  @override
+  String get tavernLineTight => '紧凑';
+
+  @override
+  String get tavernLineNormal => '适中';
+
+  @override
+  String get tavernLineLoose => '宽松';
+
+  @override
+  String get tavernReadingSample => '*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

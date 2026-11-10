@@ -34508,6 +34508,66 @@ abstract class L10n {
   /// **'手机上还没有 Live2D 运行库：先在伙伴小屋装一个形象，或者导入完整的素材包。'**
   String get tavernLive2dNoRuntime;
 
+  /// No description provided for @tavernTextSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文字号'**
+  String get tavernTextSize;
+
+  /// No description provided for @tavernTextSmall.
+  ///
+  /// In zh, this message translates to:
+  /// **'小'**
+  String get tavernTextSmall;
+
+  /// No description provided for @tavernTextMedium.
+  ///
+  /// In zh, this message translates to:
+  /// **'中'**
+  String get tavernTextMedium;
+
+  /// No description provided for @tavernTextLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'大'**
+  String get tavernTextLarge;
+
+  /// No description provided for @tavernTextHuge.
+  ///
+  /// In zh, this message translates to:
+  /// **'特大'**
+  String get tavernTextHuge;
+
+  /// No description provided for @tavernLineHeight.
+  ///
+  /// In zh, this message translates to:
+  /// **'行距'**
+  String get tavernLineHeight;
+
+  /// No description provided for @tavernLineTight.
+  ///
+  /// In zh, this message translates to:
+  /// **'紧凑'**
+  String get tavernLineTight;
+
+  /// No description provided for @tavernLineNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'适中'**
+  String get tavernLineNormal;
+
+  /// No description provided for @tavernLineLoose.
+  ///
+  /// In zh, this message translates to:
+  /// **'宽松'**
+  String get tavernLineLoose;
+
+  /// No description provided for @tavernReadingSample.
+  ///
+  /// In zh, this message translates to:
+  /// **'*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」'**
+  String get tavernReadingSample;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

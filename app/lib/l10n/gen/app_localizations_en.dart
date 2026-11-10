@@ -19943,6 +19943,37 @@ class L10nEn extends L10n {
       'There’s no Live2D runtime on this phone yet: set one up in the companion room first, or import a whole pack.';
 
   @override
+  String get tavernTextSize => 'Text size';
+
+  @override
+  String get tavernTextSmall => 'S';
+
+  @override
+  String get tavernTextMedium => 'M';
+
+  @override
+  String get tavernTextLarge => 'L';
+
+  @override
+  String get tavernTextHuge => 'XL';
+
+  @override
+  String get tavernLineHeight => 'Line spacing';
+
+  @override
+  String get tavernLineTight => 'Tight';
+
+  @override
+  String get tavernLineNormal => 'Normal';
+
+  @override
+  String get tavernLineLoose => 'Loose';
+
+  @override
+  String get tavernReadingSample =>
+      '*She pushes a clay cup across to you; the firelight jumps in her eyes.*\n\n\"Still on the road this late? The snow won\'t stop tonight. If you\'re travelling, wait for daylight.\"';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

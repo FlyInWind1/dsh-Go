@@ -12,6 +12,7 @@ import '../../state/settings_state.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
+import '../chat/render/markdown_body.dart';
 import '../common/app_sheet.dart';
 import '../modes/mode_switch.dart';
 import '../onboarding/api_key_page.dart';
@@ -20,6 +21,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import 'tavern_personas.dart';
 import 'tavern_quick_replies_page.dart';
+import 'tavern_reading.dart';
 
 class TavernSettingsPage extends ConsumerWidget {
   const TavernSettingsPage({super.key});
@@ -109,6 +111,37 @@ class TavernSettingsPage extends ConsumerWidget {
               ],
               selected: settings.layout,
               onChanged: (layout) => unawaited(controller.setLayout(layout)),
+            ),
+            SettingsSegmentTile<double>(
+              key: const ValueKey('tavern-text-size'),
+              icon: AppIcons.selectText,
+              title: l10n.tavernTextSize,
+              segments: [
+                for (final (i, size) in tavernTextSizes.indexed)
+                  PillSegment(
+                    size,
+                    [l10n.tavernTextSmall, l10n.tavernTextMedium, l10n.tavernTextLarge, l10n.tavernTextHuge][i],
+                  ),
+              ],
+              selected: settings.textSize,
+              onChanged: (size) => unawaited(controller.setTextSize(size)),
+            ),
+            SettingsSegmentTile<double>(
+              key: const ValueKey('tavern-line-height'),
+              icon: AppIcons.compact,
+              title: l10n.tavernLineHeight,
+              segments: [
+                for (final (i, height) in tavernLineHeights.indexed)
+                  PillSegment(height, [l10n.tavernLineTight, l10n.tavernLineNormal, l10n.tavernLineLoose][i]),
+              ],
+              selected: settings.lineHeight,
+              onChanged: (height) => unawaited(controller.setLineHeight(height)),
+            ),
+            // What a reply will look like.
+            Padding(
+              key: const ValueKey('tavern-reading-preview'),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+              child: TavernReading(child: MarkdownBody(text: l10n.tavernReadingSample, selectable: false)),
             ),
           ],
         ),

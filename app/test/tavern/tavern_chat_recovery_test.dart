@@ -96,8 +96,12 @@ void main() {
     await tester.tap(find.byIcon(AppIcons.send));
     await _settle(tester);
 
-    // The greeting (1/2) is the earlier message; the list is built newest first.
-    await tester.tap(find.byKey(const ValueKey('tavern-next')).last);
+    // The greeting (1/2) is the earlier message: no ‹ › of its own, it swipes.
+    // The list is built newest first, so it is the last of the swipes.
+    final swipes = find.byWidgetPredicate(
+      (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('tavern-swipe-'),
+    );
+    await tester.drag(swipes.last, const Offset(-200, 0));
     await tester.pumpAndSettle();
     expect(find.text('切到了另一条分支'), findsOneWidget);
     expect(find.text('你好'), findsNothing);

@@ -48,6 +48,7 @@ import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_message_edit_page.dart';
+import 'tavern_reading.dart';
 import 'tavern_storybook_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
@@ -68,6 +69,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   final _scrolled = ValueNotifier(0.0);
+
+  /// Scrolled back into the story, away from the newest lines: the chips over
+  /// the box fold away for the reading (back when typing).
+  final _readingBack = ValueNotifier(false);
 
   /// The character's Live2D model in the visual novel, when she has one; set
   /// once it can't be shown, and the card's picture stands in.
@@ -137,6 +142,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _input.dispose();
     _focus.dispose();
     _scrolled.dispose();
+    _readingBack.dispose();
     super.dispose();
   }
 
@@ -698,75 +704,79 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         scrolledUnder: _scrolled,
         onDetails: () => unawaited(_quickLook(characterId, name)),
       ),
-      body: layout == TavernLayout.visualNovel
-          ? TavernVisualNovelView(
-              pages: [
-                ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: _streamText),
-                if (_running && _streamText.isNotEmpty && !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
-                  TavernPage(
-                    TavernMessage(
-                      nodeId: _streamNode ?? '',
-                      role: TavernRole.character,
-                      speaker: name,
-                      text: '',
-                      at: DateTime(0),
-                    ),
-                    _streamText,
-                    streaming: true,
-                  ),
-              ],
-              name: name,
-              avatarPath: character?.avatarPath,
-              stage: switch (characterId == null || _stageFailed
-                  ? null
-                  : ref.watch(tavernLive2dProvider(characterId)).value) {
-                final store? => CompanionStage(
-                  key: ValueKey(store.root.path),
-                  store: store,
-                  controller: _stage,
-                  events: _stageEvents,
-                  bare: true,
-                ),
-                null => null,
-              },
-              onPage: _cue,
-              topInset: topInset,
-              onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
-              footer: (m, lastPage) =>
-                  lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
-                  ? _Alternatives(
-                      message: m,
-                      last: m.nodeId == lastCharacter,
-                      busy: _running,
-                      onSibling: (d) => unawaited(_sibling(m, d)),
-                    )
-                  : null,
-            )
-          : NotificationListener<ScrollNotification>(
-              onNotification: (n) {
-                if (n.metrics.axis == Axis.vertical) {
-                  _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
-                  // The list runs newest first: what is left above is older.
-                  if (n.metrics.extentAfter < 600) unawaited(_loadOlder());
-                }
-                return false;
-              },
-              child: ListView(
-                key: const ValueKey('tavern-transcript'),
-                reverse: true,
-                padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
-                children: [
-                  for (final row in rows.reversed)
-                    Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: row),
-                  if (_hasOlder)
-                    const Padding(
-                      key: ValueKey('tavern-older'),
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(child: QuietSpinner()),
+      // The story under 酒馆设置's text size and spacing.
+      body: TavernReading(
+        child: layout == TavernLayout.visualNovel
+            ? TavernVisualNovelView(
+                pages: [
+                  ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: _streamText),
+                  if (_running && _streamText.isNotEmpty && !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
+                    TavernPage(
+                      TavernMessage(
+                        nodeId: _streamNode ?? '',
+                        role: TavernRole.character,
+                        speaker: name,
+                        text: '',
+                        at: DateTime(0),
+                      ),
+                      _streamText,
+                      streaming: true,
                     ),
                 ],
+                name: name,
+                avatarPath: character?.avatarPath,
+                stage: switch (characterId == null || _stageFailed
+                    ? null
+                    : ref.watch(tavernLive2dProvider(characterId)).value) {
+                  final store? => CompanionStage(
+                    key: ValueKey(store.root.path),
+                    store: store,
+                    controller: _stage,
+                    events: _stageEvents,
+                    bare: true,
+                  ),
+                  null => null,
+                },
+                onPage: _cue,
+                topInset: topInset,
+                onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
+                footer: (m, lastPage) =>
+                    lastPage && m.role == TavernRole.character && (m.nodeId == lastCharacter || m.siblingCount > 1)
+                    ? _Alternatives(
+                        message: m,
+                        last: m.nodeId == lastCharacter,
+                        busy: _running,
+                        onSibling: (d) => unawaited(_sibling(m, d)),
+                      )
+                    : null,
+              )
+            : NotificationListener<ScrollNotification>(
+                onNotification: (n) {
+                  if (n.metrics.axis == Axis.vertical) {
+                    _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
+                    _readingBack.value = n.metrics.pixels > 240;
+                    // The list runs newest first: what is left above is older.
+                    if (n.metrics.extentAfter < 600) unawaited(_loadOlder());
+                  }
+                  return false;
+                },
+                child: ListView(
+                  key: const ValueKey('tavern-transcript'),
+                  reverse: true,
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
+                  children: [
+                    for (final row in rows.reversed)
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: row),
+                    if (_hasOlder)
+                      const Padding(
+                        key: ValueKey('tavern-older'),
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: QuietSpinner()),
+                      ),
+                  ],
+                ),
               ),
-            ),
+      ),
       bottom: [
         _ErrorSlot(
           error: _error,
@@ -776,50 +786,53 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             _action = null;
           }),
         ),
-        Composer(
-          hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
-          controller: _input,
-          focusNode: _focus,
-          connected: messages != null,
-          running: _running,
-          onSend: _send,
-          onStop: _stop,
-          voice: _voice,
-          placeholder: l10n.tavernComposerHint(name),
-          leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
-          tray: !_running && messages != null
-              ? _QuickReplyRow(
-                  replies: ref.watch(tavernQuickRepliesProvider),
-                  onSend: _sendQuick,
-                  onEdit: _editQuick,
-                  onDice: () => unawaited(_dice()),
-                )
-              : null,
-          // While the box is empty: 帮我写 (an idea to start from) and, after
-          // a reply, 接着写 (it goes on).
-          accessory: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _input,
-            builder: (context, value, _) {
-              if (value.text.isNotEmpty || _running || messages == null) return const SizedBox.shrink();
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ComposerKey(
-                    key: const ValueKey('tavern-write-for-me'),
-                    icon: AppIcons.write,
-                    label: l10n.tavernWriteForMe,
-                    onPressed: _impersonate,
-                  ),
-                  if (messages.lastOrNull?.role == TavernRole.character)
+        ListenableBuilder(
+          listenable: Listenable.merge([_readingBack, _focus]),
+          builder: (context, _) => Composer(
+            hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
+            controller: _input,
+            focusNode: _focus,
+            connected: messages != null,
+            running: _running,
+            onSend: _send,
+            onStop: _stop,
+            voice: _voice,
+            placeholder: l10n.tavernComposerHint(name),
+            leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
+            tray: !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
+                ? _QuickReplyRow(
+                    replies: ref.watch(tavernQuickRepliesProvider),
+                    onSend: _sendQuick,
+                    onEdit: _editQuick,
+                    onDice: () => unawaited(_dice()),
+                  )
+                : null,
+            // While the box is empty: 帮我写 (an idea to start from) and, after
+            // a reply, 接着写 (it goes on).
+            accessory: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _input,
+              builder: (context, value, _) {
+                if (value.text.isNotEmpty || _running || messages == null) return const SizedBox.shrink();
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     _ComposerKey(
-                      key: const ValueKey('tavern-continue'),
-                      icon: AppIcons.continueReply,
-                      label: l10n.tavernContinueReply,
-                      onPressed: _continueLast,
+                      key: const ValueKey('tavern-write-for-me'),
+                      icon: AppIcons.write,
+                      label: l10n.tavernWriteForMe,
+                      onPressed: _impersonate,
                     ),
-                ],
-              );
-            },
+                    if (messages.lastOrNull?.role == TavernRole.character)
+                      _ComposerKey(
+                        key: const ValueKey('tavern-continue'),
+                        icon: AppIcons.continueReply,
+                        label: l10n.tavernContinueReply,
+                        onPressed: _continueLast,
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -917,6 +930,8 @@ class _MessageRow extends StatelessWidget {
       );
     }
     final alternatives = last || message.siblingCount > 1;
+    // Only the newest reply carries ‹ ›; an older one with others shows how
+    // many it has, and swipes like the newest.
     return GestureDetector(
       onLongPress: onMenu,
       behavior: HitTestBehavior.opaque,
@@ -927,7 +942,10 @@ class _MessageRow extends StatelessWidget {
           MarkdownBody(text: message.text, selectable: false),
           if (alternatives) ...[
             const SizedBox(height: 4),
-            _Alternatives(message: message, last: last, busy: busy, onSibling: onSibling),
+            if (last)
+              _Alternatives(message: message, last: last, busy: busy, onSibling: onSibling)
+            else
+              _AlternativesCount(message: message),
           ],
         ],
       ),
@@ -951,7 +969,7 @@ class _MessageRow extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           Opacity(
             opacity: user ? 0.78 : 1,
@@ -959,7 +977,10 @@ class _MessageRow extends StatelessWidget {
           ),
           if (alternatives) ...[
             const SizedBox(height: 4),
-            _Alternatives(message: message, last: last, busy: busy, onSibling: onSibling),
+            if (last)
+              _Alternatives(message: message, last: last, busy: busy, onSibling: onSibling)
+            else
+              _AlternativesCount(message: message),
           ],
         ],
       ),
@@ -1104,6 +1125,20 @@ class _HiddenTag extends StatelessWidget {
 
 /// ‹ 2/5 ›: the previous and next alternative; past the last one (on the last
 /// reply) › writes a new one.
+/// An older reply's alternatives, as a count: switched by swiping.
+class _AlternativesCount extends StatelessWidget {
+  const _AlternativesCount({required this.message});
+
+  final TavernMessage message;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    '${message.siblingIndex + 1}/${message.siblingCount}',
+    key: ValueKey('tavern-alt-${message.nodeId}'),
+    style: AppType.tabular(Theme.of(context).textTheme.labelSmall!.copyWith(color: DshColors.of(context).textTertiary)),
+  );
+}
+
 class _Alternatives extends StatelessWidget {
   const _Alternatives({required this.message, required this.last, required this.busy, required this.onSibling});
 

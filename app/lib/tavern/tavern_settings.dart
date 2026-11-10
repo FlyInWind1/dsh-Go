@@ -15,23 +15,44 @@ const tavernModels = ['deepseek-flash', 'deepseek-v4-pro'];
 /// time (视觉小说).
 enum TavernLayout { bubble, novel, visualNovel }
 
+/// The story's text size (px), smallest first: a role-play reads more at a
+/// time than a chat, so it starts a step below the app's 16.
+const tavernTextSizes = [14.0, 15.0, 16.0, 18.0];
+
+/// Its line spacing: 紧凑, 适中 (the app's), 宽松.
+const tavernLineHeights = [1.5, 1.65, 1.8];
+
 class TavernSettings {
   const TavernSettings({
     this.model = 'deepseek-flash',
     this.thinking = false,
     this.layout = TavernLayout.bubble,
+    this.textSize = 15,
+    this.lineHeight = 1.5,
     this.loaded = false,
   });
 
   final String model;
   final bool thinking;
   final TavernLayout layout;
+
+  /// One of [tavernTextSizes] and [tavernLineHeights].
+  final double textSize;
+  final double lineHeight;
   final bool loaded;
 
-  TavernSettings copyWith({String? model, bool? thinking, TavernLayout? layout}) => TavernSettings(
+  TavernSettings copyWith({
+    String? model,
+    bool? thinking,
+    TavernLayout? layout,
+    double? textSize,
+    double? lineHeight,
+  }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
     layout: layout ?? this.layout,
+    textSize: textSize ?? this.textSize,
+    lineHeight: lineHeight ?? this.lineHeight,
     loaded: true,
   );
 }
@@ -40,6 +61,8 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const modelKey = 'tavern.model';
   static const thinkingKey = 'tavern.thinking';
   static const layoutKey = 'tavern.layout';
+  static const textSizeKey = 'tavern.textSize';
+  static const lineHeightKey = 'tavern.lineHeight';
 
   @override
   TavernSettings build() {
@@ -56,6 +79,8 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         model: tavernModels.contains(model) ? model! : tavernModels.first,
         thinking: prefs.getBool(thinkingKey) ?? false,
         layout: TavernLayout.values.asNameMap()[prefs.getString(layoutKey)] ?? TavernLayout.bubble,
+        textSize: _oneOf(prefs.getDouble(textSizeKey), tavernTextSizes, 15),
+        lineHeight: _oneOf(prefs.getDouble(lineHeightKey), tavernLineHeights, 1.5),
         loaded: true,
       );
     } catch (_) {
@@ -78,6 +103,20 @@ class TavernSettingsController extends Notifier<TavernSettings> {
     state = state.copyWith(layout: layout);
     await _save((prefs) => prefs.setString(layoutKey, layout.name));
   }
+
+  Future<void> setTextSize(double size) async {
+    state = state.copyWith(textSize: size);
+    await _save((prefs) => prefs.setDouble(textSizeKey, size));
+  }
+
+  Future<void> setLineHeight(double height) async {
+    state = state.copyWith(lineHeight: height);
+    await _save((prefs) => prefs.setDouble(lineHeightKey, height));
+  }
+
+  /// [stored] when it is one of [choices]; else [fallback].
+  static double _oneOf(double? stored, List<double> choices, double fallback) =>
+      stored != null && choices.contains(stored) ? stored : fallback;
 
   Future<void> _save(Future<bool> Function(SharedPreferences prefs) write) async {
     try {

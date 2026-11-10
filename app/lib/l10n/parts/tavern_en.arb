@@ -484,5 +484,15 @@
   "tavernLive2dImported": "Imported. Switch the chat to the visual novel layout to see her.",
   "tavernLive2dReplace": "Replace it",
   "tavernLive2dRemove": "Remove the model",
-  "tavernLive2dNoRuntime": "There’s no Live2D runtime on this phone yet: set one up in the companion room first, or import a whole pack."
+  "tavernLive2dNoRuntime": "There’s no Live2D runtime on this phone yet: set one up in the companion room first, or import a whole pack.",
+  "tavernTextSize": "Text size",
+  "tavernTextSmall": "S",
+  "tavernTextMedium": "M",
+  "tavernTextLarge": "L",
+  "tavernTextHuge": "XL",
+  "tavernLineHeight": "Line spacing",
+  "tavernLineTight": "Tight",
+  "tavernLineNormal": "Normal",
+  "tavernLineLoose": "Loose",
+  "tavernReadingSample": "*She pushes a clay cup across to you; the firelight jumps in her eyes.*\n\n\"Still on the road this late? The snow won't stop tonight. If you're travelling, wait for daylight.\""
 }
