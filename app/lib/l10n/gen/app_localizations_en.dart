@@ -20532,6 +20532,32 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernSearchChat => 'Search this chat';
+
+  @override
+  String get tavernSearchChatHint => 'A line, a word';
+
+  @override
+  String get tavernSearchChatIdle =>
+      'Searches every branch of this chat, hidden messages too, but not the thinking. Tap a hit to read it whole.';
+
+  @override
+  String tavernSearchChatNone(String query) {
+    return 'Nothing found for “$query”';
+  }
+
+  @override
+  String tavernSearchChatFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count found, newest first',
+      one: '1 found',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

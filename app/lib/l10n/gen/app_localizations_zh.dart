@@ -19465,6 +19465,26 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernSearchChat => '在对话里搜索';
+
+  @override
+  String get tavernSearchChatHint => '一句话、一个词';
+
+  @override
+  String get tavernSearchChatIdle => '搜的是这段对话的所有分支，包括隐藏的消息；不搜思考过程。点一条看全文。';
+
+  @override
+  String tavernSearchChatNone(String query) {
+    return '没有找到「$query」';
+  }
+
+  @override
+  String tavernSearchChatFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '找到 $count 条，新的在前', one: '找到 1 条');
+    return '$_temp0';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

@@ -27,6 +27,7 @@ import 'tavern_inspector_page.dart';
 import 'tavern_lorebooks_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
+import 'tavern_search_page.dart';
 import 'tavern_storybook_page.dart';
 
 enum TavernStageTab { session, state, director, turn }
@@ -289,6 +290,13 @@ class _Session extends ConsumerWidget {
                 title: l10n.tavernCharacterDetails,
                 onTap: () => open(TavernCharacterPage.route(characterId)),
               ),
+            SettingsTile(
+              key: const ValueKey('tavern-chat-search'),
+              icon: AppIcons.search,
+              tinted: false,
+              title: l10n.tavernSearchChat,
+              onTap: () => open(TavernSearchPage.route(chatId)),
+            ),
             SettingsTile(
               key: const ValueKey('tavern-chat-inspect'),
               icon: AppIcons.code,

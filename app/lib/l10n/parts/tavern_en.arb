@@ -687,5 +687,12 @@
   "tavernUsageLine": "In {input} · out {output}",
   "@tavernUsageLine": {"placeholders": {"input": {"type": "int", "format": "decimalPattern"}, "output": {"type": "int", "format": "decimalPattern"}}},
   "tavernUsageLineCached": "In {input} ({cached} cached) · out {output}",
-  "@tavernUsageLineCached": {"placeholders": {"input": {"type": "int", "format": "decimalPattern"}, "cached": {"type": "int", "format": "decimalPattern"}, "output": {"type": "int", "format": "decimalPattern"}}}
+  "@tavernUsageLineCached": {"placeholders": {"input": {"type": "int", "format": "decimalPattern"}, "cached": {"type": "int", "format": "decimalPattern"}, "output": {"type": "int", "format": "decimalPattern"}}},
+  "tavernSearchChat": "Search this chat",
+  "tavernSearchChatHint": "A line, a word",
+  "tavernSearchChatIdle": "Searches every branch of this chat, hidden messages too, but not the thinking. Tap a hit to read it whole.",
+  "tavernSearchChatNone": "Nothing found for “{query}”",
+  "@tavernSearchChatNone": {"placeholders": {"query": {"type": "String"}}},
+  "tavernSearchChatFound": "{count, plural, =1{1 found} other{{count} found, newest first}}",
+  "@tavernSearchChatFound": {"placeholders": {"count": {"type": "int"}}}
 }

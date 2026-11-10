@@ -12012,6 +12012,25 @@
       }
     }
   },
+  "tavernSearchChat": "在对话里搜索",
+  "tavernSearchChatHint": "一句话、一个词",
+  "tavernSearchChatIdle": "搜的是这段对话的所有分支，包括隐藏的消息；不搜思考过程。点一条看全文。",
+  "tavernSearchChatNone": "没有找到「{query}」",
+  "@tavernSearchChatNone": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernSearchChatFound": "{count, plural, =1{找到 1 条} other{找到 {count} 条，新的在前}}",
+  "@tavernSearchChatFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

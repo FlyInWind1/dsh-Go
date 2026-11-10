@@ -35528,6 +35528,36 @@ abstract class L10n {
   /// **'输入 {input}（命中缓存 {cached}）· 输出 {output}'**
   String tavernUsageLineCached(int input, int cached, int output);
 
+  /// No description provided for @tavernSearchChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'在对话里搜索'**
+  String get tavernSearchChat;
+
+  /// No description provided for @tavernSearchChatHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'一句话、一个词'**
+  String get tavernSearchChatHint;
+
+  /// No description provided for @tavernSearchChatIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜的是这段对话的所有分支，包括隐藏的消息；不搜思考过程。点一条看全文。'**
+  String get tavernSearchChatIdle;
+
+  /// No description provided for @tavernSearchChatNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有找到「{query}」'**
+  String tavernSearchChatNone(String query);
+
+  /// No description provided for @tavernSearchChatFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, =1{找到 1 条} other{找到 {count} 条，新的在前}}'**
+  String tavernSearchChatFound(int count);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
