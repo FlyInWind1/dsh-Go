@@ -18156,6 +18156,12 @@ class L10nZh extends L10n {
   String get tavernStart => '开始';
 
   @override
+  String get tavernContinueLast => '继续上次';
+
+  @override
+  String get tavernStartNew => '用这个开场白开始新对话';
+
+  @override
   String get tavernChats => '对话';
 
   @override

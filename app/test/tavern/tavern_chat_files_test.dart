@@ -114,7 +114,9 @@ void main() {
     final chat = await tavern.createChat('sample-innkeeper');
     final shared = await _open(tester, tavern, const []);
 
-    await tester.ensureVisible(find.byKey(ValueKey('tavern-chat-$chat')));
+    // To the middle of the screen, clear of the floating header.
+    await Scrollable.ensureVisible(tester.element(find.byKey(ValueKey('tavern-chat-$chat'))), alignment: 0.5);
+    await tester.pumpAndSettle();
     await tester.longPress(find.byKey(ValueKey('tavern-chat-$chat')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('导出聊天记录'));

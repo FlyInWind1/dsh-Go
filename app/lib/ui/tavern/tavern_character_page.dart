@@ -80,6 +80,8 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
       );
     }
     final chats = ref.watch(tavernChatsProvider(character.id)).value ?? const <TavernChatSummary>[];
+    // Newest first: the one to pick up again.
+    final last = chats.firstOrNull;
     final greetings = character.greetings.isEmpty ? const [''] : character.greetings;
     return AppPage(
       title: character.name,
@@ -119,6 +121,27 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                     style: theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary),
                   ),
                 ],
+                // Back again: the last chat first, on the first screen; a new
+                // one is further down, from a greeting.
+                if (last != null) ...[
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const ValueKey('tavern-continue-last'),
+                    onPressed: () => Navigator.of(context).push(TavernChatPage.route(last.id)),
+                    child: Text(l10n.tavernContinueLast),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    [
+                      shortTime(last.updatedAt),
+                      plainPreview(last.lastText ?? ''),
+                    ].where((s) => s.isNotEmpty).join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelSmall?.copyWith(color: dsh.textTertiary),
+                  ),
+                ],
               ],
             ),
           ),
@@ -155,11 +178,18 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
                 style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
               ),
               const SizedBox(height: 16),
-              FilledButton(
-                key: const ValueKey('tavern-start'),
-                onPressed: _starting ? null : _start,
-                child: Text(l10n.tavernStart),
-              ),
+              if (last == null)
+                FilledButton(
+                  key: const ValueKey('tavern-start'),
+                  onPressed: _starting ? null : _start,
+                  child: Text(l10n.tavernStart),
+                )
+              else
+                OutlinedButton(
+                  key: const ValueKey('tavern-start'),
+                  onPressed: _starting ? null : _start,
+                  child: Text(l10n.tavernStartNew),
+                ),
               const SizedBox(height: 24),
             ],
           ),

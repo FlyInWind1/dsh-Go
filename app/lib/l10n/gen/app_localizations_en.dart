@@ -19151,6 +19151,12 @@ class L10nEn extends L10n {
   String get tavernStart => 'Start';
 
   @override
+  String get tavernContinueLast => 'Continue where you left off';
+
+  @override
+  String get tavernStartNew => 'New chat from this greeting';
+
+  @override
   String get tavernChats => 'Chats';
 
   @override

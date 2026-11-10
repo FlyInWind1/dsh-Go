@@ -33140,6 +33140,18 @@ abstract class L10n {
   /// **'开始'**
   String get tavernStart;
 
+  /// No description provided for @tavernContinueLast.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续上次'**
+  String get tavernContinueLast;
+
+  /// No description provided for @tavernStartNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'用这个开场白开始新对话'**
+  String get tavernStartNew;
+
   /// No description provided for @tavernChats.
   ///
   /// In zh, this message translates to:

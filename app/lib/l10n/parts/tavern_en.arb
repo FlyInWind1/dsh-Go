@@ -39,6 +39,8 @@
     }
   },
   "tavernStart": "Start",
+  "tavernContinueLast": "Continue where you left off",
+  "tavernStartNew": "New chat from this greeting",
   "tavernChats": "Chats",
   "tavernMessageCount": "{count, plural, =1{1 message} other{{count} messages}}",
   "@tavernMessageCount": {

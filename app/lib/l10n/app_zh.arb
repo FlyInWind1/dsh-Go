@@ -11229,6 +11229,8 @@
     }
   },
   "tavernStart": "开始",
+  "tavernContinueLast": "继续上次",
+  "tavernStartNew": "用这个开场白开始新对话",
   "tavernChats": "对话",
   "tavernMessageCount": "{count} 条消息",
   "@tavernMessageCount": {
