@@ -605,7 +605,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       case _MessageAction.hide:
         if (!_running) await _tavern.setHidden(widget.chatId, message.nodeId, !message.hidden);
       case _MessageAction.delete:
-        if (!_running) await _tavern.deleteFrom(widget.chatId, message.nodeId);
+        // Nothing brings them back: say how many go, and ask first.
+        if (_running) return;
+        final at = _messages?.indexWhere((m) => m.nodeId == message.nodeId) ?? -1;
+        final count = at < 0 ? 1 : _messages!.length - at;
+        final l10n = context.l10n;
+        final ok = await confirmTavernDelete(
+          context,
+          title: l10n.tavernDeleteFromTitle(count),
+          message: l10n.tavernDeleteFromMessage,
+        );
+        if (ok && mounted && !_running) await _tavern.deleteFrom(widget.chatId, message.nodeId);
     }
   }
 

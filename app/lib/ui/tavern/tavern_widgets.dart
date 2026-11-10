@@ -103,6 +103,10 @@ Future<bool> deleteTavernChat(BuildContext context, WidgetRef ref, String chatId
   return true;
 }
 
+/// Asks before something is deleted for good. True to go ahead.
+Future<bool> confirmTavernDelete(BuildContext context, {required String title, required String message}) =>
+    _confirmDelete(context, title: title, message: message);
+
 Future<bool> _confirmDelete(BuildContext context, {required String title, required String message}) async {
   final l10n = context.l10n;
   final ok = await showAppDialog<bool>(

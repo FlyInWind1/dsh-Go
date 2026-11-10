@@ -91,6 +91,15 @@
   "tavernDeleteChat": "Delete chat",
   "tavernDeleteChatTitle": "Delete this chat?",
   "tavernDeleteChatMessage": "It can't be brought back.",
+  "tavernDeleteFromTitle": "{count, plural, =1{Delete this message?} other{Delete these {count} messages?}}",
+  "@tavernDeleteFromTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDeleteFromMessage": "From this one to the latest, with their alternative replies and branches. They can't be brought back.",
   "tavernSwitchedBranch": "Switched to another branch",
   "tavernUndo": "Undo",
   "tavernSettingsDisplay": "Display",

@@ -19251,6 +19251,21 @@ class L10nEn extends L10n {
   String get tavernDeleteChatMessage => 'It can\'t be brought back.';
 
   @override
+  String tavernDeleteFromTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Delete these $count messages?',
+      one: 'Delete this message?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromMessage =>
+      'From this one to the latest, with their alternative replies and branches. They can\'t be brought back.';
+
+  @override
   String get tavernSwitchedBranch => 'Switched to another branch';
 
   @override

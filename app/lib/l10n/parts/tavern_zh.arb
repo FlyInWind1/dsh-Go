@@ -91,6 +91,15 @@
   "tavernDeleteChat": "删除对话",
   "tavernDeleteChatTitle": "删除这段对话？",
   "tavernDeleteChatMessage": "删除后就找不回来了。",
+  "tavernDeleteFromTitle": "{count, plural, =1{删除这条消息？} other{删除这 {count} 条消息？}}",
+  "@tavernDeleteFromTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDeleteFromMessage": "从这条到最新一条，连同它们的备选回复和分支。删除后就找不回来了。",
   "tavernSwitchedBranch": "切到了另一条分支",
   "tavernUndo": "撤销",
   "tavernSettingsDisplay": "显示",

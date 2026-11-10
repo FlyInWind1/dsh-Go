@@ -18255,6 +18255,15 @@ class L10nZh extends L10n {
   String get tavernDeleteChatMessage => '删除后就找不回来了。';
 
   @override
+  String tavernDeleteFromTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '删除这 $count 条消息？', one: '删除这条消息？');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromMessage => '从这条到最新一条，连同它们的备选回复和分支。删除后就找不回来了。';
+
+  @override
   String get tavernSwitchedBranch => '切到了另一条分支';
 
   @override
