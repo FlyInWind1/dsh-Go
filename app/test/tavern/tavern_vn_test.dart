@@ -138,6 +138,12 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(_app(const TavernSettingsPage()));
     await tester.pumpAndSettle();
+    // Further down the (lazy) list than it is built at first.
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('tavern-text-speed')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.ensureVisible(find.byKey(const ValueKey('tavern-text-speed')));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-text-speed')), matching: find.text('快')));

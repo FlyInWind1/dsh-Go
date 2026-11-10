@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../state/settings_state.dart';
+import '../../tavern/tavern_generation.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
@@ -19,6 +20,7 @@ import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
+import '../theme/theme.dart';
 import 'tavern_personas.dart';
 import 'tavern_quick_replies_page.dart';
 import 'tavern_reading.dart';
@@ -36,6 +38,8 @@ class TavernSettingsPage extends ConsumerWidget {
     final startup = ref.watch(appModeProvider.select((s) => s.startup));
     final controller = ref.read(tavernSettingsProvider.notifier);
     final defaultPersona = ref.watch(tavernPersonaSelectionProvider(null)).value?.persona;
+    final generation = ref.watch(tavernGenerationProvider).value ?? TavernGeneration.standard;
+    final generate = ref.read(tavernGenerationProvider.notifier);
     return AppPage.list(
       title: l10n.tavernSettings,
       children: [
@@ -93,6 +97,44 @@ class TavernSettingsPage extends ConsumerWidget {
               onTap: () =>
                   Navigator.of(context)
                       .push(MaterialPageRoute<void>(builder: (_) => const ApiKeyPage(onboarding: false))),
+            ),
+          ],
+        ),
+        SheetGroup(
+          key: const ValueKey('tavern-generation'),
+          title: l10n.tavernSettingsGeneration,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            SettingsSegmentTile<int>(
+              key: const ValueKey('tavern-max-context'),
+              icon: AppIcons.tavernContext,
+              title: l10n.tavernMaxContext,
+              segments: [for (final tokens in tavernContextSizes) PillSegment(tokens, '${(tokens + 1) ~/ 1024}K')],
+              selected: generation.maxContext,
+              onChanged: (tokens) => unawaited(generate.setMaxContext(tokens)),
+            ),
+            SettingsSegmentTile<int>(
+              key: const ValueKey('tavern-max-reply'),
+              icon: AppIcons.tavernReplyLength,
+              title: l10n.tavernMaxReply,
+              segments: [for (final tokens in tavernReplySizes) PillSegment(tokens, '$tokens')],
+              selected: generation.maxReply,
+              onChanged: (tokens) => unawaited(generate.setMaxReply(tokens)),
+            ),
+            SettingsSegmentTile<double>(
+              key: const ValueKey('tavern-temperature'),
+              icon: AppIcons.tavernTemperature,
+              title: l10n.tavernTemperature,
+              segments: [for (final t in tavernTemperatures) PillSegment(t, t.toStringAsFixed(1))],
+              selected: generation.temperature,
+              onChanged: (t) => unawaited(generate.setTemperature(t)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
+              child: Text(
+                l10n.tavernGenerationNote,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary),
+              ),
             ),
           ],
         ),

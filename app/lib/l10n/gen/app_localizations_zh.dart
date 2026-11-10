@@ -18273,6 +18273,21 @@ class L10nZh extends L10n {
   String get tavernSettingsDisplay => '显示';
 
   @override
+  String get tavernSettingsGeneration => '生成';
+
+  @override
+  String get tavernMaxContext => '上下文上限';
+
+  @override
+  String get tavernMaxReply => '回复上限';
+
+  @override
+  String get tavernTemperature => '温度';
+
+  @override
+  String get tavernGenerationNote => '上下文越长，角色记得越多，每回合也越贵；数字是 token。这里改的是默认预设，自带预设的对话以它自己的为准。';
+
+  @override
   String get tavernLayout => '排版';
 
   @override

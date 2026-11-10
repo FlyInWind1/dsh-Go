@@ -19275,6 +19275,22 @@ class L10nEn extends L10n {
   String get tavernSettingsDisplay => 'Display';
 
   @override
+  String get tavernSettingsGeneration => 'Generation';
+
+  @override
+  String get tavernMaxContext => 'Context limit';
+
+  @override
+  String get tavernMaxReply => 'Reply limit';
+
+  @override
+  String get tavernTemperature => 'Temperature';
+
+  @override
+  String get tavernGenerationNote =>
+      'A longer context remembers more and costs more each turn; numbers are tokens. This changes the default preset; a chat that brought its own preset keeps it.';
+
+  @override
   String get tavernLayout => 'Layout';
 
   @override

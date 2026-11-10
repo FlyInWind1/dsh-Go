@@ -57,6 +57,8 @@ void main() {
     await _open(tester, tavern, const TavernSettingsPage());
 
     final preview = find.byKey(const ValueKey('tavern-reading-preview'));
+    // Further down the (lazy) list than it is built at first.
+    await tester.scrollUntilVisible(preview, 300, scrollable: find.byType(Scrollable).first);
     await tester.ensureVisible(preview);
     await tester.pumpAndSettle();
     expect(_story(tester, preview).fontSize, 15);

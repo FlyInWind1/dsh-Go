@@ -33356,6 +33356,36 @@ abstract class L10n {
   /// **'显示'**
   String get tavernSettingsDisplay;
 
+  /// No description provided for @tavernSettingsGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成'**
+  String get tavernSettingsGeneration;
+
+  /// No description provided for @tavernMaxContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下文上限'**
+  String get tavernMaxContext;
+
+  /// No description provided for @tavernMaxReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复上限'**
+  String get tavernMaxReply;
+
+  /// No description provided for @tavernTemperature.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度'**
+  String get tavernTemperature;
+
+  /// No description provided for @tavernGenerationNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下文越长，角色记得越多，每回合也越贵；数字是 token。这里改的是默认预设，自带预设的对话以它自己的为准。'**
+  String get tavernGenerationNote;
+
   /// No description provided for @tavernLayout.
   ///
   /// In zh, this message translates to:

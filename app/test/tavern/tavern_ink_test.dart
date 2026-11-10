@@ -142,6 +142,12 @@ void main() {
 
   testWidgets('酒馆设置 picks the colours, kept', (tester) async {
     await _pump(tester, const TavernSettingsPage());
+    // Further down the (lazy) list than it is built at first.
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('tavern-palette')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.ensureVisible(find.byKey(const ValueKey('tavern-palette')));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-palette')), matching: find.text('冷')));

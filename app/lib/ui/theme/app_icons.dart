@@ -393,6 +393,9 @@ abstract final class AppIcons {
   static const tavern = DshGlyphs.bookOpen;
   static const lorebook = DshGlyphs.globe;
   static const textSpeed = DshGlyphs.cursorText;
+  static const tavernContext = DshGlyphs.clockCounterClockwise;
+  static const tavernReplyLength = DshGlyphs.textAlignLeft;
+  static const tavernTemperature = DshGlyphs.slidersHorizontal;
 
   /// The drawer's key to 模式.
   static const modes = DshGlyphs.stack;
