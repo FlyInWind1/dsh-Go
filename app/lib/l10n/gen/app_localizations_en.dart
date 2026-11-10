@@ -19974,6 +19974,21 @@ class L10nEn extends L10n {
       '*She pushes a clay cup across to you; the firelight jumps in her eyes.*\n\n\"Still on the road this late? The snow won\'t stop tonight. If you\'re travelling, wait for daylight.\"';
 
   @override
+  String get tavernPalette => 'Colours';
+
+  @override
+  String get tavernPalettePlain => 'Plain';
+
+  @override
+  String get tavernPaletteEmber => 'Warm';
+
+  @override
+  String get tavernPaletteOcean => 'Cool';
+
+  @override
+  String get tavernPaletteRose => 'Rose';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

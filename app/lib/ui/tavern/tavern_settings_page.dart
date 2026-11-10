@@ -137,6 +137,19 @@ class TavernSettingsPage extends ConsumerWidget {
               selected: settings.lineHeight,
               onChanged: (height) => unawaited(controller.setLineHeight(height)),
             ),
+            SettingsSegmentTile<TavernPalette>(
+              key: const ValueKey('tavern-palette'),
+              icon: AppIcons.theme,
+              title: l10n.tavernPalette,
+              segments: [
+                PillSegment(TavernPalette.plain, l10n.tavernPalettePlain),
+                PillSegment(TavernPalette.ember, l10n.tavernPaletteEmber),
+                PillSegment(TavernPalette.ocean, l10n.tavernPaletteOcean),
+                PillSegment(TavernPalette.rose, l10n.tavernPaletteRose),
+              ],
+              selected: settings.palette,
+              onChanged: (palette) => unawaited(controller.setPalette(palette)),
+            ),
             // What a reply will look like.
             Padding(
               key: const ValueKey('tavern-reading-preview'),

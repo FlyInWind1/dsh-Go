@@ -22,6 +22,10 @@ const tavernTextSizes = [14.0, 15.0, 16.0, 18.0];
 /// Its line spacing: 紧凑, 适中 (the app's), 宽松.
 const tavernLineHeights = [1.5, 1.65, 1.8];
 
+/// The story's colours (tavern_ink.dart): 素 leaves the text as the app draws
+/// it; the others colour what is said and what is done.
+enum TavernPalette { plain, ember, ocean, rose }
+
 class TavernSettings {
   const TavernSettings({
     this.model = 'deepseek-flash',
@@ -29,6 +33,7 @@ class TavernSettings {
     this.layout = TavernLayout.bubble,
     this.textSize = 15,
     this.lineHeight = 1.5,
+    this.palette = TavernPalette.ember,
     this.loaded = false,
   });
 
@@ -39,6 +44,7 @@ class TavernSettings {
   /// One of [tavernTextSizes] and [tavernLineHeights].
   final double textSize;
   final double lineHeight;
+  final TavernPalette palette;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -47,12 +53,14 @@ class TavernSettings {
     TavernLayout? layout,
     double? textSize,
     double? lineHeight,
+    TavernPalette? palette,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
     layout: layout ?? this.layout,
     textSize: textSize ?? this.textSize,
     lineHeight: lineHeight ?? this.lineHeight,
+    palette: palette ?? this.palette,
     loaded: true,
   );
 }
@@ -63,6 +71,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const layoutKey = 'tavern.layout';
   static const textSizeKey = 'tavern.textSize';
   static const lineHeightKey = 'tavern.lineHeight';
+  static const paletteKey = 'tavern.palette';
 
   @override
   TavernSettings build() {
@@ -81,6 +90,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         layout: TavernLayout.values.asNameMap()[prefs.getString(layoutKey)] ?? TavernLayout.bubble,
         textSize: _oneOf(prefs.getDouble(textSizeKey), tavernTextSizes, 15),
         lineHeight: _oneOf(prefs.getDouble(lineHeightKey), tavernLineHeights, 1.5),
+        palette: TavernPalette.values.asNameMap()[prefs.getString(paletteKey)] ?? TavernPalette.ember,
         loaded: true,
       );
     } catch (_) {
@@ -112,6 +122,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setLineHeight(double height) async {
     state = state.copyWith(lineHeight: height);
     await _save((prefs) => prefs.setDouble(lineHeightKey, height));
+  }
+
+  Future<void> setPalette(TavernPalette palette) async {
+    state = state.copyWith(palette: palette);
+    await _save((prefs) => prefs.setString(paletteKey, palette.name));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

@@ -18928,6 +18928,21 @@ class L10nZh extends L10n {
   String get tavernReadingSample => '*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」';
 
   @override
+  String get tavernPalette => '配色';
+
+  @override
+  String get tavernPalettePlain => '素';
+
+  @override
+  String get tavernPaletteEmber => '暖';
+
+  @override
+  String get tavernPaletteOcean => '冷';
+
+  @override
+  String get tavernPaletteRose => '粉';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

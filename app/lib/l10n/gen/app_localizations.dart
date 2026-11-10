@@ -34568,6 +34568,36 @@ abstract class L10n {
   /// **'*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」'**
   String get tavernReadingSample;
 
+  /// No description provided for @tavernPalette.
+  ///
+  /// In zh, this message translates to:
+  /// **'配色'**
+  String get tavernPalette;
+
+  /// No description provided for @tavernPalettePlain.
+  ///
+  /// In zh, this message translates to:
+  /// **'素'**
+  String get tavernPalettePlain;
+
+  /// No description provided for @tavernPaletteEmber.
+  ///
+  /// In zh, this message translates to:
+  /// **'暖'**
+  String get tavernPaletteEmber;
+
+  /// No description provided for @tavernPaletteOcean.
+  ///
+  /// In zh, this message translates to:
+  /// **'冷'**
+  String get tavernPaletteOcean;
+
+  /// No description provided for @tavernPaletteRose.
+  ///
+  /// In zh, this message translates to:
+  /// **'粉'**
+  String get tavernPaletteRose;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

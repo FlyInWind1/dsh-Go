@@ -494,5 +494,10 @@
   "tavernLineTight": "紧凑",
   "tavernLineNormal": "适中",
   "tavernLineLoose": "宽松",
-  "tavernReadingSample": "*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」"
+  "tavernReadingSample": "*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」",
+  "tavernPalette": "配色",
+  "tavernPalettePlain": "素",
+  "tavernPaletteEmber": "暖",
+  "tavernPaletteOcean": "冷",
+  "tavernPaletteRose": "粉"
 }

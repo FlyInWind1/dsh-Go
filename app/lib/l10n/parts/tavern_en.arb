@@ -494,5 +494,10 @@
   "tavernLineTight": "Tight",
   "tavernLineNormal": "Normal",
   "tavernLineLoose": "Loose",
-  "tavernReadingSample": "*She pushes a clay cup across to you; the firelight jumps in her eyes.*\n\n\"Still on the road this late? The snow won't stop tonight. If you're travelling, wait for daylight.\""
+  "tavernReadingSample": "*She pushes a clay cup across to you; the firelight jumps in her eyes.*\n\n\"Still on the road this late? The snow won't stop tonight. If you're travelling, wait for daylight.\"",
+  "tavernPalette": "Colours",
+  "tavernPalettePlain": "Plain",
+  "tavernPaletteEmber": "Warm",
+  "tavernPaletteOcean": "Cool",
+  "tavernPaletteRose": "Rose"
 }

@@ -926,7 +926,7 @@ class _MessageRow extends StatelessWidget {
     if (message.role == TavernRole.user) {
       return GestureDetector(
         onLongPress: onMenu,
-        child: BotUserMessage(text: message.text),
+        child: _YourLine(text: message.text),
       );
     }
     final alternatives = last || message.siblingCount > 1;
@@ -1125,6 +1125,39 @@ class _HiddenTag extends StatelessWidget {
 
 /// ‹ 2/5 ›: the previous and next alternative; past the last one (on the last
 /// reply) › writes a new one.
+/// Your line in the bubble layout: the app's bubble, with the story's
+/// Markdown and colours inside (your *actions* in italics, as hers are).
+class _YourLine extends StatelessWidget {
+  const _YourLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = DshSurfaces.of(context);
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.centerRight,
+      child: LayoutBuilder(
+        builder: (context, constraints) => ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.82),
+          child: DecoratedBox(
+            decoration: ShapeDecoration(color: surfaces.userBubble, shape: AppShape.bubble),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              // The bubble's own text colour for the narration.
+              child: Theme(
+                data: theme.copyWith(colorScheme: theme.colorScheme.copyWith(onSurface: surfaces.onUserBubble)),
+                child: MarkdownBody(text: text, selectable: false),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// An older reply's alternatives, as a count: switched by swiping.
 class _AlternativesCount extends StatelessWidget {
   const _AlternativesCount({required this.message});
