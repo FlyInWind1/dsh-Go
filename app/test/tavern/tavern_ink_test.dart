@@ -97,6 +97,26 @@ void main() {
     expect(_drawn(tester)['「进来吧」'], TavernInk.of(TavernPalette.ember, Brightness.light).dialogue);
   });
 
+  testWidgets('a quote still open at the end is said already, and the cursor stays after it', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: withTestFonts(buildLightTheme()),
+          home: const Scaffold(
+            body: TavernReading(child: MarkdownBody(text: '她说：「进来', streaming: true, selectable: false)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(StreamingCursor), findsOneWidget);
+    final drawn = _drawn(tester);
+    expect(drawn['「进来'], TavernInk.of(TavernPalette.ember, Brightness.light).dialogue);
+    expect(drawn.keys.any((t) => t.contains('')), isFalse); // no cursor drawn as a character
+    // Only at the very end: a quote left open on a line before is not.
+    expect(tavernInkPattern.pattern.allMatches('「没关上\n下一行').map((m) => m[0]), isEmpty);
+  });
+
   testWidgets('the chat’s own character is named in the accent; anyone else in a colour of their own', (tester) async {
     late BuildContext context;
     await _pump(

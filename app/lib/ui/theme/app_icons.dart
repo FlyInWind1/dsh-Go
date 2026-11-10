@@ -392,6 +392,7 @@ abstract final class AppIcons {
   /// 模式 › 酒馆 (role play).
   static const tavern = DshGlyphs.bookOpen;
   static const lorebook = DshGlyphs.globe;
+  static const textSpeed = DshGlyphs.cursorText;
 
   /// The drawer's key to 模式.
   static const modes = DshGlyphs.stack;

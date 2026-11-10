@@ -34598,6 +34598,48 @@ abstract class L10n {
   /// **'粉'**
   String get tavernPaletteRose;
 
+  /// No description provided for @tavernTextSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'逐字速度'**
+  String get tavernTextSpeed;
+
+  /// No description provided for @tavernTextSlow.
+  ///
+  /// In zh, this message translates to:
+  /// **'慢'**
+  String get tavernTextSlow;
+
+  /// No description provided for @tavernTextNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'中'**
+  String get tavernTextNormal;
+
+  /// No description provided for @tavernTextFast.
+  ///
+  /// In zh, this message translates to:
+  /// **'快'**
+  String get tavernTextFast;
+
+  /// No description provided for @tavernTextInstant.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即'**
+  String get tavernTextInstant;
+
+  /// No description provided for @tavernVnAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get tavernVnAuto;
+
+  /// No description provided for @tavernVnSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get tavernVnSkip;
+
   /// No description provided for @tavernStage.
   ///
   /// In zh, this message translates to:

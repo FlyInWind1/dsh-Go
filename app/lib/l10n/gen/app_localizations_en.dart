@@ -19989,6 +19989,27 @@ class L10nEn extends L10n {
   String get tavernPaletteRose => 'Rose';
 
   @override
+  String get tavernTextSpeed => 'Text speed';
+
+  @override
+  String get tavernTextSlow => 'Slow';
+
+  @override
+  String get tavernTextNormal => 'Medium';
+
+  @override
+  String get tavernTextFast => 'Fast';
+
+  @override
+  String get tavernTextInstant => 'Instant';
+
+  @override
+  String get tavernVnAuto => 'Auto';
+
+  @override
+  String get tavernVnSkip => 'Skip';
+
+  @override
   String get tavernStage => 'Stage';
 
   @override

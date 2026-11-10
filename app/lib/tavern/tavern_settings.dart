@@ -26,6 +26,20 @@ const tavernLineHeights = [1.5, 1.65, 1.8];
 /// it; the others colour what is said and what is done.
 enum TavernPalette { plain, ember, ocean, rose }
 
+/// How fast 视觉小说 types out a page (docs/design/roleplay-ui.md §4); 立即
+/// shows each page whole.
+enum TavernTextSpeed {
+  slow(16),
+  normal(32),
+  fast(64),
+  instant(null);
+
+  const TavernTextSpeed(this.charactersPerSecond);
+
+  /// Null: no typing out.
+  final double? charactersPerSecond;
+}
+
 class TavernSettings {
   const TavernSettings({
     this.model = 'deepseek-flash',
@@ -34,6 +48,7 @@ class TavernSettings {
     this.textSize = 15,
     this.lineHeight = 1.5,
     this.palette = TavernPalette.ember,
+    this.textSpeed = TavernTextSpeed.normal,
     this.loaded = false,
   });
 
@@ -45,6 +60,7 @@ class TavernSettings {
   final double textSize;
   final double lineHeight;
   final TavernPalette palette;
+  final TavernTextSpeed textSpeed;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -54,6 +70,7 @@ class TavernSettings {
     double? textSize,
     double? lineHeight,
     TavernPalette? palette,
+    TavernTextSpeed? textSpeed,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
@@ -61,6 +78,7 @@ class TavernSettings {
     textSize: textSize ?? this.textSize,
     lineHeight: lineHeight ?? this.lineHeight,
     palette: palette ?? this.palette,
+    textSpeed: textSpeed ?? this.textSpeed,
     loaded: true,
   );
 }
@@ -72,6 +90,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const textSizeKey = 'tavern.textSize';
   static const lineHeightKey = 'tavern.lineHeight';
   static const paletteKey = 'tavern.palette';
+  static const textSpeedKey = 'tavern.textSpeed';
 
   @override
   TavernSettings build() {
@@ -91,6 +110,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         textSize: _oneOf(prefs.getDouble(textSizeKey), tavernTextSizes, 15),
         lineHeight: _oneOf(prefs.getDouble(lineHeightKey), tavernLineHeights, 1.5),
         palette: TavernPalette.values.asNameMap()[prefs.getString(paletteKey)] ?? TavernPalette.ember,
+        textSpeed: TavernTextSpeed.values.asNameMap()[prefs.getString(textSpeedKey)] ?? TavernTextSpeed.normal,
         loaded: true,
       );
     } catch (_) {
@@ -127,6 +147,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setPalette(TavernPalette palette) async {
     state = state.copyWith(palette: palette);
     await _save((prefs) => prefs.setString(paletteKey, palette.name));
+  }
+
+  Future<void> setTextSpeed(TavernTextSpeed speed) async {
+    state = state.copyWith(textSpeed: speed);
+    await _save((prefs) => prefs.setString(textSpeedKey, speed.name));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

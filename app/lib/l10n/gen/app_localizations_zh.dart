@@ -18943,6 +18943,27 @@ class L10nZh extends L10n {
   String get tavernPaletteRose => '粉';
 
   @override
+  String get tavernTextSpeed => '逐字速度';
+
+  @override
+  String get tavernTextSlow => '慢';
+
+  @override
+  String get tavernTextNormal => '中';
+
+  @override
+  String get tavernTextFast => '快';
+
+  @override
+  String get tavernTextInstant => '立即';
+
+  @override
+  String get tavernVnAuto => '自动';
+
+  @override
+  String get tavernVnSkip => '跳过';
+
+  @override
   String get tavernStage => '舞台';
 
   @override

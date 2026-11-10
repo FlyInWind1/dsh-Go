@@ -45,7 +45,14 @@ class TavernInkScope extends InheritedWidget {
 }
 
 /// What is said: text in 「」『』“” or "…" (not an HTML attribute's value).
-const _said = '「[^」\\n]*」|『[^』\\n]*』|“[^”\\n]*”|(?<![=\\w])"[^"\\n<>]*"';
+/// A 「, 『 or “ still open at the very end (a reply being written, a page
+/// being typed out; the cursor, U+E000, may follow) is said too, so the words
+/// don't change colour as the quote closes.
+const _said =
+    '「[^」\\n\\uE000]*(?:」|(?=\\uE000?\$))|'
+    '『[^』\\n\\uE000]*(?:』|(?=\\uE000?\$))|'
+    '“[^”\\n\\uE000]*(?:”|(?=\\uE000?\$))|'
+    '(?<![=\\w])"[^"\\n<>]*"';
 
 /// What is done: `*…*` with single asterisks, as Markdown's italics would take
 /// it (not `**bold**`, not `a*b*c` inside a word).

@@ -765,6 +765,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     null => null,
                   },
                   onPage: _cue,
+                  revealRate: ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond)),
                   topInset: topInset,
                   onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
                   footer: (m, lastPage) =>

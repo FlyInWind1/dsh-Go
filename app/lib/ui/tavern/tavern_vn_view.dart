@@ -1,10 +1,15 @@
 // 视觉小说 layout (docs/design/roleplay-ui.md §4): the character's picture on
 // the stage, one paragraph at a time in a glass box at the bottom; tap the box
-// for the next one. Built natively for now; the canvas (R2) adds backgrounds
-// and expression sprites from the card's assets.
+// for the next one, typed out at 酒馆设置's speed (a tap while it types shows
+// it whole). 自动 turns the pages on their own; 跳过 goes to the newest. Built
+// natively for now; the canvas (R2) adds backgrounds and expression sprites
+// from the card's assets.
+
+import 'dart:async';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../l10n/l10n.dart';
 import '../chat/render/markdown_body.dart';
@@ -43,6 +48,7 @@ class TavernVisualNovelView extends StatefulWidget {
     required this.footer,
     this.stage,
     this.onPage,
+    this.revealRate,
   });
 
   final List<TavernPage> pages;
@@ -62,16 +68,33 @@ class TavernVisualNovelView extends StatefulWidget {
   /// A page came up: a new one, or one reached by stepping back and forth.
   final ValueChanged<TavernPage>? onPage;
 
+  /// How fast a page turned to is typed out, in characters a second; null
+  /// shows each page whole.
+  final double? revealRate;
+
   @override
   State<TavernVisualNovelView> createState() => _TavernVisualNovelViewState();
 }
 
-class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
+class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with SingleTickerProviderStateMixin {
   /// The page shown; null follows the newest.
   int? _page;
 
   /// The backlog is open over the stage.
   bool _log = false;
+
+  /// 自动: each page, once whole, waits as long as it takes to read and turns.
+  bool _auto = false;
+  Timer? _autoTimer;
+
+  /// The page being typed out; null when the page shows whole.
+  _Typing? _typing;
+  late final Ticker _ticker = createTicker(_tick);
+
+  final _scroll = ScrollController();
+
+  /// The typed part of the page, to keep its newest line in sight.
+  final _typedKey = GlobalKey();
 
   int get _last => widget.pages.length - 1;
 
@@ -81,16 +104,120 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
     // Reading the newest page when more arrive: keep up with them.
     if (_page != null && _page! >= old.pages.length - 1) _page = null;
     if (_page != null && _page! > _last) _page = null;
+    // The page being typed out moved off screen or changed: no more typing.
+    if (_typing case final typing?) {
+      final at = _page ?? _last;
+      if (widget.revealRate == null ||
+          typing.at != at ||
+          at > _last ||
+          widget.pages[at].message.nodeId != typing.node ||
+          widget.pages[at].text != typing.text) {
+        _stopTyping();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    _ticker.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// To page [page] (null: the newest), typed out when [type].
+  void _go(int? page, {bool type = false}) {
+    _cancelAuto();
+    setState(() {
+      _page = page;
+      _stopTyping();
+      if (type) _type(page ?? _last);
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
   void _next() {
     final at = _page ?? _last;
-    if (at < _last) setState(() => _page = at + 1 == _last ? null : at + 1);
+    if (at < _last) _go(at + 1 == _last ? null : at + 1, type: true);
   }
 
   void _previous() {
     final at = _page ?? _last;
-    if (at > 0) setState(() => _page = at - 1);
+    if (at > 0) _go(at - 1);
+  }
+
+  /// 跳过: to the newest page, whole.
+  void _skip() => _go(null);
+
+  /// A tap on the box: the page whole while it types, else the next one.
+  void _tap() {
+    if (_typing == null) return _next();
+    _cancelAuto();
+    setState(_stopTyping);
+  }
+
+  void _openLog() {
+    _cancelAuto();
+    setState(() => _log = true);
+  }
+
+  /// Starts typing out page [at], unless pages show whole: at 立即, with
+  /// motion reduced, for a reply still being written (it types itself) and
+  /// for your own lines.
+  void _type(int at) {
+    final rate = widget.revealRate;
+    if (rate == null || at < 0 || at > _last || AppMotion.reduced(context)) return;
+    final page = widget.pages[at];
+    if (page.streaming || page.message.role == TavernRole.user) return;
+    final typing = _Typing(page.message.nodeId, at, page.text);
+    if (typing.cuts.length < 2) return;
+    _typing = typing;
+    _ticker.start();
+  }
+
+  void _stopTyping() {
+    _ticker.stop();
+    _typing = null;
+  }
+
+  void _tick(Duration elapsed) {
+    final typing = _typing;
+    final rate = widget.revealRate;
+    if (typing == null || rate == null) return _ticker.stop();
+    final shown = (elapsed.inMicroseconds * rate / Duration.microsecondsPerSecond).floor() + 1;
+    if (shown >= typing.cuts.length) return setState(_stopTyping);
+    if (shown == typing.shown) return;
+    setState(() => typing.shown = shown);
+    // A page taller than the box: keep the newest typed line in sight.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final typed = _typedKey.currentContext?.findRenderObject();
+      if (!mounted || typed is! RenderBox || !_scroll.hasClients) return;
+      final position = _scroll.position;
+      final bottom = (typed.size.height - position.viewportDimension).clamp(0.0, position.maxScrollExtent);
+      if (bottom > position.pixels) _scroll.jumpTo(bottom);
+    });
+  }
+
+  void _cancelAuto() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+  }
+
+  void _setAuto(bool on) {
+    _cancelAuto();
+    setState(() => _auto = on);
+  }
+
+  /// With 自动 on, page [at], whole and not the last, waits as long as it
+  /// takes to read, then turns.
+  void _schedule(TavernPage? page, int at) {
+    if (!_auto || _autoTimer != null || _typing != null || _log) return;
+    if (page == null || page.streaming || at >= _last) return;
+    final wait = 1200 + 50 * page.text.characters.length;
+    _autoTimer = Timer(Duration(milliseconds: wait.clamp(1200, 8000)), () {
+      _autoTimer = null;
+      if (mounted) _next();
+    });
   }
 
   /// The page last told to [TavernVisualNovelView.onPage]: its message, where
@@ -119,7 +246,9 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
     final page = pages.isEmpty ? null : pages[at];
     final user = page?.message.role == TavernRole.user;
     final speaker = page == null ? widget.name : (user ? context.l10n.tavernYou : page.message.speaker);
+    final typing = _typing?.at == at ? _typing : null;
     _tell(page, at);
+    _schedule(page, at);
     final stage = widget.stage;
     return Stack(
       children: [
@@ -174,7 +303,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
           child: GestureDetector(
             key: const ValueKey('tavern-vn-box'),
             behavior: HitTestBehavior.opaque,
-            onTap: _next,
+            onTap: _tap,
             onLongPress: page == null ? null : () => widget.onMenu(page.message),
             onHorizontalDragEnd: (d) {
               final v = d.primaryVelocity ?? 0;
@@ -183,7 +312,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
             },
             // Up over the box: the backlog, as in a visual novel.
             onVerticalDragEnd: (d) {
-              if ((d.primaryVelocity ?? 0) < -300) setState(() => _log = true);
+              if ((d.primaryVelocity ?? 0) < -300) _openLog();
             },
             child: GlassSurface(
               tier: GlassTier.sheet,
@@ -208,6 +337,14 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
                           '${at + 1}/${pages.length}',
                           style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
                         ),
+                      _BoxKey(
+                        key: const ValueKey('tavern-vn-auto'),
+                        label: context.l10n.tavernVnAuto,
+                        on: _auto,
+                        onTap: () => _setAuto(!_auto),
+                      ),
+                      if (at < _last)
+                        _BoxKey(key: const ValueKey('tavern-vn-skip'), label: context.l10n.tavernVnSkip, onTap: _skip),
                       SizedBox.square(
                         dimension: 32,
                         child: IconButton(
@@ -216,7 +353,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
                           padding: EdgeInsets.zero,
                           iconSize: 18,
                           color: dsh.textTertiary,
-                          onPressed: () => setState(() => _log = true),
+                          onPressed: _openLog,
                           icon: Icon(AppIcons.history),
                         ),
                       ),
@@ -226,15 +363,42 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
                   ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 72, maxHeight: 220),
                     child: SingleChildScrollView(
+                      controller: _scroll,
                       reverse: page?.streaming ?? false,
                       child: AnimatedSwitcher(
                         duration: AppMotion.of(context, AppMotion.quick),
                         child: SizedBox(
                           key: ValueKey(at),
                           width: double.infinity,
-                          child: page == null
-                              ? const SizedBox.shrink()
-                              : MarkdownBody(text: page.text, streaming: page.streaming, selectable: false),
+                          child: switch ((page, typing)) {
+                            (null, _) => const SizedBox.shrink(),
+                            (final page?, null) => MarkdownBody(
+                              text: page.text,
+                              streaming: page.streaming,
+                              selectable: false,
+                            ),
+                            // Typing: the page whole but unseen under it, so the
+                            // box takes its size at once and no line moves.
+                            (final page?, final typing?) => Stack(
+                              children: [
+                                Visibility.maintain(
+                                  visible: false,
+                                  child: MarkdownBody(text: page.text, selectable: false),
+                                ),
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: MarkdownBody(
+                                    key: _typedKey,
+                                    text: typing.typed,
+                                    streaming: true,
+                                    selectable: false,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          },
                         ),
                       ),
                     ),
@@ -270,6 +434,82 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A page being typed out.
+class _Typing {
+  _Typing(this.node, this.at, this.text) : cuts = _cuts(text);
+
+  final String node;
+  final int at;
+  final String text;
+
+  /// Where [text] is cut as it is typed: see [_cuts].
+  final List<int> cuts;
+
+  /// How many of [cuts] show.
+  int shown = 1;
+
+  String get typed => text.substring(0, cuts[shown - 1]);
+}
+
+/// What comes at once, whole: an HTML tag, an image, a link.
+final _whole = RegExp(r'</?[A-Za-z][^<>]*>|!?\[[^\]\n]*\]\([^)\n]*\)');
+
+@visibleForTesting
+List<int> tavernTypingCuts(String text) => _cuts(text);
+
+/// Where [text] can be cut as it is typed out: after each character, never
+/// inside a tag, an image or a link.
+List<int> _cuts(String text) {
+  final whole = [for (final m in _whole.allMatches(text)) (m.start, m.end)];
+  final cuts = <int>[];
+  var offset = 0;
+  var w = 0;
+  for (final c in text.characters) {
+    offset += c.length;
+    while (w < whole.length && whole[w].$2 < offset) {
+      w++;
+    }
+    if (w < whole.length && whole[w].$1 < offset && offset < whole[w].$2) continue;
+    cuts.add(offset);
+  }
+  return cuts;
+}
+
+/// One of the box's keys (自动, 跳过), as a visual novel labels them: a word,
+/// in the accent while it is on.
+class _BoxKey extends StatelessWidget {
+  const _BoxKey({super.key, required this.label, required this.onTap, this.on = false});
+
+  final String label;
+  final VoidCallback onTap;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      toggled: on,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
+          child: Center(
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: on ? theme.colorScheme.primary : DshColors.of(context).textTertiary,
+                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

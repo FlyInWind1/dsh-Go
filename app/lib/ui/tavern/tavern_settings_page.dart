@@ -112,6 +112,20 @@ class TavernSettingsPage extends ConsumerWidget {
               selected: settings.layout,
               onChanged: (layout) => unawaited(controller.setLayout(layout)),
             ),
+            // How 视觉小说 types out each page.
+            SettingsSegmentTile<TavernTextSpeed>(
+              key: const ValueKey('tavern-text-speed'),
+              icon: AppIcons.textSpeed,
+              title: l10n.tavernTextSpeed,
+              segments: [
+                PillSegment(TavernTextSpeed.slow, l10n.tavernTextSlow),
+                PillSegment(TavernTextSpeed.normal, l10n.tavernTextNormal),
+                PillSegment(TavernTextSpeed.fast, l10n.tavernTextFast),
+                PillSegment(TavernTextSpeed.instant, l10n.tavernTextInstant),
+              ],
+              selected: settings.textSpeed,
+              onChanged: (speed) => unawaited(controller.setTextSpeed(speed)),
+            ),
             SettingsSegmentTile<double>(
               key: const ValueKey('tavern-text-size'),
               icon: AppIcons.selectText,
