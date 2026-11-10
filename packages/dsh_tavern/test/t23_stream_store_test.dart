@@ -356,7 +356,7 @@ void main() {
     expect(_matches(database, 'oldtoken'), isEmpty);
   });
 
-  test('real frozen schema3 migrates to4 with preset report source and unknown columns intact', () async {
+  test('real frozen schema3 migrates through4 with preset report source and unknown columns intact', () async {
     await store.close();
     final oldPath = '${directory.path}/schema3.sqlite3';
     database = sqlite3.open(oldPath);
@@ -368,8 +368,8 @@ void main() {
     );
     final before = Map<String, Object?>.from(database.select('SELECT * FROM presets').single);
     store = ChatStore.fromDatabase(database);
-    expect(ChatStore.schemaVersion, 4);
-    expect(database.select('PRAGMA user_version').single['user_version'], 4);
+    expect(ChatStore.schemaVersion, greaterThanOrEqualTo(4));
+    expect(database.select('PRAGMA user_version').single['user_version'], ChatStore.schemaVersion);
     expect(Map<String, Object?>.from(database.select('SELECT * FROM presets').single), before);
     expect(
       database.select('PRAGMA table_info(nodes)').map((row) => row['name']),
@@ -393,7 +393,7 @@ void main() {
     expect(database.select("SELECT name FROM sqlite_master WHERE name = 'nodes_stream_pending'"), isEmpty);
     database.execute('ALTER TABLE nodes DROP COLUMN stream_reasoning');
     store = ChatStore.fromDatabase(database);
-    expect(database.select('PRAGMA user_version').single['user_version'], 4);
+    expect(database.select('PRAGMA user_version').single['user_version'], ChatStore.schemaVersion);
   });
 }
 

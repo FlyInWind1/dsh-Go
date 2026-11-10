@@ -160,6 +160,7 @@ void main() {
       _withDatabase(path, (database) {
         expect(database.select('PRAGMA user_version').single['user_version'], ChatStore.schemaVersion);
         expect(_preservedRows(database), before);
+        expect(database.select('SELECT tree_revision FROM chats').single['tree_revision'], 0);
         expect(database.select('SELECT import_report_json FROM presets').single['import_report_json'], isNull);
         expect(database.select('PRAGMA foreign_key_check'), isEmpty);
       });
@@ -279,7 +280,9 @@ Map<String, Object?> _preservedRows(Database database) => {
   'presets': _rows(database, '''SELECT id, name, hex(CAST(source_text AS BLOB)) AS bytes,
     raw_json, envelope_json, created_at, updated_at, future_column FROM presets'''),
   'preferences': _rows(database, 'SELECT * FROM preset_preferences'),
-  'chats': _rows(database, 'SELECT * FROM chats'),
+  // Compare the complete v2 row; v5 adds tree_revision, checked separately.
+  'chats': _rows(database, '''SELECT id, character_id, title, created_at, updated_at,
+    persona_id, preset_id, selected_root_id, current_leaf_id, metadata, variables, settings FROM chats'''),
 };
 
 Map<String, Object?> _snapshot(Database database) => {

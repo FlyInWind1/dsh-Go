@@ -8,6 +8,7 @@
 
 import 'dart:typed_data';
 
+import 'backup.dart';
 import 'import_report.dart';
 import 'inspection.dart';
 import 'lorebook_library.dart';
@@ -125,6 +126,7 @@ class TavernMessage {
     this.siblingCount = 1,
     this.hidden = false,
     this.usage,
+    this.reportedUsage,
   });
 
   final String nodeId;
@@ -145,6 +147,12 @@ class TavernMessage {
   /// Kept out of the prompt (ST `/hide`).
   final bool hidden;
   final TavernUsage? usage;
+
+  /// Provider usage for this node's latest recorded generation, without
+  /// rebuilding its full inspection. Null means that call reported none;
+  /// it is not replaced with estimates or a continued message's older usage.
+  /// A live path/snapshot uses the current call's report, if already received.
+  final TavernUsage? reportedUsage;
 }
 
 /// What one model call cost, as the API reported it.
@@ -163,11 +171,26 @@ sealed class TavernEvent {
   const TavernEvent();
 }
 
+/// First event when reconnecting to an active turn. This is the complete
+/// in-memory body at subscription time, including uncheckpointed text.
+class TavernTurnSnapshot extends TavernEvent {
+  const TavernTurnSnapshot({required this.chatId, required this.generationType, required this.startedAt, this.message});
+
+  final String chatId;
+  final String generationType;
+  final DateTime startedAt;
+
+  /// Null while preparing the request, before a reply node exists. Later
+  /// TavernTurnStarted supplies it. Impersonation has a temporary user node.
+  final TavernMessage? message;
+}
+
 /// The node the reply is written into exists (a new one, or a new sibling).
 class TavernTurnStarted extends TavernEvent {
   const TavernTurnStarted(this.message);
 
-  /// Empty text so far; carries the node id and its place among siblings.
+  /// Empty for a new reply; continuation retains its existing body. Carries
+  /// the node id and its place among siblings.
   final TavernMessage message;
 }
 
@@ -427,6 +450,8 @@ abstract interface class Tavern {
 
   /// Appends [text] as the user's message and streams the character's reply.
   /// Empty [text]: the character speaks next without a new user line.
+  /// Listening admits the turn. Cancelling a turn-stream subscription only
+  /// detaches that observer; generation continues until completion or [stop].
   Stream<TavernEvent> send(String chatId, String text);
 
   /// A new reply as a sibling of [nodeId] (a character message), which becomes
@@ -438,6 +463,17 @@ abstract interface class Tavern {
 
   /// Writes the user's next line for them (ST impersonate); not stored.
   Stream<TavernEvent> impersonate(String chatId);
+
+  /// Observes the turn active when this stream is listened to. The first
+  /// event is a [TavernTurnSnapshot], followed by only subsequent deltas and
+  /// its single terminal event. Snapshot and observer registration have no
+  /// asynchronous gap. Multiple observers are independent; cancellation
+  /// never stops the turn. There is no event-history buffer.
+  ///
+  /// If no turn is active, closes without events; read [path]/[inspectTurn]
+  /// for persisted results. Reconnection is within this engine's lifetime,
+  /// not a resumable HTTP request after process termination.
+  Stream<TavernEvent> resumeTurn(String chatId);
 
   /// Stops whatever turn [chatId] is running. Its stream ends with
   /// [TavernTurnFailed] `cancelled`, keeping what arrived.
@@ -451,8 +487,21 @@ abstract interface class Tavern {
 
   Future<void> edit(String chatId, String nodeId, String text);
 
-  /// Removes [nodeId] and everything after it on every branch.
-  Future<void> deleteFrom(String chatId, String nodeId);
+  /// Hides [nodeId] and its whole subtree, returning an undo token. Data is
+  /// physically removed the next time the store is opened. Existing callers
+  /// may ignore the token; implementations must forward the returned String.
+  Future<String> deleteFrom(String chatId, String nodeId);
+
+  /// Restores this deletion during the same open-store lifetime. Restores
+  /// the old selection only if no later tree operation has changed it;
+  /// otherwise restores the branch without replacing the current path.
+  /// False means unknown/consumed token or an ancestor is still soft-deleted.
+  Future<bool> undoDeleteFrom(String chatId, String deletionId);
+
+  /// Literal substring search across this chat's visible branches, newest
+  /// first. Matches body/speaker, including Chinese; %, _ and backslash are
+  /// literal. Pending streaming bodies and soft-deleted nodes are excluded.
+  Future<List<TavernMessage>> searchChat(String chatId, String query, {int limit = 50});
 
   Future<void> setHidden(String chatId, String nodeId, bool hidden);
 
@@ -552,6 +601,13 @@ abstract interface class Tavern {
   /// Legacy global patches containing preset write settings.json before the
   /// SQLite selection; a second-step failure leaves the file change committed.
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId});
+
+  /// Creates a complete ZIP at [destinationPath], outside this data root.
+  /// Active turns or another backup return busy. New operations are rejected
+  /// only while the stable database/files snapshot is being captured; normal
+  /// work may resume while that independent snapshot is compressed.
+  /// Restore uses restoreTavernDirectory after closing the target engine.
+  Future<TavernBackupInfo> backup(String destinationPath);
 
   Future<void> close();
 }

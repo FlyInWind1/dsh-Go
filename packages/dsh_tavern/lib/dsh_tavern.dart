@@ -3,6 +3,7 @@
 library;
 
 export 'src/api.dart';
+export 'src/backup.dart';
 export 'src/engine.dart';
 export 'src/import_report.dart';
 export 'src/inspection.dart';

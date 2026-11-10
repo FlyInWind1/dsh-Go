@@ -149,7 +149,21 @@ class DeferredTavern implements Tavern {
   Future<void> edit(String chatId, String nodeId, String text) async => (await _ready).edit(chatId, nodeId, text);
 
   @override
-  Future<void> deleteFrom(String chatId, String nodeId) async => (await _ready).deleteFrom(chatId, nodeId);
+  Future<String> deleteFrom(String chatId, String nodeId) async => (await _ready).deleteFrom(chatId, nodeId);
+
+  @override
+  Future<bool> undoDeleteFrom(String chatId, String deletionId) async =>
+      (await _ready).undoDeleteFrom(chatId, deletionId);
+
+  @override
+  Future<List<TavernMessage>> searchChat(String chatId, String query, {int limit = 50}) async =>
+      (await _ready).searchChat(chatId, query, limit: limit);
+
+  @override
+  Stream<TavernEvent> resumeTurn(String chatId) => _stream((t) => t.resumeTurn(chatId));
+
+  @override
+  Future<TavernBackupInfo> backup(String destinationPath) async => (await _ready).backup(destinationPath);
 
   @override
   Future<void> setHidden(String chatId, String nodeId, bool hidden) async =>

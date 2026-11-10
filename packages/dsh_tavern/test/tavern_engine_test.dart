@@ -343,7 +343,8 @@ void main() {
     pending.text('部分');
     await received.future;
     await subscription.cancel().timeout(const Duration(seconds: 3));
-    // A mutation is also a barrier for the cancelled turn's final flush.
+    // T24 detaches the observer; this explicit mutation now cancels the
+    // still-active turn and waits for its final flush.
     await engine.setHidden(chatId, nodeId, false).timeout(const Duration(seconds: 3));
     pending.text('迟来的数据');
     expect((await engine.path(chatId)).last.text, '部分');

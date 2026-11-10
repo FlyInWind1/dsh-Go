@@ -135,12 +135,12 @@ class ChatStore {
     return ChatStore._(database, clock: clock, createId: createId);
   }
 
-  static const schemaVersion = 4;
+  static const schemaVersion = 5;
 
   // Keys are destination versions. Future upgrades register every successor
   // here and increase schemaVersion; no existing schema is dropped or replayed.
   // Steps run inside one transaction and must not manage transactions themselves.
-  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2, 3: _schemaV3, 4: _schemaV4};
+  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2, 3: _schemaV3, 4: _schemaV4, 5: _schemaV5};
   final Database _db;
   final DateTime Function() _clock;
   final String Function() _createId;
@@ -183,21 +183,28 @@ class ChatStore {
         }
       });
     }
-    _recoverStreamingBodies();
+    _recoverPendingNodes();
   }
 
   // A process can stop between a body checkpoint and the terminal transaction.
   // The indexed text is still the old committed text, so this promotion uses
   // the unchanged FTS trigger's correct OLD values. Do not attach a previous
   // continuation's completed inspection or usage to a recovered partial body.
-  void _recoverStreamingBodies() {
-    if (_db.select('SELECT 1 FROM nodes WHERE stream_text IS NOT NULL LIMIT 1').isEmpty) return;
+  void _recoverPendingNodes() {
+    if (_db.select('SELECT 1 FROM nodes WHERE stream_text IS NOT NULL OR deleted_by IS NOT NULL LIMIT 1').isEmpty &&
+        _db.select('SELECT 1 FROM deleted_subtrees LIMIT 1').isEmpty) {
+      return;
+    }
     transaction(() {
+      // Undo belongs to the previous open session. Every physical descendant
+      // was marked, including descendants with an older deletion token.
+      _db.execute('DELETE FROM nodes WHERE deleted_by IS NOT NULL');
+      _db.execute('DELETE FROM deleted_subtrees');
       _db.execute(r'''UPDATE chats SET metadata = json_remove(metadata, '$.dshgo.latestInspection')
         WHERE EXISTS (SELECT 1 FROM nodes n WHERE n.chat_id = chats.id AND n.stream_text IS NOT NULL
           AND n.id = json_extract(chats.metadata, '$.dshgo.latestInspection.nodeId'))''');
       _db.execute(r'''UPDATE nodes SET text = stream_text, reasoning = stream_reasoning,
-        usage = NULL, extra = json_remove(extra, '$.dshgo.inspection'),
+        usage = NULL, reported_usage = NULL, extra = json_remove(extra, '$.dshgo.inspection'),
         stream_text = NULL, stream_reasoning = NULL WHERE stream_text IS NOT NULL''');
     });
   }
@@ -610,7 +617,7 @@ class ChatStore {
     _ensureOpen();
     final rows = _db.select(
       '''SELECT c.*, COALESCE(n.stream_text, n.text) AS last_text, COALESCE(n.depth, 0) AS message_count
-         FROM chats c LEFT JOIN nodes n ON n.id = c.current_leaf_id
+         FROM chats c LEFT JOIN nodes n ON n.id = c.current_leaf_id AND n.deleted_by IS NULL
          WHERE (? IS NULL OR c.character_id = ?) ORDER BY c.updated_at DESC, c.id''',
       [characterId, characterId],
     );
@@ -685,8 +692,8 @@ class ChatStore {
       final nodeId = id ?? _createId();
       _db.execute(
         '''INSERT INTO nodes
-           (id, chat_id, parent_id, depth, role, speaker, text, reasoning, at, hidden, usage, extra, original)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+           (id, chat_id, parent_id, depth, role, speaker, text, reasoning, at, hidden, usage, reported_usage, extra, original)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         [
           nodeId,
           chatId,
@@ -699,6 +706,7 @@ class ChatStore {
           (at ?? _clock()).millisecondsSinceEpoch,
           hidden ? 1 : 0,
           _encodeUsage(usage),
+          _reportedUsage(extra, chatId, nodeId),
           jsonEncode(extra),
           jsonEncode(original),
         ],
@@ -721,7 +729,7 @@ class ChatStore {
           _activate(chatId, nodeId);
         }
       }
-      _touch(chatId);
+      _touch(chatId, tree: true);
       return message(chatId, nodeId);
     });
   }
@@ -733,9 +741,10 @@ class ChatStore {
   List<StoredNode> allNodes(String chatId) {
     _chatRow(chatId);
     return [
-      for (final row in _db.select('SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? ORDER BY n.seq', [
-        chatId,
-      ]))
+      for (final row in _db.select(
+        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.deleted_by IS NULL ORDER BY n.seq',
+        [chatId],
+      ))
         _storedNode(row),
     ];
   }
@@ -745,7 +754,7 @@ class ChatStore {
     if (parentId != null) _nodeRow(chatId, parentId);
     return [
       for (final row in _db.select(
-        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id IS ? ORDER BY n.seq',
+        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id IS ? AND n.deleted_by IS NULL ORDER BY n.seq',
         [chatId, parentId],
       ))
         _storedNode(row),
@@ -784,10 +793,10 @@ class ChatStore {
     // terms stay inside this chat; never trust a foreign parent pointer.
     final rows = _db.select(
       '''WITH RECURSIVE ancestors(id, parent_id) AS (
-           SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ?
+           SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by IS NULL
            UNION
            SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id
-             WHERE n.chat_id = ?
+             WHERE n.chat_id = ? AND n.deleted_by IS NULL
            LIMIT ?
          ) SELECT n.*, $_siblingColumns FROM ancestors a JOIN nodes n ON n.id = a.id''',
       [chatId, leafId, chatId, limit ?? -1],
@@ -809,13 +818,13 @@ class ChatStore {
   void selectSibling(String chatId, String nodeId, int index) {
     transaction(() {
       final row = _nodeRow(chatId, nodeId);
-      final siblings = _db.select('SELECT id FROM nodes WHERE chat_id = ? AND parent_id IS ? ORDER BY seq', [
-        chatId,
-        row['parent_id'],
-      ]);
+      final siblings = _db.select(
+        'SELECT id FROM nodes WHERE chat_id = ? AND parent_id IS ? AND deleted_by IS NULL ORDER BY seq',
+        [chatId, row['parent_id']],
+      );
       RangeError.checkValidIndex(index, siblings, 'index');
       _activate(chatId, siblings[index]['id'] as String);
-      _touch(chatId);
+      _touch(chatId, tree: true);
     });
   }
 
@@ -826,7 +835,7 @@ class ChatStore {
       _nodeRow(chatId, nodeId);
       if (!restoreDescendants) _db.execute('UPDATE nodes SET selected_child_id = NULL WHERE id = ?', [nodeId]);
       _activate(chatId, nodeId);
-      _touch(chatId);
+      _touch(chatId, tree: true);
     });
   }
 
@@ -845,7 +854,10 @@ class ChatStore {
     transaction(() {
       _chatRow(chatId);
       final choices = Map<String, String?>.of(selectedChildren);
-      final rows = _db.select('SELECT id, parent_id, selected_child_id FROM nodes WHERE chat_id = ?', [chatId]);
+      final rows = _db.select(
+        'SELECT id, parent_id, selected_child_id FROM nodes WHERE chat_id = ? AND deleted_by IS NULL',
+        [chatId],
+      );
       final parents = <String, String?>{for (final row in rows) row['id'] as String: row['parent_id'] as String?};
       if (choices.length != parents.length || parents.keys.any((id) => !choices.containsKey(id))) {
         throw ArgumentError('A selection snapshot must contain every node of this chat, and no other nodes.');
@@ -874,7 +886,7 @@ class ChatStore {
         leaf,
         chatId,
       ]);
-      _touch(chatId);
+      _touch(chatId, tree: true);
     });
   }
 
@@ -885,7 +897,10 @@ class ChatStore {
     _ensureOpen();
     if (_streamingWriters == 0) throw StateError('A body checkpoint requires an active streaming writer.');
     _withDurability(1, () {
-      if (_db.select('SELECT 1 FROM nodes WHERE chat_id = ? AND id = ?', [chatId, nodeId]).isEmpty) {
+      if (_db.select('SELECT 1 FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by IS NULL', [
+        chatId,
+        nodeId,
+      ]).isEmpty) {
         throw StateError('Node does not belong to chat: $nodeId');
       }
       _db.execute('UPDATE nodes SET stream_text = ?, stream_reasoning = ? WHERE id = ?', [text, reasoning, nodeId]);
@@ -922,7 +937,11 @@ class ChatStore {
         put('reasoning', clearReasoning ? null : reasoning ?? (promote ? row['stream_reasoning'] : row['reasoning']));
       }
       if (usage != null || clearUsage || promote) put('usage', clearUsage ? null : _encodeUsage(usage));
-      if (extra != null || promote) put('extra', jsonEncode(extra ?? _nodeExtra(row)));
+      if (extra != null || promote) {
+        final nextExtra = extra ?? _nodeExtra(row);
+        put('extra', jsonEncode(nextExtra));
+        put('reported_usage', _reportedUsage(nextExtra, chatId, nodeId));
+      }
       if (original != null) put('original', jsonEncode(original));
       if (promote) {
         put('stream_text', null);
@@ -930,7 +949,7 @@ class ChatStore {
       }
       if (fields.isNotEmpty) {
         _db.execute('UPDATE nodes SET ${fields.join(', ')} WHERE id = ?', [...values, nodeId]);
-        _touch(chatId);
+        _touch(chatId, tree: true);
       }
       return message(chatId, nodeId);
     });
@@ -944,9 +963,117 @@ class ChatStore {
     transaction(() {
       _nodeRow(chatId, nodeId);
       _db.execute('UPDATE nodes SET hidden = ? WHERE id = ?', [hidden ? 1 : 0, nodeId]);
-      _touch(chatId);
+      _touch(chatId, tree: true);
     });
   }
+
+  /// Hides a subtree until undo or the next open, preserving every stored row
+  /// and its state. User deletion uses this; failed-turn rollback uses the
+  /// immediate [deleteFrom] below. The facade owns its runtime-state cleanup.
+  String softDeleteFrom(String chatId, String nodeId) => transaction(() {
+    final chat = _chatRow(chatId);
+    final target = _nodeRow(chatId, nodeId);
+    final parentId = target['parent_id'] as String?;
+    final leafId = chat['current_leaf_id'] as String?;
+    final changesCurrent = leafId != null && _isAncestor(chatId, nodeId, leafId);
+    final selectedId = parentId == null
+        ? chat['selected_root_id'] as String?
+        : _nodeRow(chatId, parentId)['selected_child_id'] as String?;
+    final siblings = _db.select(
+      'SELECT id FROM nodes WHERE chat_id = ? AND parent_id IS ? AND id != ? AND deleted_by IS NULL ORDER BY seq',
+      [chatId, parentId, nodeId],
+    );
+    final oldIndex = target['sibling_index'] as int;
+    final replacement = siblings.isEmpty ? null : siblings[min(oldIndex, siblings.length - 1)]['id'] as String;
+    final token = _createId();
+    _db.execute(
+      '''INSERT INTO deleted_subtrees
+      (id, chat_id, root_node_id, parent_id, selected_child_id, selected_root_id, current_leaf_id, revision_after)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+      [
+        token,
+        chatId,
+        nodeId,
+        parentId,
+        selectedId,
+        chat['selected_root_id'],
+        chat['current_leaf_id'],
+        (chat['tree_revision'] as int) + 1,
+      ],
+    );
+    _db.execute(
+      '''WITH RECURSIVE subtree(id) AS (
+      SELECT id FROM nodes WHERE chat_id = ? AND id = ?
+      UNION SELECT n.id FROM nodes n JOIN subtree s ON n.parent_id = s.id WHERE n.chat_id = ?
+    ) UPDATE nodes SET deleted_by = ? WHERE id IN (SELECT id FROM subtree) AND deleted_by IS NULL''',
+      [chatId, nodeId, chatId, token],
+    );
+    if (selectedId == nodeId) {
+      if (parentId == null) {
+        _db.execute('UPDATE chats SET selected_root_id = ? WHERE id = ?', [replacement, chatId]);
+      } else {
+        _db.execute('UPDATE nodes SET selected_child_id = ? WHERE id = ?', [replacement, parentId]);
+      }
+    }
+    if (changesCurrent) {
+      final next = replacement ?? parentId;
+      if (next == null) {
+        _db.execute('UPDATE chats SET current_leaf_id = NULL, selected_root_id = NULL WHERE id = ?', [chatId]);
+      } else {
+        _activate(chatId, next);
+      }
+    }
+    _touch(chatId, tree: true);
+    return token;
+  });
+
+  /// Restores this batch's visibility. Later tree changes keep their current
+  /// selection; undo never overwrites newer branches or chat metadata.
+  /// An independently deleted ancestor blocks undo without consuming its token.
+  bool undoDeleteFrom(String chatId, String deletionId) => transaction(() {
+    final chat = _chatRow(chatId);
+    final batches = _db.select('SELECT * FROM deleted_subtrees WHERE chat_id = ? AND id = ?', [chatId, deletionId]);
+    if (batches.isEmpty) return false;
+    final batch = batches.single;
+    final roots = _db.select('SELECT parent_id FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by = ?', [
+      chatId,
+      batch['root_node_id'],
+      deletionId,
+    ]);
+    if (roots.isEmpty) return false;
+    final blocked = _db.select(
+      '''WITH RECURSIVE ancestors(id, parent_id, deleted_by) AS (
+      SELECT id, parent_id, deleted_by FROM nodes WHERE chat_id = ? AND id = ?
+      UNION SELECT n.id, n.parent_id, n.deleted_by FROM nodes n JOIN ancestors a ON n.id = a.parent_id
+        WHERE n.chat_id = ?
+    ) SELECT 1 FROM ancestors WHERE deleted_by IS NOT NULL LIMIT 1''',
+      [chatId, roots.single['parent_id'], chatId],
+    );
+    if (blocked.isNotEmpty) return false;
+    _db.execute('UPDATE nodes SET deleted_by = NULL WHERE chat_id = ? AND deleted_by = ?', [chatId, deletionId]);
+    // Checkpoints intentionally write only body columns, not chat revisions.
+    // A direct store caller may therefore have new pending text without a
+    // revision change; it must keep that active path as well.
+    final hasPending = _db.select(
+      'SELECT 1 FROM nodes WHERE chat_id = ? AND deleted_by IS NULL AND stream_text IS NOT NULL LIMIT 1',
+      [chatId],
+    ).isNotEmpty;
+    if (chat['tree_revision'] == batch['revision_after'] && !hasPending) {
+      final parent = batch['parent_id'] as String?;
+      if (parent != null) {
+        _nodeRow(chatId, parent);
+        _db.execute('UPDATE nodes SET selected_child_id = ? WHERE id = ?', [batch['selected_child_id'], parent]);
+      }
+      _db.execute('UPDATE chats SET selected_root_id = ?, current_leaf_id = ? WHERE id = ?', [
+        batch['selected_root_id'],
+        batch['current_leaf_id'],
+        chatId,
+      ]);
+    }
+    _db.execute('DELETE FROM deleted_subtrees WHERE id = ?', [deletionId]);
+    _touch(chatId, tree: true);
+    return true;
+  });
 
   /// Removes every descendant in one SQL statement, avoiding the SQLite
   /// cascade-trigger depth limit on long conversations. If the selected child
@@ -955,15 +1082,15 @@ class ChatStore {
   void deleteFrom(String chatId, String nodeId) {
     transaction(() {
       final chat = _chatRow(chatId);
-      final target = _nodeRow(chatId, nodeId);
+      final target = _nodeRow(chatId, nodeId, includeDeleted: true);
       final parentId = target['parent_id'] as String?;
       final leafId = chat['current_leaf_id'] as String?;
       final changesCurrent = leafId != null && _isAncestor(chatId, nodeId, leafId);
       final selectedId = parentId == null
           ? chat['selected_root_id'] as String?
-          : _nodeRow(chatId, parentId)['selected_child_id'] as String?;
+          : _nodeRow(chatId, parentId, includeDeleted: true)['selected_child_id'] as String?;
       final siblings = _db.select(
-        'SELECT id FROM nodes WHERE chat_id = ? AND parent_id IS ? AND id != ? ORDER BY seq',
+        'SELECT id FROM nodes WHERE chat_id = ? AND parent_id IS ? AND id != ? AND deleted_by IS NULL ORDER BY seq',
         [chatId, parentId, nodeId],
       );
       final oldIndex = target['sibling_index'] as int;
@@ -990,7 +1117,12 @@ class ChatStore {
           _activate(chatId, newSelection);
         }
       }
-      _touch(chatId);
+      _db.execute(
+        '''DELETE FROM deleted_subtrees WHERE chat_id = ? AND NOT EXISTS
+        (SELECT 1 FROM nodes n WHERE n.chat_id = deleted_subtrees.chat_id AND n.id = deleted_subtrees.root_node_id)''',
+        [chatId],
+      );
+      _touch(chatId, tree: true);
     });
   }
 
@@ -1059,10 +1191,84 @@ class ChatStore {
     if (query.trim().isEmpty || limit == 0) return [];
     final rows = _db.select(
       '''SELECT n.*, $_siblingColumns FROM nodes_fts JOIN nodes n ON n.seq = nodes_fts.rowid
-         WHERE nodes_fts MATCH ? AND n.stream_text IS NULL AND (? IS NULL OR n.chat_id = ?) ORDER BY rank LIMIT ?''',
+         WHERE nodes_fts MATCH ? AND n.stream_text IS NULL AND n.deleted_by IS NULL AND (? IS NULL OR n.chat_id = ?) ORDER BY rank LIMIT ?''',
       [query, chatId, chatId, limit],
     );
     return [for (final row in rows) _message(row)];
+  }
+
+  /// Literal substring search over visible, finalized messages of one chat.
+  /// SQLite's ordinary LIKE case rules apply; FTS syntax stays in [search].
+  List<TavernMessage> searchChat(String chatId, String query, {int limit = 50}) {
+    _chatRow(chatId);
+    if (limit < 0) throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
+    if (query.trim().isEmpty || limit == 0) return [];
+    final escaped = query.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
+    final pattern = '%$escaped%';
+    final rows = _db.select(
+      '''SELECT n.*, $_siblingColumns FROM nodes n
+      WHERE n.chat_id = ? AND n.deleted_by IS NULL AND n.stream_text IS NULL
+        AND (n.text LIKE ? ESCAPE '!' OR n.speaker LIKE ? ESCAPE '!')
+      ORDER BY n.seq DESC LIMIT ?''',
+      [chatId, pattern, pattern, limit],
+    );
+    return [for (final row in rows) _message(row)];
+  }
+
+  /// Copies this live connection with SQLite's backup API. The caller keeps
+  /// the source open and owns a new staging path; existing paths are refused.
+  Future<int> backupToFile(File destination) async {
+    _outsideTransaction();
+    if (await FileSystemEntity.type(destination.path, followLinks: false) != FileSystemEntityType.notFound) {
+      throw FileSystemException('Backup destination already exists.', destination.path);
+    }
+    _outsideTransaction();
+    final target = sqlite3.open(destination.path);
+    try {
+      // The async generator finishes/frees its native backup before its stream
+      // completes or throws. Never close target through a timeout race.
+      // sqlite3 3.9.1 yields 250ms between steps; its default five-page batch
+      // would stretch a large, otherwise idle backup across many tiny waits.
+      await _db.backup(target, nPage: 1024).drain<void>();
+      target.execute('PRAGMA journal_mode = DELETE');
+      return target.select('PRAGMA user_version').single['user_version'] as int;
+    } finally {
+      target.close();
+    }
+  }
+
+  /// Validates and upgrades only the restore module's unpublished staging DB.
+  /// The original handle is read-only and closed before migrations start.
+  static Future<void> validateBackup(File file, {required int sourceSchemaVersion}) async {
+    if (await FileSystemEntity.type(file.path, followLinks: false) != FileSystemEntityType.file) {
+      throw FileSystemException('Backup database is missing or is not a regular file.', file.path);
+    }
+    final original = sqlite3.open(file.path, mode: OpenMode.readOnly);
+    try {
+      final version = original.select('PRAGMA user_version').single['user_version'] as int;
+      if (version != sourceSchemaVersion || version < 1 || version > schemaVersion) {
+        throw const FormatException('Backup SQLite version does not match the supported manifest version.');
+      }
+      _checkBackupIntegrity(original);
+    } finally {
+      original.close();
+    }
+    final staged = ChatStore.open(file.path);
+    try {
+      _checkBackupIntegrity(staged._db);
+    } finally {
+      await staged.close();
+    }
+  }
+
+  static void _checkBackupIntegrity(Database database) {
+    final integrity = database.select('PRAGMA integrity_check');
+    if (integrity.length != 1 || integrity.single.values.single != 'ok') {
+      throw const FormatException('Backup SQLite integrity check failed.');
+    }
+    if (database.select('PRAGMA foreign_key_check').isNotEmpty) {
+      throw const FormatException('Backup SQLite foreign-key check failed.');
+    }
   }
 
   Future<void> close() async {
@@ -1079,8 +1285,8 @@ class ChatStore {
   void _activate(String chatId, String nodeId) {
     final ancestors = _db.select(
       '''WITH RECURSIVE ancestors(id, parent_id, distance) AS (
-           SELECT id, parent_id, 0 FROM nodes WHERE chat_id = ? AND id = ?
-           UNION ALL SELECT n.id, n.parent_id, a.distance + 1 FROM nodes n JOIN ancestors a ON n.id = a.parent_id
+           SELECT id, parent_id, 0 FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by IS NULL
+           UNION ALL SELECT n.id, n.parent_id, a.distance + 1 FROM nodes n JOIN ancestors a ON n.id = a.parent_id WHERE n.deleted_by IS NULL
          ) SELECT id FROM ancestors ORDER BY distance DESC''',
       [chatId, nodeId],
     );
@@ -1092,9 +1298,9 @@ class ChatStore {
     }
     final descendants = _db.select(
       '''WITH RECURSIVE descendants(id, selected_child_id, distance) AS (
-           SELECT id, selected_child_id, 0 FROM nodes WHERE id = ?
+           SELECT id, selected_child_id, 0 FROM nodes WHERE id = ? AND deleted_by IS NULL
            UNION ALL SELECT n.id, n.selected_child_id, d.distance + 1
-           FROM nodes n JOIN descendants d ON n.id = d.selected_child_id
+           FROM nodes n JOIN descendants d ON n.id = d.selected_child_id WHERE n.deleted_by IS NULL
          ) SELECT id FROM descendants ORDER BY distance DESC LIMIT 1''',
       [nodeId],
     );
@@ -1108,8 +1314,8 @@ class ChatStore {
   bool _isAncestor(String chatId, String ancestorId, String nodeId) => _db
       .select(
         '''WITH RECURSIVE ancestors(id, parent_id) AS (
-         SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ?
-         UNION SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id WHERE n.chat_id = ?
+         SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by IS NULL
+         UNION SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id WHERE n.chat_id = ? AND n.deleted_by IS NULL
        ) SELECT 1 FROM ancestors WHERE id = ? LIMIT 1''',
         [chatId, nodeId, chatId, ancestorId],
       )
@@ -1122,18 +1328,22 @@ class ChatStore {
     return rows.first;
   }
 
-  Row _nodeRow(String chatId, String nodeId) {
+  Row _nodeRow(String chatId, String nodeId, {bool includeDeleted = false}) {
     _ensureOpen();
-    final rows = _db.select('SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.id = ?', [
-      chatId,
-      nodeId,
-    ]);
+    final rows = _db.select(
+      'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.id = ? AND (n.deleted_by IS NULL OR ? = 1)',
+      [chatId, nodeId, includeDeleted ? 1 : 0],
+    );
     if (rows.isEmpty) throw StateError('Node does not belong to chat: $nodeId');
     return rows.first;
   }
 
-  void _touch(String chatId) {
-    _db.execute('UPDATE chats SET updated_at = ? WHERE id = ?', [_clock().millisecondsSinceEpoch, chatId]);
+  void _touch(String chatId, {bool tree = false}) {
+    _db.execute('UPDATE chats SET updated_at = ?, tree_revision = tree_revision + ? WHERE id = ?', [
+      _clock().millisecondsSinceEpoch,
+      tree ? 1 : 0,
+      chatId,
+    ]);
     _changedChats.add(chatId);
   }
 
@@ -1170,6 +1380,7 @@ class ChatStore {
     siblingIndex: row['sibling_index'] as int,
     siblingCount: row['sibling_count'] as int,
     usage: row['stream_text'] == null ? _decodeUsage(row['usage']) : null,
+    reportedUsage: row['stream_text'] == null ? _decodeUsage(row['reported_usage']) : null,
   );
 
   static DateTime _date(Object? value) => DateTime.fromMillisecondsSinceEpoch(value as int, isUtc: true);
@@ -1183,6 +1394,34 @@ class ChatStore {
           'completionTokens': usage.completionTokens,
           'model': usage.model,
         });
+
+  // Read only this owned, small value. A path read never reconstructs the
+  // inspection's prompt/trace or turns absent/invalid reporting into zero.
+  static String? _reportedUsage(Map<String, Object?> extra, String chatId, String nodeId) {
+    final own = extra['dshgo'];
+    if (own is! Map<String, Object?>) return null;
+    final inspection = own['inspection'];
+    if (inspection is! Map<String, Object?> ||
+        inspection['version'] != 1 ||
+        inspection['chatId'] != chatId ||
+        inspection['nodeId'] != nodeId) {
+      return null;
+    }
+    final usage = inspection['reportedUsage'];
+    if (usage is! Map<String, Object?> ||
+        usage['promptTokens'] is! int ||
+        usage['cacheHitTokens'] is! int ||
+        usage['completionTokens'] is! int ||
+        (usage['model'] != null && usage['model'] is! String)) {
+      return null;
+    }
+    return jsonEncode({
+      'promptTokens': usage['promptTokens'],
+      'cacheHitTokens': usage['cacheHitTokens'],
+      'completionTokens': usage['completionTokens'],
+      'model': usage['model'],
+    });
+  }
 
   static TavernUsage? _decodeUsage(Object? value) {
     if (value == null) return null;
@@ -1219,9 +1458,9 @@ class ChatStore {
   }
 
   static const _siblingColumns = '''
-    (SELECT COUNT(*) FROM nodes s WHERE s.chat_id = n.chat_id AND s.parent_id IS n.parent_id AND s.seq < n.seq)
+    (SELECT COUNT(*) FROM nodes s WHERE s.chat_id = n.chat_id AND s.parent_id IS n.parent_id AND s.deleted_by IS NULL AND s.seq < n.seq)
       AS sibling_index,
-    (SELECT COUNT(*) FROM nodes s WHERE s.chat_id = n.chat_id AND s.parent_id IS n.parent_id) AS sibling_count''';
+    (SELECT COUNT(*) FROM nodes s WHERE s.chat_id = n.chat_id AND s.parent_id IS n.parent_id AND s.deleted_by IS NULL) AS sibling_count''';
 
   static const _schemaV1 = '''
 CREATE TABLE chats (
@@ -1299,6 +1538,44 @@ CREATE TRIGGER nodes_fts_update AFTER UPDATE OF text, speaker ON nodes BEGIN
   INSERT INTO nodes_fts(nodes_fts, rowid, text, speaker) VALUES ('delete', old.seq, old.text, old.speaker);
   INSERT INTO nodes_fts(rowid, text, speaker) VALUES (new.seq, new.text, new.speaker);
 END;
+''';
+
+  static const _schemaV5 = r'''
+ALTER TABLE chats ADD COLUMN tree_revision INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE deleted_subtrees (
+  id TEXT PRIMARY KEY NOT NULL,
+  chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+  root_node_id TEXT NOT NULL,
+  parent_id TEXT,
+  selected_child_id TEXT,
+  selected_root_id TEXT,
+  current_leaf_id TEXT,
+  revision_after INTEGER NOT NULL
+);
+CREATE INDEX deleted_subtrees_chat ON deleted_subtrees(chat_id);
+ALTER TABLE nodes ADD COLUMN deleted_by TEXT REFERENCES deleted_subtrees(id) DEFERRABLE INITIALLY DEFERRED;
+CREATE INDEX nodes_deleted_by ON nodes(deleted_by) WHERE deleted_by IS NOT NULL;
+ALTER TABLE nodes ADD COLUMN reported_usage TEXT;
+UPDATE nodes SET reported_usage = CASE WHEN json_valid(extra) THEN CASE WHEN
+  json_type(extra, '$.dshgo.inspection') = 'object'
+  AND json_type(extra, '$.dshgo.inspection.version') IN ('integer', 'real')
+  AND json_extract(extra, '$.dshgo.inspection.version') = 1
+  AND json_type(extra, '$.dshgo.inspection.chatId') = 'text'
+  AND json_extract(extra, '$.dshgo.inspection.chatId') = chat_id
+  AND json_type(extra, '$.dshgo.inspection.nodeId') = 'text'
+  AND json_extract(extra, '$.dshgo.inspection.nodeId') = id
+  AND json_type(extra, '$.dshgo.inspection.reportedUsage') = 'object'
+  AND json_type(extra, '$.dshgo.inspection.reportedUsage.promptTokens') = 'integer'
+  AND json_type(extra, '$.dshgo.inspection.reportedUsage.cacheHitTokens') = 'integer'
+  AND json_type(extra, '$.dshgo.inspection.reportedUsage.completionTokens') = 'integer'
+  AND (json_type(extra, '$.dshgo.inspection.reportedUsage.model') IS NULL
+    OR json_type(extra, '$.dshgo.inspection.reportedUsage.model') IN ('null', 'text'))
+  THEN json_object(
+    'promptTokens', json_extract(extra, '$.dshgo.inspection.reportedUsage.promptTokens'),
+    'cacheHitTokens', json_extract(extra, '$.dshgo.inspection.reportedUsage.cacheHitTokens'),
+    'completionTokens', json_extract(extra, '$.dshgo.inspection.reportedUsage.completionTokens'),
+    'model', json_extract(extra, '$.dshgo.inspection.reportedUsage.model'))
+  END END;
 ''';
 
   static const _schemaV4 = '''

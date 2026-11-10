@@ -151,3 +151,65 @@ HTML/CSS只是有限的静态正面检测：资源路径参与计数和fingerpri
 角色列表只读小摘要索引。`watchCharacters()`中的description、creatorNotes、greetings和regexDiagnostics为空，进详情用`character(id)`，字段编辑用`characterFields(id)`。缺索引旧库只从两个JSON恢复；完整记录按id最多缓存最近8项，失败/缺失可重试，编辑只刷新对应项。头像路径沿用既有portrait.png，没有新增图片缩放。
 
 详细的事务、故障恢复、列表合同、模拟清单和仍在调用方isolate的成本见[性能说明](docs/performance.md)。本轮没有搬迁整个引擎或实测手机帧率；500ms全文快照仍有累计文本量可随回复长度二次增长的边界，不能宣称总体已经O(n)。新增100项是运行前登记，实际验证以精确补丁回执为准；033的35条样式info作为本层等价改写处理。
+
+# T24：离页接回、撤销删除、搜索、用量与整库备份
+
+## App 接口及行为变化
+
+| 接口 | 合同与新增理由 |
+| --- | --- |
+| `resumeTurn(chatId)` | 首次监听时接回当时的活动回合；先给 `TavernTurnSnapshot` 全文，再收后续增量和终态。 |
+| `deleteFrom(chatId, nodeId)` | 改为返回 `Future<String>` 撤销 token，先软删整棵子树；原来只 await 的调用方可忽略返回值，接口实现者须转发 String。 |
+| `undoDeleteFrom(chatId, token)` | 同一开库会话内恢复该批次，返回 bool；有后续树变更时保留当前路径。 |
+| `searchChat(chatId, query, limit: 50)` | 指定对话所有未删除分支的字面子串搜索，返回消息及实际用量，按节点创建顺序从新到旧。 |
+| `TavernMessage.reportedUsage` | nullable 的提供方实际用量；批量 path/search 无须逐条重建检视。 |
+| `backup(destinationPath)` | 无活动回合时捕获数据库及文件快照，生成 ZIP，返回 `TavernBackupInfo`。 |
+| `restoreTavernDirectory(archivePath, directory)` | 顶层恢复函数；目标须关闭，先验证及迁移 staging，成功后重新 open。 |
+
+这些 api.dart 变化承载 App 需要的状态和操作结果。本包没有修改 App 转发或页面。TavernBackupInfo 的 createdAt/sqliteUserVersion/fileCount/totalBytes 描述源快照；字节数是普通 payload 文件的未压缩总量，不含 manifest，恢复迁移后不改称目标目录统计。
+
+## 回合与观察者
+
+send/regenerate/continueReply/impersonate 仍在首次监听时接纳回合。取消订阅只移除该观察者，零观察者时生成、正文写回、检视和用量仍继续；stop、树修改或 close 才明确取消。调用方要停止模型请求须调用 stop，不能再依赖 subscription.cancel。
+
+resume 的查找、登记和完整快照在一个同步段完成。创建 Stream 后延迟监听，以实际监听时的回合为准。准备阶段 snapshot.message 为 null，之后收到 Started；已有消息时快照来自内存，包含未到500ms检查点的全文、续写前缀、允许的思维和本次报告。后续不重放旧 Started 或旧增量。没有活动回合则空流关闭，改从 path/inspectTurn 读持久结果。
+
+观察者互不取消，终态关闭不等待暂停订阅的 close Future。暂停订阅仍可能由 Dart 积压事件，不能将“没有全局重放日志”解释为总内存恒定。接回限于当前引擎生命期，不承诺进程重启后恢复原 HTTP 连接。参见 Dart [StreamController](https://api.dart.dev/dart-async/StreamController/StreamController.html) 和 [close](https://api.dart.dev/dart-async/StreamController/close.html) 合同。
+
+列表订阅的快照也属于引擎管理的异步工作。取消订阅停止通知，已经开始的角色索引读取或恢复仍会完成；close 等这些实际读取结束后才关闭数据库、释放目录所有权。开始关闭后不再启动新的列表读取，也不等待暂停的界面订阅消费事件。备份捕获期间的新列表读取等待捕获结束；这个等待不加入备份正在排空的操作集合，因此不会形成互相等待。捕获成功或失败都会释放等待者。
+
+## 删除、变量与后续工作
+
+schema5 增加删除批次、节点标记和树 revision。软删保留节点身份、正文、父边、seq、内部记忆选择、state、extra/original，不借用 ST hidden。正常节点、路径、兄弟编号、导出和搜索排除标记节点。低层 ChatStore.deleteFrom 仍立即删除，供空失败回合回滚；用户 façade 使用 softDeleteFrom。
+
+删除与选路、当前变量/运行态恢复、latest 检视清理在同一外层事务内；撤销也一起恢复可见性和当前变量。节点自身的检视及实际用量保留，撤销不把旧调用重新记成 latest。无后续树变更时恢复原选择；新回复、正文编辑或分支 ABA 都推进 revision，此后撤销只恢复分支，保留当前路径及变量。普通 updateChat 的变量/metadata 收尾不推进 revision。
+
+重叠删除保留各自 token；另一个已删祖先未恢复时返回 false 且不消费子 token。未知、已使用或已清理 token 返回 false，不能跨聊天使用。删除活动子树先经既有 mutation 屏障完成取消/部分正文收尾，再标记子树。
+
+采用题目允许的“下次打开真删”，没有 timer，close 本身不清理。下次 ChatStore 初始化在 FULL 事务中清待删行及批次，再推广其他 pending 正文。恢复的 staging 试开也属于新会话，因此恢复后不能再撤销上个会话的删除；备份不重开原库，原库 token 仍有效。物理删除用原 FTS trigger 清旧词，软删/撤销不反复写索引。
+
+## 字面搜索与 reportedUsage
+
+新搜索查 text/speaker，包括非当前分支和 ST hidden，不查思维链。绑定参数的 LIKE 以 ! 为 escape，依次转义 !、%、_；引号、反斜线、FTS 操作符样式均按字面处理，中文短词可命中。采用 SQLite 原有 ASCII 大小写规则，不承诺全 Unicode 折叠。先验证 chat；空白 query 或 limit=0 返回空，负 limit 抛 ArgumentError。旧低层 search 保留 MATCH 高级语法。
+
+SQL 排除已有 shadow 的 pending；façade 另排除活动回复，覆盖首检查点前的 continue 旧正文/旧报告和空 reply 的 speaker 命中。每 chat 至多一个活动回复，正 limit 多取一条、过滤后截取，补足正常结果。搜索不取消生成或改变路径。
+
+reportedUsage 为 promptTokens/cacheHitTokens/completionTokens 与可选 model。缺失是 null，真实零保留对象，不从估算或旧 usage 填充。小列只从 version/chatId/nodeId 匹配的 owned inspection 派生，迁移也检查类型。path 不重建 prompt/trace，但 SQL 仍选择节点其他列，不宣称完全不读 extra 字节。
+
+续写只用本次报告，不借之前计数，也不是累计费用。普通手动编辑保留原生成报告；无正文/思维而回滚的失败续写保留原消息及其报告，失败调用另记无 node 的检视。崩溃重开推广 pending 时清过时报告，不虚构最终 token 或价格。
+
+## 备份和恢复的边界
+
+backup 在首个 await 前拒绝活动回合和另一备份，阻止新操作/回合；等待此前已接纳操作以及已经启动的列表快照读取完成，后来的列表读取延迟到捕获结束。SQLite 使用 [online backup API](https://www.sqlite.org/backup.html)，不拼接活 main/WAL/shm 文件。固定 sqlite3 3.9.1 用 `backup(target, nPage: 1024).drain<void>()`，native stream 真正结束后才关目标，不用 timeout 提前放弃句柄。[固定版本源码](https://github.com/simolus3/sqlite3.dart/blob/sqlite3-3.9.1/sqlite3/lib/src/ffi/implementation.dart)
+
+全部文件 staging 完成后释放写屏障，哈希和压缩在辅助 isolate 读取不可变副本；close 等到整个备份及清理完成。ZIP 必须写在活库/快照外，完整关闭后 rename 发布，之前的编码失败不覆盖旧 ZIP。
+
+快照保留所有聊天分支/预设/状态，角色原件及资源、世界书、正则、设置、人设和其它普通文件。只排除明确的存储临时位置、SQLite sidecar、可重建的根 character-index；资源中的 .writing 不按全局后缀过滤。内部链接/特殊文件明确报错，不跟随根外或静默漏备。目录别名统一规范身份，路径可表示性和冲突按宿主平台检查。
+
+Persona 绝对头像只有位于库内且文件已打包才记录 id/sourcePath/path 映射。恢复先核原字节 hash，再只搬迁匹配的已知 avatarPath 到最终根；未知 JSON 中同样字符串、外部/相对/缺失引用均不改，不下载外部资源。原文、未知字段和 opaque 文件不通过重新 import 改写。
+
+恢复先验 manifest 版本、路径/重复、实际解压长度及 SHA-256，再验实际 SQLite user_version、integrity_check、foreign_key_check。旧 schema 仅迁移 staging；现有 settings/persona/regex、角色 metadata/体检、预设详情/体检、世界书 loader 验本应用版本，不重新编译规则或解释资源，不声称验证所有业务损坏。全部 handle 关闭后才移动目标。
+
+父目录 journal 记录 prepared/committed/rolledBack。open 先恢复 journal 再创建根：未提交状态回滚，已提交状态保留新根并重试清理；矛盾或损坏状态留证拒绝误建空库。提交后的清理失败保留日志，不谎报核心恢复失败。同 isolate 拒绝相同或祖先/后代的活库与恢复根；跨 isolate/进程仍要求单 owner，没有 OS 锁。未实现父目录 fsync，不把进程中断恢复扩称为任意断电保证。
+
+备份需要额外 staging/ZIP 空间，未量测手机耗时或峰值内存。归档模块测试以合成字节模拟数据库回调，只测打包协议；store 测试用真实 SQLite backup；façade 测试以受控模型事件覆盖接回、变量/撤销、用量、搜索、整库往返、维护屏障、关闭、版本及工厂恢复。实际 Dart 结果以精确补丁回执为准。

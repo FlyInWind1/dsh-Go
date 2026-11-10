@@ -81,3 +81,15 @@ SQLite 自动 WAL checkpoint 默认阈值为 1000 页，但可受编译/运行�
 流式 facade 用受控 periodic Timer 检查间隔和触发顺序，不用睡眠测速度；模型只供确定性增量/错误。真实 SQLite trigger 记录写者实际 synchronous、正文/extra 更新次数，并注入 checkpoint、终态和恢复失败；FTS 的 rank=1 integrity-check 同时核外部内容一致性，见 [FTS5 integrity-check](https://www.sqlite.org/fts5.html#the_integrity_check_command)。角色测试让不应读取的文件不可用，观察列表/详情边界；不存在真实模型、Android帧率、真实掉电或全引擎 isolate 的测试声明。
 
 固定 ST 语义仍以 1.19.0 的 `7e8663cd9c184a550b37238218bdd32c6efc68e9` 为基准：[macros.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/macros.js)、[MacroEngine.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/macros/engine/MacroEngine.js)、[world-info.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/world-info.js) 和 [script.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/script.js)。未读取 JS-Slash-Runner 源码。
+
+## 八、T24 加入后的成本补充
+
+T24 没有搬迁整个 engine。重接快照需要取得当前完整正文/思维，成本随已收到文本增长；事件分发随活跃观察者数增长，暂停订阅可能积压事件。零观察者时生成仍继续，不应从“页面离开”推导出网络调用或存储工作已经停止。
+
+消息 reportedUsage 改为小列投影，省去逐条重建完整检视的 JSON/对象成本；现有 SELECT 仍包含节点其他字段，因此没有声称消除 extra 的数据库读取。schema5 首次迁移会检查全部旧节点的 owned inspection 并回填小列，成本随旧数据量增长。
+
+中文字面搜索采用带前导通配符的 LIKE，按指定 chat 扫描 text/speaker，不借此声称 FTS 或倒排索引速度。软删标记整个物理子树；撤销批量解除标记；下次开库的真删除和 FTS/state 清理仍在调用方同步事务里。长子树和大量待清理行应纳入打开/删除耗时测量。
+
+备份的 staging 文件复制使用异步 I/O；SQLite 3.9.1 的 backup stream 在调用方执行 native backup_step，每步最多1024页，未完成步之间由该依赖等待250ms。[固定源码](https://github.com/simolus3/sqlite3.dart/blob/sqlite3-3.9.1/sqlite3/lib/src/ffi/implementation.dart) 支持这一调用顺序，但不证明单步适合所有设备帧预算。只有 detached 快照的哈希/压缩、恢复解包/长度及哈希检查在辅助 isolate；staging 数据库迁移、完整性检查和领域 loader 仍有调用方成本。
+
+备份至少同时需要源库、独立 staging 和写入中的 ZIP 空间；恢复暂时保留 incoming/previous。payload 使用文件流，manifest/路径表仍占内存，第三方解压器也有自己的工作区，不能宣称全流程常量内存。上述均为源码成本分析，没有新增手机耗时、帧率或峰值内存实测结果。

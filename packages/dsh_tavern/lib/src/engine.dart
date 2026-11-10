@@ -9,6 +9,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'api.dart';
+import 'backup.dart';
 import 'import_report.dart';
 import 'inspection.dart';
 import 'io/card_codec.dart' show TavernCard;
@@ -17,6 +18,7 @@ import 'io/import_intake.dart';
 import 'io/preset_codec.dart';
 import 'io/regex_intake.dart';
 import 'io/st_chat_document.dart';
+import 'io/tavern_backup.dart' as backup_io;
 import 'llm/model_client.dart';
 import 'lorebook_library.dart';
 import 'macros/macro_engine.dart';
@@ -38,6 +40,37 @@ import 'worldinfo/world_info.dart';
 /// App convenience factory. [directory] is the actual tavern data directory,
 /// normally `<app support>/tavern`. No extra path component is appended.
 Future<Tavern> openTavern(String directory) => TavernEngine.openDirectory(Directory(directory));
+
+/// Validates and restores a backup into a closed tavern directory. Open a new
+/// engine after success. Invalid archives/versions never replace the target.
+/// Like ordinary opening, the root must have one owner across processes.
+Future<TavernBackupInfo> restoreTavernDirectory(String archivePath, String directory) async {
+  final root = Directory(directory);
+  final identity = await _directoryIdentity(root);
+  if (!_reserveTavernRoot(identity)) throw StateError('The tavern directory overlaps an open or restoring root.');
+  try {
+    return await backup_io.restoreTavernBackup(
+      File(archivePath),
+      root,
+      validateStaging: TavernEngine._validateBackupStaging,
+    );
+  } finally {
+    _ownedTavernRoots.remove(identity);
+  }
+}
+
+// Same-isolate ownership also prevents a page from reopening a root while a
+// restore is between its two directory renames. It is not an OS file lock.
+final _ownedTavernRoots = <String>{};
+
+bool _reserveTavernRoot(String identity) {
+  // Canonical directory URIs end in '/', so these checks include a directory
+  // boundary. Replacing an ancestor would move a live descendant database.
+  if (_ownedTavernRoots.any((owned) => identity.startsWith(owned) || owned.startsWith(identity))) return false;
+  return _ownedTavernRoots.add(identity);
+}
+
+Future<String> _directoryIdentity(Directory directory) => backup_io.tavernDirectoryIdentity(directory);
 
 /// A recording of the actual assembly, never a second macro evaluation.
 class TavernInspection {
@@ -115,43 +148,54 @@ class TavernEngine implements Tavern {
     DateTime Function()? clock,
     double Function()? random,
   }) async {
-    await directory.create(recursive: true);
-    final settingsFile = File('${directory.path}/settings.json');
-    final document = await settingsFile.exists()
-        ? _decodeObject(await settingsFile.readAsString(), 'Tavern settings')
-        : <String, Object?>{'version': 1, 'settings': <String, Object?>{}, 'globalVariables': <String, Object?>{}};
-    if (document['version'] != 1) throw const FormatException('Unsupported Tavern settings version.');
-    final now = clock ?? DateTime.now;
-    final personas = await PersonaStore.open(directory);
-    final regexWorker = RegexWorker();
-    final regexLibrary = RegexLibrary(directory, regexWorker, clock: now);
-    ChatStore? store;
+    final identity = await _directoryIdentity(directory);
+    if (!_reserveTavernRoot(identity)) throw StateError('The tavern directory overlaps an open or restoring root.');
     try {
-      await regexLibrary.initialize();
-      store = ChatStore.open('${directory.path}/tavern.sqlite3', clock: now);
-      return TavernEngine._(
-        directory,
-        store,
-        CharacterLibrary(directory, now: now),
-        personas,
-        document,
-        config ?? TavernModelConfig(apiKey: () async => null),
-        modelClient ?? TavernModelClient(),
-        counter,
-        now,
-        random ?? Random.secure().nextDouble,
-        regexWorker,
-        regexLibrary,
-      );
+      await backup_io.recoverPendingTavernRestore(directory);
+      await directory.create(recursive: true);
+      final settingsFile = File('${directory.path}/settings.json');
+      final document = await settingsFile.exists()
+          ? _decodeObject(await settingsFile.readAsString(), 'Tavern settings')
+          : <String, Object?>{'version': 1, 'settings': <String, Object?>{}, 'globalVariables': <String, Object?>{}};
+      if (document['version'] != 1) throw const FormatException('Unsupported Tavern settings version.');
+      final now = clock ?? DateTime.now;
+      final personas = await PersonaStore.open(directory);
+      final regexWorker = RegexWorker();
+      final regexLibrary = RegexLibrary(directory, regexWorker, clock: now);
+      ChatStore? store;
+      try {
+        await regexLibrary.initialize();
+        store = ChatStore.open('${directory.path}/tavern.sqlite3', clock: now);
+        final result = TavernEngine._(
+          directory,
+          store,
+          CharacterLibrary(directory, now: now),
+          personas,
+          document,
+          config ?? TavernModelConfig(apiKey: () async => null),
+          modelClient ?? TavernModelClient(),
+          counter,
+          now,
+          random ?? Random.secure().nextDouble,
+          regexWorker,
+          regexLibrary,
+        );
+        result._directoryOwnerKey = identity;
+        return result;
+      } catch (_) {
+        await regexWorker.close();
+        await store?.close();
+        await personas.close();
+        rethrow;
+      }
     } catch (_) {
-      await regexWorker.close();
-      await store?.close();
-      await personas.close();
+      _ownedTavernRoots.remove(identity);
       rethrow;
     }
   }
 
   final Directory directory;
+  late final String _directoryOwnerKey;
   final ChatStore _store;
   final CharacterLibrary _library;
   final PersonaStore _personas;
@@ -202,14 +246,25 @@ class TavernEngine implements Tavern {
   var _closed = false;
   var _globalPresetUpdate = false;
   var _temporaryId = 0;
+  var _capturingBackup = false;
+  var _backupInProgress = false;
+  Completer<void>? _backupCaptureDone;
 
   void _ensureOpen() {
     if (_closing || _closed) throw StateError('The tavern is closed.');
   }
 
-  Future<T> _operation<T>(FutureOr<T> Function() action) {
+  void _ensureAdmission() {
     _ensureOpen();
-    final result = Future<T>.sync(action);
+    if (_capturingBackup) throw const TavernModelException(TavernFailure.busy, 'backup_capture_in_progress');
+  }
+
+  Future<T> _operation<T>(FutureOr<T> Function() action) {
+    _ensureAdmission();
+    return _trackOperation(Future<T>.sync(action));
+  }
+
+  Future<T> _trackOperation<T>(Future<T> result) {
     final completed = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     _operations.add(completed);
     unawaited(
@@ -398,7 +453,7 @@ class TavernEngine implements Tavern {
 
   @override
   Future<void> deleteCharacter(String characterId) {
-    _ensureOpen();
+    _ensureAdmission();
     if (!_deletingCharacters.add(characterId)) {
       return Future.error(StateError('Character deletion is already running.'));
     }
@@ -670,8 +725,18 @@ class TavernEngine implements Tavern {
   );
 
   @override
-  Future<List<TavernMessage>> path(String chatId, {int limit = 60, String? beforeNodeId}) =>
-      _operation(() => _store.path(chatId, limit: limit, beforeNodeId: beforeNodeId));
+  Future<List<TavernMessage>> path(String chatId, {int limit = 60, String? beforeNodeId}) => _operation(() {
+    final messages = _store.path(chatId, limit: limit, beforeNodeId: beforeNodeId);
+    final active = _turns[chatId];
+    if (active == null || active.reply == null) return messages;
+    return [
+      for (final message in messages)
+        if (message.nodeId == active.reply!.nodeId)
+          _withReportedUsage(message, active.inspection.reportedUsage)
+        else
+          message,
+    ];
+  });
 
   @override
   Stream<void> pathChanges(String chatId) {
@@ -2009,23 +2074,52 @@ class TavernEngine implements Tavern {
   }
 
   @override
-  Future<void> deleteFrom(String chatId, String nodeId) => _operation(
+  Future<String> deleteFrom(String chatId, String nodeId) => _operation(
     () => _withMutation(chatId, () {
       final stored = _storedLatestInspection(_store.chat(chatId));
       final latest = _latestInspections.containsKey(chatId) ? _latestInspections[chatId] : stored;
       var clearLatest = false;
-      _store.transaction(() {
-        _store.deleteFrom(chatId, nodeId);
+      final deletionId = _store.transaction(() {
+        final token = _store.softDeleteFrom(chatId, nodeId);
         _restoreVariables(chatId);
         clearLatest = latest != null && !_inspectionAnchorExists(latest);
         if (clearLatest || (stored != null && !_inspectionAnchorExists(stored))) {
           _writeLatestInspection(chatId, null);
         }
+        return token;
       });
       if (clearLatest) _latestInspections[chatId] = null;
       _liveVariables.remove(chatId);
+      return deletionId;
     }),
   );
+
+  @override
+  Future<bool> undoDeleteFrom(String chatId, String deletionId) => _operation(
+    () => _withMutation(chatId, () {
+      final restored = _store.transaction(() {
+        if (!_store.undoDeleteFrom(chatId, deletionId)) return false;
+        _restoreVariables(chatId);
+        return true;
+      });
+      if (restored) _liveVariables.remove(chatId);
+      return restored;
+    }),
+  );
+
+  @override
+  Future<List<TavernMessage>> searchChat(String chatId, String query, {int limit = 50}) => _operation(() {
+    final activeId = _turns[chatId]?.reply?.nodeId;
+    if (activeId == null || limit <= 0) return _store.searchChat(chatId, query, limit: limit);
+    // Before the first body checkpoint, a continuation still has its old
+    // committed text/report and no shadow marker. Do not expose that active
+    // reply as finalized. One extra result keeps the requested visible limit.
+    return _store
+        .searchChat(chatId, query, limit: limit + 1)
+        .where((message) => message.nodeId != activeId)
+        .take(limit)
+        .toList();
+  });
 
   @override
   Future<void> setHidden(String chatId, String nodeId, bool hidden) => _operation(
@@ -2072,6 +2166,44 @@ class TavernEngine implements Tavern {
   @override
   Stream<TavernEvent> impersonate(String chatId) => _streamTurn(chatId, _TurnKind.impersonate);
   @override
+  Stream<TavernEvent> resumeTurn(String chatId) {
+    late StreamController<TavernEvent> controller;
+    _Turn? observed;
+    controller = StreamController<TavernEvent>(
+      onListen: () {
+        try {
+          _ensureOpen();
+          _store.chat(chatId);
+          final turn = _turns[chatId];
+          if (turn == null || turn.finished) {
+            unawaited(controller.close());
+            return;
+          }
+          // Registration and the complete snapshot are one synchronous
+          // operation: no delta can slip between them or appear twice.
+          observed = turn;
+          turn.observers.add(controller);
+          controller.add(
+            TavernTurnSnapshot(
+              chatId: chatId,
+              generationType: turn.generationType,
+              startedAt: turn.at,
+              message: turn.reply == null ? null : _buffered(turn),
+            ),
+          );
+        } catch (error) {
+          controller.add(TavernTurnFailed(TavernFailure.server, detail: _safeDetail(error)));
+          unawaited(controller.close());
+        }
+      },
+      onCancel: () {
+        observed?.observers.remove(controller);
+      },
+    );
+    return controller.stream;
+  }
+
+  @override
   void stop(String chatId) {
     _turns[chatId]?.cancellation.cancel();
   }
@@ -2083,6 +2215,11 @@ class TavernEngine implements Tavern {
       onListen: () {
         try {
           _ensureOpen();
+          if (_capturingBackup) {
+            controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'backup_capture_in_progress'));
+            unawaited(controller.close());
+            return;
+          }
           final chat = _store.chat(chatId);
           final selection = _personas.resolve(personaId: chat.personaId);
           final presetSelection = _resolvePreset(chat).selection;
@@ -2124,13 +2261,9 @@ class TavernEngine implements Tavern {
         }
       },
       onCancel: () {
-        final running = turn;
-        if (running != null && !running.finished) {
-          running.abandoned = true;
-          running.cancellation.cancel();
-        }
-        // Never return running.done or controller.close: either may be waiting
-        // for this subscription's cancellation to finish.
+        // Leaving a page releases its observer, not the generation. A later
+        // resumeTurn reads the current buffers without retaining old deltas.
+        turn?.observers.remove(controller);
       },
     );
     return controller.stream;
@@ -2456,7 +2589,7 @@ class TavernEngine implements Tavern {
       if (turn.kind != _TurnKind.impersonate) {
         _liveVariables[chatId] = (leaf: reply.nodeId, values: _runtimeCopy(local));
       }
-      turn.emit(TavernTurnStarted(reply));
+      turn.emit(TavernTurnStarted(_buffered(turn)));
       await _consume(turn, _copy(assembly.body));
       turn.cancellation.check();
       _finishRegex(turn);
@@ -2536,7 +2669,10 @@ class TavernEngine implements Tavern {
       if (!turn.done.isCompleted) turn.done.complete();
       // A paused consumer can delay stream.close forever. It must not hold the
       // database, a mutation, or engine.close hostage.
-      unawaited(turn.controller.close());
+      for (final observer in turn.observers) {
+        unawaited(observer.close());
+      }
+      turn.observers.clear();
       _notifyLists();
     }
   }
@@ -2781,6 +2917,7 @@ class TavernEngine implements Tavern {
       siblingCount: reply.siblingCount,
       hidden: reply.hidden,
       usage: includeUsage ? turn.usage : null,
+      reportedUsage: includeUsage ? turn.inspection.reportedUsage : null,
     );
   }
 
@@ -2840,15 +2977,23 @@ class TavernEngine implements Tavern {
       if (pumping) return;
       pumping = true;
       try {
-        while (dirty && !ended && !_closed) {
+        while (dirty && !ended && !_closing && !_closed) {
+          // A watcher can rebuild derived character indexes. Reads that
+          // already started belong to the backup's admitted operations;
+          // later reads wait outside that set, avoiding a backup/self wait.
+          final captureDone = _backupCaptureDone;
+          if (captureDone != null) {
+            await captureDone.future;
+            continue;
+          }
           dirty = false;
           try {
-            final value = await snapshot();
+            final value = await _trackOperation(Future<T>.sync(snapshot));
             // A change during the first asynchronous file load must not be
             // lost, nor should it publish a knowingly stale initial snapshot.
-            if (!ended && !_closed && !dirty) controller.add(value);
+            if (!ended && !_closing && !_closed && !dirty) controller.add(value);
           } catch (error, stack) {
-            if (!ended && !_closed) controller.addError(error, stack);
+            if (!ended && !_closing && !_closed) controller.addError(error, stack);
           }
         }
       } finally {
@@ -2858,7 +3003,7 @@ class TavernEngine implements Tavern {
 
     controller = StreamController<T>(
       onListen: () {
-        if (_closed) {
+        if (_closing || _closed) {
           ended = true;
           unawaited(controller.close());
           return;
@@ -2878,6 +3023,67 @@ class TavernEngine implements Tavern {
       },
     );
     return controller.stream;
+  }
+
+  @override
+  Future<TavernBackupInfo> backup(String destinationPath) {
+    _ensureOpen();
+    if (_backupInProgress || _turns.isNotEmpty) {
+      return Future.error(const TavernModelException(TavernFailure.busy, 'backup_busy'));
+    }
+    // Close admission before draining. Capture the prior operations BEFORE
+    // tracking this backup, otherwise it would wait on its own completion.
+    _capturingBackup = true;
+    _backupInProgress = true;
+    _backupCaptureDone = Completer<void>();
+    final admitted = List<Future<void>>.of(_operations);
+    return _trackOperation(_createBackup(destinationPath, admitted));
+  }
+
+  Future<TavernBackupInfo> _createBackup(String destinationPath, List<Future<void>> admitted) async {
+    backup_io.TavernBackupSnapshot? snapshot;
+    try {
+      try {
+        await Future.wait(admitted);
+        snapshot = await backup_io.captureTavernBackup(
+          directory,
+          backupDatabase: _store.backupToFile,
+          createdAt: _clock(),
+        );
+      } finally {
+        _capturingBackup = false;
+        final captureDone = _backupCaptureDone;
+        _backupCaptureDone = null;
+        captureDone?.complete();
+      }
+      return await snapshot.writeZip(File(destinationPath));
+    } finally {
+      try {
+        await snapshot?.dispose();
+      } finally {
+        _backupInProgress = false;
+      }
+    }
+  }
+
+  static Future<void> _validateBackupStaging(Directory staging, int sourceSchemaVersion) async {
+    await ChatStore.validateBackup(File('${staging.path}/tavern.sqlite3'), sourceSchemaVersion: sourceSchemaVersion);
+    final probe = await TavernEngine.openDirectory(staging);
+    try {
+      // Use the existing versioned loaders; never reimport opaque card bytes,
+      // recompile regex scripts, or replace recorded intake reports.
+      final characters = await probe._library.list();
+      for (final character in characters) {
+        await probe._library.readImportReport(character.id);
+      }
+      probe._personas.list();
+      for (final preset in probe._presetSummaries()) {
+        probe._store.preset(preset.id);
+      }
+      await probe.listLorebooks();
+    } finally {
+      await probe.close();
+    }
   }
 
   @override
@@ -2908,6 +3114,7 @@ class TavernEngine implements Tavern {
     unawaited(_paths.close());
     await _personas.close();
     await _store.close();
+    _ownedTavernRoots.remove(_directoryOwnerKey);
   }
 }
 
@@ -2969,7 +3176,7 @@ class _Turn {
     this.kind,
     this.input,
     this.nodeId,
-    this.controller,
+    StreamController<TavernEvent> controller,
     this.config,
     this.settings,
     this.at,
@@ -2978,6 +3185,7 @@ class _Turn {
     this.sourceFile,
     this.presetId,
   ) {
+    observers.add(controller);
     inspection = TavernTurnInspection(
       chatId: chat.id,
       contextNodeId: chat.currentLeafId,
@@ -2990,7 +3198,7 @@ class _Turn {
   final _TurnKind kind;
   final String input;
   final String? nodeId;
-  final StreamController<TavernEvent> controller;
+  final observers = <StreamController<TavernEvent>>{};
   final TavernModelConfig config;
   final Map<String, Object?> settings;
   final DateTime at;
@@ -3000,7 +3208,6 @@ class _Turn {
   final String? presetId;
   final cancellation = ModelCancellation();
   final done = Completer<void>();
-  bool abandoned = false;
   bool finished = false;
   bool terminal = false;
   bool hasOutput = false;
@@ -3046,9 +3253,27 @@ class _Turn {
   }
 
   void emit(TavernEvent event) {
-    if (!abandoned && !terminal && !controller.isClosed) controller.add(event);
+    if (terminal) return;
+    for (final observer in observers) {
+      if (!observer.isClosed) observer.add(event);
+    }
   }
 }
+
+TavernMessage _withReportedUsage(TavernMessage message, TavernUsage? usage) => TavernMessage(
+  nodeId: message.nodeId,
+  parentId: message.parentId,
+  role: message.role,
+  speaker: message.speaker,
+  text: message.text,
+  reasoning: message.reasoning,
+  at: message.at,
+  siblingIndex: message.siblingIndex,
+  siblingCount: message.siblingCount,
+  hidden: message.hidden,
+  usage: message.usage,
+  reportedUsage: usage,
+);
 
 class _MacroEnvironment {
   _MacroEnvironment(
@@ -3583,6 +3808,7 @@ StoredNode _nodeWithText(StoredNode node, String text) {
       siblingCount: value.siblingCount,
       hidden: value.hidden,
       usage: value.usage,
+      reportedUsage: value.reportedUsage,
     ),
     depth: node.depth,
     selectedChildId: node.selectedChildId,

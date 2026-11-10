@@ -411,13 +411,52 @@ class PreviewTavern implements Tavern, TavernPreview {
     chat.changes.add(null);
   }
 
+  /// What each deletion took, by its undo token, as the engine keeps them
+  /// for as long as it is open.
+  final _deletions = <String, ({String chatId, _Taken taken})>{};
+  var _deletionSerial = 0;
+
   @override
-  Future<void> deleteFrom(String chatId, String nodeId) async {
+  Future<String> deleteFrom(String chatId, String nodeId) async {
     final chat = _chats[chatId]!;
-    chat.remove(nodeId);
+    final token = 'deletion-${++_deletionSerial}';
+    _deletions[token] = (chatId: chatId, taken: chat.take(nodeId));
     chat.changes.add(null);
     _listChanged.add(null);
+    return token;
   }
+
+  @override
+  Future<bool> undoDeleteFrom(String chatId, String deletionId) async {
+    final deletion = _deletions[deletionId];
+    if (deletion == null || deletion.chatId != chatId) return false;
+    _deletions.remove(deletionId);
+    final chat = _chats[chatId]!;
+    chat.restore(deletion.taken);
+    chat.changes.add(null);
+    _listChanged.add(null);
+    return true;
+  }
+
+  @override
+  Future<List<TavernMessage>> searchChat(String chatId, String query, {int limit = 50}) async {
+    if (limit < 0) throw ArgumentError.value(limit, 'limit');
+    final chat = _chats[chatId]!;
+    if (query.trim().isEmpty || limit == 0) return const [];
+    return [
+      for (final node in chat.newestFirst())
+        if (node.text.contains(query) || node.speaker.contains(query)) chat.message(node),
+    ].take(limit).toList();
+  }
+
+  /// The preview runs a turn only for the stream that asked for it: there is
+  /// none to rejoin.
+  @override
+  Stream<TavernEvent> resumeTurn(String chatId) => const Stream.empty();
+
+  @override
+  Future<TavernBackupInfo> backup(String destinationPath) async =>
+      throw UnsupportedError('The preview keeps nothing to back up.');
 
   @override
   Future<void> setHidden(String chatId, String nodeId, bool hidden) async {
@@ -879,6 +918,10 @@ class _Node {
   bool hidden = false;
 }
 
+/// A deletion's nodes, each with its place in the order, and the chosen path
+/// before and after it.
+typedef _Taken = ({List<(int, _Node)> nodes, Map<String?, String> before, Map<String?, String> after});
+
 class _Chat {
   _Chat(this.id, this.characterId, this.title, this.updatedAt);
   final String id;
@@ -933,6 +976,42 @@ class _Chat {
       siblingCount: siblings.length,
       hidden: node.hidden,
     );
+  }
+
+  /// Every node, the newest first.
+  Iterable<_Node> newestFirst() => [for (final id in _order.reversed) nodes[id]!];
+
+  /// [id] and everything under it taken out, with what [restore] needs.
+  _Taken take(String id) {
+    final before = Map.of(chosen);
+    bool under(String? node) {
+      for (var at = node; at != null; at = nodes[at]?.parent) {
+        if (at == id) return true;
+      }
+      return false;
+    }
+
+    final taken = [
+      for (final (i, node) in _order.indexed)
+        if (under(node)) (i, nodes[node]!),
+    ];
+    remove(id);
+    return (nodes: taken, before: before, after: Map.of(chosen));
+  }
+
+  /// Puts back what [take] took, each where it was; the path it was on too,
+  /// unless the chat has gone another way since.
+  void restore(_Taken taken) {
+    final unchanged = chosen.length == taken.after.length && chosen.entries.every((e) => taken.after[e.key] == e.value);
+    for (final (i, node) in taken.nodes) {
+      nodes[node.id] = node;
+      _order.insert(math.min(i, _order.length), node.id);
+    }
+    if (unchanged) {
+      chosen
+        ..clear()
+        ..addAll(taken.before);
+    }
   }
 
   void remove(String id) {

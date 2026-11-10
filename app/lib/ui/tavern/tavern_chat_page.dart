@@ -226,6 +226,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       (event) {
         if (!mounted) return;
         switch (event) {
+          // Only a rejoined turn (resumeTurn) opens with one; this page's own
+          // turns start with TavernTurnStarted.
+          case TavernTurnSnapshot():
+            break;
           case TavernTurnStarted(:final message):
             setState(() => _streamNode = message.nodeId);
             unawaited(_reload());
@@ -414,7 +418,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               case TavernTurnFailed(:final kind, :final detail):
                 if (kind == TavernFailure.cancelled) return _endDraft();
                 _endDraft(failure: (kind, detail));
-              case TavernTurnStarted() || TavernReasoningDelta():
+              case TavernTurnSnapshot() || TavernTurnStarted() || TavernReasoningDelta():
                 break;
             }
           },

@@ -108,9 +108,15 @@ void main() {
       final retainedDefinitions = _definitions(
         database,
       ).where((row) => keys.contains('${row['type']}:${row['name']}')).toList();
+      const additions = {
+        'chats': ', tree_revision INTEGER NOT NULL DEFAULT 0',
+        'nodes':
+            ', stream_text TEXT, stream_reasoning TEXT, '
+            'deleted_by TEXT REFERENCES deleted_subtrees(id) DEFERRABLE INITIALLY DEFERRED, reported_usage TEXT',
+      };
       for (final row in retainedDefinitions) {
-        if (row['type'] == 'table' && row['name'] == 'nodes') {
-          const addition = ', stream_text TEXT, stream_reasoning TEXT';
+        final addition = additions[row['name']];
+        if (row['type'] == 'table' && addition != null) {
           final sql = row['sql']! as String;
           expect(sql.endsWith('$addition)'), true);
           row['sql'] = '${sql.substring(0, sql.length - addition.length - 1)})';
@@ -265,13 +271,22 @@ Map<String, Object?> _legacyData(Database database) => {
 };
 void _expectUpgradedLegacyData(Database database, Object? expected) {
   // Keep every old row, field, and unknown column under exact comparison.
-  // Only T23's two nullable shadow columns are new in this genuine v1 fixture.
-  const addedNames = {'stream_text', 'stream_reasoning'};
+  // Strip only the explicitly checked T23/T24 additions from this genuine v1
+  // fixture. The old payload has no owned inspection to backfill.
+  const addedNames = {'stream_text', 'stream_reasoning', 'deleted_by', 'reported_usage'};
   expect(_rows(database, 'PRAGMA table_info(nodes)').where((row) => addedNames.contains(row['name'])).toList(), [
     {'cid': 15, 'name': 'stream_text', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
     {'cid': 16, 'name': 'stream_reasoning', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+    {'cid': 17, 'name': 'deleted_by', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+    {'cid': 18, 'name': 'reported_usage', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+  ]);
+  expect(_rows(database, 'PRAGMA table_info(chats)').where((row) => row['name'] == 'tree_revision').toList(), [
+    {'cid': 13, 'name': 'tree_revision', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': '0', 'pk': 0},
   ]);
   final actual = _legacyData(database);
+  for (final row in actual['chats']! as List<Map<String, Object?>>) {
+    expect(row.remove('tree_revision'), 0);
+  }
   for (final row in actual['nodes']! as List<Map<String, Object?>>) {
     for (final name in addedNames) {
       expect(row.containsKey(name), true);

@@ -10,103 +10,99 @@ import 'package:test/test.dart';
 // The model stream is controlled; the facade and SQLite store are real.
 // HTTP/SSE decoding is covered separately by t11_reasoning_gate_test.dart.
 void main() {
-  test(
-    'subscription cancellation after body and reasoning applies terminal regex once despite a late producer end',
-    () async {
-      final h = await _open(thinking: true);
-      addTearDown(h.dispose);
-      final chatId = await _freshChat(h.engine);
-      await h.engine.setSettings({
-        'globalRegexScripts': [_script(2, 'bodyWrites'), _script(6, 'reasoningWrites')],
-      });
-      final events = <TavernEvent>[];
-      final outputSeen = Completer<void>();
-      var textSeen = false;
-      var reasoningSeen = false;
-      final subscription = h.engine.send(chatId, 'QUESTION').listen((event) {
-        events.add(event);
-        if (event is TavernTextDelta) {
-          textSeen = true;
-        }
-        if (event is TavernReasoningDelta) {
-          reasoningSeen = true;
-        }
-        if (textSeen && reasoningSeen && !outputSeen.isCompleted) {
-          outputSeen.complete();
-        }
-      });
-      await h.model.listening.future;
-      h.model.add(const ModelReasoning('THOUGHT'));
-      h.model.add(const ModelText('BODY'));
-      await outputSeen.future;
-      expect(events.whereType<TavernTextDelta>().map((event) => event.text).join(), 'BODY');
-      expect(events.whereType<TavernReasoningDelta>().map((event) => event.text).join(), 'THOUGHT');
-      expect(_terminals(events), isEmpty);
+  test('explicit stop and observer detachment apply terminal regex once despite a late producer end', () async {
+    final h = await _open(thinking: true);
+    addTearDown(h.dispose);
+    final chatId = await _freshChat(h.engine);
+    await h.engine.setSettings({
+      'globalRegexScripts': [_script(2, 'bodyWrites'), _script(6, 'reasoningWrites')],
+    });
+    final events = <TavernEvent>[];
+    final outputSeen = Completer<void>();
+    var textSeen = false;
+    var reasoningSeen = false;
+    final subscription = h.engine.send(chatId, 'QUESTION').listen((event) {
+      events.add(event);
+      if (event is TavernTextDelta) {
+        textSeen = true;
+      }
+      if (event is TavernReasoningDelta) {
+        reasoningSeen = true;
+      }
+      if (textSeen && reasoningSeen && !outputSeen.isCompleted) {
+        outputSeen.complete();
+      }
+    });
+    await h.model.listening.future;
+    h.model.add(const ModelReasoning('THOUGHT'));
+    h.model.add(const ModelText('BODY'));
+    await outputSeen.future;
+    expect(events.whereType<TavernTextDelta>().map((event) => event.text).join(), 'BODY');
+    expect(events.whereType<TavernReasoningDelta>().map((event) => event.text).join(), 'THOUGHT');
+    expect(_terminals(events), isEmpty);
 
-      // Do not await this cancellation before offering the late end: both
-      // completion paths must be ready before yielding to a microtask.
-      final consumerCancellation = subscription.cancel();
-      final producerClose = h.model.endAfterConsumerCancellation();
-      expect(h.model.lateEndSawCancellation, isTrue);
-      expect(h.model.finishedEventsAdded, 1);
-      // lateEndHadListener is recorded, not asserted. A correct implementation
-      // may already have detached its upstream subscription at this point.
-      await consumerCancellation;
-      await h.engine.close(); // An independent lifecycle barrier, unlike stop().
-      await producerClose; // This is the model source, not the cancelled facade controller.
-      expect(h.model.sourceCancelCalls, 1);
-      expect(_terminals(events).length, lessThanOrEqualTo(1));
+    // T24 observer cancellation only detaches. Explicitly stop the turn to
+    // retain this original cancellation/late-producer race regression.
+    h.engine.stop(chatId);
+    // Do not await this cancellation before offering the late end: both
+    // completion paths must be ready before yielding to a microtask.
+    final consumerCancellation = subscription.cancel();
+    final producerClose = h.model.endAfterConsumerCancellation();
+    expect(h.model.lateEndSawCancellation, isTrue);
+    expect(h.model.finishedEventsAdded, 1);
+    // lateEndHadListener is recorded, not asserted. A correct implementation
+    // may already have detached its upstream subscription at this point.
+    await consumerCancellation;
+    await h.engine.close(); // An independent lifecycle barrier, unlike stop().
+    await producerClose; // This is the model source, not the cancelled facade controller.
+    expect(h.model.sourceCancelCalls, 1);
+    expect(_terminals(events).length, lessThanOrEqualTo(1));
 
-      await h.reopenAfterClose();
-      final path = await h.engine.path(chatId);
-      expect(path.map((message) => message.text), ['G', 'QUESTION', '1|BODY']);
-      expect(path.last.reasoning, '1|THOUGHT');
-      expect(h.engine.variables(chatId)['bodyWrites'], 1);
-      expect(h.engine.variables(chatId)['reasoningWrites'], 1);
-    },
-    timeout: const Timeout(Duration(seconds: 15)),
-  );
+    await h.reopenAfterClose();
+    final path = await h.engine.path(chatId);
+    expect(path.map((message) => message.text), ['G', 'QUESTION', '1|BODY']);
+    expect(path.last.reasoning, '1|THOUGHT');
+    expect(h.engine.variables(chatId)['bodyWrites'], 1);
+    expect(h.engine.variables(chatId)['reasoningWrites'], 1);
+  }, timeout: const Timeout(Duration(seconds: 15)));
 
-  test(
-    'subscription cancellation after only disabled fresh reasoning rolls back rather than retaining a partial reply',
-    () async {
-      final h = await _open(thinking: false);
-      addTearDown(h.dispose);
-      final chatId = await _freshChat(h.engine);
-      await h.engine.setSettings({
-        'globalRegexScripts': [_script(2, 'bodyWrites'), _script(6, 'reasoningWrites')],
-      });
-      final before = await h.engine.path(chatId);
-      final beforeIds = before.map((message) => message.nodeId).toList();
-      final beforeVariables = h.engine.variables(chatId);
-      final events = <TavernEvent>[];
-      final subscription = h.engine.send(chatId, 'ROLL_BACK_THIS_USER').listen(events.add);
-      await h.model.listening.future;
+  test('explicit stop after only disabled fresh reasoning rolls back rather than retaining a partial reply', () async {
+    final h = await _open(thinking: false);
+    addTearDown(h.dispose);
+    final chatId = await _freshChat(h.engine);
+    await h.engine.setSettings({
+      'globalRegexScripts': [_script(2, 'bodyWrites'), _script(6, 'reasoningWrites')],
+    });
+    final before = await h.engine.path(chatId);
+    final beforeIds = before.map((message) => message.nodeId).toList();
+    final beforeVariables = h.engine.variables(chatId);
+    final events = <TavernEvent>[];
+    final subscription = h.engine.send(chatId, 'ROLL_BACK_THIS_USER').listen(events.add);
+    await h.model.listening.future;
 
-      // A sync controller offers this delta to the current model listener
-      // before add() returns. No facade event is needed as a progress signal.
-      h.model.add(const ModelReasoning('IGNORED'));
-      expect(h.model.reasoningEventsAdded, 1);
-      final consumerCancellation = subscription.cancel();
-      final producerClose = h.model.endAfterConsumerCancellation();
-      expect(h.model.lateEndSawCancellation, isTrue);
-      expect(h.model.finishedEventsAdded, 1);
-      await consumerCancellation;
-      await h.engine.close();
-      await producerClose;
-      expect(h.model.sourceCancelCalls, 1);
-      expect(_terminals(events).length, lessThanOrEqualTo(1));
+    // A sync controller offers this delta to the current model listener
+    // before add() returns. No facade event is needed as a progress signal.
+    h.model.add(const ModelReasoning('IGNORED'));
+    expect(h.model.reasoningEventsAdded, 1);
+    h.engine.stop(chatId);
+    final consumerCancellation = subscription.cancel();
+    final producerClose = h.model.endAfterConsumerCancellation();
+    expect(h.model.lateEndSawCancellation, isTrue);
+    expect(h.model.finishedEventsAdded, 1);
+    await consumerCancellation;
+    await h.engine.close();
+    await producerClose;
+    expect(h.model.sourceCancelCalls, 1);
+    expect(_terminals(events).length, lessThanOrEqualTo(1));
 
-      await h.reopenAfterClose();
-      final after = await h.engine.path(chatId);
-      expect(after.map((message) => message.nodeId), beforeIds);
-      expect(after.map((message) => message.text), before.map((message) => message.text));
-      expect(h.engine.variables(chatId), beforeVariables);
-      expect(h.engine.variables(chatId).containsKey('bodyWrites'), isFalse);
-      expect(h.engine.variables(chatId).containsKey('reasoningWrites'), isFalse);
-    },
-    timeout: const Timeout(Duration(seconds: 15)),
-  );
+    await h.reopenAfterClose();
+    final after = await h.engine.path(chatId);
+    expect(after.map((message) => message.nodeId), beforeIds);
+    expect(after.map((message) => message.text), before.map((message) => message.text));
+    expect(h.engine.variables(chatId), beforeVariables);
+    expect(h.engine.variables(chatId).containsKey('bodyWrites'), isFalse);
+    expect(h.engine.variables(chatId).containsKey('reasoningWrites'), isFalse);
+  }, timeout: const Timeout(Duration(seconds: 15)));
 }
 
 final _at = DateTime.utc(2026, 11, 10, 12);
