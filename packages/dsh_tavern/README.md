@@ -213,3 +213,79 @@ Persona 绝对头像只有位于库内且文件已打包才记录 id/sourcePath/
 父目录 journal 记录 prepared/committed/rolledBack。open 先恢复 journal 再创建根：未提交状态回滚，已提交状态保留新根并重试清理；矛盾或损坏状态留证拒绝误建空库。提交后的清理失败保留日志，不谎报核心恢复失败。同 isolate 拒绝相同或祖先/后代的活库与恢复根；跨 isolate/进程仍要求单 owner，没有 OS 锁。未实现父目录 fsync，不把进程中断恢复扩称为任意断电保证。
 
 备份需要额外 staging/ZIP 空间，未量测手机耗时或峰值内存。归档模块测试以合成字节模拟数据库回调，只测打包协议；store 测试用真实 SQLite backup；façade 测试以受控模型事件覆盖接回、变量/撤销、用量、搜索、整库往返、维护屏障、关闭、版本及工厂恢复。实际 Dart 结果以精确补丁回执为准。
+
+
+# T16：世界书编辑、分支树、手动消息与卡外观
+
+## App 接口及入口选择
+
+本层按 TASK 的 a–e 与 ADDENDUM-03 的 f 一起实现，接在 T24 之后。新增接口都通过现有异步操作登记，因此 close 等待已接纳工作，T24 捕获备份时新操作按 busy 合同拒绝。App 的 DeferredTavern / PreviewTavern 转发及 UI 由主线补，本补丁不修改 App。
+
+| 入口 | 返回与用途 | API 变化原因 |
+| --- | --- | --- |
+| `addCharacterBookEntry(id, entry)` | 更新后的完整角色 | 卡内书追加条目；不存在时创建 V3 书 |
+| `updateCharacterBookEntry(id, index, fields)` | 更新后的完整角色 | 按原始 entries 数组下标修改，不按排序位置或 uid |
+| `deleteCharacterBookEntry(id, index)` | 更新后的完整角色 | 删除该条目，保留其余原件 |
+| `previewCharacterBook(id, text, chatId:, seed:)` | `Map<String,Object?>` 世界书阶段 trace | 编辑器“测一下”，复用现有命中、跳过和正则诊断 |
+| `tree(chatId)` | `List<TavernTreeNode>` | 整棵可见保存树，提供 parent、role、speaker、preview、at、当前路径、兄弟序号、hidden、branchName |
+| `nameBranch(chatId, nodeId, name)` | 完成后通知现有 pathChanges | 给某分支起名，null / trim 后为空时清除 |
+| `deleteMessage(chatId, nodeId)` | 完成；没有撤销 token | 只永久删除一条，孩子接到原父节点 |
+| `sendOnly(chatId, text)` | 已保存的 `TavernMessage` | 只追加用户消息，不生成回复；空字符串也追加 |
+| `narrate(chatId, text, speaker:)` | 已保存的 narrator 消息 | 直接旁白文本入口，不生成回复 |
+| `readVariables(chatId)` | 当前末节点已保存局部变量的深复制 Map | 给状态面板只读显示；空的选中路径返回 `{}` |
+| `TavernCharacter.theme / assets` | 原始主题 JSON，以及 `TavernCharacterAsset` 列表 | 完整详情提供外观；两个参数可省略，旧 DTO 构造继续有效 |
+
+`watchCharacters()` 保持 T23 的轻量摘要：theme 为 null、assets 为空；请调用 `character(id)` 取得完整外观。导入和编辑返回的是完整角色。资源 DTO 的 type/name/uri/ext/localPath 均为可空 String，原声明中的其他形状仍保留在 `characterFields` 与导出原件中。
+
+## a. 卡内世界书写入和预览
+
+条目编辑支持卡内书的普通 V3 字段及 extensions 中的 ST 位置、深度、顺序、概率、次关键词逻辑、常驻与分组设置。已知字段校验类型和有限整数/数字，未知合法 JSON 仍保留；对象扩展递归合并，数组和标量整体替换。调用时先深复制输入，排队后取最新原件再合并。index 始终是原 entries 数组下标，显式重复 ID 可分别编辑；旧 native 对象型 entries 仍可读和预览，但此写入 API 明确拒绝它，不静默转换为 V3 数组。
+
+id 不能由调用者修改。实际编辑前把旧缺失/null id 固化为原数组下标，再为新增项分配未占用的非负整数。显式异常/重复 ID 保留；null→下标会改变该条目的运行身份，可能使它旧的 timer 身份失效，不能声称所有历史计时键恒定。空更新验证角色和下标，但不固化 ID、不改 modification_date、不重写源卡或索引；删到零条仍保留空书和书级未知字段。
+
+保存复用 T23 的提交顺序：先准备新卡与摘要，再使旧摘要失效，原子发布 card.json，最后尽力发布派生摘要。无法先移除仍可读的旧索引就不发布新卡；卡已提交而索引重建失败不把成功保存谎报为失败，下次列表修复索引。原件、PNG、resources、library metadata 和已有体检报告字节不因此重编码。成功后只替换对应角色的详情 LRU，并刷新摘要列表，不恢复全量读卡或逐 chat 统计。
+
+T22 报告保持原件和检查时间；真实卡指纹改变后读取为 stale，显式 `recheckImport` 才更新。世界书编辑不自动执行关键词试编译或重做体检。theme / localPath 的只读投影不参与指纹，不会仅因目录搬家使报告过期。
+
+预览在首次文件等待之前捕获当前对话、变量、历史、人设、有效预设和设置；用独立 seed 的随机源和局部/全局状态副本。先固定预设，再建立单次宏环境；用户写回正则和宏、角色准备、提示词历史与扫描注入按现有阶段执行；世界书求值 await 引擎的常驻关键词 worker。只传当前卡内书，不混入另外绑定的全局、人设、对话书。
+
+返回 scope=`character-book`、stage=`world-info`、seed、chatId、contextNodeId 以及现有 trace。正常 sticky/cooldown/decorator 规则在副本上执行后丢弃，不用改变语义的 dryRun 替代。没有完整组装最终 prompt，因此 contextAtCapacity 保持未知，不保证某条最终一定送达模型。不创建 turn、不调用模型、不取消现有回合、不保存变量、计时器、检视或使用量；关键词诊断沿用 T21。写回和 prompt 正则仍采用现有同步实现，不能把关键词 worker 的保护外推为整次预览都在 isolate 内。
+
+## b/c. 树、分支名与两种删除
+
+整树按插入顺序返回全部可见保存节点，不受 path 默认 60 条限制；包括非当前分支和 ST hidden，排除 T24 软删节点。preview 是原文前 64 个 Unicode code points，不拆合法代理对，不运行宏、正则或 Markdown。活动回复只读已经保存的正文/checkpoint；要接回实时全文请用 T24 的 resumeTurn。
+
+分支名存于 `extra.dshgo.branchName`，仅合并这个字段。命名先取消并等待该聊天的活动回合，再读取最新 extra，因此不覆盖取消收尾写入的检视、使用量或状态。同名/清理本已缺失的字段不写；实际改名推进树版本，旧撤销 token 仍可恢复分支可见性，但不覆盖之后的选择。
+
+| 操作 | 被移除的内容 | 选择和状态 | 撤销 |
+| --- | --- | --- | --- |
+| `deleteMessage` | 一条可见节点，所有物理直接孩子重挂；包括待撤销孩子 | 幸存节点 ID、正文、报告及未知数据不变；当前末节点若正是目标则退到父/空路径；否则保留末节点 | 没有 token，永久删除 |
+| `deleteFrom` | T24 的整棵物理子树软删标记 | 当前路径退回保留部分并恢复其局部状态 | 返回 token；下次打开前可撤销，后续树版本影响选择恢复 |
+
+单条删除前分别保存两种状态：物理父链重建值写成每个直接孩子的完整 checkpoint；孩子的 portable tavernState 另存于原 extra，不能拿它替换物理基底，否则会污染更深后代的 delta。旧快照缺少 hash 标记时，在改边前按该孩子自己的来源 header 补齐；显式 null 与 0 均保留。更深后代的 delta/full 不变，全部物理后代深度减一。后续 append 同时按实际 delta 距离建检查点，保持最多 19 个 delta，而不只看已经改变的深度取模。
+
+结构修改、当前局部变量/运行 metadata 恢复、失去有效锚点的 latest inspection 清理放在一个 SQL 事务内；成功提交后才清内存变量/检视缓存。取消回合的既有收尾可先产生效果，删除本身不重放宏、不改全局变量。旧子树 token 若记录了已永久删除的父/选择，单删会推进 tree_revision，使 undo 只恢复实际新父边上的可见性，不复活历史父节点。待删节点不能作为单删目标；普通读写也不能绕过软删可见性。
+
+## d/e. 手动消息与保存变量
+
+`sendOnly` 对原始 text 先执行 USER_INPUT 写回正则，再展开一次宏；不先 trim，结果为空仍入树，speaker 取当前人设名。`narrate` 先按 JavaScript 的 25 个空白/换行码元集合 trim，再展开宏，不执行 placement 3；NEL U+0085 保留。speaker 显式参数（包括空串）优先，其次为有效 metadata 中非空 String 的 narrator_name，最后为 System。节点可见、role=narrator、extra.type=narrator。
+
+两入口先取消并等待当前回合，随后沿此时选中末节点追加；不另外执行 prepareCharacterFields、首条历史重写、WI、完整 prompt 或模型调用，保留前次请求检视。旧宏模式自身的 eager 卡字段读取仍然执行，这是已有宏语义，不能误写为“绝无卡字段副作用”。旁白入口只对齐直接 handler 的正文阶段，不模拟 slash parser 的前置参数展开、bias、at、compact 或 avatar 参数。
+
+局部变量在副本里计算，与新消息和运行 metadata 一起提交；timer/decorator/greeting、JSONL 来源、chat identity 与 hash 跟随选中状态。已改变的全局变量先持久保存，再进入 SQL 事务。准备失败时仍保存已经发生的全局准备效果；若保存也失败，错误载体保留原准备错误、保存错误及各自 stack。准备成功但保存失败不会追加消息；之后 SQL 失败会回滚消息和局部状态，而已经保存的全局准备效果保留。这是新手动入口的明确顺序，未更改旧 createChat 的既有顺序。
+
+`readVariables` 只读末节点保存的 effective state，优先 portable override，否则物理快照；其 variables 缺失时为空，不从 chat 级或 live cache 补值，不包含 globalVariables。读取不保存、不取消、不运行宏、不消耗随机数，返回嵌套 Map/List 的独立副本。即使还有未选中的根节点，空的选中路径也返回 `{}`。
+
+## f. 外观与本地资源
+
+theme 是 `extensions.dshgo.theme` 的 JSON 深复制，对象、数组和标量都原样提供，缺失或 null 仍为 null，不解释颜色/字体、不增加默认值、不暴露其他 extensions。assets 保留对象成员的声明顺序，type/name/uri/ext 是字符串才投影；其余原值仍在完整卡 JSON 中。
+
+已物化的 `embeded://`、`embedded://`、`__asset:` 与 CHARX 安全相对引用给出当前角色目录中的 resources 路径；`ccdefault:` 在保有原 PNG 时指向 source.png，不拿 portrait.png 代替原始动画/容器。远程 URL 保持原 uri，localPath=null；不下载，不把 arbitrary file URI 当本地资源，不做 URI 百分号解码。路径只在记录运行时保存，不写入卡、metadata、摘要索引或报告；整库移动、T24 恢复到新根后，重读详情按新根生成路径。
+
+localPath 表示当前已载入记录的物化位置，不能保证面对外部删除文件后仍永远存在；不为每次 DTO 投影额外扫盘。摘要构造直接读取小字段并复用 regex/script 计数，不先展开主题和资源再丢弃，因此列表和索引恢复继续保持 T23 的轻量职责。
+
+## 来源与测试边界
+
+ST 对照固定为 `7e8663cd9c184a550b37238218bdd32c6efc68e9`（AGPL-3.0）：[script.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/script.js) 的普通删除及 sendMessageAsUser、[slash-commands.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/slash-commands.js) 的 sendNarratorMessage。这里对齐正文阶段和“仅删该条、保留之后消息”；树边、checkpoint 与撤销 token 是本项目存储适配，不声称 ST 原生也具有相同树模型。
+
+本层以临时真实 SQLite/文件/ZIP、真实正则与宏做回归；模型事件、时钟和随机源使用受控 fixture，不发生真实计费。SQL 触发器和 settings.json.writing 目录用于真实失败路径；外观回归的 loopback 服务只统计是否发生不应有的下载。没有把源码阅读、Python SQLite 探针或 V8 空白谓词对照算成 Dart 通过。准确注册数、冻结 SHA、独立复核与 owner 运行结果记录在本层交付 README/REVIEW；旧 027/028 只适用于旧 T16a/b 层叠。

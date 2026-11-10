@@ -19,6 +19,7 @@ import 'io/preset_codec.dart';
 import 'io/regex_intake.dart';
 import 'io/st_chat_document.dart';
 import 'io/tavern_backup.dart' as backup_io;
+import 'js_string.dart';
 import 'llm/model_client.dart';
 import 'lorebook_library.dart';
 import 'macros/macro_engine.dart';
@@ -423,6 +424,207 @@ class TavernEngine implements Tavern {
   });
 
   @override
+  Future<TavernCharacter> addCharacterBookEntry(String characterId, Map<String, Object?> entry) => _operation(() {
+    final captured = _captureBookEntry(entry);
+    return _editCharacterBook(characterId, () => _library.addBookEntry(characterId, captured));
+  });
+
+  @override
+  Future<TavernCharacter> updateCharacterBookEntry(String characterId, int index, Map<String, Object?> fields) =>
+      _operation(() {
+        final captured = _captureBookEntry(fields);
+        return _editCharacterBook(characterId, () => _library.updateBookEntry(characterId, index, captured));
+      });
+
+  @override
+  Future<TavernCharacter> deleteCharacterBookEntry(String characterId, int index) =>
+      _operation(() => _editCharacterBook(characterId, () => _library.deleteBookEntry(characterId, index)));
+
+  Map<String, Object?> _captureBookEntry(Map<String, Object?> fields) {
+    try {
+      return jsonDecode(jsonEncode(fields)) as Map<String, Object?>;
+    } on JsonUnsupportedObjectError {
+      throw ArgumentError.value(fields, 'fields', 'Expected JSON entry fields');
+    }
+  }
+
+  Future<TavernCharacter> _editCharacterBook(String characterId, Future<StoredCharacter> Function() save) {
+    if (_deletingCharacters.contains(characterId)) {
+      throw StateError('Character deletion is running.');
+    }
+    return _libraryOperation(() async {
+      final stored = await save();
+      _characterCache = null;
+      _cacheCharacterDetail(characterId, Future.value(stored));
+      _notifyLists();
+      final stats = _store.characterChatStats()[characterId];
+      return stored.toCharacter(chatCount: stats?.count ?? 0, lastChatAt: stats?.lastAt);
+    });
+  }
+
+  @override
+  Future<Map<String, Object?>> previewCharacterBook(String characterId, String text, {String? chatId, int seed = 0}) =>
+      _operation(() async {
+        final chat = chatId == null ? null : _store.chat(chatId);
+        if (chat != null && chat.characterId != characterId) {
+          throw ArgumentError.value(chatId, 'chatId', 'The chat belongs to another character.');
+        }
+        final leaf = chat?.currentLeafId;
+        final metadata = chat == null ? <String, Object?>{} : _chatCodec.metadataForNode(_store, chat.id);
+        final state = chat == null
+            ? <String, Object?>{}
+            : leaf == null
+            ? _emptyChatState(metadata)
+            : _stateAt(chat.id, leaf);
+        final provenance =
+            state['chatJsonlSourceFile'] ??
+            (chat == null ? null : _map(_map(chat.metadata['dshgo'])['chatJsonl'])['rootFile']);
+        final sourceFile = provenance is String ? provenance : null;
+        final selection = _personas.resolve(personaId: chat?.personaId);
+        final settings = _personaSettings(_effectiveSettings(chat, metadata), selection);
+        final cached = chat == null ? null : _liveVariables[chat.id];
+        final local = cached != null && cached.leaf == leaf
+            ? _runtimeCopy(cached.values)
+            : state.containsKey('variables')
+            ? _map(state['variables'])
+            : leaf != null && sourceFile != null
+            ? <String, Object?>{}
+            : _copy(chat?.variables ?? const {});
+        final global = _runtimeCopy(_globalVariables);
+        final history = chat == null ? <StoredNode>[] : _historyTo(chat.id, leaf);
+        final siblingIndex = chat == null || text.isEmpty ? 0 : _store.children(chat.id, leaf).length;
+        final config = _config;
+        final at = _clock();
+        final random = Random(seed).nextDouble;
+        final identity = chat == null
+            ? 'preview:$characterId'
+            : _macroChatIdentity(chat, state, metadata, sourceFile, node: history.lastOrNull);
+        // All mutable runtime inputs above were captured before the file read.
+        // This query never owns a turn and never publishes its computed state.
+        final record = await _record(characterId);
+        if (record == null) {
+          throw const TavernImportError('角色不存在。');
+        }
+        final data = _effectiveCard(record.card.data, settings);
+        final rawPreset = _map(settings['preset']);
+        final preset = ChatPreset({
+          ...(rawPreset.isEmpty ? ChatPreset.stDefault().raw : rawPreset),
+          'show_thoughts': config.thinking,
+        });
+        final environment = _MacroEnvironment(
+          data,
+          settings,
+          local,
+          global,
+          history,
+          config,
+          at,
+          random,
+          identity,
+          text,
+          'normal',
+          chatIdHash: _finiteNumber(metadata['chat_id_hash']),
+          pickRerollSeed: metadata['pick_reroll_seed'],
+          characterId: characterId,
+          preset: preset,
+        );
+        if (text.isNotEmpty) {
+          final regexed = environment.regex.apply(
+            text,
+            placement: RegexPlacement.userInput,
+            expand: environment.regexExpand,
+          );
+          final input = environment.expand(regexed, const {});
+          history.add(
+            StoredNode(
+              message: TavernMessage(
+                nodeId: 'preview-user',
+                parentId: leaf,
+                role: TavernRole.user,
+                speaker: environment.userName,
+                text: input,
+                at: at,
+                siblingIndex: siblingIndex,
+                siblingCount: siblingIndex + 1,
+              ),
+              depth: history.length + 1,
+              extra: const {},
+              original: const {},
+            ),
+          );
+        }
+        final prepared = prepareCharacterFields(data, persona: environment.persona, expand: environment.baseExpand);
+        if (history.isNotEmpty) {
+          history[0] = _nodeWithText(history.first, environment.expand(history.first.message.text, const {}));
+        }
+        final promptHistory = _preparePromptHistory(history, environment, continuing: false);
+        final eligible = promptHistory.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
+        final injections = _configuredInjections(
+          settings,
+          prepared,
+          data,
+          userMessageCount: history.where((node) => node.message.role == TavernRole.user).length,
+        );
+        final scanInjections = <String>[];
+        for (final injection in injections) {
+          if (!injection.scan) {
+            continue;
+          }
+          final content = environment.expand(injection.injection.fragment.content, const {});
+          if (content.isNotEmpty) {
+            scanInjections.add(content);
+          }
+        }
+        final embedded = data['character_book'];
+        final world = await _worldInfoEngine.evaluate(
+          WorldInfoInput(
+            books: [
+              if (embedded is Map<String, Object?>)
+                WorldInfoBook.fromJson(id: '$characterId:card', source: WorldInfoSource.character, json: embedded),
+            ],
+            messages: [for (final node in eligible) WorldInfoMessage(node.message.text, speaker: node.message.speaker)],
+            maxContext: environment.maxContext - environment.maxResponse,
+            tokenCount: _counter.countText,
+            random: random,
+            expand: (value) => environment.expand(value, const {}),
+            settings: WorldInfoSettings.fromJson(_map(settings['worldInfo'])),
+            scanInjections: scanInjections,
+            personaDescription: prepared.persona,
+            characterDescription: prepared['description'],
+            characterPersonality: prepared['personality'],
+            characterDepthPrompt: prepared['charDepthPrompt'],
+            scenario: prepared['scenario'],
+            creatorNotes: prepared['creator_notes'],
+            characterName: _characterFilename(settings, characterId),
+            characterTags: _characterTags(settings, characterId),
+            timedWorldInfo: _map(state['timedWorldInfo']),
+            decoratorState: _map(state['decoratorState']),
+            assistantMessageCount: eligible.where((node) => node.message.role == TavernRole.character).length,
+            greetingIndex: state['greetingIndex'] is int ? state['greetingIndex'] as int : null,
+            userIconName: settings['userIconName'] as String?,
+            // Evaluate normal effects on copies, then discard them. No complete
+            // prompt was assembled, so contextAtCapacity deliberately stays null.
+            availablePromptSections: _availableWorldSections(preset, 'normal'),
+            postProcessContent: (entry, content, depth) => environment.regex.apply(
+              content,
+              placement: RegexPlacement.worldInfo,
+              phase: RegexPhase.prompt,
+              depth: depth,
+              expand: environment.regexExpand,
+            ),
+          ),
+        );
+        return {
+          'scope': 'character-book',
+          'stage': 'world-info',
+          'seed': seed,
+          'chatId': chatId,
+          'contextNodeId': leaf,
+          ..._worldInfoTrace(world),
+        };
+      });
+
+  @override
   Future<TavernCharacter> importCard(Uint8List bytes, {String? fileName}) => _operation(
     () => _libraryOperation(() async {
       var diagnostics = <TavernRegexDiagnostic>[];
@@ -646,7 +848,7 @@ class TavernEngine implements Tavern {
           if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
         } catch (saveError, saveStackTrace) {
           Error.throwWithStackTrace(
-            _CreateChatSaveFailure(createError, createStackTrace, saveError, saveStackTrace),
+            _PreparationSaveFailure(createError, createStackTrace, saveError, saveStackTrace),
             saveStackTrace,
           );
         }
@@ -736,6 +938,53 @@ class TavernEngine implements Tavern {
         else
           message,
     ];
+  });
+
+  @override
+  Future<List<TavernTreeNode>> tree(String chatId) => _operation(() {
+    final chat = _store.chat(chatId);
+    final nodes = _store.allNodes(chatId);
+    final byId = {for (final node in nodes) node.message.nodeId: node};
+    final currentPath = <String>{};
+    var id = chat.currentLeafId;
+    while (id != null) {
+      final node = byId[id];
+      if (node == null || !currentPath.add(id)) {
+        throw StateError('The selected message path is disconnected or cyclic.');
+      }
+      id = node.message.parentId;
+    }
+    final result = <TavernTreeNode>[];
+    for (final node in nodes) {
+      final message = node.message;
+      final own = node.extra['dshgo'];
+      final name = own is Map<String, Object?> ? own['branchName'] : null;
+      result.add(
+        TavernTreeNode(
+          nodeId: message.nodeId,
+          parentId: message.parentId,
+          role: message.role,
+          speaker: message.speaker,
+          preview: String.fromCharCodes(message.text.runes.take(64)),
+          at: message.at,
+          isCurrentPath: currentPath.contains(message.nodeId),
+          siblingIndex: message.siblingIndex,
+          siblingCount: message.siblingCount,
+          hidden: message.hidden,
+          branchName: name is String ? name : null,
+        ),
+      );
+    }
+    return result;
+  });
+
+  @override
+  Future<Map<String, Object?>> readVariables(String chatId) => _operation(() {
+    final leaf = _store.chat(chatId).currentLeafId;
+    if (leaf == null) {
+      return <String, Object?>{};
+    }
+    return _runtimeCopy(_map(_stateAt(chatId, leaf)['variables']));
   });
 
   @override
@@ -1980,6 +2229,30 @@ class TavernEngine implements Tavern {
   );
 
   @override
+  Future<void> nameBranch(String chatId, String nodeId, String? name) => _operation(
+    () => _withMutation(chatId, () {
+      _store.transaction(() {
+        final extra = _copy(_store.node(chatId, nodeId).extra);
+        final own = _map(extra['dshgo']);
+        final label = name?.trim();
+        if (label == null || label.isEmpty) {
+          if (!own.containsKey('branchName')) {
+            return;
+          }
+          own.remove('branchName');
+        } else {
+          if (own['branchName'] == label) {
+            return;
+          }
+          own['branchName'] = label;
+        }
+        extra['dshgo'] = own;
+        _store.updateMessage(chatId, nodeId, extra: extra);
+      });
+    }),
+  );
+
+  @override
   Future<void> edit(String chatId, String nodeId, String text) => _operation(
     () => _withMutation(chatId, () async {
       final chat = _store.chat(chatId);
@@ -2074,6 +2347,39 @@ class TavernEngine implements Tavern {
   }
 
   @override
+  Future<void> deleteMessage(String chatId, String nodeId) => _operation(
+    () => _withMutation(chatId, () {
+      final stored = _storedLatestInspection(_store.chat(chatId));
+      final latest = _latestInspections.containsKey(chatId) ? _latestInspections[chatId] : stored;
+      var clearLatest = false;
+      _store.transaction(() {
+        final chat = _store.chat(chatId);
+        _store.deleteMessage(
+          chatId,
+          nodeId,
+          capturePortableState: (child, physicalState) {
+            final override = _map(child.extra['dshgo'])['tavernState'];
+            final state = _copy(override is Map<String, Object?> ? override : physicalState);
+            // Resolve the child's own old source before any edge or current
+            // metadata changes. This callback never reads a hidden node via a
+            // visibility-filtered API, and never writes or evaluates macros.
+            return _withStateHash(chat, state);
+          },
+        );
+        _restoreVariables(chatId);
+        clearLatest = latest != null && !_inspectionAnchorExists(latest);
+        if (clearLatest || (stored != null && !_inspectionAnchorExists(stored))) {
+          _writeLatestInspection(chatId, null);
+        }
+      });
+      if (clearLatest) {
+        _latestInspections[chatId] = null;
+      }
+      _liveVariables.remove(chatId);
+    }),
+  );
+
+  @override
   Future<String> deleteFrom(String chatId, String nodeId) => _operation(
     () => _withMutation(chatId, () {
       final stored = _storedLatestInspection(_store.chat(chatId));
@@ -2146,10 +2452,14 @@ class TavernEngine implements Tavern {
     final state = override is Map<String, Object?> ? _copy(override) : _store.nodeState(chatId, nodeId);
     // Older snapshots predate the explicit cache marker. Resolve their own
     // source header before a selection can replace the chat's current cache.
-    state.putIfAbsent(
-      'stChatIdHash',
-      () => _finiteNumber(_chatCodec.metadataForNode(_store, chatId, nodeId: nodeId)['chat_id_hash']),
-    );
+    if (!state.containsKey('stChatIdHash')) {
+      _withStateHash(_store.chat(chatId), state);
+    }
+    return state;
+  }
+
+  Map<String, Object?> _withStateHash(StoredChat chat, Map<String, Object?> state) {
+    state.putIfAbsent('stChatIdHash', () => _finiteNumber(_chatCodec.metadataForState(chat, state)['chat_id_hash']));
     return state;
   }
 
@@ -2157,6 +2467,136 @@ class TavernEngine implements Tavern {
 
   @override
   Stream<TavernEvent> send(String chatId, String text) => _streamTurn(chatId, _TurnKind.send, input: text);
+
+  @override
+  Future<TavernMessage> sendOnly(String chatId, String text) =>
+      _operation(() => _appendManualMessage(chatId, text, narrator: false));
+
+  @override
+  Future<TavernMessage> narrate(String chatId, String text, {String? speaker}) =>
+      _operation(() => _appendManualMessage(chatId, text, narrator: true, speaker: speaker));
+
+  Future<TavernMessage> _appendManualMessage(String chatId, String text, {required bool narrator, String? speaker}) =>
+      _withMutation(chatId, () async {
+        final chat = _store.chat(chatId);
+        final record = await _record(chat.characterId);
+        if (record == null) {
+          throw const TavernImportError('角色不存在。');
+        }
+        final leaf = chat.currentLeafId;
+        final metadata = _chatCodec.metadataForNode(_store, chatId);
+        final state = leaf == null ? _emptyChatState(metadata) : _stateAt(chatId, leaf);
+        final source = state['chatJsonlSourceFile'] ?? _map(_map(chat.metadata['dshgo'])['chatJsonl'])['rootFile'];
+        final sourceFile = source is String ? source : null;
+        if (sourceFile != null) {
+          state['chatJsonlSourceFile'] = sourceFile;
+        }
+        final cached = _liveVariables[chatId];
+        final local = cached != null && cached.leaf == leaf
+            ? _runtimeCopy(cached.values)
+            : state.containsKey('variables')
+            ? _map(state['variables'])
+            : leaf != null && sourceFile != null
+            ? <String, Object?>{}
+            : _copy(chat.variables);
+        final settings = _personaSettings(
+          _effectiveSettings(chat, metadata),
+          _personas.resolve(personaId: chat.personaId),
+        );
+        final history = _historyTo(chatId, leaf);
+        final presetRaw = _map(settings['preset']);
+        final preset = ChatPreset({
+          ...(presetRaw.isEmpty ? ChatPreset.stDefault().raw : presetRaw),
+          'show_thoughts': _config.thinking,
+        });
+        final environment = _MacroEnvironment(
+          _effectiveCard(record.card.data, settings),
+          settings,
+          local,
+          _globalVariables,
+          history,
+          _config,
+          _clock(),
+          _random,
+          _macroChatIdentity(chat, state, metadata, sourceFile, node: history.lastOrNull),
+          text,
+          'normal',
+          chatIdHash: _finiteNumber(metadata['chat_id_hash']),
+          pickRerollSeed: metadata['pick_reroll_seed'],
+          characterId: chat.characterId,
+          preset: preset,
+        );
+        final beforeGlobals = _jsonString(_globalVariables);
+        late final String expanded;
+        try {
+          // Adapted from SillyTavern (AGPL-3.0), commit
+          // 7e8663cd9c184a550b37238218bdd32c6efc68e9:
+          // public/script.js::sendMessageAsUser and
+          // public/scripts/slash-commands.js::sendNarratorMessage.
+          // sendMessageAsUser applies USER_INPUT before substitution.
+          // sendNarratorMessage instead substitutes text.trim(), without regex 3.
+          final prepared = narrator
+              ? trimJsWhitespace(text)
+              : environment.regex.apply(text, placement: RegexPlacement.userInput, expand: environment.regexExpand);
+          expanded = environment.expand(prepared, const {});
+        } catch (prepareError, prepareStackTrace) {
+          // Local state is detached, but preparation uses ST/T11's real globals.
+          // Preserve both failures when those effects cannot be saved either.
+          try {
+            if (beforeGlobals != _jsonString(_globalVariables)) {
+              await _saveDocument();
+            }
+          } catch (saveError, saveStackTrace) {
+            Error.throwWithStackTrace(
+              _PreparationSaveFailure(
+                prepareError,
+                prepareStackTrace,
+                saveError,
+                saveStackTrace,
+                operation: narrator ? 'narrate' : 'sendOnly',
+              ),
+              saveStackTrace,
+            );
+          }
+          Error.throwWithStackTrace(prepareError, prepareStackTrace);
+        }
+        // Save preparation effects before SQL: a failed write must not append a
+        // manual message. Later SQL failure rolls back local state and the tree,
+        // while already saved global preparation effects remain committed.
+        if (beforeGlobals != _jsonString(_globalVariables)) {
+          await _saveDocument();
+        }
+        final nextState = <String, Object?>{
+          ...state,
+          'variables': _copy(local),
+          'stChatId': environment.chatId,
+          'stChatIdHash': environment.chatIdHash,
+        };
+        final narratorName = metadata['narrator_name'];
+        final name = narrator
+            ? speaker ?? (narratorName is String && narratorName.isNotEmpty ? narratorName : 'System')
+            : environment.userName;
+        final message = _store.transaction(() {
+          final message = _store.append(
+            chatId,
+            parentId: leaf,
+            role: narrator ? TavernRole.narrator : TavernRole.user,
+            speaker: name,
+            text: expanded,
+            extra: narrator ? const {'type': 'narrator'} : const {},
+            state: nextState,
+          );
+          _store.updateChat(
+            chatId,
+            variables: _copy(local),
+            metadata: _runtimeMetadata(_store.chat(chatId).metadata, nextState),
+          );
+          return message;
+        });
+        _liveVariables[chatId] = (leaf: message.nodeId, values: _runtimeCopy(local));
+        return message;
+      });
+
   @override
   Stream<TavernEvent> regenerate(String chatId, String nodeId) =>
       _streamTurn(chatId, _TurnKind.regenerate, nodeId: nodeId);
@@ -3156,15 +3596,24 @@ int _displaySeed(String identity) {
   return hash;
 }
 
-class _CreateChatSaveFailure implements Exception {
-  const _CreateChatSaveFailure(this.createError, this.createStackTrace, this.saveError, this.saveStackTrace);
+class _PreparationSaveFailure implements Exception {
+  const _PreparationSaveFailure(
+    this.createError,
+    this.createStackTrace,
+    this.saveError,
+    this.saveStackTrace, {
+    this.operation = 'createChat',
+  });
+  final String operation;
+  // Keep the original createChat error/stack fields for callers inspecting
+  // both failures; manual-message preparation uses the same carrier.
   final Object createError;
   final StackTrace createStackTrace;
   final Object saveError;
   final StackTrace saveStackTrace;
   @override
   String toString() =>
-      'createChat failed: $createError\n'
+      '$operation failed: $createError\n'
       'Saving global variables also failed: $saveError';
 }
 

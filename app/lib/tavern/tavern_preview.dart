@@ -449,6 +449,136 @@ class PreviewTavern implements Tavern, TavernPreview {
     ].take(limit).toList();
   }
 
+  // T16, in memory: the card's own lorebook, the whole tree, branch names,
+  // one message out, and lines added without a reply.
+
+  /// [c]'s card lorebook entries, made when it has none; a copy of its own
+  /// (the sample card's book is a constant), kept on the card.
+  List<Object?> _bookEntries(_Char c) {
+    final book = _copySetting(c.data['character_book'] ?? const {'entries': <Object?>[]})! as Map<String, Object?>;
+    final entries = (book['entries'] as List<Object?>?) ?? <Object?>[];
+    // As the engine: an entry without an id takes its index before an edit.
+    for (final (i, entry) in entries.indexed) {
+      if (entry is Map<String, Object?> && entry['id'] == null) entry['id'] = i;
+    }
+    book['entries'] = entries;
+    c.data['character_book'] = book;
+    return entries;
+  }
+
+  _Char _characterFor(String characterId) =>
+      _characters[characterId] ?? (throw const TavernImportError('missing character'));
+
+  @override
+  Future<TavernCharacter> addCharacterBookEntry(String characterId, Map<String, Object?> entry) async {
+    final c = _characterFor(characterId);
+    final entries = _bookEntries(c);
+    final used = {for (final e in entries.whereType<Map<String, Object?>>()) e['id']};
+    var id = 0;
+    while (used.contains(id)) {
+      id++;
+    }
+    entries.add({..._copySetting(entry)! as Map<String, Object?>, 'id': id});
+    _listChanged.add(null);
+    return _view(c);
+  }
+
+  @override
+  Future<TavernCharacter> updateCharacterBookEntry(String characterId, int index, Map<String, Object?> fields) async {
+    final c = _characterFor(characterId);
+    final entries = _bookEntries(c);
+    if (fields.containsKey('id')) throw ArgumentError.value(fields['id'], 'id');
+    final entry = entries[RangeError.checkValidIndex(index, entries)]! as Map<String, Object?>;
+    _mergeSettings(entry, fields);
+    _listChanged.add(null);
+    return _view(c);
+  }
+
+  @override
+  Future<TavernCharacter> deleteCharacterBookEntry(String characterId, int index) async {
+    final c = _characterFor(characterId);
+    final entries = _bookEntries(c);
+    entries.removeAt(RangeError.checkValidIndex(index, entries));
+    _listChanged.add(null);
+    return _view(c);
+  }
+
+  @override
+  Future<Map<String, Object?>> previewCharacterBook(
+    String characterId,
+    String text, {
+    String? chatId,
+    int seed = 0,
+  }) async => throw UnsupportedError('The preview does not run world info.');
+
+  @override
+  Future<List<TavernTreeNode>> tree(String chatId) async {
+    final chat = _chats[chatId]!;
+    final current = {for (final m in chat.path()) m.nodeId};
+    return [
+      for (final node in chat.inOrder())
+        () {
+          final siblings = chat.children(node.parent);
+          return TavernTreeNode(
+            nodeId: node.id,
+            parentId: node.parent,
+            role: node.role,
+            speaker: node.speaker,
+            preview: String.fromCharCodes(node.text.runes.take(64)),
+            at: node.at,
+            isCurrentPath: current.contains(node.id),
+            siblingIndex: siblings.indexOf(node),
+            siblingCount: siblings.length,
+            hidden: node.hidden,
+            branchName: chat.branchNames[node.id],
+          );
+        }(),
+    ];
+  }
+
+  @override
+  Future<Map<String, Object?>> readVariables(String chatId) async => {};
+
+  /// [node] added at the end of [chat]'s current path.
+  TavernMessage _append(_Chat chat, TavernRole role, String speaker, String text) {
+    final parent = chat.tail()?.id;
+    final node = _Node(_id('n'), parent, role, speaker, text, _clock());
+    chat.add(node);
+    chat.chosen[parent] = node.id;
+    chat.touch(node.at);
+    chat.changes.add(null);
+    _listChanged.add(null);
+    return chat.message(node);
+  }
+
+  @override
+  Future<TavernMessage> sendOnly(String chatId, String text) async =>
+      _append(_chats[chatId]!, TavernRole.user, 'You', text);
+
+  @override
+  Future<TavernMessage> narrate(String chatId, String text, {String? speaker}) async =>
+      _append(_chats[chatId]!, TavernRole.narrator, speaker ?? 'System', text.trim());
+
+  @override
+  Future<void> nameBranch(String chatId, String nodeId, String? name) async {
+    final chat = _chats[chatId]!;
+    final label = name?.trim() ?? '';
+    if (label.isEmpty) {
+      chat.branchNames.remove(nodeId);
+    } else {
+      chat.branchNames[nodeId] = label;
+    }
+    chat.changes.add(null);
+  }
+
+  @override
+  Future<void> deleteMessage(String chatId, String nodeId) async {
+    final chat = _chats[chatId]!;
+    chat.removeOne(nodeId);
+    chat.changes.add(null);
+    _listChanged.add(null);
+  }
+
   /// The preview runs a turn only for the stream that asked for it: there is
   /// none to rejoin.
   @override
@@ -980,6 +1110,41 @@ class _Chat {
 
   /// Every node, the newest first.
   Iterable<_Node> newestFirst() => [for (final id in _order.reversed) nodes[id]!];
+
+  /// Every node, in the order it was added.
+  Iterable<_Node> inOrder() => [for (final id in _order) nodes[id]!];
+
+  /// Names given to branches, by the node each starts at.
+  final branchNames = <String, String>{};
+
+  /// [id] alone out: its children move up to its parent, the path through it
+  /// goes on through the child it continued with.
+  void removeOne(String id) {
+    final node = nodes[id];
+    if (node == null) return;
+    final next = chosen[id];
+    for (final child in children(id)) {
+      nodes[child.id] = _Node(child.id, node.parent, child.role, child.speaker, child.text, child.at)
+        ..reasoning = child.reasoning
+        ..hidden = child.hidden;
+    }
+    nodes.remove(id);
+    _order.remove(id);
+    chosen.remove(id);
+    branchNames.remove(id);
+    if (chosen[node.parent] == id) {
+      if (next != null) {
+        chosen[node.parent] = next;
+      } else {
+        final rest = children(node.parent);
+        if (rest.isEmpty) {
+          chosen.remove(node.parent);
+        } else {
+          chosen[node.parent] = rest.last.id;
+        }
+      }
+    }
+  }
 
   /// [id] and everything under it taken out, with what [restore] needs.
   _Taken take(String id) {

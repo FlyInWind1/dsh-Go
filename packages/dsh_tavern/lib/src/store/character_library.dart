@@ -12,14 +12,25 @@ import '../api.dart';
 import '../import_report.dart';
 import '../io/card_codec.dart';
 import '../regex_library.dart';
+import '../worldinfo/world_info.dart';
 
 class StoredCharacter {
-  const StoredCharacter({required this.id, required this.card, required this.importedAt, this.avatarPath});
+  const StoredCharacter({
+    required this.id,
+    required this.card,
+    required this.importedAt,
+    this.avatarPath,
+    this.directoryPath,
+  });
 
   final String id;
   final TavernCard card;
   final DateTime importedAt;
   final String? avatarPath;
+
+  /// The published character directory, used only for runtime asset paths.
+  /// It is never written into the card, library metadata or summary index.
+  final String? directoryPath;
 
   TavernCharacter toCharacter({
     int chatCount = 0,
@@ -30,11 +41,27 @@ class StoredCharacter {
     id,
     importedAt: importedAt,
     avatarPath: avatarPath,
+    resolveAssetPath: _resolveAssetPath,
     chatCount: chatCount,
     lastChatAt: lastChatAt,
     language: language,
     regexDiagnostics: regexDiagnostics,
   );
+
+  String? _resolveAssetPath(String uri) {
+    final directory = directoryPath;
+    if (directory == null) {
+      return null;
+    }
+    if (uri == 'ccdefault:') {
+      return card.png == null ? null : '$directory/source.png';
+    }
+    final path = embeddedCardAssetPath(uri) ?? (isSafeCardAssetPath(uri) ? uri : null);
+    if (path == null || !card.assets.containsKey(path)) {
+      return null;
+    }
+    return '$directory/resources/$path';
+  }
 }
 
 /// The small, immutable projection used by character lists. Full card text,
@@ -65,7 +92,7 @@ class StoredCharacterSummary {
   final bool hasLorebook;
 
   /// Detail-only fields keep their empty defaults; use [CharacterLibrary.read]
-  /// for description, greetings, creator notes or full card data.
+  /// for description, greetings, creator notes, theme or declared assets.
   TavernCharacter toCharacter({int chatCount = 0, DateTime? lastChatAt}) => TavernCharacter(
     id: id,
     name: name,
@@ -166,6 +193,7 @@ class CharacterLibrary {
       card: card,
       importedAt: importedAt,
       avatarPath: portrait == null ? null : '${destination.path}/portrait.png',
+      directoryPath: destination.absolute.path,
     );
     await _writeSummary(_summarize(record));
     return record;
@@ -249,39 +277,130 @@ class CharacterLibrary {
       final json = jsonDecode(jsonEncode(record.card.json)) as Map<String, Object?>;
       final data = json['data'] as Map<String, Object?>;
       data.addAll(updates);
-      data['modification_date'] = _now().toUtc().millisecondsSinceEpoch ~/ 1000;
-      final updated = StoredCharacter(
-        id: record.id,
-        card: TavernCard(
-          json: json,
-          assets: record.card.assets,
-          png: record.card.png,
-          originalBytes: record.card.originalBytes,
-          sourceFormat: record.card.sourceFormat,
-        ),
-        importedAt: record.importedAt,
-        avatarPath: record.avatarPath,
-      );
-      final summary = _summarize(updated);
-      final cardFile = File('${_characters.path}/$id/card.json');
-      final pending = File('${cardFile.path}.writing');
-      // No committed source revision may retain a readable older index. If
-      // saving the card fails, the next list rebuilds the old source summary.
-      await _invalidateSummary(id);
-      try {
-        await pending.writeAsString(jsonEncode(json), flush: true);
-        await pending.rename(cardFile.path);
-      } finally {
-        try {
-          if (await pending.exists()) await pending.delete();
-        } on FileSystemException {
-          // A later save overwrites this uncommitted file. Reads only use
-          // card.json, so cleanup failure cannot publish an incomplete edit.
-        }
-      }
-      await _writeSummary(summary);
-      return updated;
+      return _saveCard(record, json);
     });
+  }
+
+  /// Adds one CC book entry, assigning an unused integer id. Input is copied
+  /// before queueing. The caller cannot supply `id`; omitted known fields use
+  /// ordinary CC defaults. A missing book starts with an empty entries array.
+  Future<StoredCharacter> addBookEntry(String id, Map<String, Object?> entry) async {
+    _requireId(id);
+    final updates = _bookEntryUpdates(entry);
+    return _editBook(id, (entries) {
+      entries.add({
+        'id': _nextBookEntryId(entries),
+        'keys': <String>[],
+        'secondary_keys': <String>[],
+        'content': '',
+        'enabled': true,
+        'constant': false,
+        'selective': false,
+        'insertion_order': 100,
+        'position': 'before_char',
+        'use_regex': false,
+        'extensions': <String, Object?>{},
+        ...updates,
+      });
+      return true;
+    });
+  }
+
+  /// Patches the entry at its stored array [index], not its potentially
+  /// duplicate id. Extensions merge recursively; other supplied fields
+  /// replace their old value. Unknown omitted JSON values remain intact.
+  /// An empty patch validates the target and returns the unchanged character
+  /// without writing.
+  Future<StoredCharacter> updateBookEntry(String id, int index, Map<String, Object?> fields) async {
+    _requireId(id);
+    final updates = _bookEntryUpdates(fields);
+    return _editBook(id, (entries) {
+      _requireBookIndex(index, entries);
+      if (updates.isEmpty) {
+        return false;
+      }
+      final entry = entries[index]! as Map<String, Object?>;
+      for (final update in updates.entries) {
+        final old = entry[update.key];
+        entry[update.key] = update.key == 'extensions'
+            ? _mergeBookExtensions(old is Map<String, Object?> ? old : {}, update.value! as Map<String, Object?>)
+            : update.value;
+      }
+      return true;
+    });
+  }
+
+  /// Removes only the addressed array entry. Non-null existing ids, including
+  /// duplicates, retain their original order and values. Before a real edit,
+  /// missing/null ids are fixed to their old fallback array index so deletion
+  /// cannot shift the logical identities of later entries. Normalizing a
+  /// stored null can change that entry's native ST timer key and hash.
+  Future<StoredCharacter> deleteBookEntry(String id, int index) async {
+    _requireId(id);
+    return _editBook(id, (entries) {
+      _requireBookIndex(index, entries);
+      entries.removeAt(index);
+      return true;
+    });
+  }
+
+  Future<StoredCharacter> _editBook(String id, bool Function(List<Object?> entries) edit) => _exclusive(() async {
+    await _tidy();
+    final record = await _read(id);
+    if (record == null) {
+      throw const TavernImportError('角色不存在。');
+    }
+    final json = jsonDecode(jsonEncode(record.card.json)) as Map<String, Object?>;
+    final data = json['data']! as Map<String, Object?>;
+    final book = _editableBook(data['character_book']);
+    final entries = book['entries']! as List<Object?>;
+    for (var index = 0; index < entries.length; index++) {
+      final entry = entries[index]! as Map<String, Object?>;
+      entry['id'] ??= index;
+    }
+    if (!edit(entries)) {
+      return record;
+    }
+    data['character_book'] = book;
+    return _saveCard(record, json);
+  });
+
+  Future<StoredCharacter> _saveCard(StoredCharacter record, Map<String, Object?> json) async {
+    (json['data']! as Map<String, Object?>)['modification_date'] = _now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    final updated = StoredCharacter(
+      id: record.id,
+      card: TavernCard(
+        json: json,
+        assets: record.card.assets,
+        png: record.card.png,
+        originalBytes: record.card.originalBytes,
+        sourceFormat: record.card.sourceFormat,
+      ),
+      importedAt: record.importedAt,
+      avatarPath: record.avatarPath,
+      directoryPath: record.directoryPath,
+    );
+    final summary = _summarize(updated);
+    final cardFile = File('${_characters.path}/${record.id}/card.json');
+    final pending = File('${cardFile.path}.writing');
+    // No committed source revision may retain a readable older index. If
+    // saving the card fails, the next list rebuilds the old source summary.
+    await _invalidateSummary(record.id);
+    try {
+      await pending.writeAsString(jsonEncode(json), flush: true);
+      await pending.rename(cardFile.path);
+    } finally {
+      try {
+        if (await pending.exists()) {
+          await pending.delete();
+        }
+      } on FileSystemException {
+        // A later save overwrites this uncommitted file. Reads only use
+        // card.json, so cleanup failure cannot publish an incomplete edit.
+      }
+    }
+    await _writeSummary(summary);
+    return updated;
   }
 
   /// Reads only derived summaries for current character directories. Old or
@@ -469,6 +588,7 @@ class CharacterLibrary {
       card: card,
       importedAt: importedAt,
       avatarPath: metadataValue['hasPortrait'] == true ? '${directory.path}/portrait.png' : null,
+      directoryPath: directory.absolute.path,
     );
   }
 
@@ -483,20 +603,22 @@ class CharacterLibrary {
 }
 
 StoredCharacterSummary _summarize(StoredCharacter record) {
-  // Reuse the established projection rules for optional strings and helper
-  // script counts; retain only its small list fields, never the card itself.
-  final character = record.toCharacter();
+  // Project only list fields. Do not clone theme, greetings or asset DTOs just
+  // to discard them while recovering an old library's missing summary index.
+  final card = record.card;
+  final data = card.data;
+  final tags = data['tags'];
   return StoredCharacterSummary(
     id: record.id,
-    name: character.name,
-    nickname: character.nickname,
-    creator: character.creator,
-    tags: character.tags,
+    name: card.name,
+    nickname: data['nickname'] is String ? data['nickname'] as String : null,
+    creator: data['creator'] is String ? data['creator'] as String : null,
+    tags: tags is List<Object?> ? tags.whereType<String>().toList() : const [],
     avatarPath: record.avatarPath,
     importedAt: record.importedAt,
-    regexCount: character.regexCount,
-    scriptCount: character.scriptCount,
-    hasLorebook: character.hasLorebook,
+    regexCount: card.regexCount,
+    scriptCount: card.scriptCount,
+    hasLorebook: data['character_book'] is Map<String, Object?>,
   );
 }
 
@@ -612,6 +734,114 @@ Map<String, Object?> _fieldUpdates(Map<String, Object?> fields) {
   }
   return updates;
 }
+
+Map<String, Object?> _editableBook(Object? value) {
+  if (value == null) {
+    return {'extensions': <String, Object?>{}, 'entries': <Object?>[]};
+  }
+  if (value is! Map<String, Object?>) {
+    throw ArgumentError.value(value, 'character_book', 'Expected a CC book object');
+  }
+  final entries = value['entries'];
+  if (entries == null) {
+    value['entries'] = <Object?>[];
+  } else if (entries is! List<Object?> || entries.any((entry) => entry is! Map<String, Object?>)) {
+    // Native ST maps remain readable by WorldInfoBook. This editor addresses
+    // CC array indices and must not silently convert or drop a native map.
+    throw ArgumentError.value(entries, 'entries', 'Book editing requires an array of entry objects');
+  }
+  return value;
+}
+
+void _requireBookIndex(int index, List<Object?> entries) {
+  if (index < 0 || index >= entries.length) {
+    throw RangeError.index(index, entries, 'index');
+  }
+}
+
+int _nextBookEntryId(List<Object?> entries) {
+  // Use the same JS-string identity as T6, including numeric 1.0 == 1 and
+  // existing unusual ids. Never write the normalized execution view back.
+  final occupied = WorldInfoBook.fromJson(
+    id: 'library-edit',
+    source: WorldInfoSource.character,
+    json: {'entries': entries},
+  ).entries.map((entry) => entry.uid).toSet();
+  var id = 0;
+  while (occupied.contains('$id')) {
+    id++;
+  }
+  return id;
+}
+
+Map<String, Object?> _bookEntryUpdates(Map<String, Object?> fields) {
+  if (fields.containsKey('id')) {
+    throw ArgumentError.value(fields['id'], 'id', 'Entry ids cannot be edited');
+  }
+  final Map<String, Object?> updates;
+  try {
+    updates = jsonDecode(jsonEncode(fields)) as Map<String, Object?>;
+  } on JsonUnsupportedObjectError {
+    throw ArgumentError.value(fields, 'fields', 'Expected JSON entry fields');
+  }
+  for (final field in updates.entries) {
+    final value = field.value;
+    if (const {'keys', 'secondary_keys'}.contains(field.key)) {
+      if (value is! List<Object?> || value.any((item) => item is! String)) {
+        throw ArgumentError.value(value, field.key, 'Expected a list of strings');
+      }
+    } else if (const {'enabled', 'constant', 'selective', 'use_regex'}.contains(field.key)) {
+      if (value is! bool) {
+        throw ArgumentError.value(value, field.key, 'Expected a boolean');
+      }
+    } else if (const {'content', 'comment', 'name', 'position'}.contains(field.key)) {
+      if (value is! String) {
+        throw ArgumentError.value(value, field.key, 'Expected a string');
+      }
+    } else if (field.key == 'insertion_order') {
+      if (value is! num || !value.isFinite) {
+        throw ArgumentError.value(value, field.key, 'Expected a finite number');
+      }
+    } else if (field.key == 'extensions') {
+      if (value is! Map<String, Object?>) {
+        throw ArgumentError.value(value, field.key, 'Expected an object');
+      }
+      _validateBookExtensions(value);
+    }
+  }
+  return updates;
+}
+
+void _validateBookExtensions(Map<String, Object?> fields) {
+  for (final field in fields.entries) {
+    final value = field.value;
+    if (const {'selectiveLogic', 'position', 'depth', 'role'}.contains(field.key)) {
+      if (value is! num || !value.isFinite || value != value.truncateToDouble()) {
+        throw ArgumentError.value(value, 'extensions.${field.key}', 'Expected a finite integer');
+      }
+    } else if (const {'probability', 'group_weight'}.contains(field.key)) {
+      if (value is! num || !value.isFinite) {
+        throw ArgumentError.value(value, 'extensions.${field.key}', 'Expected a finite number');
+      }
+    } else if (const {'useProbability', 'group_override', 'use_group_scoring'}.contains(field.key)) {
+      if (value is! bool) {
+        throw ArgumentError.value(value, 'extensions.${field.key}', 'Expected a boolean');
+      }
+    } else if (const {'group', 'outlet_name'}.contains(field.key)) {
+      if (value is! String) {
+        throw ArgumentError.value(value, 'extensions.${field.key}', 'Expected a string');
+      }
+    }
+  }
+}
+
+Map<String, Object?> _mergeBookExtensions(Map<String, Object?> current, Map<String, Object?> updates) => {
+  ...current,
+  for (final entry in updates.entries)
+    entry.key: current[entry.key] is Map<String, Object?> && entry.value is Map<String, Object?>
+        ? _mergeBookExtensions(current[entry.key]! as Map<String, Object?>, entry.value! as Map<String, Object?>)
+        : entry.value,
+};
 
 // Top-level helpers keep an isolate callback from capturing the library's
 // operation queue (and its unsendable Futures) through a surrounding closure.

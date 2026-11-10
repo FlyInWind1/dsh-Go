@@ -152,6 +152,46 @@ class DeferredTavern implements Tavern {
   Future<String> deleteFrom(String chatId, String nodeId) async => (await _ready).deleteFrom(chatId, nodeId);
 
   @override
+  Future<TavernCharacter> addCharacterBookEntry(String characterId, Map<String, Object?> entry) async =>
+      (await _ready).addCharacterBookEntry(characterId, entry);
+
+  @override
+  Future<TavernCharacter> updateCharacterBookEntry(String characterId, int index, Map<String, Object?> fields) async =>
+      (await _ready).updateCharacterBookEntry(characterId, index, fields);
+
+  @override
+  Future<TavernCharacter> deleteCharacterBookEntry(String characterId, int index) async =>
+      (await _ready).deleteCharacterBookEntry(characterId, index);
+
+  @override
+  Future<Map<String, Object?>> previewCharacterBook(
+    String characterId,
+    String text, {
+    String? chatId,
+    int seed = 0,
+  }) async => (await _ready).previewCharacterBook(characterId, text, chatId: chatId, seed: seed);
+
+  @override
+  Future<List<TavernTreeNode>> tree(String chatId) async => (await _ready).tree(chatId);
+
+  @override
+  Future<Map<String, Object?>> readVariables(String chatId) async => (await _ready).readVariables(chatId);
+
+  @override
+  Future<TavernMessage> sendOnly(String chatId, String text) async => (await _ready).sendOnly(chatId, text);
+
+  @override
+  Future<TavernMessage> narrate(String chatId, String text, {String? speaker}) async =>
+      (await _ready).narrate(chatId, text, speaker: speaker);
+
+  @override
+  Future<void> nameBranch(String chatId, String nodeId, String? name) async =>
+      (await _ready).nameBranch(chatId, nodeId, name);
+
+  @override
+  Future<void> deleteMessage(String chatId, String nodeId) async => (await _ready).deleteMessage(chatId, nodeId);
+
+  @override
   Future<bool> undoDeleteFrom(String chatId, String deletionId) async =>
       (await _ready).undoDeleteFrom(chatId, deletionId);
 

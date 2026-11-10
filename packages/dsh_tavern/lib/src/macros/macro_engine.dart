@@ -5,6 +5,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import '../js_string.dart';
+
 part 'legacy_macro_engine.dart';
 
 /// A message on the active chat path. Message ids are indices in this path.
@@ -1157,7 +1159,7 @@ double _number(Object? value) {
   if (value is bool) return value ? 1 : 0;
   if (value is List<Object?>) return _number(_jsString(value));
   if (value is! String) return double.nan;
-  final text = _trimJsNumberWhitespace(value);
+  final text = trimJsWhitespace(value);
   if (text.isEmpty) return 0;
   if (text == 'Infinity' || text == '+Infinity') return double.infinity;
   if (text == '-Infinity') return double.negativeInfinity;
@@ -1173,33 +1175,6 @@ double _number(Object? value) {
   if (!_macroDecimalNumber.hasMatch(text)) return double.nan;
   return double.tryParse(text) ?? double.nan;
 }
-
-// ECMAScript StringNumericLiteral uses WhiteSpace and LineTerminator.
-// Dart VM String.trim also removes U+0085 NEL, which Number() must retain.
-String _trimJsNumberWhitespace(String value) {
-  var start = 0;
-  var end = value.length;
-  while (start < end && _isJsNumberWhitespace(value.codeUnitAt(start))) {
-    start++;
-  }
-  while (end > start && _isJsNumberWhitespace(value.codeUnitAt(end - 1))) {
-    end--;
-  }
-  return value.substring(start, end);
-}
-
-bool _isJsNumberWhitespace(int code) =>
-    (code >= 0x0009 && code <= 0x000d) ||
-    code == 0x0020 ||
-    code == 0x00a0 ||
-    code == 0x1680 ||
-    (code >= 0x2000 && code <= 0x200a) ||
-    code == 0x2028 ||
-    code == 0x2029 ||
-    code == 0x202f ||
-    code == 0x205f ||
-    code == 0x3000 ||
-    code == 0xfeff;
 
 String _numberString(num value) {
   final number = value.toDouble();

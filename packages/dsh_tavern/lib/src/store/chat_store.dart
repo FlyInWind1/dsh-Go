@@ -711,9 +711,12 @@ class ChatStore {
           jsonEncode(original),
         ],
       );
-      final parentState = parentId == null ? <String, Object?>{} : nodeState(chatId, parentId);
+      final parentSnapshot = parentId == null ? null : _nodeStateSnapshot(chatId, parentId);
+      final parentState = parentSnapshot?.state ?? <String, Object?>{};
       final currentState = state ?? parentState;
-      final checkpoint = depth == 1 || depth % 20 == 0;
+      // Reparenting can move an existing checkpoint off a multiple of 20.
+      // Reuse this reconstruction's count to bound every later append as well.
+      final checkpoint = depth == 1 || depth % 20 == 0 || (parentSnapshot?.deltas ?? 0) >= 19;
       _db.execute('INSERT INTO node_states (node_id, delta_json, full_json) VALUES (?, ?, ?)', [
         nodeId,
         jsonEncode(_stateDiff(parentState, currentState)),
@@ -967,6 +970,95 @@ class ChatStore {
     });
   }
 
+  /// Removes one visible message, attaching all physical children to its
+  /// parent. Pending-deletion children retain their markers and can still be
+  /// undone. The current path loses just this node; an active stop moves to
+  /// its parent (or an empty path), never an adjacent sibling.
+  ///
+  /// Every direct child's original physical state becomes a full checkpoint.
+  /// The optional synchronous [capturePortableState] runs before any edges
+  /// change and must only compute a state from the old child/source metadata.
+  /// Its result replaces only raw extra.dshgo.tavernState; physical state,
+  /// inspection, reported usage and other raw fields remain independent.
+  /// A throwing callback rolls back this operation. The facade restores the
+  /// chat's runtime state after this structural edit in the same transaction.
+  void deleteMessage(
+    String chatId,
+    String nodeId, {
+    Map<String, Object?> Function(StoredNode child, Map<String, Object?> physicalState)? capturePortableState,
+  }) {
+    transaction(() {
+      final chat = _chatRow(chatId);
+      final target = _nodeRow(chatId, nodeId);
+      final parentId = target['parent_id'] as String?;
+      final selectedChildId = target['selected_child_id'] as String?;
+      final selectedId = parentId == null
+          ? chat['selected_root_id'] as String?
+          : _nodeRow(chatId, parentId)['selected_child_id'] as String?;
+      final children = _db.select(
+        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id = ? ORDER BY n.seq',
+        [chatId, nodeId],
+      );
+      final snapshots = <String, ({String state, String? extra})>{};
+      for (final child in children) {
+        final childId = child['id'] as String;
+        final state = _nodeStateSnapshot(chatId, childId, includeDeleted: true).state;
+        // Encode before handing the detached map to the callback. A portable
+        // override must never become the base of a descendant's physical delta.
+        final physical = jsonEncode(state);
+        String? encodedExtra;
+        if (capturePortableState != null) {
+          final portable = capturePortableState(_storedNode(child), state);
+          // _storedNode projects pending inspection out of its returned copy.
+          // Merge into the original row instead, preserving that raw evidence.
+          final extra = _map(child['extra']);
+          final own = extra['dshgo'];
+          extra['dshgo'] = {if (own is Map<String, Object?>) ...own, 'tavernState': portable};
+          encodedExtra = jsonEncode(extra);
+        }
+        snapshots[childId] = (state: physical, extra: encodedExtra);
+      }
+
+      // Traverse original edges, including marked children, before detaching.
+      _db.execute(
+        '''WITH RECURSIVE descendants(id) AS (
+        SELECT id FROM nodes WHERE chat_id = ? AND parent_id = ?
+        UNION SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.chat_id = ?
+      ) UPDATE nodes SET depth = depth - 1 WHERE id IN (SELECT id FROM descendants)''',
+        [chatId, nodeId, chatId],
+      );
+      _db.execute('UPDATE nodes SET parent_id = ? WHERE chat_id = ? AND parent_id = ?', [parentId, chatId, nodeId]);
+      for (final entry in snapshots.entries) {
+        _db.execute('UPDATE node_states SET delta_json = ?, full_json = ? WHERE node_id = ?', [
+          '[]',
+          entry.value.state,
+          entry.key,
+        ]);
+        if (entry.value.extra != null) {
+          _db.execute('UPDATE nodes SET extra = ? WHERE chat_id = ? AND id = ?', [
+            entry.value.extra,
+            chatId,
+            entry.key,
+          ]);
+        }
+      }
+      if (selectedId == nodeId) {
+        if (parentId == null) {
+          _db.execute('UPDATE chats SET selected_root_id = ? WHERE id = ?', [selectedChildId, chatId]);
+        } else {
+          _db.execute('UPDATE nodes SET selected_child_id = ? WHERE id = ?', [selectedChildId, parentId]);
+        }
+      }
+      if (chat['current_leaf_id'] == nodeId) {
+        _db.execute('UPDATE chats SET current_leaf_id = ? WHERE id = ?', [parentId, chatId]);
+      }
+      _db.execute('DELETE FROM nodes WHERE chat_id = ? AND id = ?', [chatId, nodeId]);
+      // Older undo snapshots can name this now-deleted parent or root. They
+      // may restore visibility later, but must not restore those old choices.
+      _touch(chatId, tree: true);
+    });
+  }
+
   /// Hides a subtree until undo or the next open, preserving every stored row
   /// and its state. User deletion uses this; failed-turn rollback uses the
   /// immediate [deleteFrom] below. The facade owns its runtime-state cleanup.
@@ -1146,8 +1238,14 @@ class ChatStore {
   /// The initial empty state has [] deltas and {} checkpoints. Imported states
   /// can use top-level RFC 6902 add/replace/remove operations without losing
   /// nested arrays or objects; a changed top-level value is replaced whole.
-  Map<String, Object?> nodeState(String chatId, String nodeId) {
-    _nodeRow(chatId, nodeId);
+  Map<String, Object?> nodeState(String chatId, String nodeId) => _nodeStateSnapshot(chatId, nodeId).state;
+
+  ({Map<String, Object?> state, int deltas}) _nodeStateSnapshot(
+    String chatId,
+    String nodeId, {
+    bool includeDeleted = false,
+  }) {
+    _nodeRow(chatId, nodeId, includeDeleted: includeDeleted);
     final rows = _db.select(
       '''WITH RECURSIVE states(id, parent_id, delta_json, full_json, distance) AS (
            SELECT n.id, n.parent_id, s.delta_json, s.full_json, 0
@@ -1160,10 +1258,13 @@ class ChatStore {
       [chatId, nodeId],
     );
     var state = <String, Object?>{};
+    var deltas = 0;
     for (final row in rows) {
       if (row['full_json'] != null) {
         state = _map(row['full_json']);
+        deltas = 0;
       } else {
+        deltas++;
         final delta = jsonDecode(row['delta_json'] as String) as List<Object?>;
         for (final value in delta) {
           final operation = value as Map<String, Object?>;
@@ -1180,7 +1281,7 @@ class ChatStore {
         }
       }
     }
-    return state;
+    return (state: state, deltas: deltas);
   }
 
   /// Searches indexed bodies. Pending streaming bodies join only after final

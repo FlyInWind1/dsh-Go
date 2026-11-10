@@ -85,9 +85,23 @@ class TavernCard {
     return png;
   }
 
+  int get regexCount {
+    final regex = _map(data['extensions'])['regex_scripts'];
+    return regex is List<Object?> ? regex.length : 0;
+  }
+
+  int get scriptCount {
+    final extensions = _map(data['extensions']);
+    final helper = _map(extensions['tavern_helper']);
+    return _scriptCount(helper['scripts'] ?? extensions['TavernHelper_scripts']);
+  }
+
+  /// Projects a detached theme and declared asset objects in their stored order.
+  /// The optional library resolver adds paths without changing portable URIs.
   TavernCharacter toCharacter(
     String id, {
     String? avatarPath,
+    String? Function(String uri)? resolveAssetPath,
     DateTime? importedAt,
     int chatCount = 0,
     DateTime? lastChatAt,
@@ -95,9 +109,22 @@ class TavernCard {
     List<TavernRegexDiagnostic> regexDiagnostics = const [],
   }) {
     final extensions = _map(data['extensions']);
-    final helper = _map(extensions['tavern_helper']);
-    final scripts = helper['scripts'] ?? extensions['TavernHelper_scripts'];
-    final regex = extensions['regex_scripts'];
+    final declaredAssets = data['assets'];
+    final appearanceAssets = <TavernCharacterAsset>[];
+    if (declaredAssets is List<Object?>) {
+      for (final asset in declaredAssets.whereType<Map<String, Object?>>()) {
+        final uri = _nullableText(asset['uri']);
+        appearanceAssets.add(
+          TavernCharacterAsset(
+            type: _nullableText(asset['type']),
+            name: _nullableText(asset['name']),
+            uri: uri,
+            ext: _nullableText(asset['ext']),
+            localPath: uri == null ? null : resolveAssetPath?.call(uri),
+          ),
+        );
+      }
+    }
     return TavernCharacter(
       id: id,
       name: name,
@@ -105,11 +132,13 @@ class TavernCard {
       creator: data['creator'] is String ? data['creator'] as String : null,
       tags: _strings(data['tags']),
       avatarPath: avatarPath,
+      theme: jsonDecode(jsonEncode(_map(extensions['dshgo'])['theme'])),
+      assets: appearanceAssets,
       description: _text(data['description']),
       creatorNotes: creatorNotes(language: language),
       greetings: [_text(data['first_mes']), ..._strings(data['alternate_greetings'])],
-      regexCount: regex is List<Object?> ? regex.length : 0,
-      scriptCount: _scriptCount(scripts),
+      regexCount: regexCount,
+      scriptCount: scriptCount,
       hasLorebook: data['character_book'] is Map<String, Object?>,
       chatCount: chatCount,
       lastChatAt: lastChatAt,
@@ -441,6 +470,7 @@ Map<String, Object?> _toV2(Map<String, Object?> v3) {
 Map<String, Object?> _cloneMap(Map<String, Object?> value) => jsonDecode(jsonEncode(value)) as Map<String, Object?>;
 Map<String, Object?> _map(Object? value) => value is Map<String, Object?> ? value : <String, Object?>{};
 String _text(Object? value) => value is String ? value : '';
+String? _nullableText(Object? value) => value is String ? value : null;
 List<String> _strings(Object? value) => value is List<Object?> ? value.whereType<String>().toList() : const [];
 
 int _scriptCount(Object? scripts) {

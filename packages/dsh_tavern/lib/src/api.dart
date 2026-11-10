@@ -46,6 +46,8 @@ class TavernCharacter {
     this.creator,
     this.tags = const [],
     this.avatarPath,
+    this.theme,
+    this.assets = const [],
     this.description = '',
     this.creatorNotes = '',
     this.greetings = const [],
@@ -66,6 +68,15 @@ class TavernCharacter {
 
   /// The card picture on this phone (the PNG it came in, or the `main` icon).
   final String? avatarPath;
+
+  /// Detached extensions.dshgo.theme on complete details. Missing/null stays
+  /// null; list summaries omit it. The app interprets this raw JSON value.
+  final Object? theme;
+
+  /// Declared V3 asset objects in original order on complete details. Summary
+  /// lists leave this empty; call character(id) for appearance and local paths.
+  /// Non-object declarations stay in characterFields, but not this view.
+  final List<TavernCharacterAsset> assets;
   final String description;
 
   /// May carry HTML; the canvas renders it.
@@ -86,6 +97,24 @@ class TavernCharacter {
   /// Checks returned by a new import. Unified persistent intake reports are
   /// separate; reading an older library entry need not populate this.
   final List<TavernRegexDiagnostic> regexDiagnostics;
+}
+
+/// One declared V3 asset. Missing or non-string fields are null in this view;
+/// the original card JSON is retained unchanged by the library.
+class TavernCharacterAsset {
+  const TavernCharacterAsset({this.type, this.name, this.uri, this.ext, this.localPath});
+
+  final String? type;
+  final String? name;
+
+  /// The original URI, including an unchanged remote URL or embedded reference.
+  final String? uri;
+  final String? ext;
+
+  /// A resolved local file path when the library has materialized this asset.
+  /// A missing reference or remote URL has no local path; URI reads never
+  /// download remote resources or rewrite the stored declaration.
+  final String? localPath;
 }
 
 /// A conversation in the list.
@@ -153,6 +182,45 @@ class TavernMessage {
   /// it is not replaced with estimates or a continued message's older usage.
   /// A live path/snapshot uses the current call's report, if already received.
   final TavernUsage? reportedUsage;
+}
+
+/// One stored node in the complete message tree, including inactive branches.
+/// Soft-deleted nodes are excluded; ST-hidden nodes remain in the tree.
+/// Values are detached from storage; reading them never evaluates macros.
+class TavernTreeNode {
+  const TavernTreeNode({
+    required this.nodeId,
+    required this.role,
+    required this.speaker,
+    required this.preview,
+    required this.at,
+    required this.isCurrentPath,
+    this.parentId,
+    this.siblingIndex = 0,
+    this.siblingCount = 1,
+    this.hidden = false,
+    this.branchName,
+  });
+
+  final String nodeId;
+  final String? parentId;
+  final TavernRole role;
+  final String speaker;
+
+  /// The first 64 Unicode code points of the stored text, without stripping
+  /// whitespace, Markdown or macros. This never splits a surrogate pair.
+  final String preview;
+  final DateTime at;
+
+  /// Whether this node is an ancestor of, or is, the current selected leaf.
+  /// Hidden messages may still belong to the current path.
+  final bool isCurrentPath;
+  final int siblingIndex;
+  final int siblingCount;
+  final bool hidden;
+
+  /// An optional label for the branch starting at this node.
+  final String? branchName;
 }
 
 /// What one model call cost, as the API reported it.
@@ -332,6 +400,34 @@ abstract interface class Tavern {
   /// [TavernImportError]. Existing messages keep their text and speaker names.
   Future<TavernCharacter> updateCharacterFields(String characterId, Map<String, Object?> fields);
 
+  /// Appends an entry to the card's V3 character_book, creating the book when
+  /// absent. The library assigns an unused id; supplying an id is rejected.
+  /// Unknown stored fields and original assets remain intact. Input JSON is
+  /// captured before waiting. Existing missing/null ids are fixed to their
+  /// fallback index; normalizing a null id can invalidate that entry's timers.
+  Future<TavernCharacter> addCharacterBookEntry(String characterId, Map<String, Object?> entry);
+
+  /// Patches the entry at its original entries-array [index], not its sorted
+  /// display position or id. Extensions merge recursively; an id patch is
+  /// rejected. Invalid indices throw [RangeError]. An empty patch is a read;
+  /// real edits normalize missing/null ids as [addCharacterBookEntry] does.
+  Future<TavernCharacter> updateCharacterBookEntry(String characterId, int index, Map<String, Object?> fields);
+
+  /// Removes only this entry from the original entries array. Missing/null ids are
+  /// fixed to their pre-edit fallback indices so later entries keep identity.
+  /// Native ST entries objects remain readable but are not edited by this API.
+  Future<TavernCharacter> deleteCharacterBookEntry(String characterId, int index);
+
+  /// Tests this card's embedded book against [text], optionally following the
+  /// current path of this character's [chatId]. Returns a detached WI trace
+  /// with scope, stage, seed and context identifiers; no model is called.
+  ///
+  /// Macros, regex, probability and normal timer/decorator rules evaluate on
+  /// copied state with an independent seeded RNG. Nothing is stored, including
+  /// variables and inspections. Other bound books and full-prompt trimming are
+  /// outside this preview, so it is not a promise about the next real request.
+  Future<Map<String, Object?>> previewCharacterBook(String characterId, String text, {String? chatId, int seed = 0});
+
   /// A PNG / JSON / CHARX card (sniffed from the bytes, not the name), or an
   /// ST lorebook JSON (then it throws [TavernImportError] with
   /// [TavernImportError.isLorebook]; use importLorebook for those files).
@@ -417,6 +513,17 @@ abstract interface class Tavern {
   /// [limit] before [beforeNodeId] when paging back.
   Future<List<TavernMessage>> path(String chatId, {int limit = 60, String? beforeNodeId});
 
+  /// Every visible stored node in insertion order, including inactive
+  /// descendants and ST-hidden messages. Soft-deleted nodes are excluded.
+  /// Previews use the saved body/checkpoint, not uncheckpointed live buffers;
+  /// this read does not cancel an active turn.
+  Future<List<TavernTreeNode>> tree(String chatId);
+
+  /// A detached copy of the current leaf's saved local variables. An empty
+  /// selected path has an empty snapshot. Does not expose uncommitted live
+  /// macro effects, mutate state, or cancel a turn; global variables are separate.
+  Future<Map<String, Object?>> readVariables(String chatId);
+
   /// Fires whenever the current path changes (a turn, a swipe, an edit) so the
   /// screen re-reads [path].
   Stream<void> pathChanges(String chatId);
@@ -454,6 +561,29 @@ abstract interface class Tavern {
   /// detaches that observer; generation continues until completion or [stop].
   Stream<TavernEvent> send(String chatId, String text);
 
+  /// Appends a visible user message without requesting a reply. Applies input
+  /// write-back regex and then macros, preserving leading/trailing whitespace
+  /// and an empty result. The speaker is the selected persona's user name.
+  ///
+  /// Cancels and awaits this chat's active turn first. Runs only the input
+  /// stage, without separate card-field/WI/prompt preparation or a model
+  /// request, and keeps the previous turn inspection. Legacy macro evaluation
+  /// retains its existing eager card-field reads. Local variables commit with
+  /// the message.
+  /// Changed global variables save before that atomic commit; preparation
+  /// failure still saves global effects that already occurred. A failed
+  /// global save does not append this message.
+  Future<TavernMessage> sendOnly(String chatId, String text);
+
+  /// Appends a visible narrator message using JavaScript trim and then macros,
+  /// without slash-command regex. Explicit [speaker], including an empty
+  /// string, wins; otherwise uses a nonempty metadata narrator_name or System.
+  /// Uses [sendOnly]'s cancellation, state and persistence rules.
+  ///
+  /// This is the direct narrator handler's text stage, not a slash parser:
+  /// bias, insertion-position, compact and avatar arguments are not evaluated.
+  Future<TavernMessage> narrate(String chatId, String text, {String? speaker});
+
   /// A new reply as a sibling of [nodeId] (a character message), which becomes
   /// current.
   Stream<TavernEvent> regenerate(String chatId, String nodeId);
@@ -484,6 +614,17 @@ abstract interface class Tavern {
   /// Makes sibling [index] of [nodeId] current (and its subtree's remembered
   /// path below it).
   Future<void> selectSibling(String chatId, String nodeId, int index);
+
+  /// Labels a visible branch root in extra.dshgo.branchName. Trims the name;
+  /// null/empty clears it. Cancels and awaits this chat's active turn before
+  /// merging the latest extra. Does not rewrite text or selected edges.
+  Future<void> nameBranch(String chatId, String nodeId, String? name);
+
+  /// Permanently removes only this visible node and reparents all its children,
+  /// including pending soft-deleted children. Their identities and snapshots
+  /// survive. Unlike deleteFrom this does not delete a subtree or return an
+  /// undo token. Cancels and awaits the chat's active turn first.
+  Future<void> deleteMessage(String chatId, String nodeId);
 
   Future<void> edit(String chatId, String nodeId, String text);
 

@@ -131,6 +131,13 @@ final class ChatJsonlCodec {
       return {..._clone(chat.metadata), 'variables': _clone(chat.variables)};
     }
     final state = _effectiveState(store, chatId, store.node(chatId, id));
+    return metadataForState(chat, state);
+  }
+
+  /// Projects a previously captured node state without looking the node up
+  /// again. Single-node deletion uses this before reparenting even children
+  /// hidden by a pending subtree deletion. Does not mutate [chat] or [state].
+  Map<String, Object?> metadataForState(StoredChat chat, Map<String, Object?> state) {
     var metadata = _clone(chat.metadata);
     final source = state[_sourceKey];
     final header = _sourceFor(chat.metadata, source);
