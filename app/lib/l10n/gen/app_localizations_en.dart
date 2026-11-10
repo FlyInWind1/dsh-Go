@@ -20504,6 +20504,34 @@ class L10nEn extends L10n {
   String get tavernUndoFailed => 'Couldn\'t undo';
 
   @override
+  String get tavernShowUsage => 'Show usage under each reply';
+
+  @override
+  String get tavernShowUsageSubtitle => 'Input and output tokens as the model reports them; no cost estimates';
+
+  @override
+  String tavernUsageLine(int input, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return 'In $inputString · out $outputString';
+  }
+
+  @override
+  String tavernUsageLineCached(int input, int cached, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat cachedNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String cachedString = cachedNumberFormat.format(cached);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return 'In $inputString ($cachedString cached) · out $outputString';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

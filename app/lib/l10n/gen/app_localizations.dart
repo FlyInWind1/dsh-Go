@@ -35504,6 +35504,30 @@ abstract class L10n {
   /// **'没能撤销'**
   String get tavernUndoFailed;
 
+  /// No description provided for @tavernShowUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'每条回复下显示用量'**
+  String get tavernShowUsage;
+
+  /// No description provided for @tavernShowUsageSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型报告的输入、输出 token 数；不估算费用'**
+  String get tavernShowUsageSubtitle;
+
+  /// No description provided for @tavernUsageLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 {input} · 输出 {output}'**
+  String tavernUsageLine(int input, int output);
+
+  /// No description provided for @tavernUsageLineCached.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 {input}（命中缓存 {cached}）· 输出 {output}'**
+  String tavernUsageLineCached(int input, int cached, int output);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

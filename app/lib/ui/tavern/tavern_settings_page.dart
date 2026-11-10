@@ -214,6 +214,14 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
           child: TavernReading(child: MarkdownBody(text: l10n.tavernReadingSample, selectable: false)),
         ),
+        SettingsSwitchTile(
+          key: const ValueKey('tavern-show-usage'),
+          icon: AppIcons.chart,
+          title: l10n.tavernShowUsage,
+          subtitle: l10n.tavernShowUsageSubtitle,
+          value: settings.showUsage,
+          onChanged: (show) => unawaited(controller.setShowUsage(show)),
+        ),
       ],
     ),
     SheetGroup(

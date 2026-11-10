@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dsh_app/tavern/tavern_generation.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
@@ -33,7 +35,8 @@ Future<void> _openSettings(WidgetTester tester, PreviewTavern tavern) async {
 
 Future<void> _pick(WidgetTester tester, String tile, String label) async {
   final row = find.byKey(ValueKey(tile));
-  await tester.ensureVisible(row);
+  // To the middle: at the top it would sit under the glass header.
+  unawaited(Scrollable.ensureVisible(tester.element(row), alignment: 0.5));
   await tester.pumpAndSettle();
   await tester.tap(find.descendant(of: row, matching: find.text(label)));
   await tester.pumpAndSettle();

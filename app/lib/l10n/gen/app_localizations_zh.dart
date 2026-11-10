@@ -19437,6 +19437,34 @@ class L10nZh extends L10n {
   String get tavernUndoFailed => '没能撤销';
 
   @override
+  String get tavernShowUsage => '每条回复下显示用量';
+
+  @override
+  String get tavernShowUsageSubtitle => '模型报告的输入、输出 token 数；不估算费用';
+
+  @override
+  String tavernUsageLine(int input, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return '输入 $inputString · 输出 $outputString';
+  }
+
+  @override
+  String tavernUsageLineCached(int input, int cached, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat cachedNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String cachedString = cachedNumberFormat.format(cached);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return '输入 $inputString（命中缓存 $cachedString）· 输出 $outputString';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

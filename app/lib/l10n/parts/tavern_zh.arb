@@ -681,5 +681,11 @@
   "tavernDeletedCount": "{count, plural, =1{删掉了 1 条} other{删掉了 {count} 条}}",
   "@tavernDeletedCount": {"placeholders": {"count": {"type": "int"}}},
   "tavernDeleteFromUndoable": "从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。",
-  "tavernUndoFailed": "没能撤销"
+  "tavernUndoFailed": "没能撤销",
+  "tavernShowUsage": "每条回复下显示用量",
+  "tavernShowUsageSubtitle": "模型报告的输入、输出 token 数；不估算费用",
+  "tavernUsageLine": "输入 {input} · 输出 {output}",
+  "@tavernUsageLine": {"placeholders": {"input": {"type": "int", "format": "decimalPattern"}, "output": {"type": "int", "format": "decimalPattern"}}},
+  "tavernUsageLineCached": "输入 {input}（命中缓存 {cached}）· 输出 {output}",
+  "@tavernUsageLineCached": {"placeholders": {"input": {"type": "int", "format": "decimalPattern"}, "cached": {"type": "int", "format": "decimalPattern"}, "output": {"type": "int", "format": "decimalPattern"}}}
 }

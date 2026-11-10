@@ -667,6 +667,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final layout =
         ref.watch(tavernChatLayoutProvider(widget.chatId)) ?? ref.watch(tavernSettingsProvider.select((s) => s.layout));
     final novel = layout == TavernLayout.novel;
+    final showUsage = ref.watch(tavernSettingsProvider.select((s) => s.showUsage));
     final messages = _messages;
     final (String status, StatusTone tone) = switch (()) {
       _ when _running => (l10n.tavernReplying, StatusTone.busy),
@@ -690,6 +691,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             onMenu: () => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
             onSibling: (delta) => unawaited(_sibling(m, delta)),
             novel: novel,
+            showUsage: showUsage,
             lead: name,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
@@ -968,6 +970,7 @@ class _MessageRow extends StatelessWidget {
     required this.onMenu,
     required this.onSibling,
     this.novel = false,
+    this.showUsage = false,
     this.lead = '',
   });
 
@@ -980,6 +983,18 @@ class _MessageRow extends StatelessWidget {
 
   /// 小说 layout: every message full width under its speaker's name.
   final bool novel;
+
+  /// A line of the tokens the reply took, under it.
+  final bool showUsage;
+
+  /// The tokens line, for a reply that has one to show.
+  Widget? _usage() => switch (message.reportedUsage) {
+    final usage? when showUsage && message.role == TavernRole.character => _UsageLine(
+      key: ValueKey('tavern-usage-${message.nodeId}'),
+      usage: usage,
+    ),
+    _ => null,
+  };
 
   /// The chat's own character: their name in the accent, others' in their own colours.
   final String lead;
@@ -1031,6 +1046,7 @@ class _MessageRow extends StatelessWidget {
         children: [
           if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           _Shown(chatId: chatId, message: message),
+          ?_usage(),
           if (alternatives) ...[
             const SizedBox(height: 4),
             if (last)
@@ -1066,6 +1082,7 @@ class _MessageRow extends StatelessWidget {
             opacity: user ? 0.78 : 1,
             child: _Shown(chatId: chatId, message: message),
           ),
+          ?_usage(),
           if (alternatives) ...[
             const SizedBox(height: 4),
             if (last)
@@ -1074,6 +1091,28 @@ class _MessageRow extends StatelessWidget {
               _AlternativesCount(message: message),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// The tokens a reply took, as the provider reported them (engine T24): no
+/// estimate, no price.
+class _UsageLine extends StatelessWidget {
+  const _UsageLine({super.key, required this.usage});
+
+  final TavernUsage usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        usage.cacheHitTokens > 0
+            ? l10n.tavernUsageLineCached(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens)
+            : l10n.tavernUsageLine(usage.promptTokens, usage.completionTokens),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
       ),
     );
   }
