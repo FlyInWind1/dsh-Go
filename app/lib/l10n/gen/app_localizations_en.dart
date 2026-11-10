@@ -19425,6 +19425,52 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernLorebooks => 'Lorebooks';
+
+  @override
+  String get tavernLorebookImport => 'Import lorebook';
+
+  @override
+  String get tavernLorebookGlobal => 'Global';
+
+  @override
+  String get tavernLorebookBindGlobal => 'Use in every chat';
+
+  @override
+  String get tavernLorebookUnbindGlobal => 'Stop using in every chat';
+
+  @override
+  String get tavernLorebookExport => 'Export lorebook';
+
+  @override
+  String get tavernLorebookDelete => 'Delete lorebook';
+
+  @override
+  String tavernLorebookDeleteTitle(String name) {
+    return 'Delete the lorebook “$name”?';
+  }
+
+  @override
+  String get tavernLorebookDeleteMessage => 'Wherever it is bound, it is skipped. It can\'t be brought back.';
+
+  @override
+  String tavernLorebookImported(String name, int count) {
+    return 'Imported “$name”, $count entries';
+  }
+
+  @override
+  String get tavernLorebooksEmpty => 'No standalone lorebooks yet';
+
+  @override
+  String get tavernLorebooksEmptyMessage =>
+      'Lorebook JSON exported from SillyTavern can be imported. Made global, it applies to every chat; a card\'s own lorebook goes with the card.';
+
+  @override
+  String tavernLorebookCount(int count) {
+    return '$count';
+  }
+
+  @override
   String get tavernPresetEdit => 'Edit preset';
 
   @override

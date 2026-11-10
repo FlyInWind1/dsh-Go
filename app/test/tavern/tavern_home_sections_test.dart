@@ -75,6 +75,7 @@ void main() {
     await _section(tester, '资源库');
     expect(find.byKey(const ValueKey('tavern-library-presets')), findsOneWidget);
     expect(find.byKey(const ValueKey('tavern-library-regex')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-library-lorebooks')), findsOneWidget);
     expect(find.byKey(const ValueKey('tavern-library-quick-replies')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('tavern-library-personas')));
     await tester.pumpAndSettle();

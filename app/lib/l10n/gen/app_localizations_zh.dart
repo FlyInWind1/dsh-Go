@@ -18420,6 +18420,51 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernLorebooks => '世界书';
+
+  @override
+  String get tavernLorebookImport => '导入世界书';
+
+  @override
+  String get tavernLorebookGlobal => '全局';
+
+  @override
+  String get tavernLorebookBindGlobal => '对所有对话生效';
+
+  @override
+  String get tavernLorebookUnbindGlobal => '不再对所有对话生效';
+
+  @override
+  String get tavernLorebookExport => '导出世界书';
+
+  @override
+  String get tavernLorebookDelete => '删除世界书';
+
+  @override
+  String tavernLorebookDeleteTitle(String name) {
+    return '删除世界书「$name」？';
+  }
+
+  @override
+  String get tavernLorebookDeleteMessage => '绑定它的地方会跳过它。删除后就找不回来了。';
+
+  @override
+  String tavernLorebookImported(String name, int count) {
+    return '已导入「$name」，$count 条';
+  }
+
+  @override
+  String get tavernLorebooksEmpty => '还没有独立世界书';
+
+  @override
+  String get tavernLorebooksEmptyMessage => 'SillyTavern 导出的世界书 JSON 都能导入。设为全局后对所有对话生效；卡自带的世界书跟着卡走。';
+
+  @override
+  String tavernLorebookCount(int count) {
+    return '$count 本';
+  }
+
+  @override
   String get tavernPresetEdit => '编辑预设';
 
   @override

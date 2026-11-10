@@ -26,6 +26,7 @@ import '../theme/theme.dart';
 import 'tavern_character_edit_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_lorebooks_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
 import 'tavern_regex_page.dart';
@@ -299,8 +300,8 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
     ];
   }
 
-  /// 资源库: what stories are built with. Presets, lorebooks and regex join
-  /// as the engine opens them to the App (roleplay-roadmap.md §3).
+  /// 资源库: what stories are built with: presets, lorebooks, regex scripts,
+  /// personas and quick replies (roleplay-roadmap.md §4).
   Widget _library() {
     final l10n = context.l10n;
     final persona = ref.watch(tavernPersonaSelectionProvider(null)).value?.persona;
@@ -318,6 +319,16 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
               final n => l10n.tavernPresetCount(n),
             }),
             onTap: () => unawaited(Navigator.of(context).push(TavernPresetsPage.route())),
+          ),
+          SettingsTile(
+            key: const ValueKey('tavern-library-lorebooks'),
+            icon: AppIcons.lorebook,
+            title: l10n.tavernLorebooks,
+            value: Text(switch (ref.watch(tavernLorebooksProvider).value?.books.length ?? 0) {
+              0 => l10n.tavernPersonaNotSet,
+              final n => l10n.tavernLorebookCount(n),
+            }),
+            onTap: () => unawaited(Navigator.of(context).push(TavernLorebooksPage.route())),
           ),
           SettingsTile(
             key: const ValueKey('tavern-library-regex'),

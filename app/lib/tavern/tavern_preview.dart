@@ -450,8 +450,6 @@ class PreviewTavern implements Tavern, TavernPreview {
   // Presets, kept in memory as the engine keeps them; no regex scripts or
   // lorebooks of its own (importing one says so), and its text shows as written.
 
-  static UnsupportedError _noLibrary() => UnsupportedError('The preview keeps no lorebooks');
-
   @override
   Future<TavernDisplayResult> displayText(
     String chatId, {
@@ -703,23 +701,53 @@ class PreviewTavern implements Tavern, TavernPreview {
       if (regexId == null || s.id == regexId) s.raw,
   ]);
 
-  @override
-  Future<List<TavernLorebookSummary>> listLorebooks() async => const [];
+  // Standalone lorebooks, kept in memory; their bindings go into the
+  // settings as the engine keeps them (lorebooks.<source>).
+
+  final _books = <String, TavernLorebook>{};
+  var _bookCount = 0;
 
   @override
-  Future<TavernLorebookImportResult> importLorebook(String text, {String? fileName}) => throw _noLibrary();
+  Future<List<TavernLorebookSummary>> listLorebooks() async => _books.values.toList();
 
   @override
-  Future<Map<String, Object?>?> lorebook(String id) async => null;
+  Future<TavernLorebookImportResult> importLorebook(String text, {String? fileName}) async {
+    final json = jsonDecode(text.startsWith('\uFEFF') ? text.substring(1) : text);
+    if (json is! Map<String, Object?> || json['entries'] == null) throw const FormatException('Not a lorebook');
+    final entries = json['entries'];
+    final name = fileName?.replaceFirst(RegExp(r'\.json$', caseSensitive: false), '') ?? 'Lorebook ${_bookCount + 1}';
+    final book = TavernLorebook(
+      id: 'book-${_bookCount++}',
+      name: name,
+      entryCount: entries is Map ? entries.length : (entries is List ? entries.length : 0),
+      stWorldName: name,
+      raw: json,
+    );
+    _books[book.id] = book;
+    return TavernLorebookImportResult(book, const []);
+  }
 
   @override
-  Future<void> putLorebook(String id, Map<String, Object?> json) => throw _noLibrary();
+  Future<Map<String, Object?>?> lorebook(String id) async => _books[id]?.raw;
 
   @override
-  Future<String> exportLorebook(String id) => throw _noLibrary();
+  Future<void> putLorebook(String id, Map<String, Object?> json) async {
+    final old = _books[id];
+    final entries = json['entries'];
+    _books[id] = TavernLorebook(
+      id: id,
+      name: old?.name ?? id,
+      entryCount: entries is Map ? entries.length : (entries is List ? entries.length : 0),
+      stWorldName: old?.stWorldName,
+      raw: json,
+    );
+  }
 
   @override
-  Future<void> deleteLorebook(String id) async {}
+  Future<String> exportLorebook(String id) async => jsonEncode(_books[id]!.raw);
+
+  @override
+  Future<void> deleteLorebook(String id) async => _books.remove(id);
 
   @override
   Future<void> bindLorebooks(
@@ -728,7 +756,17 @@ class PreviewTavern implements Tavern, TavernPreview {
     String? chatId,
     String? characterId,
     String? personaId,
-  }) async {}
+  }) => switch ((characterId, personaId)) {
+    (final String id, _) => setSettings({
+      'characterLorebooks': {id: ids},
+    }),
+    (_, final String id) => setSettings({
+      'personaLorebooks': {id: ids},
+    }),
+    _ => setSettings({
+      'lorebooks': {source.name: ids},
+    }, chatId: chatId),
+  };
 
   @override
   Future<void> close() async {

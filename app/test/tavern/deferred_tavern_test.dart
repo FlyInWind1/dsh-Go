@@ -36,9 +36,10 @@ void main() {
     expect(await deferred.listRegexScripts(), isEmpty);
     expect(await deferred.listLorebooks(), isEmpty);
     expect((await deferred.displayText(chat, text: '*她笑了*')).text, '*她笑了*');
-    // Presets go through to the preview's own; it keeps no lorebooks.
+    // Presets and lorebooks go through to the preview's own.
     final imported = await deferred.importPreset('{"temperature": 1}', fileName: 'a.json');
     expect((await deferred.listPresets()).single.id, imported.preset.id);
-    await expectLater(deferred.importLorebook('{}'), throwsUnsupportedError);
+    final book = await deferred.importLorebook('{"entries": {"0": {"content": "x"}}}', fileName: 'w.json');
+    expect((await deferred.listLorebooks()).single.id, book.book.id);
   });
 }

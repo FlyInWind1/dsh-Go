@@ -33614,6 +33614,84 @@ abstract class L10n {
   /// **'{count} 条'**
   String tavernRegexCount(int count);
 
+  /// No description provided for @tavernLorebooks.
+  ///
+  /// In zh, this message translates to:
+  /// **'世界书'**
+  String get tavernLorebooks;
+
+  /// No description provided for @tavernLorebookImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入世界书'**
+  String get tavernLorebookImport;
+
+  /// No description provided for @tavernLorebookGlobal.
+  ///
+  /// In zh, this message translates to:
+  /// **'全局'**
+  String get tavernLorebookGlobal;
+
+  /// No description provided for @tavernLorebookBindGlobal.
+  ///
+  /// In zh, this message translates to:
+  /// **'对所有对话生效'**
+  String get tavernLorebookBindGlobal;
+
+  /// No description provided for @tavernLorebookUnbindGlobal.
+  ///
+  /// In zh, this message translates to:
+  /// **'不再对所有对话生效'**
+  String get tavernLorebookUnbindGlobal;
+
+  /// No description provided for @tavernLorebookExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出世界书'**
+  String get tavernLorebookExport;
+
+  /// No description provided for @tavernLorebookDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除世界书'**
+  String get tavernLorebookDelete;
+
+  /// No description provided for @tavernLorebookDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除世界书「{name}」？'**
+  String tavernLorebookDeleteTitle(String name);
+
+  /// No description provided for @tavernLorebookDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'绑定它的地方会跳过它。删除后就找不回来了。'**
+  String get tavernLorebookDeleteMessage;
+
+  /// No description provided for @tavernLorebookImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入「{name}」，{count} 条'**
+  String tavernLorebookImported(String name, int count);
+
+  /// No description provided for @tavernLorebooksEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有独立世界书'**
+  String get tavernLorebooksEmpty;
+
+  /// No description provided for @tavernLorebooksEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'SillyTavern 导出的世界书 JSON 都能导入。设为全局后对所有对话生效；卡自带的世界书跟着卡走。'**
+  String get tavernLorebooksEmptyMessage;
+
+  /// No description provided for @tavernLorebookCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 本'**
+  String tavernLorebookCount(int count);
+
   /// No description provided for @tavernPresetEdit.
   ///
   /// In zh, this message translates to:
