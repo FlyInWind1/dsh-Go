@@ -2,7 +2,7 @@
 
 > 2026-11-08 起草，2026-11-09 扩成完整方案。owner 定的：正则和 HTML 要兼容；不审查，卡由用户自己提供；出于安全考虑的措施都做成默认关的开关；在兼容的基础上，用 agent 做一个更有趣、更好看、互动更丰富的酒馆。
 >
-> 这一份是总纲，细节分三册：[兼容](roleplay-compat.md)、[agent 玩法](roleplay-agent.md)、[界面](roleplay-ui.md)。伙伴小屋见 [companion.md](companion.md) 和 [companion-daily.md](companion-daily.md)，管家见 [router.md](router.md)。
+> 这一份是总纲，细节分三册：[兼容](roleplay-compat.md)、[agent 玩法](roleplay-agent.md)、[界面](roleplay-ui.md)，另有一份[优化排期](roleplay-roadmap.md)。伙伴小屋见 [companion.md](companion.md) 和 [companion-daily.md](companion-daily.md)，管家见 [router.md](router.md)。
 
 ## 0. 结论
 
