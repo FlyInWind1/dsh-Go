@@ -12,7 +12,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../state/connection_state.dart';
 import '../../state/settings_state.dart';
+import '../../state/voice_model_state.dart';
+import '../../state/voice_settings.dart';
+import '../../state/voice_state.dart';
 import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_provider.dart';
@@ -20,6 +24,7 @@ import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
+import '../chat/voice/voice_controller.dart';
 import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
 import '../chat/widgets/thinking_pill.dart';
@@ -78,11 +83,34 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   bool get _running => _turn != null;
 
+  /// Dictation into the box (§6), the main chat's: the system's recognizer,
+  /// or the engine's voice model where the on-device host has it.
+  late final VoiceInputController _voice;
+  late final VoiceInputActiveController _voiceFlag;
+
+  /// The host's connection, only if the app already has one: a chat page
+  /// never starts connecting just to offer dictation.
+  HostConnection? get _connection =>
+      mounted && ref.exists(activeConnectionProvider) ? ref.read(activeConnectionProvider).value : null;
+
+  void _reportVoice() => _voiceFlag.set(_voice.active);
+
   @override
   void initState() {
     super.initState();
     _changes = _tavern.pathChanges(widget.chatId).listen((_) => unawaited(_reload()));
     unawaited(_reload());
+    _voice = VoiceInputController(
+      input: _input,
+      bridge: ref.read(voiceBridgeProvider),
+      mode: () => ref.read(voiceSettingsProvider.notifier).ready(),
+      // The voice model lives in the on-device engine: it counts for that host only.
+      modelReady: () =>
+          (_connection?.isLocal ?? false) && ref.read(voiceModelProvider).status == VoiceModelStatus.ready,
+      client: () => _connection?.client,
+    );
+    _voiceFlag = ref.read(voiceInputActiveProvider.notifier);
+    _voice.addListener(_reportVoice);
   }
 
   @override
@@ -90,6 +118,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     unawaited(_changes?.cancel());
     if (_running) _tavern.stop(widget.chatId);
     unawaited(_turn?.cancel());
+    _voice.removeListener(_reportVoice);
+    _voice.dispose();
+    // The page is gone, and its dictation with it.
+    final flag = _voiceFlag;
+    scheduleMicrotask(() => flag.set(false));
     _input.dispose();
     _focus.dispose();
     _scrolled.dispose();
@@ -680,6 +713,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           running: _running,
           onSend: _send,
           onStop: _stop,
+          voice: _voice,
           placeholder: l10n.tavernComposerHint(name),
           leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
           tray: !_running && messages != null
