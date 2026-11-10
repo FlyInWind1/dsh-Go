@@ -72,9 +72,16 @@ final class PromptSource {
 
 /// Content and its origin before it is placed into a message.
 final class PromptFragment {
-  const PromptFragment(this.content, this.source);
+  const PromptFragment(this.content, this.source, {this.role, this.trimOnOverflow = false});
   final String content;
   final PromptSource source;
+
+  /// Explicit V3 role. Null inherits the enclosing prompt's existing role.
+  final String? role;
+
+  /// Remove this complete source entry before truncating history at capacity.
+  /// Expanded results are retained; removal must not replay macro calls.
+  final bool trimOnOverflow;
 }
 
 /// One ST worldInfoExamples item, in the original mixed before/after order.
@@ -117,12 +124,24 @@ final class PromptInjection {
     this.placement = PromptPlacement.inChat,
     this.depth = 4,
     this.order = 100,
+    this.fragments = const [],
+    this.v3Depth = false,
   });
   final PromptFragment fragment;
   final String role;
   final PromptPlacement placement;
   final int depth;
   final int order;
+
+  /// A CCV3 depth/reverse_depth is bounded by the available history, not by
+  /// ST's native 10000-message extension limit. Native injections retain it.
+  final bool v3Depth;
+
+  /// Optional complete, ordered pieces of this injection, including its base
+  /// text. A nonempty list replaces [fragment]'s aggregate text while that
+  /// fragment still supplies the extension identifier/anchor. Use this when
+  /// an author's note or depth group mixes roles or optional and required WI.
+  final List<PromptFragment> fragments;
 }
 
 final class PromptSegment {

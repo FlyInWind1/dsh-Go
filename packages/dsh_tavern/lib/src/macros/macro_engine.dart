@@ -5,6 +5,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+part 'legacy_macro_engine.dart';
+
 /// A message on the active chat path. Message ids are indices in this path.
 class MacroMessage {
   const MacroMessage({
@@ -13,6 +15,7 @@ class MacroMessage {
     this.isSystem = false,
     this.swipeId,
     this.swipeCount,
+    this.swipeIdIsNull = false,
     this.sentAt,
   });
 
@@ -21,6 +24,10 @@ class MacroMessage {
   final bool isSystem;
   final int? swipeId;
   final int? swipeCount;
+
+  /// Distinguishes an explicit ST null from an absent swipe_id for legacy
+  /// currentSwipeId. Ignored when [swipeId] is present, and by [MacroEngine].
+  final bool swipeIdIsNull;
   final DateTime? sentAt;
 }
 
@@ -28,9 +35,10 @@ class MacroMessage {
 ///
 /// Variable maps are retained by reference and mutated synchronously. The
 /// caller owns persistence. [card] is the character card's raw data object.
-/// Its fields are expanded lazily and cached separately for each expand call.
-/// [replaceCharacterCard] implements ST's
-/// baseChatReplace mode: when false, character-field macros return empty text.
+/// [MacroEngine] expands its fields lazily; [LegacyMacroEngine] prepares all
+/// fields eagerly. Caches belong to a single expand call.
+/// [replaceCharacterCard] implements ST's baseChatReplace mode: when false,
+/// new character-field macros return empty text; legacy ones remain literal.
 /// Names and [original] are independent of that switch.
 ///
 /// Supply [now], [timeZoneOffset], [locale], and [random] for reproducibility.
@@ -71,8 +79,9 @@ class MacroContext {
     Duration? timeZoneOffset,
     this.locale = 'en',
     double Function()? random,
-    String chatId = '',
-    int? chatIdHash,
+    this.chatId = '',
+    num? chatIdHash,
+    this.onChatIdHash,
     this.pickRerollSeed,
   }) : localVariables = localVariables ?? <String, Object?>{},
        globalVariables = globalVariables ?? <String, Object?>{},
@@ -119,7 +128,19 @@ class MacroContext {
   final Duration timeZoneOffset;
   final String locale;
   final double Function() random;
-  final int chatIdHash;
+
+  /// Raw ST chat identity, retained for the legacy engine's falsy cached hash
+  /// fallback. The new engine continues to honor an explicitly supplied zero.
+  final String chatId;
+  final num chatIdHash;
+
+  /// Observes the hash used at ST's getChatIdHash call sites. The new engine
+  /// calls this for each evaluated pick with a nonempty list; the legacy
+  /// engine calls it while preparing every nonempty expansion's pick pass,
+  /// even if that expansion has no pick. Internal card expansions participate
+  /// in source order. This does not mutate the context: the caller decides
+  /// whether to persist the value and provide it to later contexts.
+  final void Function(num)? onChatIdHash;
   final Object? pickRerollSeed;
 }
 
@@ -127,8 +148,18 @@ class MacroContext {
 class MacroEngine {
   const MacroEngine();
 
-  String expand(String text, MacroContext context, {Map<String, String> overrides = const {}}) =>
-      _Evaluation(context, text, overrides).evaluate(text);
+  /// Expands one document. [postProcess] runs on each successfully resolved
+  /// ordinary macro, including nested calls, before insertion into the text.
+  /// Unknown calls, invalid calls and variable shorthand bypass it. If the
+  /// hook throws, the successful macro result is kept. A null hook result
+  /// becomes empty text; other JSON-owned values use JavaScript ToString.
+  /// Internal base expansion of character fields does not inherit the hook.
+  String expand(
+    String text,
+    MacroContext context, {
+    Map<String, String> overrides = const {},
+    Object? Function(Object?)? postProcess,
+  }) => _Evaluation(context, text, overrides, postProcess: postProcess).evaluate(text);
 
   /// ST utils.js getStringHash (cyrb53), including UTF-16 code-unit iteration.
   static int stringHash(String text, [int seed = 0]) {
@@ -524,6 +555,7 @@ class _Evaluation {
     Map<String, String> overrides, {
     bool? replaceCharacterCard,
     this.inheritOriginal = true,
+    this.postProcess,
   }) : contentHash = MacroEngine.stringHash(original),
        replaceCharacterCard = replaceCharacterCard ?? context.replaceCharacterCard,
        overrides = {for (final entry in overrides.entries) entry.key.toLowerCase(): entry.value};
@@ -533,6 +565,7 @@ class _Evaluation {
   final Map<String, String> overrides;
   final bool replaceCharacterCard;
   final bool inheritOriginal;
+  final Object? Function(Object?)? postProcess;
   final Map<String, String> _cardFields = {};
   List<String>? _alternateGreetings;
   bool _originalUsed = false;
@@ -618,17 +651,31 @@ class _Evaluation {
     final spec = _spec(name);
     if (name != 'original') {
       final override = overrides[call.name.toLowerCase()];
-      if (override != null) return arguments.isEmpty ? override : fallback;
+      if (override != null) return arguments.isEmpty ? _postProcess(override) : fallback;
     }
     if (spec == null || (!spec.list && (arguments.length < spec.min || arguments.length > spec.max))) {
       return fallback;
     }
     try {
-      return _dispatch(name, arguments, call, offset + call.start) ?? fallback;
+      final result = _dispatch(name, arguments, call, offset + call.start);
+      return result == null ? fallback : _postProcess(result);
     } on ArgumentError {
       return fallback;
     } on FormatException {
       return fallback;
+    }
+  }
+
+  String _postProcess(String result) {
+    final callback = postProcess;
+    if (callback == null) return result;
+    try {
+      // MacroCstWalker coerces a hook's nullish result to the empty string.
+      return _jsString(callback(result) ?? '');
+    } catch (_) {
+      // ST catches postProcess separately from the macro handler. A failed
+      // callback keeps the successful, unprocessed result and its effects.
+      return result;
     }
   }
 
@@ -827,6 +874,7 @@ class _Evaluation {
         if (name == 'random') {
           random = context.random();
         } else {
+          context.onChatIdHash?.call(context.chatIdHash);
           final seedParts = <Object>[
             context.chatIdHash,
             contentHash,
@@ -1075,7 +1123,7 @@ double _number(Object? value) {
   if (value is bool) return value ? 1 : 0;
   if (value is List<Object?>) return _number(_jsString(value));
   if (value is! String) return double.nan;
-  final text = value.trim();
+  final text = _trimJsNumberWhitespace(value);
   if (text.isEmpty) return 0;
   if (text == 'Infinity' || text == '+Infinity') return double.infinity;
   if (text == '-Infinity') return double.negativeInfinity;
@@ -1091,6 +1139,33 @@ double _number(Object? value) {
   if (!RegExp(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$').hasMatch(text)) return double.nan;
   return double.tryParse(text) ?? double.nan;
 }
+
+// ECMAScript StringNumericLiteral uses WhiteSpace and LineTerminator.
+// Dart VM String.trim also removes U+0085 NEL, which Number() must retain.
+String _trimJsNumberWhitespace(String value) {
+  var start = 0;
+  var end = value.length;
+  while (start < end && _isJsNumberWhitespace(value.codeUnitAt(start))) {
+    start++;
+  }
+  while (end > start && _isJsNumberWhitespace(value.codeUnitAt(end - 1))) {
+    end--;
+  }
+  return value.substring(start, end);
+}
+
+bool _isJsNumberWhitespace(int code) =>
+    (code >= 0x0009 && code <= 0x000d) ||
+    code == 0x0020 ||
+    code == 0x00a0 ||
+    code == 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) ||
+    code == 0x2028 ||
+    code == 0x2029 ||
+    code == 0x202f ||
+    code == 0x205f ||
+    code == 0x3000 ||
+    code == 0xfeff;
 
 String _numberString(num value) {
   final number = value.toDouble();
@@ -1314,6 +1389,10 @@ class _SeedRandom {
       _g(1);
     }
   }
+
+  // seedrandom 3.0.5 flatten(number, 3) appends NUL before mixkey. String
+  // seeds do not, so legacy picks must not reuse the new engine's seed text.
+  _SeedRandom.numeric(num seed) : this('${_numberString(seed)}\u0000');
 
   final List<int> _s = List.generate(256, (i) => i);
   int _i = 0;

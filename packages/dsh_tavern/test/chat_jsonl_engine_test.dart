@@ -515,7 +515,7 @@ void main() {
     expect(engine.variables(chatId), {'n': 1});
   });
 
-  test('impersonation expands first-message inputs without persisting temporary local edits', () async {
+  test('impersonation preserves first-message text and commits local macro state only with output', () async {
     final id = await card();
     const raw = '{{incvar::n}}first';
     final imported = await engine.importChats(id, [
@@ -528,10 +528,31 @@ void main() {
       ),
     ]);
     final chatId = imported.chatIds.single;
-    _done(await engine.impersonate(chatId).toList());
+    final first = (await engine.path(chatId)).single;
+    model.failure = const TavernModelException(TavernFailure.network, 'fixture-before-output');
+    final failed = (await engine.impersonate(chatId).toList()).whereType<TavernTurnFailed>().single;
+    expect(failed.kind, TavernFailure.network);
+    expect(failed.partial, isNull);
     expect(_bodyText(model.bodies.last), contains('1first'));
     expect((await engine.path(chatId)).single.text, raw);
     expect(engine.variables(chatId), {'n': 0});
+    model.failure = null;
+    _done(await engine.impersonate(chatId).toList());
+    expect(_bodyText(model.bodies.last), contains('1first'));
+    expect((await engine.path(chatId)).single.nodeId, first.nodeId);
+    expect((await engine.path(chatId)).single.text, raw);
+    expect(engine.variables(chatId), {'n': 1});
+    final file = (await engine.exportChat(chatId)).single;
+    final document = StChatDocument.decode(file.fileName, file.bytes);
+    expect((document.header['chat_metadata']! as Map<String, Object?>)['variables'], {'n': 1});
+    final extra = document.messages.single['extra']! as Map<String, Object?>;
+    final own = extra['dshgo']! as Map<String, Object?>;
+    expect((own['tavernState']! as Map<String, Object?>)['variables'], {'n': 1});
+    await engine.close();
+    engine = await open();
+    expect((await engine.path(chatId)).single.nodeId, first.nodeId);
+    expect((await engine.path(chatId)).single.text, raw);
+    expect(engine.variables(chatId), {'n': 1});
   });
 
   test('continuing the first message appends to its expanded text and uses its actual trailing space', () async {

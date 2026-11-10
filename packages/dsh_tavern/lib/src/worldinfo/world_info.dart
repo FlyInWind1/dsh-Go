@@ -1,10 +1,13 @@
 // Port of SillyTavern 1.19.0 public/scripts/world-info.js (AGPL-3.0),
 // commit 7e8663cd9c184a550b37238218bdd32c6efc68e9: WorldInfoBuffer,
 // getSortedEntries, checkWorldInfo, inclusion groups and convertCharacterBook.
-// IO, UI, events, timed effects and V3 decorators are outside this evaluator.
+// IO, UI and events remain outside this deterministic evaluator.
 
 import 'dart:convert';
 import 'dart:math' as math;
+
+part 'timed_effects.dart';
+part 'decorators.dart';
 
 enum WorldInfoSource { global, character, chat, persona, memory }
 
@@ -29,9 +32,9 @@ enum WorldInfoScanPhase { initial, recursion, minActivations }
 /// Keeps the complete original book, including fields this wave does not use.
 /// A character book is the card's `data.character_book`, not the whole card.
 class WorldInfoBook {
-  WorldInfoBook._(this.id, this.source, this.raw) {
+  WorldInfoBook._(this.id, this.source, this.raw, this.stWorldName) {
     final original = raw['entries'];
-    final byId = <String, Map<String, Object?>>{};
+    final byId = <String, (Map<String, Object?>, int)>{};
     final parsed = <WorldInfoEntry>[];
     if (original is Map<String, Object?>) {
       for (final key in _objectKeys(original.keys)) {
@@ -43,10 +46,11 @@ class WorldInfoBook {
       for (var index = 0; index < original.length; index++) {
         final value = original[index];
         if (value is! Map<String, Object?>) throw FormatException('Character book entry $index must be an object.');
-        byId[_id(value['id'] ?? index)] = value;
+        byId[_id(value['id'] ?? index)] = (value, index);
       }
       for (final uid in _objectKeys(byId.keys)) {
-        parsed.add(WorldInfoEntry._(this, uid, byId[uid]!, _convertCharacterEntry(byId[uid]!)));
+        final item = byId[uid]!;
+        parsed.add(WorldInfoEntry._(this, uid, item.$1, _convertCharacterEntry(item.$1, item.$2)));
       }
     } else {
       throw const FormatException('World info must contain an entries object or array.');
@@ -58,9 +62,13 @@ class WorldInfoBook {
     required String id,
     required WorldInfoSource source,
     required Map<String, Object?> json,
-  }) => WorldInfoBook._(id, source, jsonDecode(jsonEncode(json)) as Map<String, Object?>);
+    String? stWorldName,
+  }) => WorldInfoBook._(id, source, jsonDecode(jsonEncode(json)) as Map<String, Object?>, stWorldName ?? id);
 
   final String id;
+
+  /// ST's world filename/name, not the display title. Local IDs may differ.
+  final String stWorldName;
   final WorldInfoSource source;
   final Map<String, Object?> raw;
   late final List<WorldInfoEntry> entries;
@@ -98,10 +106,17 @@ class WorldInfoEntry {
   bool get groupOverride => _fields['groupOverride'] == true;
   num get groupWeight => _number(_fields['groupWeight']) ?? 100;
   int? get scanDepth => _integer(_fields['scanDepth']);
-  bool? get caseSensitive => _boolean(_fields['caseSensitive']);
+  bool? get caseSensitive => _boolean(raw['case_sensitive']) ?? _boolean(_fields['caseSensitive']);
+  bool get useRegex => raw['use_regex'] == true;
   bool? get matchWholeWords => _boolean(_fields['matchWholeWords']);
   bool? get useGroupScoring => _boolean(_fields['useGroupScoring']);
   List<String> get triggers => _strings(_fields['triggers']);
+
+  /// Exact ST loader hash, including field order and the original ST decorator parser.
+  int get stHash => _entryHash(this);
+  String get stKey =>
+      '${_fields.containsKey('world') ? _jsString(_fields['world']) : book.stWorldName}.'
+      '${_fields.containsKey('uid') ? _jsString(_fields['uid']) : 'undefined'}';
 }
 
 class WorldInfoSettings {
@@ -183,6 +198,15 @@ class WorldInfoInput {
     this.trigger = 'normal',
     this.characterName = '',
     this.characterTags,
+    this.timedWorldInfo = const {},
+    this.dryRun = false,
+    this.decoratorState = const {},
+    this.assistantMessageCount,
+    this.greetingIndex,
+    this.userIconName,
+    this.contextAtCapacity,
+    this.postProcessContent,
+    this.availablePromptSections,
   });
   final List<WorldInfoBook> books;
   final List<WorldInfoMessage> messages;
@@ -205,6 +229,34 @@ class WorldInfoInput {
 
   /// Null means ST has no tag-map entry; an empty list means a known empty one.
   final List<String>? characterTags;
+
+  /// The selected branch's chat_metadata.timedWorldInfo, before this evaluation.
+  final Map<String, Object?> timedWorldInfo;
+
+  /// ST preview semantics: ignore sticky/cooldown, still check delay, do not add timers.
+  final bool dryRun;
+
+  /// Proven prior V3 admissions for this selected branch, keyed by ST entry hash.
+  final Map<String, Object?> decoratorState;
+
+  /// Null means unavailable: count-dependent decorators are ignored, including fallbacks.
+  final int? assistantMessageCount;
+  final int? greetingIndex;
+
+  /// V3 asset name, never inferred from an avatar filesystem path.
+  final String? userIconName;
+
+  /// Null means the caller cannot determine full-prompt capacity. False also
+  /// allows an assembler to honor ignore_on_max_context by trimming first.
+  final bool? contextAtCapacity;
+
+  /// ST applies world-info prompt regex after admission and recursion, in
+  /// descending insertion order. Only an at-depth entry receives a depth.
+  final String Function(WorldInfoEntry entry, String content, int? depth)? postProcessContent;
+
+  /// Actual enabled card slots in the current preset. Null leaves section
+  /// availability to the supplied nonempty character fields for standalone use.
+  final Set<String>? availablePromptSections;
 }
 
 /// One admitted entry, including both original and macro-expanded content.
@@ -218,20 +270,56 @@ class WorldInfoHit {
     this.primaryKey,
     this.secondaryMatches = const [],
     this.probabilityRoll,
+    this.positionOverride,
+    this.depthOverride,
+    this.roleOverride,
+    this.section,
+    this.disabledUiPrompt,
+    this.ignoreOnMaxContext = false,
+    this.assistantPrefill = false,
   });
   final WorldInfoEntry entry;
   final String content;
-  final String reason; // 'constant' or 'keywords'; secondary logic is on entry.
+  final String reason; // constant, keywords, sticky, decorator-activate or decorator-keep.
   final String? primaryKey;
   final List<String> secondaryMatches;
   final WorldInfoScanPhase phase;
   final int round;
   final double? probabilityRoll;
+  final int? positionOverride;
+  final int? depthOverride;
+  final int? roleOverride;
+  final String? section;
+  final String? disabledUiPrompt;
+  final bool ignoreOnMaxContext;
+
+  /// Explicit V3 assistant role at raw depth zero, before depth clamping.
+  final bool assistantPrefill;
+  int? get position => positionOverride ?? entry.position;
+  int get depth => depthOverride ?? entry.depth;
+  int get role => roleOverride ?? entry.role;
   String get bookId => entry.book.id;
   String get uid => entry.uid;
   WorldInfoSource get source => entry.book.source;
   String get originalContent => entry.content;
   num get order => entry.order;
+  WorldInfoHit withContent(String value) => WorldInfoHit(
+    entry: entry,
+    content: value,
+    reason: reason,
+    phase: phase,
+    round: round,
+    primaryKey: primaryKey,
+    secondaryMatches: secondaryMatches,
+    probabilityRoll: probabilityRoll,
+    positionOverride: positionOverride,
+    depthOverride: depthOverride,
+    roleOverride: roleOverride,
+    section: section,
+    disabledUiPrompt: disabledUiPrompt,
+    ignoreOnMaxContext: ignoreOnMaxContext,
+    assistantPrefill: assistantPrefill,
+  );
 }
 
 class WorldInfoDepth {
@@ -243,12 +331,25 @@ class WorldInfoDepth {
 }
 
 class WorldInfoResult {
-  WorldInfoResult._(List<WorldInfoHit> hits, {required this.budget, required this.overflowed, required this.scanRounds})
-    : activated = List.unmodifiable(hits) {
+  WorldInfoResult._(
+    List<WorldInfoHit> hits, {
+    required this.budget,
+    required this.overflowed,
+    required this.scanRounds,
+    required this.timedWorldInfo,
+    required this.decoratorState,
+    required WorldInfoResult Function(List<WorldInfoHit>) finalize,
+  }) : _finalize = finalize,
+       activated = List.unmodifiable(hits) {
     final groups = <(int, int), List<WorldInfoHit>>{};
     for (final hit in _stableSort(hits, (a, b) => b.order.compareTo(a.order))) {
+      if (hit.disabledUiPrompt case final prompt?) disabledUiPrompts.add(prompt);
       if (hit.content.isEmpty) continue;
-      switch (hit.entry.position) {
+      if (hit.section case final section?) {
+        (sections[section] ??= []).insert(0, hit);
+        continue;
+      }
+      switch (hit.position) {
         case 0:
           before.insert(0, hit);
         case 1:
@@ -258,7 +359,7 @@ class WorldInfoResult {
         case 3:
           authorNoteAfter.insert(0, hit);
         case 4:
-          (groups[(hit.entry.depth, hit.entry.role)] ??= []).insert(0, hit);
+          (groups[(hit.depth, hit.role)] ??= []).insert(0, hit);
         case 5:
           examplesBefore.insert(0, hit);
         case 6:
@@ -284,6 +385,17 @@ class WorldInfoResult {
   final int budget;
   final bool overflowed;
   final int scanRounds;
+  final Map<String, Object?> timedWorldInfo;
+  final Map<String, Object?> decoratorState;
+  final WorldInfoResult Function(List<WorldInfoHit>) _finalize;
+
+  /// Finalize state after the prompt assembler drops optional V3 entries.
+  /// This never rescans, expands a macro, consumes entropy, or admits a new hit.
+  WorldInfoResult withoutEntries(Set<(String, String)> identities) => identities.isEmpty
+      ? this
+      : _finalize(activated.where((hit) => !identities.contains(hit.entry.identity)).toList());
+  final sections = <String, List<WorldInfoHit>>{};
+  final disabledUiPrompts = <String>{};
   String get beforeText => before.map((hit) => hit.content).join('\n');
   String get afterText => after.map((hit) => hit.content).join('\n');
 }
@@ -297,7 +409,9 @@ class WorldInfoEngine {
     var budget = (settings.budgetPercent * input.maxContext / 100 + 0.5).floor();
     if (budget == 0) budget = 1;
     if (settings.budgetCap > 0 && budget > settings.budgetCap) budget = settings.budgetCap;
-    final sorted = _sortedEntries(input.books, settings.strategy).map(_RuntimeEntry.new).toList();
+    final sorted = _sortedEntries(input.books, settings.strategy).map((entry) => _RuntimeEntry(entry, input)).toList();
+    final timed = _TimedEffects(input, sorted);
+    final decoratorHistory = _DecoratorHistory(input);
     final buffer = _ScanBuffer(input);
     final activated = <(String, String), WorldInfoHit>{};
     final failedProbability = <_RuntimeEntry>{};
@@ -319,14 +433,40 @@ class WorldInfoEngine {
         if (failedProbability.contains(item) || activated.containsKey(entry.identity) || entry.disabled) continue;
         if (entry.triggers.isNotEmpty && !entry.triggers.contains(input.trigger)) continue;
         if (!_characterAllowed(entry, input)) continue;
-        if (phase != WorldInfoScanPhase.recursion && entry.delayUntilRecursion != 0) continue;
+        final sticky = timed.isActive('sticky', item);
+        if (timed.isActive('delay', item) || (timed.isActive('cooldown', item) && !sticky)) continue;
+        if (!sticky && phase != WorldInfoScanPhase.recursion && entry.delayUntilRecursion != 0) continue;
         if (phase == WorldInfoScanPhase.recursion &&
             entry.delayUntilRecursion != 0 &&
-            entry.delayUntilRecursion > currentLevel) {
+            entry.delayUntilRecursion > currentLevel &&
+            !sticky) {
           continue;
         }
-        if (phase == WorldInfoScanPhase.recursion && settings.recursive && entry.excludeRecursion) continue;
-        final reason = entry.constant ? const _MatchReason('constant') : _keywords(entry, buffer, phase, input.expand);
+        if (phase == WorldInfoScanPhase.recursion && settings.recursive && entry.excludeRecursion && !sticky) continue;
+        final decorators = item.decorators;
+        _MatchReason? reason;
+        if (decorators.activate) {
+          reason = const _MatchReason('decorator-activate');
+        } else {
+          final matchedBefore = decoratorHistory.previous(item) > 1;
+          if (decorators.dontActivate || (decorators.dontAfterMatch && matchedBefore)) continue;
+          if (decorators.keepAfterMatch && matchedBefore) {
+            reason = const _MatchReason('decorator-keep');
+          } else {
+            if (!decorators.allows(buffer, phase)) continue;
+            reason = entry.constant && !entry.useRegex
+                ? const _MatchReason('constant')
+                : sticky
+                ? const _MatchReason('sticky')
+                : _keywords(entry, buffer, phase, input.expand, scanDepth: decorators.scanDepth);
+          }
+        }
+        if (reason?.kind == 'sticky' && entry.useRegex) {
+          // Sticky is an ST extension, not a V3 IN ANY CASE decorator. It may
+          // bypass a missing match, but not the validity of primary regexes.
+          final keys = entry.keys.map(input.expand).toList();
+          if (keys.any((key) => _v3Regex(key, entry) == null)) continue;
+        }
         if (reason != null) {
           candidates.add(item);
           reasons[item] = reason;
@@ -335,7 +475,14 @@ class WorldInfoEngine {
 
       var newContent = '';
       final previousTokens = _tokens(input, activatedText);
-      _filterGroups(candidates, activated.values, buffer, phase, input);
+      final prioritized = _stableSort(
+        candidates,
+        (a, b) => (timed.isActive('sticky', b) ? 1 : 0) - (timed.isActive('sticky', a) ? 1 : 0),
+      );
+      candidates
+        ..clear()
+        ..addAll(prioritized);
+      _filterGroups(candidates, activated.values, buffer, phase, input, timed);
       var ignoresBudget = candidates.where((item) => item.entry.ignoreBudget).length;
       for (final item in candidates) {
         final entry = item.entry;
@@ -345,7 +492,7 @@ class WorldInfoEngine {
           break;
         }
         double? roll;
-        if (entry.useProbability && entry.probability != 100) {
+        if (entry.useProbability && entry.probability != 100 && !timed.isActive('sticky', item)) {
           roll = _random(input) * 100;
           if (roll > entry.probability) {
             failedProbability.add(item);
@@ -368,6 +515,13 @@ class WorldInfoEngine {
           primaryKey: reason.primary,
           secondaryMatches: reason.secondary,
           probabilityRoll: roll,
+          positionOverride: item.decorators.depth == null ? null : 4,
+          depthOverride: item.decorators.depth,
+          roleOverride: item.decorators.role,
+          section: item.decorators.section,
+          disabledUiPrompt: item.decorators.disabledUiPrompt,
+          ignoreOnMaxContext: item.decorators.ignoreOnMaxContext,
+          assistantPrefill: item.decorators.assistantPrefill,
         );
       }
 
@@ -406,14 +560,45 @@ class WorldInfoEngine {
       }
       phase = next;
     }
-    return WorldInfoResult._(activated.values.toList(), budget: budget, overflowed: overflowed, scanRounds: rounds);
+    final transform = input.postProcessContent;
+    if (transform != null) {
+      for (final hit in _stableSort(activated.values.toList(), (a, b) => b.order.compareTo(a.order))) {
+        activated[hit.entry.identity] = hit.withContent(
+          transform(hit.entry, hit.content, hit.section == null && hit.position == 4 ? hit.depth : null),
+        );
+      }
+    }
+    // Keep the post-expiry, pre-admission state. Optional V3 entries can later
+    // be removed by the full-prompt budget without repeating this scan or any
+    // macro/regex/random side effect, or accidentally retaining their timers.
+    WorldInfoResult finalize(List<WorldInfoHit> hits) {
+      final effects = timed.fork()..finish(hits);
+      final history = decoratorHistory.fork();
+      final retained = hits.map((hit) => hit.entry.identity).toSet();
+      history.finish(sorted.where((item) => retained.contains(item.entry.identity)));
+      return WorldInfoResult._(
+        hits,
+        budget: budget,
+        overflowed: overflowed,
+        scanRounds: rounds,
+        timedWorldInfo: effects.state,
+        decoratorState: history.state,
+        finalize: finalize,
+      );
+    }
+
+    return finalize(activated.values.toList());
   }
 }
 
 class _RuntimeEntry {
-  _RuntimeEntry(this.entry) : content = entry.content;
+  _RuntimeEntry(this.entry, WorldInfoInput input) : decorators = _Decorators(entry, input), hash = _entryHash(entry) {
+    content = decorators.content;
+  }
   final WorldInfoEntry entry;
-  String content;
+  final int hash;
+  final _Decorators decorators;
+  late String content;
 }
 
 class _MatchReason {
@@ -443,11 +628,11 @@ class _ScanBuffer {
   var skew = 0;
   int get depth => input.settings.scanDepth + skew;
 
-  String get(WorldInfoEntry entry, WorldInfoScanPhase phase) {
-    final scanDepth = entry.scanDepth ?? depth;
-    if (scanDepth <= 0) return '';
+  String get(WorldInfoEntry entry, WorldInfoScanPhase phase, {int? scanDepth}) {
+    final effectiveDepth = scanDepth ?? entry.scanDepth ?? depth;
+    if (effectiveDepth <= 0) return '';
     const joiner = '\n\x01';
-    var result = '\x01${messages.take(math.min(scanDepth, 1000)).join(joiner)}';
+    var result = '\x01${messages.take(math.min(effectiveDepth, 1000)).join(joiner)}';
     final global = {
       'matchPersonaDescription': input.personaDescription,
       'matchCharacterDescription': input.characterDescription,
@@ -468,6 +653,10 @@ class _ScanBuffer {
   }
 
   bool matches(String haystack, String needle, WorldInfoEntry entry) {
+    if (entry.useRegex) {
+      final parsed = _v3Regex(needle, entry, caseSensitive: input.settings.caseSensitive);
+      return parsed != null && (parsed.$2 ? parsed.$1.matchAsPrefix(haystack) != null : parsed.$1.hasMatch(haystack));
+    }
     final parsed = _keywordRegex(needle);
     if (parsed != null) {
       return parsed.$2 ? parsed.$1.matchAsPrefix(haystack) != null : parsed.$1.hasMatch(haystack);
@@ -482,8 +671,8 @@ class _ScanBuffer {
     return RegExp('(?:^|\\W)(${RegExp.escape(needle)})(?:\$|\\W)').hasMatch(haystack);
   }
 
-  int score(WorldInfoEntry entry, WorldInfoScanPhase phase) {
-    final text = get(entry, phase);
+  int score(WorldInfoEntry entry, WorldInfoScanPhase phase, {int? scanDepth}) {
+    final text = get(entry, phase, scanDepth: scanDepth);
     // ST scoring does not substitute or trim keys, unlike activation matching.
     final primary = entry.keys.where((key) => matches(text, key, entry)).length;
     final secondary = entry.secondaryKeys.where((key) => matches(text, key, entry)).length;
@@ -500,9 +689,18 @@ _MatchReason? _keywords(
   WorldInfoEntry entry,
   _ScanBuffer buffer,
   WorldInfoScanPhase phase,
-  String Function(String) expand,
-) {
-  final text = buffer.get(entry, phase);
+  String Function(String) expand, {
+  int? scanDepth,
+}) {
+  final text = buffer.get(entry, phase, scanDepth: scanDepth);
+  if (entry.useRegex) {
+    final expanded = [for (final key in entry.keys) (key, expand(key))];
+    if (expanded.any((key) => _v3Regex(key.$2, entry) == null)) return null;
+    for (final key in expanded) {
+      if (buffer.matches(text, key.$2, entry)) return _MatchReason('keywords', primary: key.$1);
+    }
+    return null;
+  }
   String? primary;
   for (final key in entry.keys) {
     final substituted = expand(key);
@@ -540,6 +738,7 @@ void _filterGroups(
   _ScanBuffer buffer,
   WorldInfoScanPhase phase,
   WorldInfoInput input,
+  _TimedEffects timed,
 ) {
   final groups = <String, List<_RuntimeEntry>>{};
   for (final item in candidates) {
@@ -556,10 +755,30 @@ void _filterGroups(
     candidates.removeAt(index < 0 ? candidates.length - 1 : index);
   }
 
+  final stickyGroups = <String>{};
   for (final key in _objectKeys(groups.keys)) {
     final group = groups[key]!;
+    final sticky = group.where((item) => timed.isActive('sticky', item)).toSet();
+    if (sticky.isNotEmpty) {
+      for (final item in group) {
+        if (!sticky.contains(item)) remove(item);
+      }
+      stickyGroups.add(key);
+    }
+    // ST also removes sticky entries if they are simultaneously on cooldown.
+    // This group-specific behavior intentionally differs from candidate filtering.
+    for (final item in group) {
+      if (timed.isActive('cooldown', item)) remove(item);
+    }
+    for (final item in group) {
+      if (timed.isActive('delay', item)) remove(item);
+    }
+  }
+  for (final key in _objectKeys(groups.keys)) {
+    final group = groups[key]!;
+    if (stickyGroups.contains(key)) continue;
     if (!input.settings.useGroupScoring && !group.any((item) => item.entry.useGroupScoring == true)) continue;
-    final scores = group.map((item) => buffer.score(item.entry, phase)).toList();
+    final scores = group.map((item) => buffer.score(item.entry, phase, scanDepth: item.decorators.scanDepth)).toList();
     final maximum = scores.reduce(math.max);
     for (var index = 0; index < group.length; index++) {
       if ((group[index].entry.useGroupScoring ?? input.settings.useGroupScoring) && scores[index] < maximum) {
@@ -572,6 +791,7 @@ void _filterGroups(
   }
   for (final key in _objectKeys(groups.keys)) {
     final group = groups[key]!;
+    if (stickyGroups.contains(key)) continue;
     if (activated.any((hit) => hit.entry.group == key)) {
       for (final item in group) {
         remove(item);
@@ -665,48 +885,99 @@ bool _characterAllowed(WorldInfoEntry entry, WorldInfoInput input) {
   }
 }
 
-Map<String, Object?> _convertCharacterEntry(Map<String, Object?> raw) {
-  final extensions = raw['extensions'] is Map<String, Object?>
-      ? raw['extensions'] as Map<String, Object?>
-      : <String, Object?>{};
-  return {
+Map<String, Object?> _convertCharacterEntry(Map<String, Object?> raw, int index) {
+  final extensions = _object(raw['extensions']);
+  // Property insertion order is ST's template order. It participates in timer hashes.
+  final result = <String, Object?>{
+    'key': <Object?>[],
+    'keysecondary': <Object?>[],
+    'comment': '',
+    'content': '',
+    'constant': false,
+    'vectorized': false,
+    'selective': true,
+    'selectiveLogic': 0,
+    'addMemo': false,
+    'order': 100,
+    'position': 0,
+    'disable': false,
+    'ignoreBudget': false,
+    'excludeRecursion': false,
+    'preventRecursion': false,
+    'matchPersonaDescription': false,
+    'matchCharacterDescription': false,
+    'matchCharacterPersonality': false,
+    'matchCharacterDepthPrompt': false,
+    'matchScenario': false,
+    'matchCreatorNotes': false,
+    'delayUntilRecursion': 0,
+    'probability': 100,
+    'useProbability': true,
+    'depth': 4,
+    'outletName': '',
+    'group': '',
+    'groupOverride': false,
+    'groupWeight': 100,
+    'scanDepth': null,
+    'caseSensitive': null,
+    'matchWholeWords': null,
+    'useGroupScoring': null,
+    'automationId': '',
+    'role': 0,
+    'sticky': null,
+    'cooldown': null,
+    'delay': null,
+    'triggers': <Object?>[],
+  };
+  result.addAll({
+    'uid': raw.containsKey('id') ? raw['id'] : index,
     'key': raw['keys'],
     'keysecondary': raw['secondary_keys'] ?? <Object?>[],
+    'comment': raw['comment'] ?? '',
     'content': raw['content'],
-    'comment': raw['comment'],
     'constant': raw['constant'] ?? false,
     'selective': raw['selective'] ?? false,
     'order': raw['insertion_order'],
     'position': extensions['position'] ?? (raw['position'] == 'before_char' ? 0 : 1),
+    'excludeRecursion': extensions['exclude_recursion'] ?? false,
+    'preventRecursion': extensions['prevent_recursion'] ?? false,
+    'delayUntilRecursion': extensions['delay_until_recursion'] ?? false,
     'disable': raw['enabled'] != true,
-    for (final item in const {
-      'excludeRecursion': 'exclude_recursion',
-      'preventRecursion': 'prevent_recursion',
-      'delayUntilRecursion': 'delay_until_recursion',
-      'probability': 'probability',
-      'depth': 'depth',
-      'selectiveLogic': 'selectiveLogic',
-      'outletName': 'outlet_name',
-      'group': 'group',
-      'groupOverride': 'group_override',
-      'groupWeight': 'group_weight',
-      'scanDepth': 'scan_depth',
-      'caseSensitive': 'case_sensitive',
-      'matchWholeWords': 'match_whole_words',
-      'useGroupScoring': 'use_group_scoring',
-      'role': 'role',
-      'triggers': 'triggers',
-      'matchPersonaDescription': 'match_persona_description',
-      'matchCharacterDescription': 'match_character_description',
-      'matchCharacterPersonality': 'match_character_personality',
-      'matchCharacterDepthPrompt': 'match_character_depth_prompt',
-      'matchScenario': 'match_scenario',
-      'matchCreatorNotes': 'match_creator_notes',
-      'ignoreBudget': 'ignore_budget',
-    }.entries)
-      item.key: extensions[item.value],
+    'addMemo': _truthy(raw['comment']),
+    'displayIndex': extensions['display_index'] ?? index,
+    'probability': extensions['probability'] ?? 100,
     'useProbability': extensions['useProbability'] ?? true,
-  };
+    'depth': extensions['depth'] ?? 4,
+    'selectiveLogic': extensions['selectiveLogic'] ?? 0,
+    'outletName': extensions['outlet_name'] ?? '',
+    'group': extensions['group'] ?? '',
+    'groupOverride': extensions['group_override'] ?? false,
+    'groupWeight': extensions['group_weight'] ?? 100,
+    'scanDepth': extensions['scan_depth'],
+    'caseSensitive': extensions['case_sensitive'],
+    'matchWholeWords': extensions['match_whole_words'],
+    'useGroupScoring': extensions['use_group_scoring'],
+    'automationId': extensions['automation_id'] ?? '',
+    'role': extensions['role'] ?? 0,
+    'vectorized': extensions['vectorized'] ?? false,
+    'sticky': extensions['sticky'],
+    'cooldown': extensions['cooldown'],
+    'delay': extensions['delay'],
+    'matchPersonaDescription': extensions['match_persona_description'] ?? false,
+    'matchCharacterDescription': extensions['match_character_description'] ?? false,
+    'matchCharacterPersonality': extensions['match_character_personality'] ?? false,
+    'matchCharacterDepthPrompt': extensions['match_character_depth_prompt'] ?? false,
+    'matchScenario': extensions['match_scenario'] ?? false,
+    'matchCreatorNotes': extensions['match_creator_notes'] ?? false,
+    'extensions': extensions,
+    'triggers': extensions['triggers'] ?? <Object?>[],
+    'ignoreBudget': extensions['ignore_budget'] ?? false,
+  });
+  // JSON.stringify omits undefined assignments in converted incomplete cards.
+  for (final pair in [('keys', 'key'), ('insertion_order', 'order')]) {
+    if (!raw.containsKey(pair.$1)) result.remove(pair.$2);
+  }
+  return result;
 }
 
 List<T> _stableSort<T>(List<T> items, int Function(T, T) compare) {
@@ -754,5 +1025,4 @@ num? _number(Object? value) => value is num && value.isFinite ? value : null;
 int? _integer(Object? value) => _number(value)?.toInt();
 bool? _boolean(Object? value) => value is bool ? value : null;
 List<String> _strings(Object? value) => value is List<Object?> ? value.whereType<String>().toList() : [];
-String _id(Object value) =>
-    value is num && value.isFinite && value == value.truncateToDouble() ? '${value.toInt()}' : '$value';
+String _id(Object value) => _jsString(value);

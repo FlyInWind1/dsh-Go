@@ -122,7 +122,8 @@ final class ChatJsonlCodec {
   }
 
   /// Null [nodeId] means the current leaf. Source metadata is copied; a file's
-  /// final variables are never presented as the state of an earlier node.
+  /// final variables or world-info state are never presented as the state of
+  /// an earlier node. A known null hash removes an old source-header cache.
   Map<String, Object?> metadataForNode(ChatStore store, String chatId, {String? nodeId}) {
     final chat = store.chat(chatId);
     final id = nodeId ?? chat.currentLeafId;
@@ -140,6 +141,7 @@ final class ChatJsonlCodec {
     if (state['variables'] is Map<String, Object?>) {
       metadata['variables'] = _map(state['variables']);
     }
+    _projectRuntimeState(metadata, state);
     return metadata;
   }
 
@@ -357,13 +359,15 @@ final class _ExportTree {
       metadata = _map(_sourceHeader({'chat_metadata': chat.metadata})['chat_metadata']);
     }
     if (job.path.isNotEmpty) {
-      final variables = _state(job.path.last)['variables'];
+      final state = _state(job.path.last);
+      final variables = state['variables'];
       metadata.remove('variables');
       if (variables is Map<String, Object?>) {
         metadata['variables'] = _clone(variables);
       } else if (isMain && chat.variables.isNotEmpty) {
         metadata['variables'] = _clone(chat.variables);
       }
+      _projectRuntimeState(metadata, state);
     } else if (isMain) {
       final hadVariables = metadata['variables'] is Map<String, Object?>;
       metadata.remove('variables');
@@ -580,7 +584,10 @@ final class _SourceFile {
     }
     context = _canonical(_contextMetadata(metadata));
     runtimeHeader = _runtimeSourceHeader(document.header);
-    unchangedRuntimeContext = _view(_view(metadata['dshgo'])[_namespace])['runtimeContext'] == context;
+    unchangedRuntimeContext = _sameRuntimeContext(
+      _view(_view(metadata['dshgo'])[_namespace])['runtimeContext'],
+      metadata,
+    );
     for (var index = 0; index < document.messages.length; index++) {
       lines.add(_SourceLine(this, index, fallbackDate, notices));
     }
@@ -695,7 +702,6 @@ final class _Variant {
     final sourceDshgo = _checkedMap(sourceMetadata['dshgo'], file.document, number, 'source chat_metadata.dshgo');
     _checkedEnvelope(sourceDshgo[_namespace], file.document, number);
     sourceHeader = _runtimeSourceHeader(rawHeader);
-    context = _canonical(_contextMetadata(sourceMetadata));
     final portable = own['version'] == 1 ? _map(own['message']) : <String, Object?>{};
     for (final key in ['name']) {
       if (portable[key] != null && portable[key] is! String) {
@@ -771,17 +777,38 @@ final class _Variant {
     if (state['variables'] != null && state['variables'] is! Map<String, Object?>) {
       _error(file.document, number, 'State variables must be an object.');
     }
+    if (state.containsKey('stChatId') && state['stChatId'] is! String) {
+      _error(file.document, number, 'State stChatId must be text.');
+    }
+    final cachedHash = state['stChatIdHash'];
+    if (cachedHash != null && (cachedHash is! num || !cachedHash.isFinite)) {
+      _error(file.document, number, 'State stChatIdHash must be a finite number or null.');
+    }
+    state.putIfAbsent('stChatId', () {
+      final parent = sourceMetadata['main_chat'] ?? file.metadata['main_chat'];
+      return parent is String ? parent : _stem(_originalLabel(file.document.header, file.document.fileName));
+    });
+    // The adopted historical header can differ from the file's final header.
+    // A present null marker deliberately does not fall back to either header.
+    state.putIfAbsent('stChatIdHash', () => sourceMetadata['chat_id_hash']);
+    final effectiveContext = _contextMetadata(sourceMetadata);
+    _projectHash(effectiveContext, state);
+    context = _canonical(effectiveContext);
     final variables = raw['variables'] as List<Object?>?;
     if (variables != null &&
         swipe < variables.length &&
         !(own['version'] == 1 && own['hasMessageVariables'] == false && variables[swipe] == null)) {
       state['messageVariables'] = variables[swipe];
     }
-    if (isSelected &&
-        line.index + 1 == file.document.messages.length &&
-        !state.containsKey('variables') &&
-        file.metadata['variables'] is Map<String, Object?>) {
-      state['variables'] = _map(file.metadata['variables']);
+    if (isSelected && line.index + 1 == file.document.messages.length) {
+      if (!state.containsKey('variables') && file.metadata['variables'] is Map<String, Object?>) {
+        state['variables'] = _map(file.metadata['variables']);
+      }
+      for (final key in _terminalStateKeys) {
+        if (!state.containsKey(key) && file.metadata.containsKey(key)) {
+          state[key] = file.metadata[key];
+        }
+      }
     }
     state[_sourceKey] = file.key;
     usage = own['version'] == 1 ? _usage(own['usage'], file.document, number) : null;
@@ -991,11 +1018,32 @@ final class _ImportTree {
 }
 
 bool _compatible(_ImportNode node, _Variant variant) {
-  if (node.variant.context != variant.context || node.variant.fingerprint != variant.fingerprint) {
+  if (node.variant.fingerprint != variant.fingerprint) {
     return false;
   }
   final beforeState = _clone(node.state)..remove(_sourceKey);
   final afterState = _clone(variant.state)..remove(_sourceKey);
+  final beforeContext = _contextMetadata(_map(node.variant.sourceHeader['chat_metadata']));
+  final afterContext = _contextMetadata(_map(variant.sourceHeader['chat_metadata']));
+  _projectHash(beforeContext, beforeState);
+  _projectHash(afterContext, afterState);
+  final beforeHash = beforeContext['chat_id_hash'];
+  final afterHash = afterContext['chat_id_hash'];
+  if (beforeHash is num && afterHash is num && beforeHash == afterHash) {
+    // Integral doubles and integers denote the same ST numeric cache. Only
+    // nonzero caches make both macro engines independent of the raw identity.
+    beforeContext.remove('chat_id_hash');
+    afterContext.remove('chat_id_hash');
+    beforeState.remove('stChatIdHash');
+    afterState.remove('stChatIdHash');
+    if (beforeHash != 0) {
+      beforeState.remove('stChatId');
+      afterState.remove('stChatId');
+    }
+  }
+  if (_canonical(beforeContext) != _canonical(afterContext)) {
+    return false;
+  }
   if (_canonical(beforeState) != _canonical(afterState)) {
     return false;
   }
@@ -1174,6 +1222,9 @@ Map<String, Object?> _contextMetadata(Map<String, Object?> metadata) {
     ..remove('integrity')
     ..remove('main_chat')
     ..remove('variables');
+  for (final key in _terminalStateKeys) {
+    result.remove(key);
+  }
   final dshgo = _map(result['dshgo'])..remove('latestInspection');
   final own = _map(dshgo[_namespace])
     ..remove('sourceFileName')
@@ -1189,6 +1240,41 @@ Map<String, Object?> _contextMetadata(Map<String, Object?> metadata) {
     result['dshgo'] = dshgo;
   }
   return result;
+}
+
+// Older v1 signatures included file-terminal world-info state. Compare both
+// sides through today's projection without ignoring actual configuration.
+bool _sameRuntimeContext(Object? signature, Map<String, Object?> metadata) {
+  if (signature is! String) return false;
+  try {
+    final decoded = jsonDecode(signature);
+    return decoded is Map<String, Object?> &&
+        _canonical(_contextMetadata(decoded)) == _canonical(_contextMetadata(metadata));
+  } on FormatException {
+    return false;
+  }
+}
+
+const _terminalStateKeys = ['timedWorldInfo', 'decoratorState', 'greetingIndex'];
+
+void _projectHash(Map<String, Object?> metadata, Map<String, Object?> state) {
+  if (!state.containsKey('stChatIdHash')) return;
+  final value = state['stChatIdHash'];
+  if (value == null) {
+    metadata.remove('chat_id_hash');
+  } else {
+    metadata['chat_id_hash'] = value;
+  }
+}
+
+void _projectRuntimeState(Map<String, Object?> metadata, Map<String, Object?> state) {
+  for (final key in _terminalStateKeys) {
+    metadata.remove(key);
+    if (state.containsKey(key)) {
+      metadata[key] = state[key];
+    }
+  }
+  _projectHash(metadata, state);
 }
 
 Map<String, Object?> _sourceHeader(Map<String, Object?> header, {bool keepSourceFileName = false}) {
@@ -1239,6 +1325,9 @@ Map<String, Object?> _runtimeSourceHeader(Map<String, Object?> header) {
     ..remove('variables')
     ..remove('integrity')
     ..remove('main_chat');
+  for (final key in _terminalStateKeys) {
+    metadata.remove(key);
+  }
   final dshgo = _map(metadata['dshgo'])..remove('latestInspection');
   if (dshgo.isEmpty) {
     metadata.remove('dshgo');

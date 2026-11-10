@@ -70,7 +70,7 @@ void main() {
           'use_regex': true,
           'extensions': {
             'sticky': 5,
-            'delay': 9,
+            'delay': 1,
             'future': {'raw': true},
           },
         },

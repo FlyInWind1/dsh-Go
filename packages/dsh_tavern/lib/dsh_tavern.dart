@@ -16,6 +16,7 @@ export 'src/prompt/deepseek_processing.dart';
 export 'src/prompt/preset.dart';
 export 'src/prompt/prompt_assembler.dart';
 export 'src/prompt/prompt_types.dart';
+export 'src/regex/regex_engine.dart';
 export 'src/store/character_library.dart';
 export 'src/store/chat_store.dart';
 export 'src/worldinfo/world_info.dart';

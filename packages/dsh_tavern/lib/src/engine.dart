@@ -18,6 +18,7 @@ import 'prompt/character_fields.dart';
 import 'prompt/preset.dart';
 import 'prompt/prompt_assembler.dart';
 import 'prompt/prompt_types.dart';
+import 'regex/regex_engine.dart';
 import 'store/character_library.dart';
 import 'store/chat_store.dart';
 import 'store/persona_store.dart';
@@ -34,38 +35,19 @@ class TavernInspection {
     required this.worldInfo,
     required this.generationType,
     required this.at,
+    this.preparedUiHits = const [],
   });
   final PromptAssembly prompt;
   final WorldInfoResult worldInfo;
   final String generationType;
   final DateTime at;
+  final List<WorldInfoHit> preparedUiHits;
 
   Map<String, Object?> toJson() => _copy({
     'prompt': prompt.toJson(),
     'generationType': generationType,
     'at': at.toIso8601String(),
-    'worldInfo': {
-      'budget': worldInfo.budget,
-      'overflowed': worldInfo.overflowed,
-      'scanRounds': worldInfo.scanRounds,
-      'activated': [
-        for (final hit in worldInfo.activated)
-          {
-            'bookId': hit.bookId,
-            'uid': hit.uid,
-            'source': hit.source.name,
-            'reason': hit.reason,
-            'content': hit.content,
-            'originalContent': hit.originalContent,
-            'order': hit.order,
-            'phase': hit.phase.name,
-            'round': hit.round,
-            'primaryKey': hit.primaryKey,
-            'secondaryMatches': hit.secondaryMatches,
-            'probabilityRoll': hit.probabilityRoll,
-          },
-      ],
-    },
+    'worldInfo': _worldInfoTrace(worldInfo, preparedUiHits: preparedUiHits),
   });
 }
 
@@ -462,33 +444,66 @@ class TavernEngine implements Tavern {
       final settings = _personaSettings(_effectiveSettings(), selection);
       final variables = <String, Object?>{};
       final beforeGlobals = _jsonString(_globalVariables);
-      final id = _store.transaction(() {
-        final id = _store.createChat(characterId: characterId, title: record.card.name);
-        final context = _MacroEnvironment(
-          data,
-          settings,
-          variables,
-          _globalVariables,
-          const [],
-          _config,
-          _clock(),
-          _random,
-          id,
-          '',
-          'normal',
-        );
-        final text = context.expand(greetings[greeting].trim(), const {}).replaceAll('\r', '');
-        _store.append(
-          id,
-          parentId: null,
-          role: TavernRole.character,
-          speaker: record.card.promptName,
-          text: text,
-          state: {'variables': _copy(variables)},
-        );
-        _store.updateChat(id, variables: _copy(variables));
-        return id;
-      });
+      late final String id;
+      try {
+        id = _store.transaction(() {
+          final id = _store.createChat(characterId: characterId, title: record.card.name);
+          final context = _MacroEnvironment(
+            data,
+            settings,
+            variables,
+            _globalVariables,
+            [],
+            _config,
+            _clock(),
+            _random,
+            id,
+            '',
+            'normal',
+            characterId: characterId,
+          );
+          final regexed = context.regex.apply(
+            greetings[greeting].trim(),
+            placement: RegexPlacement.aiOutput,
+            expand: context.regexExpand,
+          );
+          final text = context.expand(regexed, const {}).replaceAll('\r', '');
+          final state = <String, Object?>{
+            'variables': _copy(variables),
+            'timedWorldInfo': <String, Object?>{},
+            'decoratorState': <String, Object?>{},
+            'greetingIndex': greeting,
+            'stChatId': id,
+            'stChatIdHash': context.chatIdHash,
+          };
+          _store.append(
+            id,
+            parentId: null,
+            role: TavernRole.character,
+            speaker: record.card.promptName,
+            text: text,
+            state: state,
+          );
+          _store.updateChat(
+            id,
+            variables: _copy(variables),
+            metadata: _runtimeMetadata(_store.chat(id).metadata, state),
+          );
+          return id;
+        });
+      } catch (createError, createStackTrace) {
+        // SQL is rolled back, but preparation follows ST/T8 global-variable
+        // semantics: preserve and save effects that happened before the error.
+        try {
+          if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
+        } catch (saveError, saveStackTrace) {
+          Error.throwWithStackTrace(
+            _CreateChatSaveFailure(createError, createStackTrace, saveError, saveStackTrace),
+            saveStackTrace,
+          );
+        }
+        Error.throwWithStackTrace(createError, createStackTrace);
+      }
       _liveVariables[id] = (leaf: _store.chat(id).currentLeafId, values: _runtimeCopy(variables));
       if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
       _notifyLists();
@@ -585,6 +600,9 @@ class TavernEngine implements Tavern {
     return _effectiveSettings(chatId == null ? null : _store.chat(chatId));
   }
 
+  @override
+  Future<Map<String, Object?>> readSettings({String? chatId}) => _operation(() => settings(chatId: chatId));
+
   Map<String, Object?> variables(String chatId) {
     _ensureOpen();
     return _runtimeCopy(_liveVariables[chatId]?.values ?? _store.chat(chatId).variables);
@@ -595,15 +613,16 @@ class TavernEngine implements Tavern {
     return _runtimeCopy(_globalVariables);
   }
 
-  Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) => _operation(() async {
+  @override
+  Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) => _operation(() {
+    final captured = _copy(patch);
     if (chatId == null) {
-      _document['settings'] = _merge(_map(_document['settings']), patch);
-      await _saveDocument();
-    } else {
-      await _withMutation(chatId, () {
-        _store.updateChat(chatId, settings: _merge(_store.chat(chatId).settings, patch));
-      });
+      _document['settings'] = _merge(_map(_document['settings']), captured);
+      return _saveDocument();
     }
+    return _withMutation(chatId, () {
+      _store.updateChat(chatId, settings: _merge(_store.chat(chatId).settings, captured));
+    });
   });
 
   Future<void> setPreset(ChatPreset preset, {String? chatId}) => _operation(() async {
@@ -856,10 +875,97 @@ class TavernEngine implements Tavern {
 
   @override
   Future<void> edit(String chatId, String nodeId, String text) => _operation(
-    () => _withMutation(chatId, () {
-      _store.edit(chatId, nodeId, text);
+    () => _withMutation(chatId, () async {
+      final chat = _store.chat(chatId);
+      final record = await _record(chat.characterId);
+      if (record == null) throw const TavernImportError('角色不存在。');
+      final target = _store.node(chatId, nodeId);
+      final current = _historyTo(chatId, chat.currentLeafId).any((node) => node.message.nodeId == nodeId);
+      var terminal = current ? _store.node(chatId, chat.currentLeafId!) : target;
+      while (!current && terminal.selectedChildId != null) {
+        terminal = _store.node(chatId, terminal.selectedChildId!);
+      }
+      final leaf = terminal.message.nodeId;
+      final state = _stateAt(chatId, leaf);
+      final cached = _liveVariables[chatId];
+      final local = current && cached != null && cached.leaf == leaf
+          ? _runtimeCopy(cached.values)
+          : _map(state['variables']);
+      final metadata = _chatCodec.metadataForNode(_store, chatId, nodeId: leaf);
+      final settings = _personaSettings(
+        _effectiveSettings(chat, metadata),
+        _personas.resolve(personaId: chat.personaId),
+      );
+      final environment = _MacroEnvironment(
+        _effectiveCard(record.card.data, settings),
+        settings,
+        local,
+        _globalVariables,
+        _historyTo(chatId, leaf),
+        _config,
+        _clock(),
+        _random,
+        _macroChatIdentity(chat, state, metadata, state['chatJsonlSourceFile'] as String?, node: terminal),
+        '',
+        'normal',
+        chatIdHash: _finiteNumber(metadata['chat_id_hash']),
+        pickRerollSeed: metadata['pick_reroll_seed'],
+        characterId: chat.characterId,
+      );
+      final globals = _runtimeCopy(_globalVariables);
+      try {
+        final placement = switch (target.message.role) {
+          TavernRole.user => RegexPlacement.userInput,
+          TavernRole.narrator => RegexPlacement.slashCommand,
+          _ => RegexPlacement.aiOutput,
+        };
+        final regexed = environment.regex.apply(
+          text,
+          placement: placement,
+          isEdit: true,
+          characterOverride: target.message.role == TavernRole.narrator ? null : target.message.speaker,
+          expand: environment.regexExpand,
+        );
+        final expanded = environment.expand(regexed, const {});
+        final nextState = <String, Object?>{
+          ...state,
+          'variables': _copy(local),
+          'stChatId': environment.chatId,
+          'stChatIdHash': environment.chatIdHash,
+        };
+        _store.transaction(() {
+          _store.edit(chatId, nodeId, expanded);
+          _writeNodeState(chatId, leaf, nextState);
+          if (current) {
+            _store.updateChat(
+              chatId,
+              variables: _copy(local),
+              metadata: _runtimeMetadata(_store.chat(chatId).metadata, nextState),
+            );
+          }
+        });
+      } catch (_) {
+        _globalVariables
+          ..clear()
+          ..addAll(globals);
+        rethrow;
+      }
+      if (current) _liveVariables[chatId] = (leaf: leaf, values: _runtimeCopy(local));
+      if (_jsonString(globals) != _jsonString(_globalVariables)) await _saveDocument();
     }),
   );
+
+  void _writeNodeState(String chatId, String nodeId, Map<String, Object?> state) {
+    final node = _store.node(chatId, nodeId);
+    _store.updateMessage(
+      chatId,
+      nodeId,
+      extra: {
+        ...node.extra,
+        'dshgo': {..._map(node.extra['dshgo']), 'tavernState': _copy(state)},
+      },
+    );
+  }
 
   @override
   Future<void> deleteFrom(String chatId, String nodeId) => _operation(
@@ -893,15 +999,23 @@ class TavernEngine implements Tavern {
 
   void _restoreVariables(String chatId) {
     final leaf = _store.chat(chatId).currentLeafId;
-    final variables = leaf == null ? <String, Object?>{} : _map(_stateAt(chatId, leaf)['variables']);
-    _store.updateChat(chatId, variables: variables);
+    final state = _stateAt(chatId, leaf);
+    final variables = _map(state['variables']);
+    _store.updateChat(chatId, variables: variables, metadata: _runtimeMetadata(_store.chat(chatId).metadata, state));
   }
 
   Map<String, Object?> _stateAt(String chatId, String? nodeId) {
     if (nodeId == null) return <String, Object?>{};
     final node = _store.node(chatId, nodeId);
     final override = _map(node.extra['dshgo'])['tavernState'];
-    return override is Map<String, Object?> ? _copy(override) : _store.nodeState(chatId, nodeId);
+    final state = override is Map<String, Object?> ? _copy(override) : _store.nodeState(chatId, nodeId);
+    // Older snapshots predate the explicit cache marker. Resolve their own
+    // source header before a selection can replace the chat's current cache.
+    state.putIfAbsent(
+      'stChatIdHash',
+      () => _finiteNumber(_chatCodec.metadataForNode(_store, chatId, nodeId: nodeId)['chat_id_hash']),
+    );
+    return state;
   }
 
   List<StoredNode> _historyTo(String chatId, String? leaf) {
@@ -1005,7 +1119,12 @@ class TavernEngine implements Tavern {
       if (turn.kind == _TurnKind.regenerate) parent = target!.message.parentId;
       if (turn.kind == _TurnKind.continueReply) parent = target!.message.nodeId;
       _setInspection(turn, turn.inspection.copyWith(contextNodeId: parent, clearContextNodeId: parent == null));
-      final state = _stateAt(chatId, parent);
+      // A successful impersonation may update the terminal state of an empty
+      // chat without adding a node. Only a turn starting at that empty current
+      // end may resume it; an empty regenerate prefix has no such snapshot.
+      final state = parent == null && turn.chat.currentLeafId == null && turn.kind != _TurnKind.regenerate
+          ? _emptyChatState(turn.metadata)
+          : _stateAt(chatId, parent);
       if (turn.sourceFile != null) state['chatJsonlSourceFile'] = turn.sourceFile;
       final cached = _liveVariables[chatId];
       final local = turn.kind != _TurnKind.regenerate && cached != null && cached.leaf == parent
@@ -1036,13 +1155,27 @@ class TavernEngine implements Tavern {
         turn.config,
         turn.at,
         _random,
-        chatId,
+        _macroChatIdentity(
+          turn.chat,
+          _stateAt(chatId, turn.nodeId ?? parent),
+          turn.metadata,
+          turn.sourceFile,
+          node: target ?? history.lastOrNull,
+        ),
         turn.input,
         turn.generationType,
-        chatIdHash: turn.metadata['chat_id_hash'] is num ? (turn.metadata['chat_id_hash']! as num).toInt() : null,
+        chatIdHash: _finiteNumber(turn.metadata['chat_id_hash']),
+        pickRerollSeed: turn.metadata['pick_reroll_seed'],
+        characterId: turn.chat.characterId,
       );
+      turn.environment = environment;
       if (turn.kind == _TurnKind.send && turn.input.isNotEmpty) {
-        final text = environment.expand(turn.input, const {});
+        final regexed = environment.regex.apply(
+          turn.input,
+          placement: RegexPlacement.userInput,
+          expand: environment.regexExpand,
+        );
+        final text = environment.expand(regexed, const {});
         final message = _store.transaction(() {
           final message = _store.append(
             chatId,
@@ -1081,6 +1214,12 @@ class TavernEngine implements Tavern {
           }
         }
       }
+      final promptHistory = _preparePromptHistory(
+        history,
+        environment,
+        continuing: turn.kind == _TurnKind.continueReply,
+      );
+      final eligibleHistory = promptHistory.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
       final books = await turn.cancellation.wait(_loadBooks(turn.chat.characterId, data, turn.settings));
       turn.cancellation.check();
       final initialInjections = _configuredInjections(
@@ -1096,13 +1235,11 @@ class TavernEngine implements Tavern {
           if (content.isNotEmpty) scanInjections.add(content);
         }
       }
-      final world = const WorldInfoEngine().evaluate(
+      var world = const WorldInfoEngine().evaluate(
         WorldInfoInput(
           books: books,
           messages: [
-            for (final node in history)
-              if (!node.message.hidden && !_systemMessage(node))
-                WorldInfoMessage(node.message.text, speaker: node.message.speaker),
+            for (final node in eligibleHistory) WorldInfoMessage(node.message.text, speaker: node.message.speaker),
           ],
           // ST script.js passes getMaxPromptTokens(), excluding the response.
           maxContext: environment.maxContext - environment.maxResponse,
@@ -1120,13 +1257,28 @@ class TavernEngine implements Tavern {
           trigger: turn.generationType,
           characterName: _characterFilename(turn.settings, turn.chat.characterId),
           characterTags: _characterTags(turn.settings, turn.chat.characterId),
+          timedWorldInfo: _map(state['timedWorldInfo']),
+          decoratorState: _map(state['decoratorState']),
+          assistantMessageCount: eligibleHistory.where((node) => node.message.role == TavernRole.character).length,
+          greetingIndex: state['greetingIndex'] is int ? state['greetingIndex'] as int : null,
+          userIconName: turn.settings['userIconName'] as String?,
+          contextAtCapacity: false,
+          availablePromptSections: _availableWorldSections(preset, turn.generationType),
+          postProcessContent: (entry, content, depth) => environment.regex.apply(
+            content,
+            placement: RegexPlacement.worldInfo,
+            phase: RegexPhase.prompt,
+            depth: depth,
+            expand: environment.regexExpand,
+          ),
         ),
       );
-      _setInspection(turn, turn.inspection.copyWith(worldInfo: _worldInfoTrace(world)));
+      final preparedUiHits = world.activated.where((hit) => hit.disabledUiPrompt != null).toList();
+      _setInspection(turn, turn.inspection.copyWith(worldInfo: _worldInfoTrace(world, preparedUiHits: preparedUiHits)));
       environment.outlets.addAll({
         for (final entry in world.outlets.entries) entry.key: entry.value.map((hit) => hit.content).join('\n'),
       });
-      final injections = _finishInjections(initialInjections, world);
+      final injections = _finishInjections(initialInjections, world, deepseek: turn.config.deepseek);
       final examples = [for (var index = 0; index < world.activated.length; index++) (index, world.activated[index])];
       examples.sort((a, b) {
         final byOrder = b.$2.order.compareTo(a.$2.order);
@@ -1136,7 +1288,7 @@ class TavernEngine implements Tavern {
         PromptInput(
           preset: preset,
           card: data,
-          history: [for (final node in history) _promptHistory(node)],
+          history: [for (final node in promptHistory) _promptHistory(node)],
           model: turn.config.model,
           userName: environment.userName,
           characterId: turn.chat.characterId,
@@ -1146,11 +1298,23 @@ class TavernEngine implements Tavern {
           personaInPrompt: turn.settings['personaInPrompt'] != false,
           worldBefore: world.before.map(_worldFragment).toList(),
           worldAfter: world.after.map(_worldFragment).toList(),
+          worldSections: {
+            for (final entry in world.sections.entries) entry.key: entry.value.map(_worldFragment).toList(),
+          },
+          disabledUiPrompts: world.disabledUiPrompts,
+          assistantPrefill: [
+            if (turn.config.deepseek)
+              for (final depth in world.depths)
+                for (final hit in depth.entries)
+                  if (_worldPrefill(hit)) _worldFragment(hit),
+          ],
           injections: injections,
           worldExamples: [
             for (final item in examples.reversed)
-              if (item.$2.content.isNotEmpty && (item.$2.entry.position == 5 || item.$2.entry.position == 6))
-                PromptExample(fragment: _worldFragment(item.$2), before: item.$2.entry.position == 5),
+              if (item.$2.content.isNotEmpty &&
+                  item.$2.section == null &&
+                  (item.$2.position == 5 || item.$2.position == 6))
+                PromptExample(fragment: _worldFragment(item.$2), before: item.$2.position == 5),
           ],
           pinExamples: turn.settings['pinExamples'] == true,
           stripExamples: turn.settings['stripExamples'] == true,
@@ -1161,11 +1325,23 @@ class TavernEngine implements Tavern {
           preparedFields: prepared,
         ),
       );
+      final excludedWorldEntries = <(String, String)>{
+        for (final exclusion in assembly.excluded)
+          if (exclusion.reason == 'v3-ignore-on-max-context')
+            for (final source in exclusion.sources)
+              if (source.kind == 'worldInfo' && source.details['bookId'] is String && source.details['uid'] is String)
+                (source.details['bookId']! as String, source.details['uid']! as String),
+      };
+      world = world.withoutEntries(excludedWorldEntries);
+      state['timedWorldInfo'] = _copy(world.timedWorldInfo);
+      state['decoratorState'] = _copy(world.decoratorState);
+      _setInspection(turn, turn.inspection.copyWith(worldInfo: _worldInfoTrace(world, preparedUiHits: preparedUiHits)));
       _inspections[chatId] = TavernInspection(
         prompt: assembly,
         worldInfo: world,
         generationType: turn.generationType,
         at: turn.at,
+        preparedUiHits: preparedUiHits,
       );
       _captureAssembly(turn, assembly);
       turn.cancellation.check();
@@ -1221,6 +1397,7 @@ class TavernEngine implements Tavern {
       turn.emit(TavernTurnStarted(reply));
       await _consume(turn, _copy(assembly.body));
       turn.cancellation.check();
+      _finishRegex(turn);
       _flush(turn);
       if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
       turn.cancellation.check();
@@ -1248,6 +1425,13 @@ class TavernEngine implements Tavern {
         detail: detail,
       );
       try {
+        try {
+          _finishRegex(turn);
+        } catch (writeError) {
+          failure = TavernFailure.server;
+          detail = 'writeback_failed (${writeError.runtimeType})';
+          inspection = inspection.copyWith(failure: failure, detail: detail);
+        }
         _flush(turn);
         if (turn.hasOutput) {
           partial = _latest(turn);
@@ -1370,7 +1554,7 @@ class TavernEngine implements Tavern {
                     turn.text!.write(addition);
                     turn.emit(TavernTextDelta(turn.reply!.nodeId, addition));
                   case ModelReasoning(:final text):
-                    if (text.isEmpty) return;
+                    if (text.isEmpty || (turn.config.deepseek && !turn.config.thinking)) return;
                     turn.reasoning!.write(text);
                     turn.emit(TavernReasoningDelta(turn.reply!.nodeId, text));
                   case ModelUsage(:final usage):
@@ -1403,21 +1587,97 @@ class TavernEngine implements Tavern {
     }
   }
 
+  void _finishRegex(_Turn turn) {
+    final environment = turn.environment;
+    if (turn.writeBackAttempted || !turn.hasOutput || turn.reply == null || environment == null) return;
+    // A finish, stop, failed transport and late onDone may converge here. Mark
+    // before evaluating user scripts, including scripts that later throw.
+    turn.writeBackAttempted = true;
+    final local = _runtimeCopy(environment.local);
+    final global = _runtimeCopy(environment.global);
+    final history = List<StoredNode>.of(environment.history);
+    final hash = environment.chatIdHash;
+    final raw = _buffered(turn);
+    try {
+      final index = environment.history.indexWhere((node) => node.message.nodeId == raw.nodeId);
+      final node = StoredNode(
+        message: raw,
+        depth: index < 0 ? history.length : index,
+        extra: const {},
+        original: const {},
+      );
+      if (index < 0) {
+        environment.history.add(node);
+      } else {
+        environment.history[index] = node;
+      }
+      final text = environment.regex.apply(
+        raw.text,
+        placement: turn.kind == _TurnKind.impersonate ? RegexPlacement.userInput : RegexPlacement.aiOutput,
+        expand: environment.regexExpand,
+      );
+      final reasoning = environment.regex.apply(
+        raw.reasoning ?? '',
+        placement: RegexPlacement.reasoning,
+        expand: environment.regexExpand,
+      );
+      turn.text = StringBuffer(text);
+      turn.reasoning = StringBuffer(reasoning);
+      turn.dirty = true;
+    } catch (_) {
+      environment.local
+        ..clear()
+        ..addAll(local);
+      environment.global
+        ..clear()
+        ..addAll(global);
+      environment.history
+        ..clear()
+        ..addAll(history);
+      environment.chatIdHash = hash;
+      // Buffers are still the complete raw response. The preparation-stage
+      // effects present in the saved snapshots above are intentionally kept.
+      rethrow;
+    }
+  }
+
   void _flush(_Turn turn) {
     if (!turn.dirty || turn.reply == null) return;
     final message = _buffered(turn);
     if (turn.kind != _TurnKind.impersonate) {
-      final extra = _store.node(turn.chat.id, message.nodeId).extra;
-      turn.lastCommitted = _store.updateMessage(
-        turn.chat.id,
-        message.nodeId,
-        text: message.text,
-        reasoning: message.reasoning,
-        usage: message.usage,
-        extra: _inspectionExtra(extra, turn.inspection),
-      );
+      turn.lastCommitted = _store.transaction(() {
+        final extra = _inspectionExtra(_store.node(turn.chat.id, message.nodeId).extra, turn.inspection);
+        final state = turn.currentState;
+        extra['dshgo'] = {..._map(extra['dshgo']), 'tavernState': state};
+        final stored = _store.updateMessage(
+          turn.chat.id,
+          message.nodeId,
+          text: message.text,
+          reasoning: message.reasoning,
+          usage: message.usage,
+          extra: extra,
+        );
+        _store.updateChat(
+          turn.chat.id,
+          variables: _copy(turn.variables),
+          metadata: _runtimeMetadata(_store.chat(turn.chat.id).metadata, state),
+        );
+        return stored;
+      });
+      _liveVariables[turn.chat.id] = (leaf: message.nodeId, values: _runtimeCopy(turn.variables));
     } else {
-      _writeLatestInspection(turn.chat.id, turn.inspection);
+      _store.transaction(() {
+        final state = turn.currentState;
+        final leaf = turn.chat.currentLeafId;
+        if (leaf != null) _writeNodeState(turn.chat.id, leaf, state);
+        _store.updateChat(
+          turn.chat.id,
+          variables: _copy(turn.variables),
+          metadata: _runtimeMetadata(_store.chat(turn.chat.id).metadata, state),
+        );
+        _writeLatestInspection(turn.chat.id, turn.inspection);
+      });
+      _liveVariables[turn.chat.id] = (leaf: turn.chat.currentLeafId, values: _runtimeCopy(turn.variables));
       turn.lastCommitted = message;
     }
     turn.dirty = false;
@@ -1565,6 +1825,18 @@ class TavernEngine implements Tavern {
   }
 }
 
+class _CreateChatSaveFailure implements Exception {
+  const _CreateChatSaveFailure(this.createError, this.createStackTrace, this.saveError, this.saveStackTrace);
+  final Object createError;
+  final StackTrace createStackTrace;
+  final Object saveError;
+  final StackTrace saveStackTrace;
+  @override
+  String toString() =>
+      'createChat failed: $createError\n'
+      'Saving global variables also failed: $saveError';
+}
+
 enum _TurnKind { send, regenerate, continueReply, impersonate }
 
 class _Turn {
@@ -1625,7 +1897,14 @@ class _Turn {
   Map<String, Object?> state = {};
   Map<String, Object?> originalVariables = {};
   final previousSelections = <(String, String?)>[];
-  Map<String, Object?> get currentState => {..._copy(state), 'variables': _copy(variables)};
+  _MacroEnvironment? environment;
+  bool writeBackAttempted = false;
+  Map<String, Object?> get currentState => {
+    ..._copy(state),
+    'variables': _copy(variables),
+    if (environment != null) 'stChatId': environment!.chatId,
+    if (environment != null) 'stChatIdHash': environment!.chatIdHash,
+  };
   String get generationType => switch (kind) {
     _TurnKind.send => 'normal',
     _TurnKind.regenerate => 'regenerate',
@@ -1659,6 +1938,8 @@ class _MacroEnvironment {
     this.input,
     this.generationType, {
     this.chatIdHash,
+    this.pickRerollSeed,
+    this.characterId = '',
   }) {
     final raw = _map(settings['preset']);
     preset = raw.isEmpty ? ChatPreset.stDefault() : ChatPreset(raw);
@@ -1672,15 +1953,31 @@ class _MacroEnvironment {
   final DateTime now;
   final double Function() random;
   final String chatId;
-  final int? chatIdHash;
+  num? chatIdHash;
+  final Object? pickRerollSeed;
+  final String characterId;
   final String input;
   final String generationType;
   final outlets = <String, String>{};
   late Map<String, Object?> _presetSettings;
+  late final RegexEngine regex = RegexEngine(
+    globalScripts: RegexEngine.readScripts(settings['globalRegexScripts'] ?? settings['regex']),
+    presetScripts: settings['presetRegexEnabled'] == false
+        ? const []
+        : RegexEngine.readScripts(_map(_presetSettings['extensions'])['regex_scripts']),
+    characterScripts:
+        settings['characterRegexEnabled'] == false || _strings(settings['disabledCharacterRegex']).contains(characterId)
+        ? const []
+        : RegexEngine.readScripts(_map(card['extensions'])['regex_scripts']),
+    enabled: settings['regexEnabled'] != false,
+  );
   set preset(ChatPreset value) {
     _presetSettings = value.settings;
   }
 
+  bool get legacy =>
+      settings['macroEngine'] == 'legacy' ||
+      (settings['macroEngine'] == null && settings['experimental_macro_engine'] == false);
   String get userName => settings['userName'] is String ? settings['userName'] as String : 'User';
   String get persona => _string(settings['persona']);
   int get maxContext => _integer(_presetSettings['openai_max_context'], 4095);
@@ -1688,12 +1985,21 @@ class _MacroEnvironment {
 
   String expand(String text, Map<String, String> overrides) => _expand(text, overrides, true);
   String baseExpand(String text, Map<String, String> overrides) => _expand(text, overrides, false);
-  String _expand(String text, Map<String, String> overrides, bool replaceCard) => const MacroEngine().expand(
-    text,
-    MacroContext(
+  String regexExpand(String text, {String? characterOverride, Object? Function(Object?)? postProcess}) =>
+      _expand(text, const {}, true, characterOverride: characterOverride, postProcess: postProcess);
+
+  String _expand(
+    String text,
+    Map<String, String> overrides,
+    bool replaceCard, {
+    String? characterOverride,
+    Object? Function(Object?)? postProcess,
+  }) {
+    final context = MacroContext(
       localVariables: local,
       globalVariables: global,
       card: card,
+      charName: characterOverride,
       replaceCharacterCard: replaceCard,
       userName: userName,
       persona: persona,
@@ -1719,6 +2025,10 @@ class _MacroEnvironment {
       random: random,
       chatId: chatId,
       chatIdHash: chatIdHash,
+      onChatIdHash: (value) {
+        if (chatIdHash == null || (legacy && chatIdHash == 0)) chatIdHash = value;
+      },
+      pickRerollSeed: pickRerollSeed,
       outlets: outlets,
       extensions: _strings(settings['extensions']).toSet(),
       preferCharacterPrompt: _presetSettings['prefer_character_prompt'] != false,
@@ -1727,9 +2037,11 @@ class _MacroEnvironment {
       systemPromptOverride: settings['systemPromptOverride'] as String?,
       scenarioOverride: settings['scenarioOverride'] as String?,
       mesExamplesOverride: settings['mesExamplesOverride'] as String?,
-    ),
-    overrides: overrides,
-  );
+    );
+    return legacy
+        ? const LegacyMacroEngine().expand(text, context, overrides: overrides, postProcess: postProcess)
+        : const MacroEngine().expand(text, context, overrides: overrides, postProcess: postProcess);
+  }
 }
 
 class _ConfiguredInjection {
@@ -1800,7 +2112,11 @@ PromptInjection _injection(Map<String, Object?> value, String id, {String kind =
   },
 );
 
-List<PromptInjection> _finishInjections(List<_ConfiguredInjection> initial, WorldInfoResult world) {
+List<PromptInjection> _finishInjections(
+  List<_ConfiguredInjection> initial,
+  WorldInfoResult world, {
+  bool deepseek = false,
+}) {
   final result = <PromptInjection>[];
   for (final item in initial) {
     final injection = item.injection;
@@ -1830,30 +2146,52 @@ List<PromptInjection> _finishInjections(List<_ConfiguredInjection> initial, Worl
         role: injection.role,
         depth: injection.depth,
         order: injection.order,
+        fragments: [...world.authorNoteBefore, ...world.authorNoteAfter].any(_decoratedWorldHit)
+            ? [
+                ...world.authorNoteBefore.map(_worldFragment),
+                injection.fragment,
+                ...world.authorNoteAfter.map(_worldFragment),
+              ]
+            : const [],
       ),
     );
   }
   for (final depth in world.depths) {
+    // Only explicit V3 prefill entries move to the tail. Native entries in
+    // the same depth/role group keep ST's original depth-injection ordering.
+    final entries = deepseek ? depth.entries.where((hit) => !_worldPrefill(hit)).toList() : depth.entries;
+    if (entries.isEmpty) continue;
     result.add(
       PromptInjection(
         fragment: PromptFragment(
-          depth.content,
+          entries.map((hit) => hit.content).join('\n'),
           PromptSource(
             'worldInfo',
             'customDepthWI_${depth.depth}_${depth.role}',
-            details: {'entries': depth.entries.map((hit) => _worldSource(hit).toJson()).toList()},
+            details: {'entries': entries.map((hit) => _worldSource(hit).toJson()).toList()},
           ),
         ),
         depth: depth.depth,
         role: _role(depth.role),
+        v3Depth: entries.any((hit) => hit.depthOverride != null),
+        fragments: entries.any(_decoratedWorldHit) ? entries.map(_worldFragment).toList() : const [],
       ),
     );
   }
   return result;
 }
 
-PromptFragment _worldFragment(WorldInfoHit hit) => PromptFragment(hit.content, _worldSource(hit));
-Map<String, Object?> _worldInfoTrace(WorldInfoResult world) => _copy({
+bool _worldPrefill(WorldInfoHit hit) => hit.assistantPrefill;
+
+bool _decoratedWorldHit(WorldInfoHit hit) => hit.roleOverride != null || hit.ignoreOnMaxContext;
+
+PromptFragment _worldFragment(WorldInfoHit hit) => PromptFragment(
+  hit.content,
+  _worldSource(hit),
+  role: hit.roleOverride == null ? null : _role(hit.roleOverride),
+  trimOnOverflow: hit.ignoreOnMaxContext,
+);
+Map<String, Object?> _worldInfoTrace(WorldInfoResult world, {List<WorldInfoHit> preparedUiHits = const []}) => _copy({
   'budget': world.budget,
   'overflowed': world.overflowed,
   'scanRounds': world.scanRounds,
@@ -1867,15 +2205,34 @@ Map<String, Object?> _worldInfoTrace(WorldInfoResult world) => _copy({
         'content': hit.content,
         'originalContent': hit.originalContent,
         'order': hit.order,
-        'position': hit.entry.position,
-        'depth': hit.entry.depth,
-        'role': hit.entry.role,
+        'position': hit.position,
+        'depth': hit.depth,
+        'role': hit.role,
+        'section': hit.section,
         'outlet': hit.entry.outlet,
         'phase': hit.phase.name,
         'round': hit.round,
         'primaryKey': hit.primaryKey,
         'secondaryMatches': hit.secondaryMatches,
         'probabilityRoll': hit.probabilityRoll,
+        'ignoreOnMaxContext': hit.ignoreOnMaxContext,
+        'disabledUiPrompt': hit.disabledUiPrompt,
+        'unappliedDecorators': [
+          if (hit.position == 7 && hit.section == null) ...[
+            if (hit.roleOverride != null) 'role',
+            if (hit.ignoreOnMaxContext) 'ignore_on_max_context',
+          ],
+        ],
+      },
+  ],
+  'preparedEffects': [
+    for (final hit in preparedUiHits)
+      {
+        'kind': 'disable_ui_prompt',
+        'prompt': hit.disabledUiPrompt,
+        'stage': 'before-assembly',
+        'source': _worldSource(hit).toJson(),
+        'contentRetained': world.activated.any((retained) => retained.entry.identity == hit.entry.identity),
       },
   ],
 });
@@ -1895,6 +2252,149 @@ PromptSource _worldSource(WorldInfoHit hit) => PromptSource(
 );
 
 bool _systemMessage(StoredNode node) => node.message.role == TavernRole.system || node.original['is_system'] == true;
+
+// ST script.js prepares body regex oldest-first, then reasoning newest-first.
+// The latter visits the latest eligible message even when add_to_prompts=false;
+// a continuation's existing reasoning prefix remains available in that case.
+List<StoredNode> _preparePromptHistory(
+  List<StoredNode> history,
+  _MacroEnvironment environment, {
+  required bool continuing,
+}) {
+  final visible = history.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
+  final transformed = <StoredNode>[];
+  for (var index = 0; index < visible.length; index++) {
+    final node = visible[index];
+    final depth = visible.length - index - (continuing ? 2 : 1);
+    final text = environment.regex.apply(
+      node.message.text,
+      placement: node.message.role == TavernRole.user ? RegexPlacement.userInput : RegexPlacement.aiOutput,
+      phase: RegexPhase.prompt,
+      depth: depth,
+      expand: environment.regexExpand,
+    );
+    transformed.add(_nodeWithText(node, text));
+  }
+  final options = _map(environment.settings['reasoning']);
+  final add = options['add_to_prompts'] == true;
+  final maximum = _finiteNumber(options['max_additions']) ?? 1;
+  var additions = 0;
+  for (var index = transformed.length - 1; index >= 0; index--) {
+    final node = transformed[index];
+    final depth = transformed.length - index - (continuing ? 2 : 1);
+    final reasoning = environment.regex.apply(
+      node.message.reasoning ?? '',
+      placement: RegexPlacement.reasoning,
+      phase: RegexPhase.prompt,
+      depth: depth,
+      expand: environment.regexExpand,
+    );
+    final prefixMessage = continuing && index == transformed.length - 1;
+    if ((prefixMessage || (add && additions < maximum)) && reasoning.isNotEmpty && reasoning != '\u200B') {
+      additions++;
+      final prefix = environment.expand(_string(options['prefix'] ?? '<think>'), const {});
+      final separator = environment.expand(_string(options['separator'] ?? '\n'), const {});
+      final suffix = environment.expand(_string(options['suffix'] ?? '</think>'), const {});
+      final text = prefixMessage && node.message.text.isEmpty
+          ? '$prefix$reasoning'
+          : '$prefix$reasoning$suffix$separator${node.message.text}';
+      transformed[index] = _nodeWithText(node, text);
+    }
+    if (!add || additions >= maximum) break;
+  }
+  final byId = {for (final node in transformed) node.message.nodeId: node};
+  return [for (final node in history) byId[node.message.nodeId] ?? node];
+}
+
+Set<String> _availableWorldSections(ChatPreset preset, String generationType) {
+  final settings = preset.settings;
+  final definitions = (settings['prompts']! as List<Object?>).whereType<Map<String, Object?>>();
+  final groups = (settings['prompt_order']! as List<Object?>).whereType<Map<String, Object?>>();
+  final order = groups.firstWhere((group) => '${group['character_id']}' == '100001')['order']! as List<Object?>;
+  final enabled = <String>{};
+  for (final entry in order.whereType<Map<String, Object?>>()) {
+    if (entry['enabled'] != true) continue;
+    final definition = definitions.where((item) => item['identifier'] == entry['identifier']).firstOrNull;
+    if (definition == null) continue;
+    final triggers = definition['injection_trigger'];
+    if (triggers is List<Object?> && triggers.isNotEmpty && !triggers.contains(generationType)) continue;
+    if (entry['identifier'] == 'charPersonality') enabled.add('personality');
+    if (entry['identifier'] == 'scenario') enabled.add('scenario');
+  }
+  return enabled;
+}
+
+num? _finiteNumber(Object? value) => value is num && value.isFinite ? value : null;
+
+Map<String, Object?> _emptyChatState(Map<String, Object?> metadata) => {
+  'variables': _map(metadata['variables']),
+  for (final key in const ['timedWorldInfo', 'decoratorState', 'greetingIndex'])
+    if (metadata.containsKey(key)) key: _runtimeValue(metadata[key]),
+  'stChatIdHash': _finiteNumber(metadata['chat_id_hash']),
+};
+
+Map<String, Object?> _runtimeMetadata(Map<String, Object?> metadata, Map<String, Object?> state) {
+  final result = _copy(metadata);
+  for (final key in const ['timedWorldInfo', 'decoratorState', 'greetingIndex']) {
+    if (state.containsKey(key)) {
+      result[key] = _runtimeValue(state[key]);
+    } else {
+      result.remove(key);
+    }
+  }
+  if (state.containsKey('stChatIdHash')) {
+    final hash = _finiteNumber(state['stChatIdHash']);
+    if (hash == null) {
+      result.remove('chat_id_hash');
+    } else {
+      result['chat_id_hash'] = hash;
+    }
+  }
+  return result;
+}
+
+String _macroChatIdentity(
+  StoredChat chat,
+  Map<String, Object?> state,
+  Map<String, Object?> metadata,
+  String? sourceFile, {
+  StoredNode? node,
+}) {
+  if (state['stChatId'] case final String value) return value;
+  final own = _map(_map(chat.metadata['dshgo'])['chatJsonl']);
+  final files = own['files'] is List<Object?>
+      ? (own['files']! as List<Object?>).whereType<Map<String, Object?>>()
+      : const Iterable<Map<String, Object?>>.empty();
+  final nodeOwn = _map(_map(node?.extra['dshgo'])['chatJsonl']);
+  final originalName = nodeOwn['sourceFileName'];
+  Map<String, Object?>? file = files.where((item) => item['key'] == sourceFile).firstOrNull;
+  file ??= files.where((item) => originalName is String && item['fileName'] == originalName).firstOrNull;
+  if (file == null && node != null) {
+    file = files
+        .where(
+          (item) => item['path'] is List<Object?> && (item['path']! as List<Object?>).contains(node.message.nodeId),
+        )
+        .firstOrNull;
+  }
+  if (file != null) {
+    final header = _map(file['header']);
+    final originalMetadata = _map(header['chat_metadata']);
+    if (originalMetadata['main_chat'] case final String identity) return identity;
+    final label = _map(_map(originalMetadata['dshgo'])['chatJsonl'])['sourceFileName'] ?? file['fileName'];
+    if (label is String) return _chatLabel(label);
+  }
+  if (metadata['main_chat'] case final String identity) return identity;
+  final oldMetadata = _map(_map(nodeOwn['sourceHeader'])['chat_metadata']);
+  if (oldMetadata['main_chat'] case final String identity) return identity;
+  if (originalName is String) return _chatLabel(originalName);
+  return sourceFile == null ? chat.id : _chatLabel(sourceFile);
+}
+
+String _chatLabel(String fileName) {
+  final label = fileName.replaceAll('\\', '/').split('/').last;
+  return label.toLowerCase().endsWith('.jsonl') ? label.substring(0, label.length - 6) : label;
+}
+
 StoredNode _nodeWithText(StoredNode node, String text) {
   final value = node.message;
   return StoredNode(

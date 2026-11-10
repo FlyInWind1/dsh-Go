@@ -119,9 +119,11 @@ void main() {
     final roots = store.children(chat, null);
     expect(roots[1].message.reasoning, isNull);
     expect(roots[1].message.at, _time);
+    // T11 assigns identity to every imported variant, including one whose
+    // ordinary swipe_info was absent. No hash has been computed for this file.
     expect(roots[1].extra, {
       'dshgo': {
-        'tavernState': {'chatJsonlSourceFile': 'missing'},
+        'tavernState': {'stChatId': 'missing', 'stChatIdHash': null, 'chatJsonlSourceFile': 'missing'},
       },
     });
     expect(roots[1].original['gen_started'], 'GS');
@@ -226,25 +228,31 @@ void main() {
   });
 
   test('reversed multilevel main_chat merges semantic prefixes and keeps internal stops', () {
-    final main = _document('main.jsonl', [
-      _row('U', user: true),
-      {
-        ..._row('A'),
-        'extra': {
-          'branches': ['branch'],
+    // All three files explicitly share their pick cache. Without it, the
+    // child's main_chat=branch is a distinct fallback identity from main.
+    final main = _document(
+      'main.jsonl',
+      [
+        _row('U', user: true),
+        {
+          ..._row('A'),
+          'extra': {
+            'branches': ['branch'],
+          },
         },
-      },
-      _row('B'),
-    ]);
+        _row('B'),
+      ],
+      metadata: {'chat_id_hash': 42},
+    );
     final branch = _document(
       'branch.jsonl',
       [_row('U', user: true), _row('A'), _row('C')],
-      metadata: {'main_chat': 'main'},
+      metadata: {'main_chat': 'main', 'chat_id_hash': 42},
     );
     final child = _document(
       'child.jsonl',
       [_row('U', user: true), _row('A'), _row('C'), _row('D')],
-      metadata: {'main_chat': 'branch'},
+      metadata: {'main_chat': 'branch', 'chat_id_hash': 42},
     );
     final chat = load([child, main, branch]);
     expect(store.allNodes(chat), hasLength(5));
@@ -1286,7 +1294,9 @@ Map<String, Object?> _map(Object? value) =>
 Map<String, Object?> _state(ChatStore store, String chat, StoredNode node) {
   final direct = _map(node.extra['dshgo'])['tavernState'];
   return (direct is Map<String, Object?> ? _map(direct) : store.nodeState(chat, node.message.nodeId))
-    ..remove('chatJsonlSourceFile');
+    ..remove('chatJsonlSourceFile')
+    ..remove('stChatId')
+    ..remove('stChatIdHash');
 }
 
 Map<String, Object?> _tree(ChatStore store, String chat) {

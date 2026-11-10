@@ -165,6 +165,13 @@ class DeferredTavern implements Tavern {
     _open?.configure(config);
   }
 
+  @override
+  Future<Map<String, Object?>> readSettings({String? chatId}) async => (await _ready).readSettings(chatId: chatId);
+
+  @override
+  Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) async =>
+      (await _ready).setSettings(patch, chatId: chatId);
+
   /// Nothing to close when it never opened.
   @override
   Future<void> close() async {

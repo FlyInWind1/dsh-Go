@@ -305,6 +305,7 @@ void main() {
   });
 
   test('reasoning-only and usage-only failures retain their own evidence', () async {
+    engine.configure(TavernModelConfig(apiKey: () async => 'fixture-only', model: 'fixture', thinking: true));
     for (final deltas in <List<ModelDelta>>[
       [const ModelReasoning('只有思考')],
       [const ModelUsage(TavernUsage())],

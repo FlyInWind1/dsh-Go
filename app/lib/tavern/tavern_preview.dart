@@ -429,9 +429,43 @@ class PreviewTavern implements Tavern, TavernPreview {
   /// 思考 is on: replies think a little first.
   var _thinking = false;
 
+  /// Settings as the engine keeps them: the global ones, and each chat's over
+  /// them. Objects merge; lists and values replace; null is a value too.
+  final _globalSettings = <String, Object?>{};
+  final _chatSettings = <String, Map<String, Object?>>{};
+
+  @override
+  Future<Map<String, Object?>> readSettings({String? chatId}) async {
+    final settings = <String, Object?>{};
+    _mergeSettings(settings, _globalSettings);
+    if (_chatSettings[chatId] case final chat?) _mergeSettings(settings, chat);
+    return settings;
+  }
+
+  @override
+  Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) async =>
+      _mergeSettings(chatId == null ? _globalSettings : _chatSettings.putIfAbsent(chatId, () => {}), patch);
+
   @override
   Future<void> close() async => _listChanged.close();
 }
+
+/// [patch] into [into], copied: a reader never holds what is stored.
+void _mergeSettings(Map<String, Object?> into, Map<String, Object?> patch) {
+  for (final MapEntry(:key, :value) in patch.entries) {
+    if (into[key] case final Map<String, Object?> old when value is Map<String, Object?>) {
+      _mergeSettings(old, value);
+    } else {
+      into[key] = _copySetting(value);
+    }
+  }
+}
+
+Object? _copySetting(Object? value) => switch (value) {
+  final Map<String, Object?> map => {for (final MapEntry(:key, :value) in map.entries) key: _copySetting(value)},
+  final List<Object?> list => [for (final item in list) _copySetting(item)],
+  _ => value,
+};
 
 class _Card {
   const _Card({

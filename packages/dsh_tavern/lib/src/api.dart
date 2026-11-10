@@ -385,6 +385,15 @@ abstract interface class Tavern {
   /// Where model calls go from now on.
   void configure(TavernModelConfig config);
 
+  /// A detached effective settings snapshot: global, imported source, then
+  /// explicit chat settings. Reading does not evaluate macros or world info.
+  Future<Map<String, Object?>> readSettings({String? chatId});
+
+  /// Recursively merges objects; arrays/scalars replace their previous values.
+  /// Null is a stored value, not a deletion. Chat changes cancel and await its
+  /// active turn. Global changes apply to turns admitted after this call.
+  Future<void> setSettings(Map<String, Object?> patch, {String? chatId});
+
   Future<void> close();
 }
 

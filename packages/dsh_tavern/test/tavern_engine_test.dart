@@ -76,6 +76,7 @@ void main() {
   });
 
   test('import, greeting, macros, card WI, streaming reasoning and usage, then reopen', () async {
+    engine.configure(_config(thinking: true));
     await engine.setSettings({
       'userName': '访客',
       'worldInfo': {'world_info_budget': 50},
@@ -124,7 +125,7 @@ void main() {
     final inspection = engine.inspect(chatId)!;
     expect(inspection.worldInfo.activated.single.uid, '7');
     expect(inspection.toJson()['generationType'], 'normal');
-    expect(inspection.prompt.body['thinking'], {'type': 'disabled'});
+    expect(inspection.prompt.body['thinking'], {'type': 'enabled'});
     expect((await engine.character(cardId))!.chatCount, 1);
     expect((await engine.watchChats().first).single.messageCount, 3);
     final exported = const CardCodec().decode(await engine.exportCard(cardId, format: TavernCardFormat.json));
@@ -260,6 +261,7 @@ void main() {
   });
 
   test('partial transport failure preserves text, reasoning, usage and user input', () async {
+    engine.configure(_config(thinking: true));
     final (_, chatId) = await chat();
     final pending = transport.pending();
     final collected = engine.send(chatId, '问').toList();
@@ -770,20 +772,43 @@ void main() {
   });
 
   test('imported metadata supplies the pick seed and nonempty force_avatar URLs preserve speaker names', () async {
-    final (_, chatId) = await chat();
-    await engine.close();
-    final store = ChatStore.open('${directory.path}/tavern/tavern.sqlite3');
-    store.updateChat(chatId, metadata: {'chat_id_hash': 123456789});
-    store.append(
-      chatId,
-      parentId: store.chat(chatId).currentLeafId,
-      role: TavernRole.character,
-      speaker: '副角',
-      text: '历史正文',
-      original: {'force_avatar': 'https://example.invalid/avatar.png'},
+    final card = await engine.importCard(_card());
+    final document = StChatDocument(
+      fileName: 'seeded.jsonl',
+      header: {
+        'user_name': 'User',
+        'character_name': '小鲸',
+        'chat_metadata': {'chat_id_hash': 123456789},
+      },
+      messages: [
+        {
+          'name': '小鲸',
+          'is_user': false,
+          'is_system': false,
+          'send_date': now.toIso8601String(),
+          'mes': '开场',
+          'extra': <String, Object?>{},
+        },
+        {
+          'name': '副角',
+          'is_user': false,
+          'is_system': false,
+          'send_date': now.toIso8601String(),
+          'mes': '历史正文',
+          'force_avatar': 'https://example.invalid/avatar.png',
+          'extra': <String, Object?>{},
+        },
+      ],
     );
-    await store.close();
+    final imported = await engine.importChats(card.id, [
+      TavernChatFile(fileName: document.fileName, bytes: document.encode()),
+    ]);
+    final chatId = imported.chatIds.single;
+    await engine.close();
     engine = await open();
+    final sourceFile = (await engine.exportChat(chatId)).single;
+    final source = StChatDocument.decode(sourceFile.fileName, sourceFile.bytes);
+    expect((source.header['chat_metadata']! as Map<String, Object?>)['chat_id_hash'], 123456789);
     const input = '{{pick::a::b::c::d::e::f}}|{{pick::one::two::three::four}}';
     final expected = const MacroEngine().expand(
       input,
@@ -845,6 +870,7 @@ void main() {
   });
 
   test('reasoning-only failure still retains a partial message', () async {
+    engine.configure(_config(thinking: true));
     final (_, chatId) = await chat();
     final pending = transport.pending();
     final running = engine.send(chatId, '问').toList();
@@ -884,8 +910,18 @@ void main() {
   });
 }
 
-TavernModelConfig _config({String? key = 'fake-test-key', bool deepseek = true, String model = 'fake-model'}) =>
-    TavernModelConfig(apiKey: () async => key, baseUrl: 'https://example.invalid/v1', deepseek: deepseek, model: model);
+TavernModelConfig _config({
+  String? key = 'fake-test-key',
+  bool deepseek = true,
+  String model = 'fake-model',
+  bool thinking = false,
+}) => TavernModelConfig(
+  apiKey: () async => key,
+  baseUrl: 'https://example.invalid/v1',
+  deepseek: deepseek,
+  model: model,
+  thinking: thinking,
+);
 ChatPreset _preset([Map<String, Object?> changes = const {}]) =>
     ChatPreset({...ChatPreset.stDefault().raw, 'openai_max_context': 10000, 'openai_max_tokens': 100, ...changes});
 Uint8List _card([Map<String, Object?> changes = const {}]) => Uint8List.fromList(
