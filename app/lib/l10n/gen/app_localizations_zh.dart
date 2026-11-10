@@ -18369,6 +18369,21 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernPresetEdit => '编辑预设';
+
+  @override
+  String get tavernPresetParams => '参数';
+
+  @override
+  String get tavernPresetPrompts => '提示词（按发送顺序）';
+
+  @override
+  String get tavernPresetMarker => '占位';
+
+  @override
+  String get tavernPresetPromptsEmpty => '这个预设没写提示词顺序，发送时用 SillyTavern 的默认顺序。';
+
+  @override
   String get tavernReport => '导入体检';
 
   @override

@@ -23,6 +23,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_chat_files.dart';
+import 'tavern_preset_page.dart';
 import 'tavern_widgets.dart';
 
 /// The library's presets, newest first.
@@ -224,6 +225,11 @@ class TavernPresetsPage extends ConsumerWidget {
                         (AppIcons.remove, l10n.tavernPresetUnsetDefault, () => unawaited(_setDefault(ref, null)))
                       else
                         (AppIcons.selected, l10n.tavernPresetSetDefault, () => unawaited(_setDefault(ref, preset.id))),
+                      (
+                        AppIcons.edit,
+                        l10n.tavernPresetEdit,
+                        () => unawaited(Navigator.of(context).push(TavernPresetPage.route(preset.id))),
+                      ),
                       (AppIcons.share, l10n.tavernPresetExport, () => unawaited(_export(context, ref, preset))),
                       (AppIcons.delete, l10n.tavernPresetDelete, () => unawaited(_delete(context, ref, preset))),
                     ]),

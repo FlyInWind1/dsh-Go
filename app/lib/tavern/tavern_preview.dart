@@ -541,14 +541,77 @@ class PreviewTavern implements Tavern, TavernPreview {
 
   @override
   Future<TavernPresetImportResult> updatePresetPrompt(String presetId, String identifier, Map<String, Object?> patch) =>
-      throw _noLibrary();
+      _editPreset(presetId, (raw) {
+        final prompts = [
+          for (final p in (raw['prompts'] as List?) ?? const []) Map<String, Object?>.of(p as Map<String, Object?>),
+        ];
+        final i = prompts.indexWhere((p) => p['identifier'] == identifier);
+        if (i >= 0) prompts[i] = {...prompts[i], ...patch};
+        raw['prompts'] = prompts;
+      });
 
   @override
-  Future<TavernPresetImportResult> setPresetOrder(String presetId, List<String> identifiers) => throw _noLibrary();
+  Future<TavernPresetImportResult> setPresetOrder(String presetId, List<String> identifiers) =>
+      _editPreset(presetId, (raw) {
+        final order = _orderOf(raw);
+        order['order'] = [
+          for (final id in identifiers)
+            {
+              'identifier': id,
+              'enabled':
+                  [
+                    for (final e in (order['order'] as List?) ?? const [])
+                      if ((e as Map)['identifier'] == id) e['enabled'],
+                  ].firstOrNull ??
+                  true,
+            },
+        ];
+      });
 
   @override
   Future<TavernPresetImportResult> setPresetPromptEnabled(String presetId, String identifier, bool enabled) =>
-      throw _noLibrary();
+      _editPreset(presetId, (raw) {
+        final order = _orderOf(raw);
+        final list = [
+          for (final e in (order['order'] as List?) ?? const []) Map<String, Object?>.of(e as Map<String, Object?>),
+        ];
+        final i = list.indexWhere((e) => e['identifier'] == identifier);
+        i < 0 ? list.add({'identifier': identifier, 'enabled': enabled}) : list[i]['enabled'] = enabled;
+        order['order'] = list;
+      });
+
+  /// The 100001 group of [raw]'s prompt_order, made when missing (from the
+  /// first group), as the engine edits it.
+  static Map<String, Object?> _orderOf(Map<String, Object?> raw) {
+    final groups = [
+      for (final g in (raw['prompt_order'] as List?) ?? const []) Map<String, Object?>.of(g as Map<String, Object?>),
+    ];
+    var i = groups.indexWhere((g) => '${g['character_id']}' == '100001');
+    if (i < 0) {
+      groups.add({'character_id': 100001, 'order': groups.isEmpty ? <Object?>[] : groups.first['order']});
+      i = groups.length - 1;
+    }
+    raw['prompt_order'] = groups;
+    return groups[i];
+  }
+
+  Future<TavernPresetImportResult> _editPreset(String presetId, void Function(Map<String, Object?> raw) edit) async {
+    final old = _presets[presetId]!;
+    final raw = old.raw;
+    edit(raw);
+    final preset = TavernPreset(
+      id: old.id,
+      name: old.name,
+      sourceText: old.sourceText,
+      raw: raw,
+      envelope: old.envelope,
+      createdAt: old.createdAt,
+      updatedAt: DateTime.now(),
+    );
+    _presets[presetId] = preset;
+    _presetsChanged.add(null);
+    return TavernPresetImportResult(preset, const []);
+  }
 
   @override
   Future<String> exportPreset(String presetId) async => _presets[presetId]!.sourceText;

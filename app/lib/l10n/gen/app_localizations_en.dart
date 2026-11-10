@@ -19373,6 +19373,21 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernPresetEdit => 'Edit preset';
+
+  @override
+  String get tavernPresetParams => 'Numbers';
+
+  @override
+  String get tavernPresetPrompts => 'Prompts, in the order they\'re sent';
+
+  @override
+  String get tavernPresetMarker => 'Placeholder';
+
+  @override
+  String get tavernPresetPromptsEmpty => 'This preset sets no prompt order; SillyTavern\'s default order is used.';
+
+  @override
   String get tavernReport => 'Import check';
 
   @override

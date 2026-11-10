@@ -33524,6 +33524,36 @@ abstract class L10n {
   /// **'{count} 个'**
   String tavernPresetCount(int count);
 
+  /// No description provided for @tavernPresetEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑预设'**
+  String get tavernPresetEdit;
+
+  /// No description provided for @tavernPresetParams.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数'**
+  String get tavernPresetParams;
+
+  /// No description provided for @tavernPresetPrompts.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示词（按发送顺序）'**
+  String get tavernPresetPrompts;
+
+  /// No description provided for @tavernPresetMarker.
+  ///
+  /// In zh, this message translates to:
+  /// **'占位'**
+  String get tavernPresetMarker;
+
+  /// No description provided for @tavernPresetPromptsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个预设没写提示词顺序，发送时用 SillyTavern 的默认顺序。'**
+  String get tavernPresetPromptsEmpty;
+
   /// No description provided for @tavernReport.
   ///
   /// In zh, this message translates to:

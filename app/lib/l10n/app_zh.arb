@@ -11366,6 +11366,11 @@
       }
     }
   },
+  "tavernPresetEdit": "编辑预设",
+  "tavernPresetParams": "参数",
+  "tavernPresetPrompts": "提示词（按发送顺序）",
+  "tavernPresetMarker": "占位",
+  "tavernPresetPromptsEmpty": "这个预设没写提示词顺序，发送时用 SillyTavern 的默认顺序。",
   "tavernReport": "导入体检",
   "tavernVerdictUsable": "能用",
   "tavernVerdictPartial": "部分能用",
