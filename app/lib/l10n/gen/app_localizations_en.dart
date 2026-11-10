@@ -19305,6 +19305,74 @@ class L10nEn extends L10n {
   String get tavernSettingsDisplay => 'Display';
 
   @override
+  String get tavernPresets => 'Presets';
+
+  @override
+  String get tavernPresetImport => 'Import preset';
+
+  @override
+  String get tavernPresetStDefault => 'SillyTavern default';
+
+  @override
+  String get tavernPresetStDefaultNote => 'Used when no preset is chosen';
+
+  @override
+  String get tavernPresetDefault => 'Default';
+
+  @override
+  String get tavernPresetSetDefault => 'Make default';
+
+  @override
+  String get tavernPresetUnsetDefault => 'Stop using as default';
+
+  @override
+  String get tavernPresetExport => 'Export preset';
+
+  @override
+  String get tavernPresetDelete => 'Delete preset';
+
+  @override
+  String tavernPresetDeleteTitle(String name) {
+    return 'Delete the preset “$name”?';
+  }
+
+  @override
+  String get tavernPresetDeleteMessage => 'Chats that use it switch to the default preset. It can\'t be brought back.';
+
+  @override
+  String tavernPresetImported(String name) {
+    return 'Imported “$name”';
+  }
+
+  @override
+  String tavernPresetImportedWithIssues(String name, int count) {
+    return 'Imported “$name”, with $count notes';
+  }
+
+  @override
+  String tavernPresetImportFailed(String reason) {
+    return 'Couldn\'t import: $reason';
+  }
+
+  @override
+  String get tavernPresetNotText => 'This file isn\'t text';
+
+  @override
+  String get tavernPresetsEmpty => 'No presets yet';
+
+  @override
+  String get tavernPresetsEmptyMessage =>
+      'Presets exported from SillyTavern as JSON, and dsh-preset-enhance share packages, can be imported.';
+
+  @override
+  String get tavernPresetEnvelope => 'Share package';
+
+  @override
+  String tavernPresetCount(int count) {
+    return '$count';
+  }
+
+  @override
   String get tavernSectionShelf => 'Shelf';
 
   @override

@@ -18302,6 +18302,73 @@ class L10nZh extends L10n {
   String get tavernSettingsDisplay => '显示';
 
   @override
+  String get tavernPresets => '预设';
+
+  @override
+  String get tavernPresetImport => '导入预设';
+
+  @override
+  String get tavernPresetStDefault => 'SillyTavern 默认预设';
+
+  @override
+  String get tavernPresetStDefaultNote => '没选预设时用它';
+
+  @override
+  String get tavernPresetDefault => '默认';
+
+  @override
+  String get tavernPresetSetDefault => '设为默认';
+
+  @override
+  String get tavernPresetUnsetDefault => '不再作为默认';
+
+  @override
+  String get tavernPresetExport => '导出预设';
+
+  @override
+  String get tavernPresetDelete => '删除预设';
+
+  @override
+  String tavernPresetDeleteTitle(String name) {
+    return '删除预设「$name」？';
+  }
+
+  @override
+  String get tavernPresetDeleteMessage => '用它的对话会改用默认预设。删除后就找不回来了。';
+
+  @override
+  String tavernPresetImported(String name) {
+    return '已导入「$name」';
+  }
+
+  @override
+  String tavernPresetImportedWithIssues(String name, int count) {
+    return '已导入「$name」，有 $count 处提示';
+  }
+
+  @override
+  String tavernPresetImportFailed(String reason) {
+    return '没能导入：$reason';
+  }
+
+  @override
+  String get tavernPresetNotText => '这个文件不是文本';
+
+  @override
+  String get tavernPresetsEmpty => '还没有预设';
+
+  @override
+  String get tavernPresetsEmptyMessage => 'SillyTavern 导出的预设 JSON 和 dsh-preset-enhance 的分享包都能导入。';
+
+  @override
+  String get tavernPresetEnvelope => '分享包';
+
+  @override
+  String tavernPresetCount(int count) {
+    return '$count 个';
+  }
+
+  @override
   String get tavernSectionShelf => '书架';
 
   @override

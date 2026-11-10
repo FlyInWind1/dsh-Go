@@ -27,6 +27,7 @@ import 'tavern_character_edit_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_personas.dart';
+import 'tavern_presets_page.dart';
 import 'tavern_quick_replies_page.dart';
 import 'tavern_settings_page.dart';
 import 'tavern_widgets.dart';
@@ -307,6 +308,16 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
         key: const ValueKey('tavern-library'),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
+          SettingsTile(
+            key: const ValueKey('tavern-library-presets'),
+            icon: AppIcons.article,
+            title: l10n.tavernPresets,
+            value: Text(switch (ref.watch(tavernPresetsProvider).value?.length ?? 0) {
+              0 => l10n.tavernPersonaNotSet,
+              final n => l10n.tavernPresetCount(n),
+            }),
+            onTap: () => unawaited(Navigator.of(context).push(TavernPresetsPage.route())),
+          ),
           SettingsTile(
             key: const ValueKey('tavern-library-personas'),
             icon: AppIcons.profile,

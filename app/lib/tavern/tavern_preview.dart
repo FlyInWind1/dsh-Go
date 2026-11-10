@@ -4,6 +4,7 @@
 // model is called; the chat page says so ([TavernPreview] → 预览 banner).
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -446,10 +447,10 @@ class PreviewTavern implements Tavern, TavernPreview {
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) async =>
       _mergeSettings(chatId == null ? _globalSettings : _chatSettings.putIfAbsent(chatId, () => {}), patch);
 
-  // The preview keeps no libraries: no presets, regex scripts or lorebooks of
-  // its own, and its text shows as written. Importing into one says so.
+  // Presets, kept in memory as the engine keeps them; no regex scripts or
+  // lorebooks of its own (importing one says so), and its text shows as written.
 
-  static UnsupportedError _noLibrary() => UnsupportedError('The preview keeps no presets, regex or lorebooks');
+  static UnsupportedError _noLibrary() => UnsupportedError('The preview keeps no regex scripts or lorebooks');
 
   @override
   Future<TavernDisplayResult> displayText(
@@ -462,21 +463,81 @@ class PreviewTavern implements Tavern, TavernPreview {
     bool reasoning = false,
   }) async => TavernDisplayResult(text: text ?? _chats[chatId]?.nodes[nodeId]?.text ?? '');
 
-  @override
-  Future<List<TavernPresetSummary>> listPresets() async => const [];
+  final _presets = <String, TavernPreset>{};
+  final _presetsChanged = StreamController<void>.broadcast();
+  var _presetCount = 0;
+  String? _defaultPreset;
+  final _chatPresets = <String, String?>{};
+
+  List<TavernPresetSummary> _presetList() =>
+      [for (final p in _presets.values) p.summary]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
   @override
-  Stream<List<TavernPresetSummary>> watchPresets() => Stream.value(const []);
+  Future<List<TavernPresetSummary>> listPresets() async => _presetList();
 
   @override
-  Future<TavernPreset?> preset(String presetId) async => null;
+  Stream<List<TavernPresetSummary>> watchPresets() async* {
+    yield _presetList();
+    await for (final _ in _presetsChanged.stream) {
+      yield _presetList();
+    }
+  }
 
   @override
-  Future<TavernPresetImportResult> importPreset(String text, {String? fileName}) => throw _noLibrary();
+  Future<TavernPreset?> preset(String presetId) async => _presets[presetId];
 
   @override
-  Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name}) =>
-      throw _noLibrary();
+  Future<TavernPresetImportResult> importPreset(String text, {String? fileName}) async {
+    final Object? json;
+    try {
+      json = jsonDecode(text.startsWith('\uFEFF') ? text.substring(1) : text);
+    } on FormatException {
+      throw TavernPresetImportError([
+        const TavernPresetIssue(
+          path: r'$',
+          code: 'json',
+          message: 'not JSON',
+          severity: TavernPresetIssueSeverity.error,
+        ),
+      ]);
+    }
+    if (json is! Map<String, Object?>) {
+      throw TavernPresetImportError([
+        const TavernPresetIssue(
+          path: r'$',
+          code: 'object',
+          message: 'not an object',
+          severity: TavernPresetIssueSeverity.error,
+        ),
+      ]);
+    }
+    final at = DateTime.now();
+    final id = 'preset-${_presetCount++}';
+    final name = fileName == null
+        ? 'Preset $_presetCount'
+        : fileName.replaceFirst(RegExp(r'\.json$', caseSensitive: false), '');
+    final preset = TavernPreset(id: id, name: name, sourceText: text, raw: json, createdAt: at, updatedAt: at);
+    _presets[id] = preset;
+    _presetsChanged.add(null);
+    return TavernPresetImportResult(preset, const []);
+  }
+
+  @override
+  Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name}) async {
+    final old = _presets[presetId]!;
+    final preset = TavernPreset(
+      id: old.id,
+      name: name ?? old.name,
+      sourceText: old.sourceText,
+      raw: {...old.raw, ...patch},
+      envelope: old.envelope,
+      createdAt: old.createdAt,
+      updatedAt: DateTime.now(),
+    );
+    _presets[presetId] = preset;
+    _presetsChanged.add(null);
+    return TavernPresetImportResult(preset, const []);
+  }
 
   @override
   Future<TavernPresetImportResult> updatePresetPrompt(String presetId, String identifier, Map<String, Object?> patch) =>
@@ -490,24 +551,43 @@ class PreviewTavern implements Tavern, TavernPreview {
       throw _noLibrary();
 
   @override
-  Future<String> exportPreset(String presetId) => throw _noLibrary();
+  Future<String> exportPreset(String presetId) async => _presets[presetId]!.sourceText;
 
   @override
-  Future<TavernPresetSelection> presetSelection({String? chatId}) async => const TavernPresetSelection(
-    source: PresetSelectionSource.stDefault,
-    boundPresetId: null,
-    defaultPresetId: null,
-    effectivePresetId: null,
-  );
+  Future<TavernPresetSelection> presetSelection({String? chatId}) async {
+    final bound = chatId == null ? null : _chatPresets[chatId];
+    final effective = bound ?? _defaultPreset;
+    return TavernPresetSelection(
+      source: bound != null
+          ? PresetSelectionSource.chat
+          : _defaultPreset != null
+          ? PresetSelectionSource.globalDefault
+          : PresetSelectionSource.stDefault,
+      boundPresetId: bound,
+      defaultPresetId: _defaultPreset,
+      effectivePresetId: effective,
+    );
+  }
 
   @override
-  Future<void> setDefaultPreset(String? presetId) async {}
+  Future<void> setDefaultPreset(String? presetId) async {
+    _defaultPreset = presetId;
+    _presetsChanged.add(null);
+  }
 
   @override
-  Future<void> bindPreset(String chatId, String? presetId) async {}
+  Future<void> bindPreset(String chatId, String? presetId) async {
+    _chatPresets[chatId] = presetId;
+    _presetsChanged.add(null);
+  }
 
   @override
-  Future<void> deletePreset(String presetId) async {}
+  Future<void> deletePreset(String presetId) async {
+    _presets.remove(presetId);
+    if (_defaultPreset == presetId) _defaultPreset = null;
+    _chatPresets.removeWhere((_, id) => id == presetId);
+    _presetsChanged.add(null);
+  }
 
   @override
   Future<List<TavernRegexScript>> listRegexScripts() async => const [];
@@ -552,7 +632,10 @@ class PreviewTavern implements Tavern, TavernPreview {
   }) async {}
 
   @override
-  Future<void> close() async => _listChanged.close();
+  Future<void> close() async {
+    await _listChanged.close();
+    await _presetsChanged.close();
+  }
 }
 
 /// [patch] into [into], copied: a reader never holds what is stored.

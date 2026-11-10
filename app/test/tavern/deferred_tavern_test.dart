@@ -36,8 +36,9 @@ void main() {
     expect(await deferred.listRegexScripts(), isEmpty);
     expect(await deferred.listLorebooks(), isEmpty);
     expect((await deferred.displayText(chat, text: '*她笑了*')).text, '*她笑了*');
-    // The preview keeps no libraries: importing into one says so.
-    await expectLater(deferred.importPreset('{}'), throwsUnsupportedError);
+    // Presets go through to the preview's own; it keeps no lorebooks.
+    final imported = await deferred.importPreset('{"temperature": 1}', fileName: 'a.json');
+    expect((await deferred.listPresets()).single.id, imported.preset.id);
     await expectLater(deferred.importLorebook('{}'), throwsUnsupportedError);
   });
 }

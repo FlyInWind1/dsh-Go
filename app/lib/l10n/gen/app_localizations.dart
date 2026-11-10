@@ -33410,6 +33410,120 @@ abstract class L10n {
   /// **'显示'**
   String get tavernSettingsDisplay;
 
+  /// No description provided for @tavernPresets.
+  ///
+  /// In zh, this message translates to:
+  /// **'预设'**
+  String get tavernPresets;
+
+  /// No description provided for @tavernPresetImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入预设'**
+  String get tavernPresetImport;
+
+  /// No description provided for @tavernPresetStDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'SillyTavern 默认预设'**
+  String get tavernPresetStDefault;
+
+  /// No description provided for @tavernPresetStDefaultNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'没选预设时用它'**
+  String get tavernPresetStDefaultNote;
+
+  /// No description provided for @tavernPresetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get tavernPresetDefault;
+
+  /// No description provided for @tavernPresetSetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'设为默认'**
+  String get tavernPresetSetDefault;
+
+  /// No description provided for @tavernPresetUnsetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'不再作为默认'**
+  String get tavernPresetUnsetDefault;
+
+  /// No description provided for @tavernPresetExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出预设'**
+  String get tavernPresetExport;
+
+  /// No description provided for @tavernPresetDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除预设'**
+  String get tavernPresetDelete;
+
+  /// No description provided for @tavernPresetDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除预设「{name}」？'**
+  String tavernPresetDeleteTitle(String name);
+
+  /// No description provided for @tavernPresetDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'用它的对话会改用默认预设。删除后就找不回来了。'**
+  String get tavernPresetDeleteMessage;
+
+  /// No description provided for @tavernPresetImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入「{name}」'**
+  String tavernPresetImported(String name);
+
+  /// No description provided for @tavernPresetImportedWithIssues.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入「{name}」，有 {count} 处提示'**
+  String tavernPresetImportedWithIssues(String name, int count);
+
+  /// No description provided for @tavernPresetImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能导入：{reason}'**
+  String tavernPresetImportFailed(String reason);
+
+  /// No description provided for @tavernPresetNotText.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个文件不是文本'**
+  String get tavernPresetNotText;
+
+  /// No description provided for @tavernPresetsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有预设'**
+  String get tavernPresetsEmpty;
+
+  /// No description provided for @tavernPresetsEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'SillyTavern 导出的预设 JSON 和 dsh-preset-enhance 的分享包都能导入。'**
+  String get tavernPresetsEmptyMessage;
+
+  /// No description provided for @tavernPresetEnvelope.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享包'**
+  String get tavernPresetEnvelope;
+
+  /// No description provided for @tavernPresetCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个'**
+  String tavernPresetCount(int count);
+
   /// No description provided for @tavernSectionShelf.
   ///
   /// In zh, this message translates to:

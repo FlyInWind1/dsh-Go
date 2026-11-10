@@ -73,6 +73,7 @@ void main() {
   testWidgets('资源库 opens the personas and quick replies', (tester) async {
     await _openHome(tester, PreviewTavern(tick: Duration.zero));
     await _section(tester, '资源库');
+    expect(find.byKey(const ValueKey('tavern-library-presets')), findsOneWidget);
     expect(find.byKey(const ValueKey('tavern-library-quick-replies')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('tavern-library-personas')));
     await tester.pumpAndSettle();
