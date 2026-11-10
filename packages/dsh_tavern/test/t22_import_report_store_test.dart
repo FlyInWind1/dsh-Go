@@ -147,7 +147,7 @@ void main() {
       });
       final opened = ChatStore.open(path);
       store = opened;
-      expect(ChatStore.schemaVersion, 3);
+      expect(ChatStore.schemaVersion, greaterThanOrEqualTo(3));
       final saved = opened.preset('saved')!;
       expect(saved.sourceText, source);
       expect(saved.raw, {
@@ -158,7 +158,7 @@ void main() {
       expect(opened.defaultPresetId, 'saved');
       expect(opened.chat('chat').presetId, 'saved');
       _withDatabase(path, (database) {
-        expect(database.select('PRAGMA user_version').single['user_version'], 3);
+        expect(database.select('PRAGMA user_version').single['user_version'], ChatStore.schemaVersion);
         expect(_preservedRows(database), before);
         expect(database.select('SELECT import_report_json FROM presets').single['import_report_json'], isNull);
         expect(database.select('PRAGMA foreign_key_check'), isEmpty);

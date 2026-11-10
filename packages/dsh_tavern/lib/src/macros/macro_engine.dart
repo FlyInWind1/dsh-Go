@@ -36,7 +36,7 @@ class MacroMessage {
 /// Variable maps are retained by reference and mutated synchronously. The
 /// caller owns persistence. [card] is the character card's raw data object.
 /// [MacroEngine] expands its fields lazily; [LegacyMacroEngine] prepares all
-/// fields eagerly. Caches belong to a single expand call.
+/// fields eagerly. Character-field/value caches belong to a single expand call.
 /// [replaceCharacterCard] implements ST's baseChatReplace mode: when false,
 /// new character-field macros return empty text; legacy ones remain literal.
 /// Names and [original] are independent of that switch.
@@ -154,12 +154,24 @@ class MacroEngine {
   /// hook throws, the successful macro result is kept. A null hook result
   /// becomes empty text; other JSON-owned values use JavaScript ToString.
   /// Internal base expansion of character fields does not inherit the hook.
+  /// [replaceCharacterCard] and [characterOverride] apply only to this call.
+  /// The latter supplies char/group/groupNotMuted, including nested card
+  /// preparation, without changing the shared context or its notChar value.
   String expand(
     String text,
     MacroContext context, {
     Map<String, String> overrides = const {},
     Object? Function(Object?)? postProcess,
-  }) => _Evaluation(context, text, overrides, postProcess: postProcess).evaluate(text);
+    bool? replaceCharacterCard,
+    String? characterOverride,
+  }) => _Evaluation(
+    context,
+    text,
+    overrides,
+    postProcess: postProcess,
+    replaceCharacterCard: replaceCharacterCard,
+    characterOverride: characterOverride,
+  ).evaluate(text);
 
   /// ST utils.js getStringHash (cyrb53), including UTF-16 code-unit iteration.
   static int stringHash(String text, [int seed = 0]) {
@@ -548,12 +560,38 @@ class _Parser {
 
 const _elseMarker = '\u0000\u001fELSE\u001f\u0000';
 
+// Grammar-only patterns are shared; match objects and evaluation state are not.
+final _macroTimeUtcAlias = RegExp(r'{{time_(UTC[+-]\d+)}}', caseSensitive: false);
+final _macroAngleNames = RegExp(r'<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>', caseSensitive: false);
+final _macroEscapedBraces = RegExp(r'\\([{}])');
+final _macroTrim = RegExp(r'(?:\r?\n)*{{trim}}(?:\r?\n)*', caseSensitive: false);
+final _macroInversion = RegExp(r'^\s*!\s*');
+final _macroVariableReference = RegExp(r'^([.$])([a-zA-Z](?:[\w-]*\w)?)$');
+final _macroNewlines = RegExp(r'\n+');
+final _macroDigits = RegExp(r'^\d+$');
+final _macroDice = RegExp(r'^([1-9]\d*)?d([1-9]\d*)([+-]\d+)?$', caseSensitive: false);
+final _macroUtcOffset = RegExp(r'^UTC([+-]\d+)$');
+final _macroIntegerArgument = RegExp(r'^-?\d+$');
+final _macroIndentation = RegExp(r'^[ \t]*');
+final _macroExampleStart = RegExp('<START>', caseSensitive: false);
+final _macroBasedNumber = RegExp(r'^0([xbo])([0-9a-f]+)$', caseSensitive: false);
+final _macroDecimalNumber = RegExp(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$');
+final _macroArrayIndex = RegExp(r'^(0|[1-9]\d*)$');
+final _macroFractionalSeconds = RegExp(r'^S{1,9}$');
+final _macroIsoDate = RegExp(
+  r'^([+-]\d{6}|\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?'
+  r'(?:[T ](\d{2})(?::?(\d{2}))?(?::?(\d{2}))?(?:[.,](\d+))?'
+  r'(Z|[+-]\d{2}(?::?\d{2})?)?)?$',
+  caseSensitive: false,
+);
+
 class _Evaluation {
   _Evaluation(
     this.context,
     String original,
     Map<String, String> overrides, {
     bool? replaceCharacterCard,
+    this.characterOverride,
     this.inheritOriginal = true,
     this.postProcess,
   }) : contentHash = MacroEngine.stringHash(original),
@@ -564,6 +602,7 @@ class _Evaluation {
   final int contentHash;
   final Map<String, String> overrides;
   final bool replaceCharacterCard;
+  final String? characterOverride;
   final bool inheritOriginal;
   final Object? Function(Object?)? postProcess;
   final Map<String, String> _cardFields = {};
@@ -572,10 +611,7 @@ class _Evaluation {
 
   String evaluate(String text, {int offset = 0, bool processors = true, bool scopes = true}) {
     if (processors) {
-      text = text.replaceAllMapped(
-        RegExp(r'{{time_(UTC[+-]\d+)}}', caseSensitive: false),
-        (match) => '{{time::${match[1]}}}',
-      );
+      text = text.replaceAllMapped(_macroTimeUtcAlias, (match) => '{{time::${match[1]}}}');
       const oldNames = {
         'user': 'user',
         'bot': 'char',
@@ -583,10 +619,7 @@ class _Evaluation {
         'group': 'group',
         'charifnotgroup': 'charIfNotGroup',
       };
-      text = text.replaceAllMapped(
-        RegExp(r'<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>', caseSensitive: false),
-        (match) => '{{${oldNames[match[1]!.toLowerCase()]}}}',
-      );
+      text = text.replaceAllMapped(_macroAngleNames, (match) => '{{${oldNames[match[1]!.toLowerCase()]}}}');
     }
     final document = _Parser(text).parse(scopes: scopes);
     final output = StringBuffer();
@@ -601,8 +634,8 @@ class _Evaluation {
     var result = output.toString();
     if (processors) {
       result = result
-          .replaceAllMapped(RegExp(r'\\([{}])'), (m) => m[1]!)
-          .replaceAll(RegExp(r'(?:\r?\n)*{{trim}}(?:\r?\n)*', caseSensitive: false), '')
+          .replaceAllMapped(_macroEscapedBraces, (m) => m[1]!)
+          .replaceAll(_macroTrim, '')
           .replaceAll(_elseMarker, '');
     }
     return result;
@@ -739,11 +772,11 @@ class _Evaluation {
 
   String _conditional(List<String> args, _Call call, int offset) {
     var condition = args[0];
-    final inversion = RegExp(r'^\s*!\s*');
+    final inversion = _macroInversion;
     final inverted = inversion.hasMatch(condition);
     if (inverted) condition = condition.replaceFirst(inversion, '');
     condition = evaluate(condition, offset: offset);
-    final variable = RegExp(r'^([.$])([a-zA-Z](?:[\w-]*\w)?)$').firstMatch(condition);
+    final variable = _macroVariableReference.firstMatch(condition);
     if (variable != null) {
       condition = _normalize(
         _getVariable(variable[1] == '.' ? context.localVariables : context.globalVariables, variable[2]!),
@@ -777,11 +810,11 @@ class _Evaluation {
       case 'user':
         return context.userName;
       case 'char':
-        return context.charName;
+        return characterOverride ?? context.charName;
       case 'group':
-        return context.group;
+        return characterOverride ?? context.group;
       case 'groupnotmuted':
-        return context.groupNotMuted;
+        return characterOverride ?? context.groupNotMuted;
       case 'notchar':
         return context.notChar;
       case 'charprompt':
@@ -918,9 +951,10 @@ class _Evaluation {
       text,
       const {},
       replaceCharacterCard: false,
+      characterOverride: characterOverride,
       inheritOriginal: false,
     ).evaluate(text);
-    if (context.collapseNewlines) expanded = expanded.replaceAll(RegExp(r'\n+'), '\n');
+    if (context.collapseNewlines) expanded = expanded.replaceAll(_macroNewlines, '\n');
     return expanded.replaceAll('\r', '');
   }
 
@@ -1001,8 +1035,8 @@ class _Evaluation {
   }
 
   String _roll(String formula) {
-    if (RegExp(r'^\d+$').hasMatch(formula)) formula = '1d$formula';
-    final match = RegExp(r'^([1-9]\d*)?d([1-9]\d*)([+-]\d+)?$', caseSensitive: false).firstMatch(formula);
+    if (_macroDigits.hasMatch(formula)) formula = '1d$formula';
+    final match = _macroDice.firstMatch(formula);
     if (match == null) return '';
     final count = match[1] == null ? 1 : int.tryParse(match[1]!);
     final sides = int.tryParse(match[2]!);
@@ -1052,7 +1086,7 @@ class _Evaluation {
         return clock.format('YYYY-MM-DD');
       default:
         if (args.isNotEmpty) {
-          final match = RegExp(r'^UTC([+-]\d+)$').firstMatch(args[0]);
+          final match = _macroUtcOffset.firstMatch(args[0]);
           final amount = match == null ? null : int.tryParse(match[1]!);
           if (amount != null) {
             final offset = Duration(minutes: amount.abs() < 16 ? amount * 60 : amount);
@@ -1065,7 +1099,7 @@ class _Evaluation {
 }
 
 int _integerArgument(String value) {
-  if (!RegExp(r'^-?\d+$').hasMatch(value.trim())) throw ArgumentError.value(value);
+  if (!_macroIntegerArgument.hasMatch(value.trim())) throw ArgumentError.value(value);
   return int.parse(value.trim());
 }
 
@@ -1074,14 +1108,14 @@ String _trimScoped(String text) {
   var indent = 0;
   for (final line in lines) {
     if (line.trim().isNotEmpty) {
-      indent = RegExp(r'^[ \t]*').firstMatch(line)![0]!.length;
+      indent = _macroIndentation.firstMatch(line)![0]!.length;
       break;
     }
   }
   if (indent == 0) return text.trim();
   return lines
       .map((line) {
-        final count = RegExp(r'^[ \t]*').firstMatch(line)![0]!.length;
+        final count = _macroIndentation.firstMatch(line)![0]!.length;
         return count >= indent ? line.substring(indent) : line.trimLeft();
       })
       .join('\n')
@@ -1091,7 +1125,7 @@ String _trimScoped(String text) {
 String _examples(String raw) {
   if (raw.isEmpty || raw == '<START>') return '';
   if (!raw.startsWith('<START>')) raw = '<START>\n${raw.trim()}';
-  return raw.split(RegExp('<START>', caseSensitive: false)).skip(1).map((part) => '<START>\n${part.trim()}\n').join();
+  return raw.split(_macroExampleStart).skip(1).map((part) => '<START>\n${part.trim()}\n').join();
 }
 
 List<String> _randomList(String input) {
@@ -1127,7 +1161,7 @@ double _number(Object? value) {
   if (text.isEmpty) return 0;
   if (text == 'Infinity' || text == '+Infinity') return double.infinity;
   if (text == '-Infinity') return double.negativeInfinity;
-  final based = RegExp(r'^0([xbo])([0-9a-f]+)$', caseSensitive: false).firstMatch(text);
+  final based = _macroBasedNumber.firstMatch(text);
   if (based != null) {
     final radix = switch (based[1]!.toLowerCase()) {
       'x' => 16,
@@ -1136,7 +1170,7 @@ double _number(Object? value) {
     };
     return BigInt.tryParse(based[2]!, radix: radix)?.toDouble() ?? double.nan;
   }
-  if (!RegExp(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$').hasMatch(text)) return double.nan;
+  if (!_macroDecimalNumber.hasMatch(text)) return double.nan;
   return double.tryParse(text) ?? double.nan;
 }
 
@@ -1234,7 +1268,7 @@ String _jsJson(Object? value) {
 }
 
 int? _arrayIndex(String key) {
-  if (!RegExp(r'^(0|[1-9]\d*)$').hasMatch(key)) return null;
+  if (!_macroArrayIndex.hasMatch(key)) return null;
   final number = int.tryParse(key);
   return number != null && number < 4294967295 ? number : null;
 }
@@ -1659,7 +1693,7 @@ class _MacroClock {
     final day = local.weekday % 7;
     final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final dayOfYear = DateTime.utc(local.year, local.month, local.day).difference(DateTime.utc(local.year)).inDays + 1;
-    if (RegExp(r'^S{1,9}$').hasMatch(token)) {
+    if (_macroFractionalSeconds.hasMatch(token)) {
       return _pad(local.millisecond, 3).padRight(9, '0').substring(0, token.length);
     }
     switch (token) {
@@ -1783,12 +1817,7 @@ class _MacroClock {
   /// Locale-dependent free-form Date parsing is intentionally not delegated to
   /// the host. Invalid calendar dates are rejected rather than normalized.
   DateTime? parse(String input) {
-    final match = RegExp(
-      r'^([+-]\d{6}|\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?'
-      r'(?:[T ](\d{2})(?::?(\d{2}))?(?::?(\d{2}))?(?:[.,](\d+))?'
-      r'(Z|[+-]\d{2}(?::?\d{2})?)?)?$',
-      caseSensitive: false,
-    ).firstMatch(input.trim());
+    final match = _macroIsoDate.firstMatch(input.trim());
     if (match == null) return null;
     final year = int.parse(match[1]!);
     final month = int.parse(match[2] ?? '1');

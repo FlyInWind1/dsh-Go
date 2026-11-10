@@ -343,12 +343,14 @@ void main() {
     expect(source.details['source'], 'memory');
   });
 
-  test('ready metadata failure rolls back the empty reply with its evidence', () async {
+  test('reply creation failure rolls back prepared input before starting the model', () async {
     final (_, chatId) = await chat();
     final before = (await engine.path(chatId)).map((message) => message.nodeId).toList();
-    await installTrigger('''CREATE TRIGGER reject_ready_pointer BEFORE UPDATE OF metadata ON chats
-      WHEN json_extract(NEW.metadata, '\$.dshgo.latestInspection.nodeId') IS NOT NULL
-      BEGIN SELECT RAISE(ABORT, 'fixture_ready_pointer'); END''');
+    // T23 keeps ready inspection in memory. Inject at the actual reply
+    // creation boundary so the preparation rollback contract stays tested.
+    await installTrigger('''CREATE TRIGGER reject_ready_reply BEFORE INSERT ON nodes
+      WHEN NEW.role = 'character' AND NEW.text = ''
+      BEGIN SELECT RAISE(ABORT, 'fixture_ready_reply'); END''');
     final events = await engine.send(chatId, '用户行也应回滚').toList();
     expect(events.whereType<TavernTurnStarted>(), isEmpty);
     final failed = events.whereType<TavernTurnFailed>().single;

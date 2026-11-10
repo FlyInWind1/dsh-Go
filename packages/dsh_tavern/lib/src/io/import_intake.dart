@@ -106,8 +106,9 @@ final class _Intake {
   void count(String key, [int amount = 1]) => counts.update(key, (value) => value + amount, ifAbsent: () => amount);
 
   void add(TavernImportFinding finding, {String? locationDetail}) {
-    if (_locations.add((finding.code, finding.path, finding.line, finding.offset, locationDetail)))
+    if (_locations.add((finding.code, finding.path, finding.line, finding.offset, locationDetail))) {
       findings.add(finding);
+    }
   }
 
   void finding(
@@ -145,14 +146,19 @@ final class _Intake {
     ]) {
       text(data[key], '$path.$key');
     }
-    for (final key in const ['alternate_greetings', 'group_only_greetings']) strings(data[key], '$path.$key');
+    for (final key in const ['alternate_greetings', 'group_only_greetings']) {
+      strings(data[key], '$path.$key');
+    }
     final notes = _map(data['creator_notes_multilingual']);
     if (notes != null) {
-      for (final entry in notes.entries)
+      for (final entry in notes.entries) {
         text(entry.value, '$path.creator_notes_multilingual[${jsonEncode(entry.key)}]');
+      }
     }
     final assets = data['assets'];
-    if (assets is List<Object?>) count('assets', assets.length);
+    if (assets is List<Object?>) {
+      count('assets', assets.length);
+    }
     final extensions = _map(data['extensions']);
     if (extensions != null) {
       regexList(extensions['regex_scripts'], '$path.extensions.regex_scripts');
@@ -183,16 +189,22 @@ final class _Intake {
       count('prompts', prompts.length);
       for (var index = 0; index < prompts.length; index++) {
         final prompt = _map(prompts[index]);
-        if (prompt == null) continue;
+        if (prompt == null) {
+          continue;
+        }
         final location = '$path.prompts[$index]';
         final identifier = prompt['identifier'] is String ? prompt['identifier'] as String : null;
         text(prompt['content'], '$location.content', identifier: identifier);
         for (final key in const ['contextFile', 'contextFiles']) {
           final attached = prompt[key];
-          if (!_hasValue(attached)) continue;
+          if (!_hasValue(attached)) {
+            continue;
+          }
           if (attached is List<Object?>) {
             for (var item = 0; item < attached.length; item++) {
-              if (!_hasValue(attached[item])) continue;
+              if (!_hasValue(attached[item])) {
+                continue;
+              }
               finding(
                 '$location.$key[$item]',
                 'preset-attachment-not-injected',
@@ -226,8 +238,9 @@ final class _Intake {
       'send_if_empty',
       'scenario_format',
       'personality_format',
-    ])
+    ]) {
       text(raw[key], '$path.$key');
+    }
     final extensions = _map(raw['extensions']);
     if (extensions != null) {
       regexList(extensions['regex_scripts'], '$path.extensions.regex_scripts');
@@ -270,8 +283,9 @@ final class _Intake {
     }
     for (final issue in issues) {
       if (issue.severity == TavernPresetIssueSeverity.normalized ||
-          const {'prefill-features-preserved', 'attachments-preserved', 'tools-preserved'}.contains(issue.code))
+          const {'prefill-features-preserved', 'attachments-preserved', 'tools-preserved'}.contains(issue.code)) {
         continue;
+      }
       final unusable = const {'missing-prompt', 'depth-outside-st-range'}.contains(issue.code);
       add(
         TavernImportFinding(
@@ -291,7 +305,9 @@ final class _Intake {
   }
 
   void regexList(Object? value, String path) {
-    if (value == null) return;
+    if (value == null) {
+      return;
+    }
     if (value is! List<Object?>) {
       finding(path, 'invalid-rule-list', '正则列表必须为数组，原值保留但不执行。', kind: TavernImportFindingKind.invalid);
       return;
@@ -376,8 +392,12 @@ final class _Intake {
 
   void book(Map<String, Object?> raw, String path, {required bool embedded}) {
     final inspected = inspectWorldInfoFeatures(raw, path: path, embedded: embedded);
-    for (final entry in inspected.counts.entries) count(entry.key, entry.value);
-    for (final issue in inspected.findings) add(issue);
+    for (final entry in inspected.counts.entries) {
+      count(entry.key, entry.value);
+    }
+    for (final issue in inspected.findings) {
+      add(issue);
+    }
     // Reuse the actual loader's source paths, UID normalization and disabled
     // semantics. Stored rows include shadowed V3 ids, unlike view.entries.
     final WorldInfoBook view;
@@ -422,10 +442,14 @@ final class _Intake {
   }
 
   void helperScripts(Object? value, String path, {bool parentDisabled = false}) {
-    if (value is! List<Object?>) return;
+    if (value is! List<Object?>) {
+      return;
+    }
     for (var index = 0; index < value.length; index++) {
       final script = _map(value[index]);
-      if (script == null) continue;
+      if (script == null) {
+        continue;
+      }
       final itemPath = '$path[$index]';
       final inactive = parentDisabled || _disabled(script) || script['enabled'] == false;
       final children = script['scripts'] ?? script['children'];
@@ -439,8 +463,9 @@ final class _Intake {
       }
       final content = script['content'];
       final source = script['src'];
-      if (!(content is String && content.trim().isNotEmpty) && !(source is String && source.trim().isNotEmpty))
+      if (!(content is String && content.trim().isNotEmpty) && !(source is String && source.trim().isNotEmpty)) {
         continue;
+      }
       count('scripts');
       count('helperScripts');
       finding(
@@ -455,14 +480,18 @@ final class _Intake {
   }
 
   void strings(Object? value, String path, {String? identifier, bool render = true, bool conditional = false}) {
-    if (value is! List<Object?>) return;
+    if (value is! List<Object?>) {
+      return;
+    }
     for (var index = 0; index < value.length; index++) {
       text(value[index], '$path[$index]', identifier: identifier, render: render, conditional: conditional);
     }
   }
 
   void text(Object? value, String path, {String? identifier, bool render = true, bool conditional = false}) {
-    if (value is! String || value.isEmpty) return;
+    if (value is! String || value.isEmpty) {
+      return;
+    }
     final field = _TextField(value, identifier);
     for (final macro in _macroUses(value)) {
       count('macroOccurrences');
@@ -477,13 +506,21 @@ final class _Intake {
         );
       }
     }
-    if (!render) return;
+    if (!render) {
+      return;
+    }
     var hasHtml = false;
     for (final tag in _htmlTags(value)) {
-      if (!_htmlNames.contains(tag.name)) continue;
+      if (!_htmlNames.contains(tag.name)) {
+        continue;
+      }
       hasHtml = true;
-      if (renderLevel < 1) renderLevel = 1;
-      if (tag.closing) continue;
+      if (renderLevel < 1) {
+        renderLevel = 1;
+      }
+      if (tag.closing) {
+        continue;
+      }
       if (tag.name == 'script') {
         final type = tag.attributes['type']?.value.trim().toLowerCase() ?? '';
         final hasCode =
@@ -515,7 +552,9 @@ final class _Intake {
         }
       }
       for (final entry in tag.attributes.entries) {
-        if (entry.value.value.trim().isEmpty) continue;
+        if (entry.value.value.trim().isEmpty) {
+          continue;
+        }
         final event = _eventAttributes.contains(entry.key);
         final javascriptUrl =
             const {'href', 'src', 'action', 'formaction'}.contains(entry.key) &&
@@ -534,7 +573,9 @@ final class _Intake {
         }
       }
     }
-    if (hasHtml) count('htmlFragments');
+    if (hasHtml) {
+      count('htmlFragments');
+    }
   }
 }
 
@@ -559,7 +600,9 @@ final class _TextField {
     for (var index = 0; index < text.length; index++) {
       final unit = text.codeUnitAt(index);
       if (unit == 13) {
-        if (index + 1 < text.length && text.codeUnitAt(index + 1) == 10) index++;
+        if (index + 1 < text.length && text.codeUnitAt(index + 1) == 10) {
+          index++;
+        }
         starts.add(index + 1);
       } else if (unit == 10) {
         starts.add(index + 1);
@@ -611,17 +654,27 @@ List<_MacroUse> _macroUses(String text) {
     final end = index;
     index += 2;
     var cursor = start + 2;
-    while (cursor < end && _macroSpace.hasMatch(text[cursor])) cursor++;
+    while (cursor < end && _macroSpace.hasMatch(text[cursor])) {
+      cursor++;
+    }
     var closing = false;
     while (cursor < end && '!?~#/>'.contains(text[cursor]) && !text.startsWith('//', cursor)) {
       closing = closing || text[cursor] == '/';
       cursor++;
-      while (cursor < end && _macroSpace.hasMatch(text[cursor])) cursor++;
+      while (cursor < end && _macroSpace.hasMatch(text[cursor])) {
+        cursor++;
+      }
     }
-    if (closing || cursor >= end || !_asciiLetter(text.codeUnitAt(cursor))) continue;
+    if (closing || cursor >= end || !_asciiLetter(text.codeUnitAt(cursor))) {
+      continue;
+    }
     final nameStart = cursor++;
-    while (cursor < end && _macroNameUnit(text.codeUnitAt(cursor))) cursor++;
-    if (cursor < end && !_macroSpace.hasMatch(text[cursor]) && text[cursor] != ':' && text[cursor] != '|') continue;
+    while (cursor < end && _macroNameUnit(text.codeUnitAt(cursor))) {
+      cursor++;
+    }
+    if (cursor < end && !_macroSpace.hasMatch(text[cursor]) && text[cursor] != ':' && text[cursor] != '|') {
+      continue;
+    }
     uses.add((name: text.substring(nameStart, cursor).toLowerCase(), offset: start, nested: stack.isNotEmpty));
   }
   uses.sort((a, b) => a.offset.compareTo(b.offset));
@@ -670,22 +723,28 @@ Iterable<_HtmlTag> _htmlTags(String text) sync* {
     final lineStart = index == 0 || text.codeUnitAt(index - 1) == 10 || text.codeUnitAt(index - 1) == 13;
     if (lineStart) {
       var marker = index;
-      while (marker < text.length && marker - index < 3 && text.codeUnitAt(marker) == 32) marker++;
+      while (marker < text.length && marker - index < 3 && text.codeUnitAt(marker) == 32) {
+        marker++;
+      }
       if (marker < text.length && (text.codeUnitAt(marker) == 96 || text.codeUnitAt(marker) == 126)) {
         final unit = text.codeUnitAt(marker);
         var end = marker;
-        while (end < text.length && text.codeUnitAt(end) == unit) end++;
+        while (end < text.length && text.codeUnitAt(end) == unit) {
+          end++;
+        }
         if (fence != null) {
           var suffix = end;
           while (suffix < text.length &&
               _htmlSpace(text.codeUnitAt(suffix)) &&
               text.codeUnitAt(suffix) != 10 &&
-              text.codeUnitAt(suffix) != 13)
+              text.codeUnitAt(suffix) != 13) {
             suffix++;
+          }
           if (unit == fence &&
               end - marker >= fenceLength &&
-              (suffix == text.length || text.codeUnitAt(suffix) == 10 || text.codeUnitAt(suffix) == 13))
+              (suffix == text.length || text.codeUnitAt(suffix) == 10 || text.codeUnitAt(suffix) == 13)) {
             fence = null;
+          }
           index = _afterLine(text, end);
           continue;
         }
@@ -717,7 +776,9 @@ Iterable<_HtmlTag> _htmlTags(String text) sync* {
     }
     if (text.codeUnitAt(index) == 96) {
       var end = index + 1;
-      while (end < text.length && text.codeUnitAt(end) == 96) end++;
+      while (end < text.length && text.codeUnitAt(end) == 96) {
+        end++;
+      }
       final marker = text.substring(index, end);
       var close = text.indexOf(marker, end);
       while (close >= 0 &&
@@ -763,9 +824,15 @@ Iterable<_HtmlTag> _htmlTags(String text) sync* {
 }
 
 int _afterLine(String text, int index) {
-  while (index < text.length && text.codeUnitAt(index) != 10 && text.codeUnitAt(index) != 13) index++;
-  if (index < text.length && text.codeUnitAt(index) == 13) index++;
-  if (index < text.length && text.codeUnitAt(index) == 10) index++;
+  while (index < text.length && text.codeUnitAt(index) != 10 && text.codeUnitAt(index) != 13) {
+    index++;
+  }
+  if (index < text.length && text.codeUnitAt(index) == 13) {
+    index++;
+  }
+  if (index < text.length && text.codeUnitAt(index) == 10) {
+    index++;
+  }
   return index;
 }
 
@@ -778,54 +845,78 @@ bool _markdownPunctuation(int unit) =>
 _HtmlTag? _readTag(String text, int start) {
   var index = start + 1;
   final closing = index < text.length && text.codeUnitAt(index) == 47;
-  if (closing) index++;
-  if (index >= text.length || !_asciiLetter(text.codeUnitAt(index))) return null;
+  if (closing) {
+    index++;
+  }
+  if (index >= text.length || !_asciiLetter(text.codeUnitAt(index))) {
+    return null;
+  }
   final nameStart = index++;
   while (index < text.length &&
       (_asciiLetter(text.codeUnitAt(index)) ||
           _digit(text.codeUnitAt(index)) ||
           text.codeUnitAt(index) == 45 ||
-          text.codeUnitAt(index) == 58))
+          text.codeUnitAt(index) == 58)) {
     index++;
+  }
   final name = text.substring(nameStart, index).toLowerCase();
-  if (index >= text.length || (!_htmlSpace(text.codeUnitAt(index)) && text[index] != '>' && text[index] != '/'))
+  if (index >= text.length || (!_htmlSpace(text.codeUnitAt(index)) && text[index] != '>' && text[index] != '/')) {
     return null;
+  }
   final attributes = <String, _HtmlAttribute>{};
   while (index < text.length) {
-    while (index < text.length && _htmlSpace(text.codeUnitAt(index))) index++;
-    if (index >= text.length) return null;
-    if (text[index] == '<') return null;
-    if (text[index] == '>')
+    while (index < text.length && _htmlSpace(text.codeUnitAt(index))) {
+      index++;
+    }
+    if (index >= text.length) {
+      return null;
+    }
+    if (text[index] == '<') {
+      return null;
+    }
+    if (text[index] == '>') {
       return _HtmlTag(name: name, start: start, end: index + 1, closing: closing, attributes: attributes);
+    }
     if (text[index] == '/' && index + 1 < text.length && text[index + 1] == '>') {
       return _HtmlTag(name: name, start: start, end: index + 2, closing: closing, attributes: attributes);
     }
     final attributeStart = index;
     while (index < text.length &&
         !_htmlSpace(text.codeUnitAt(index)) &&
-        !const {'=', '>', '/', '<', '"', "'"}.contains(text[index]))
+        !const {'=', '>', '/', '<', '"', "'"}.contains(text[index])) {
       index++;
+    }
     if (index == attributeStart) {
       index++;
       continue;
     }
     final attributeName = text.substring(attributeStart, index).toLowerCase();
-    while (index < text.length && _htmlSpace(text.codeUnitAt(index))) index++;
+    while (index < text.length && _htmlSpace(text.codeUnitAt(index))) {
+      index++;
+    }
     var value = '';
     if (index < text.length && text[index] == '=') {
       index++;
-      while (index < text.length && _htmlSpace(text.codeUnitAt(index))) index++;
-      if (index >= text.length) return null;
+      while (index < text.length && _htmlSpace(text.codeUnitAt(index))) {
+        index++;
+      }
+      if (index >= text.length) {
+        return null;
+      }
       final quote = text[index];
       if (quote == '"' || quote == "'") {
         final valueStart = ++index;
         final end = text.indexOf(quote, index);
-        if (end < 0) return null;
+        if (end < 0) {
+          return null;
+        }
         value = text.substring(valueStart, end);
         index = end + 1;
       } else {
         final valueStart = index;
-        while (index < text.length && !_htmlSpace(text.codeUnitAt(index)) && text[index] != '>') index++;
+        while (index < text.length && !_htmlSpace(text.codeUnitAt(index)) && text[index] != '>') {
+          index++;
+        }
         value = text.substring(valueStart, index);
       }
     }
@@ -841,8 +932,9 @@ int _rawTagClose(String text, int start, String name) {
     final end = index + 2 + name.length;
     if (end <= text.length &&
         text.substring(index + 2, end).toLowerCase() == name &&
-        (end == text.length || _htmlSpace(text.codeUnitAt(end)) || text[end] == '>' || text[end] == '/'))
+        (end == text.length || _htmlSpace(text.codeUnitAt(end)) || text[end] == '>' || text[end] == '/')) {
       return index;
+    }
     index = text.indexOf('</', index + 2);
   }
   return -1;
@@ -858,7 +950,9 @@ Iterable<int> _crossMessageSelectors(String css) sync* {
       final end = close < 0 ? css.length : close + 2;
       // A comment between #chat and .mes is not a descendant combinator.
       // NUL is an internal ignored marker, never inserted into source JSON.
-      while (index < end) units[index++] = 0;
+      while (index < end) {
+        units[index++] = 0;
+      }
       continue;
     }
     if (units[index] == 34 || units[index] == 39) {
@@ -871,7 +965,9 @@ Iterable<int> _crossMessageSelectors(String css) sync* {
           units[index++] = 32;
           continue;
         }
-        if (unit == quote) break;
+        if (unit == quote) {
+          break;
+        }
       }
       continue;
     }
@@ -888,7 +984,9 @@ Iterable<int> _crossMessageSelectors(String css) sync* {
       continue;
     }
     if (unit == 41) {
-      if (parentheses > 0) parentheses--;
+      if (parentheses > 0) {
+        parentheses--;
+      }
       continue;
     }
     if (unit == 91) {
@@ -896,15 +994,22 @@ Iterable<int> _crossMessageSelectors(String css) sync* {
       continue;
     }
     if (unit == 93) {
-      if (brackets > 0) brackets--;
+      if (brackets > 0) {
+        brackets--;
+      }
       continue;
     }
-    if (parentheses != 0 || brackets != 0) continue;
+    if (parentheses != 0 || brackets != 0) {
+      continue;
+    }
     if (unit == 123) {
       var first = start;
-      while (first < index && (_htmlSpace(masked.codeUnitAt(first)) || masked.codeUnitAt(first) == 0)) first++;
-      if (first < index && masked.codeUnitAt(first) != 64 && _crossSelector(masked.substring(first, index)))
+      while (first < index && (_htmlSpace(masked.codeUnitAt(first)) || masked.codeUnitAt(first) == 0)) {
+        first++;
+      }
+      if (first < index && masked.codeUnitAt(first) != 64 && _crossSelector(masked.substring(first, index))) {
         yield first;
+      }
       start = index + 1;
     } else if (unit == 125 || unit == 59) {
       start = index + 1;
@@ -937,21 +1042,31 @@ bool _crossSelector(String selector) {
       var depth = 1;
       index++;
       while (index < selector.length && depth > 0) {
-        if (selector.codeUnitAt(index) == open) depth++;
-        if (selector.codeUnitAt(index) == close) depth--;
+        if (selector.codeUnitAt(index) == open) {
+          depth++;
+        }
+        if (selector.codeUnitAt(index) == close) {
+          depth--;
+        }
         index++;
       }
       continue;
     }
     if (_htmlSpace(unit) || unit == 62 || unit == 43 || unit == 126) {
-      if (chat) afterChat = true;
-      if (message && (unit == 43 || unit == 126)) afterSibling = true;
+      if (chat) {
+        afterChat = true;
+      }
+      if (message && (unit == 43 || unit == 126)) {
+        afterSibling = true;
+      }
       index++;
       continue;
     }
     if (unit == 35 || unit == 46) {
       final start = ++index;
-      while (index < selector.length && _cssNameUnit(selector.codeUnitAt(index))) index++;
+      while (index < selector.length && _cssNameUnit(selector.codeUnitAt(index))) {
+        index++;
+      }
       // Escaped identifiers require a CSS parser. Do not accept a prefix.
       if (index < selector.length && selector.codeUnitAt(index) == 92) {
         chat = false;
@@ -967,7 +1082,9 @@ bool _crossSelector(String selector) {
         afterChat = false;
       }
       if (unit == 46 && name == 'mes') {
-        if ((chat && afterChat) || (message && afterSibling)) return true;
+        if ((chat && afterChat) || (message && afterSibling)) {
+          return true;
+        }
         message = true;
         afterSibling = false;
       }

@@ -282,10 +282,14 @@ abstract interface class Tavern {
   /// executions; the user's original data and disabled flag are not changed.
   Future<TavernImportReport> recheckImport(TavernImportKind kind, String assetId);
 
-  /// Every character, newest chat first, then newest import. Emits the current
-  /// list first.
+  /// Character summaries, newest chat first, then newest import. Emits the
+  /// current list first. Reads the library index, not card bodies or assets.
+  /// Name, nickname, creator, tags, avatar path, counts and dates are included;
+  /// description, greetings, creatorNotes and regexDiagnostics are empty.
+  /// Use [character] for full card details.
   Stream<List<TavernCharacter>> watchCharacters();
 
+  /// Loads one character's full details, including greetings and creatorNotes.
   Future<TavernCharacter?> character(String id);
 
   /// The complete V3 `data` object, including read-only unknown fields. The

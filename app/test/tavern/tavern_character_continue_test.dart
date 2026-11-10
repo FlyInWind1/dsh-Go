@@ -38,6 +38,21 @@ void main() {
     expect(find.widgetWithText(FilledButton, '开始'), findsOneWidget);
   });
 
+  testWidgets('the greetings, notes and definition come from the details, which the list leaves out', (tester) async {
+    final tavern = PreviewTavern(tick: Duration.zero);
+    final listed = (await tester.runAsync(() => tavern.watchCharacters().first))!
+        .firstWhere((c) => c.id == 'sample-innkeeper');
+    expect(listed.greetings, isEmpty);
+    expect(listed.description, isEmpty);
+    await _openCharacter(tester, tavern);
+
+    expect(find.textContaining('带进一阵冷雨', findRichText: true), findsWidgets);
+    final definition = find.textContaining('知道很多事', findRichText: true);
+    await tester.scrollUntilVisible(definition, 200, scrollable: find.byType(Scrollable).first);
+    expect(definition, findsOneWidget);
+    expect(find.textContaining('用来预览酒馆的界面', findRichText: true), findsOneWidget);
+  });
+
   testWidgets('back again, 继续上次 opens the newest chat; a new one is from a greeting', (tester) async {
     final tavern = PreviewTavern(tick: Duration.zero);
     await tester.runAsync(() => tavern.createChat('sample-innkeeper'));

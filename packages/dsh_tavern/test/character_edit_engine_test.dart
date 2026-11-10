@@ -95,9 +95,11 @@ void main() {
       expect(updated.chatCount, 1);
       expect(updated.lastChatAt, oldSummary.updatedAt);
       final emitted = (await edited.future.timeout(const Duration(seconds: 3))).single;
-      expect(emitted.greetings, ['{{char}}: new greeting', '{{char}}: alternate']);
+      expect(emitted.greetings, isEmpty);
       expect(emitted.tags, ['new']);
-      expect((await engine.character(card.id))!.nickname, 'New nickname');
+      final detail = (await engine.character(card.id))!;
+      expect(detail.nickname, 'New nickname');
+      expect(detail.greetings, ['{{char}}: new greeting', '{{char}}: alternate']);
       final unchanged = (await engine.path(oldChat)).single;
       expect(unchanged.text, oldMessage.text);
       expect(unchanged.speaker, oldMessage.speaker);

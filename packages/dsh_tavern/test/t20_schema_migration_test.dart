@@ -102,13 +102,21 @@ void main() {
     expect(opened.search('beacon').single.nodeId, 'a');
     _inspect(path, (database) {
       expect(_version(database), ChatStore.schemaVersion);
-      expect(_legacyData(database), before['data']);
+      _expectUpgradedLegacyData(database, before['data']);
       final oldDefinitions = before['definitions']! as List<Map<String, Object?>>;
       final keys = oldDefinitions.map((row) => '${row['type']}:${row['name']}').toSet();
-      expect(
-        _definitions(database).where((row) => keys.contains('${row['type']}:${row['name']}')).toList(),
-        oldDefinitions,
-      );
+      final retainedDefinitions = _definitions(
+        database,
+      ).where((row) => keys.contains('${row['type']}:${row['name']}')).toList();
+      for (final row in retainedDefinitions) {
+        if (row['type'] == 'table' && row['name'] == 'nodes') {
+          const addition = ', stream_text TEXT, stream_reasoning TEXT';
+          final sql = row['sql']! as String;
+          expect(sql.endsWith('$addition)'), true);
+          row['sql'] = '${sql.substring(0, sql.length - addition.length - 1)})';
+        }
+      }
+      expect(retainedDefinitions, oldDefinitions);
       expect(database.select('PRAGMA application_id').single['application_id'], 765);
       expect(database.select('PRAGMA foreign_key_check'), isEmpty);
       expect(
@@ -173,7 +181,7 @@ void main() {
     expect(recovered.nodeState('chat', 'b')['variables'], {'n': 9});
     _inspect(path, (database) {
       expect(_version(database), ChatStore.schemaVersion);
-      expect(_legacyData(database), before['data']);
+      _expectUpgradedLegacyData(database, before['data']);
       expect(database.select('PRAGMA foreign_key_check'), isEmpty);
     });
   });
@@ -255,6 +263,24 @@ Map<String, Object?> _legacyData(Database database) => {
   'runs': _rows(database, 'SELECT * FROM agent_runs ORDER BY id'),
   'unrelated': _rows(database, 'SELECT * FROM unrelated'),
 };
+void _expectUpgradedLegacyData(Database database, Object? expected) {
+  // Keep every old row, field, and unknown column under exact comparison.
+  // Only T23's two nullable shadow columns are new in this genuine v1 fixture.
+  const addedNames = {'stream_text', 'stream_reasoning'};
+  expect(_rows(database, 'PRAGMA table_info(nodes)').where((row) => addedNames.contains(row['name'])).toList(), [
+    {'cid': 15, 'name': 'stream_text', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+    {'cid': 16, 'name': 'stream_reasoning', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+  ]);
+  final actual = _legacyData(database);
+  for (final row in actual['nodes']! as List<Map<String, Object?>>) {
+    for (final name in addedNames) {
+      expect(row.containsKey(name), true);
+      expect(row.remove(name), isNull);
+    }
+  }
+  expect(actual, expected);
+}
+
 Map<String, Object?> _conflictSnapshot(Database database) => {
   'schema': _schema(database),
   'conflict': _rows(database, 'SELECT * FROM preset_preferences'),

@@ -32,10 +32,9 @@ TavernImportReport _report({bool stale = false}) => TavernImportReport(
 
 /// The preview, with a report on file once [filed] (or after a check).
 class _Reported extends PreviewTavern {
-  _Reported({this.filed, this.stale = false}) : super(tick: Duration.zero);
+  _Reported({this.filed}) : super(tick: Duration.zero);
 
   TavernImportReport? filed;
-  final bool stale;
   int checks = 0;
 
   @override

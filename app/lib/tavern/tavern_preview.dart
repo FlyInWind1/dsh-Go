@@ -37,13 +37,15 @@ class PreviewTavern implements Tavern, TavernPreview {
 
   // Library -------------------------------------------------------------------
 
+  /// The list as the engine gives it (T23): the long fields left out, which
+  /// [character] fills in.
   List<TavernCharacter> _characterList() {
-    final list = _characters.values.map(_view).toList()
+    final list = _characters.values.map((c) => _view(c, summary: true)).toList()
       ..sort((a, b) => (b.lastChatAt ?? b.importedAt!).compareTo(a.lastChatAt ?? a.importedAt!));
     return list;
   }
 
-  TavernCharacter _view(_Char c) {
+  TavernCharacter _view(_Char c, {bool summary = false}) {
     final chats = _chats.values.where((chat) => chat.characterId == c.id).toList();
     DateTime? last;
     for (final chat in chats) {
@@ -54,9 +56,9 @@ class PreviewTavern implements Tavern, TavernPreview {
       name: c.name,
       creator: c.creator,
       tags: c.tags,
-      description: c.description,
-      creatorNotes: c.creatorNotes,
-      greetings: c.greetings,
+      description: summary ? '' : c.description,
+      creatorNotes: summary ? '' : c.creatorNotes,
+      greetings: summary ? const [] : c.greetings,
       hasLorebook: c.data['character_book'] is Map,
       chatCount: chats.length,
       lastChatAt: last,

@@ -141,3 +141,13 @@ HTML/CSS只是有限的静态正面检测：资源路径参与计数和fingerpri
 新增110项登记用例：中央分类60、世界书27、存储及迁移8、四类入口集成15。包括旧库补报、编辑后stale、真正v2升级、SQL及文件发布失败、重开/导出隔离、静态检测正反例。110是运行前登记数；实际结果以正式交付回执为准。本层同时修正032指出的4项T21样式info（两处花括号、worker惰性空值赋值、fixture空值元素），不改变其判断或断言。
 
 本层静态分类与持久化测试尚须owner运行。固定ST原文、Python SQLite辅助验证、词法检查和独立源码复核均不替代Dart formatter/analyzer/test结果。
+
+# T23：流式持久化、历史与缓存
+
+流式增量仍立即发事件，正文落盘改为约500ms的dirty检查点，不再每16个增量写入。schema4新增影子正文/reasoning；周期写入不改usage、检视、变量、original或FTS。终态以一个FULL事务保存最终正文、usage、状态与检视，并更新FTS；NORMAL仅用于正文检查点，其他聊天普通写入仍用FULL。重开推广未完成检查点，清除不再对应这份正文的旧usage/检视，不伪造完成状态。
+
+历史改为共用递归CTE，任意叶的完整history不受path默认60条限制；父指针决定顺序，完整路径检查环、断链和跨chat引用。每回合复用一个MacroContext及活历史投影，每次expand仍重新求值，不缓存变量、随机、original或字段结果。固定正则共享，legacy动态编译和普通WI整词编译各有最多1000项LRU；T21用户正则worker保持。
+
+角色列表只读小摘要索引。`watchCharacters()`中的description、creatorNotes、greetings和regexDiagnostics为空，进详情用`character(id)`，字段编辑用`characterFields(id)`。缺索引旧库只从两个JSON恢复；完整记录按id最多缓存最近8项，失败/缺失可重试，编辑只刷新对应项。头像路径沿用既有portrait.png，没有新增图片缩放。
+
+详细的事务、故障恢复、列表合同、模拟清单和仍在调用方isolate的成本见[性能说明](docs/performance.md)。本轮没有搬迁整个引擎或实测手机帧率；500ms全文快照仍有累计文本量可随回复长度二次增长的边界，不能宣称总体已经O(n)。新增100项是运行前登记，实际验证以精确补丁回执为准；033的35条样式info作为本层等价改写处理。

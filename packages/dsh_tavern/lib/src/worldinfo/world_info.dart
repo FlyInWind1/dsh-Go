@@ -836,6 +836,27 @@ class _MatchReason {
   final List<String> secondary;
 }
 
+final _worldInfoWhitespace = RegExp(r'\s+');
+final _worldInfoGroupSeparator = RegExp(r',\s*');
+const _worldInfoPlainPatternLimit = 1000;
+final _worldInfoPlainPatterns = <String, RegExp>{};
+
+// The needle is already case-normalized by _plainMatches. Escaping keeps this
+// cache separate from user regex programs, which remain in the T21 worker.
+RegExp _worldInfoPlainPattern(String needle) {
+  final cached = _worldInfoPlainPatterns.remove(needle);
+  if (cached != null) {
+    _worldInfoPlainPatterns[needle] = cached;
+    return cached;
+  }
+  final compiled = RegExp('(?:^|\\W)(${RegExp.escape(needle)})(?:\$|\\W)');
+  if (_worldInfoPlainPatterns.length >= _worldInfoPlainPatternLimit) {
+    _worldInfoPlainPatterns.remove(_worldInfoPlainPatterns.keys.first);
+  }
+  _worldInfoPlainPatterns[needle] = compiled;
+  return compiled;
+}
+
 class _ScanBuffer {
   _ScanBuffer(this.input, this.worker) {
     var index = 0;
@@ -978,10 +999,10 @@ class _ScanBuffer {
       haystack = haystack.toLowerCase();
       needle = needle.toLowerCase();
     }
-    if (!(entry.matchWholeWords ?? input.settings.matchWholeWords) || needle.split(RegExp(r'\s+')).length > 1) {
+    if (!(entry.matchWholeWords ?? input.settings.matchWholeWords) || needle.split(_worldInfoWhitespace).length > 1) {
       return haystack.contains(needle);
     }
-    return RegExp('(?:^|\\W)(${RegExp.escape(needle)})(?:\$|\\W)').hasMatch(haystack);
+    return _worldInfoPlainPattern(needle).hasMatch(haystack);
   }
 
   Future<int> score(WorldInfoEntry entry, WorldInfoScanPhase phase, {int? scanDepth}) async {
@@ -1102,7 +1123,7 @@ Future<void> _filterGroups(
 ) async {
   final groups = <String, List<_RuntimeEntry>>{};
   for (final item in candidates) {
-    for (final group in item.entry.group.split(RegExp(r',\s*')).where((name) => name.isNotEmpty)) {
+    for (final group in item.entry.group.split(_worldInfoGroupSeparator).where((name) => name.isNotEmpty)) {
       (groups[group] ??= []).add(item);
     }
   }

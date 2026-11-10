@@ -30,22 +30,52 @@ class LegacyMacroEngine {
   /// hook cancels the whole current regex pass but retains earlier variable
   /// effects. A null hook result becomes `null` text. Internal card base
   /// expansion does not inherit this hook.
+  /// Per-call card mode and character override have the same scope as in
+  /// [MacroEngine.expand]; they do not mutate the shared context.
   String expand(
     String text,
     MacroContext context, {
     Map<String, String> overrides = const {},
     Object? Function(Object?)? postProcess,
-  }) => _LegacyEvaluation(this, context, text, overrides, postProcess: postProcess).evaluate(text);
+    bool? replaceCharacterCard,
+    String? characterOverride,
+  }) => _LegacyEvaluation(
+    this,
+    context,
+    text,
+    overrides,
+    postProcess: postProcess,
+    replaceCharacterCard: replaceCharacterCard,
+    characterOverride: characterOverride,
+  ).evaluate(text);
 }
 
 typedef _LegacyPass = ({RegExp regex, Object? Function(Match) replace});
+
+// Patterns include fixed passes and escaped environment names. Only compiled
+// regex objects are shared; replacements retain this evaluation's captures.
+const _legacyPatternCacheLimit = 1000;
+final _legacyPatterns = <(String, bool, bool), RegExp>{};
+
+RegExp _legacyPattern(String pattern, {required bool caseSensitive, required bool multiLine}) {
+  final key = (pattern, caseSensitive, multiLine);
+  final cached = _legacyPatterns.remove(key);
+  if (cached != null) {
+    _legacyPatterns[key] = cached;
+    return cached;
+  }
+  final compiled = RegExp(pattern, caseSensitive: caseSensitive, multiLine: multiLine);
+  if (_legacyPatterns.length >= _legacyPatternCacheLimit) _legacyPatterns.remove(_legacyPatterns.keys.first);
+  _legacyPatterns[key] = compiled;
+  return compiled;
+}
 
 _LegacyPass _legacyPass(
   String pattern,
   Object? Function(Match) replace, {
   bool caseSensitive = false,
   bool multiLine = false,
-}) => (regex: RegExp(pattern, caseSensitive: caseSensitive, multiLine: multiLine), replace: replace);
+}) => (regex: _legacyPattern(pattern, caseSensitive: caseSensitive, multiLine: multiLine), replace: replace);
 
 class _LegacyEvaluation {
   _LegacyEvaluation(
@@ -54,6 +84,7 @@ class _LegacyEvaluation {
     String original,
     this.overrides, {
     bool? replaceCharacterCard,
+    this.characterOverride,
     this.inheritOriginal = true,
     this.postProcess,
   }) : contentHash = MacroEngine.stringHash(original),
@@ -61,7 +92,14 @@ class _LegacyEvaluation {
        replaceCharacterCard = replaceCharacterCard ?? context.replaceCharacterCard,
        // Only the common history, dice and clock helpers are used. The new
        // parser/evaluate/field preparation never handles a legacy expansion.
-       common = _Evaluation(context, original, const {}, replaceCharacterCard: false, inheritOriginal: false);
+       common = _Evaluation(
+         context,
+         original,
+         const {},
+         replaceCharacterCard: false,
+         characterOverride: characterOverride,
+         inheritOriginal: false,
+       );
 
   final LegacyMacroEngine engine;
   final MacroContext context;
@@ -69,6 +107,7 @@ class _LegacyEvaluation {
   final int contentHash;
   final num chatIdHash;
   final bool replaceCharacterCard;
+  final String? characterOverride;
   final bool inheritOriginal;
   final Object? Function(Object?)? postProcess;
   final _Evaluation common;
@@ -220,10 +259,10 @@ class _LegacyEvaluation {
       put('creatorNotes', creatorNotes);
     }
     put('user', context.userName);
-    put('char', context.charName);
-    put('charIfNotGroup', context.group);
-    put('group', context.group);
-    put('groupNotMuted', context.groupNotMuted);
+    put('char', characterOverride ?? context.charName);
+    put('charIfNotGroup', characterOverride ?? context.group);
+    put('group', characterOverride ?? context.group);
+    put('groupNotMuted', characterOverride ?? context.groupNotMuted);
     put('notChar', context.notChar);
     put('model', context.model);
     for (final entry in overrides.entries) {
@@ -245,9 +284,10 @@ class _LegacyEvaluation {
       text,
       const {},
       replaceCharacterCard: false,
+      characterOverride: characterOverride,
       inheritOriginal: false,
     ).evaluate(text);
-    if (context.collapseNewlines) result = result.replaceAll(RegExp(r'\n+'), '\n');
+    if (context.collapseNewlines) result = result.replaceAll(_macroNewlines, '\n');
     return result.replaceAll('\r', '');
   }
 
@@ -268,6 +308,7 @@ class _LegacyEvaluation {
         separator,
         const {},
         replaceCharacterCard: true,
+        characterOverride: characterOverride,
         inheritOriginal: false,
       ).evaluate(separator);
     }

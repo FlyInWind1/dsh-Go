@@ -38,6 +38,14 @@ final tavernCharactersProvider = StreamProvider<List<TavernCharacter>>(
   (ref) => ref.watch(tavernProvider).watchCharacters(),
 );
 
+/// One character in full. The list carries only what a card in the grid
+/// shows; greetings, the definition and the creator's notes come from here,
+/// read again whenever the list changes (an edit, a re-import).
+final tavernCharacterDetailProvider = FutureProvider.autoDispose.family<TavernCharacter?, String>((ref, id) {
+  ref.watch(tavernCharactersProvider);
+  return ref.watch(tavernProvider).character(id);
+});
+
 /// Chats, newest first; one character's when the argument is its id.
 final tavernChatsProvider = StreamProvider.family<List<TavernChatSummary>, String?>(
   (ref, characterId) => ref.watch(tavernProvider).watchChats(characterId: characterId),

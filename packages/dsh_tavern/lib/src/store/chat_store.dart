@@ -135,12 +135,12 @@ class ChatStore {
     return ChatStore._(database, clock: clock, createId: createId);
   }
 
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
 
   // Keys are destination versions. Future upgrades register every successor
   // here and increase schemaVersion; no existing schema is dropped or replayed.
   // Steps run inside one transaction and must not manage transactions themselves.
-  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2, 3: _schemaV3};
+  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2, 3: _schemaV3, 4: _schemaV4};
   final Database _db;
   final DateTime Function() _clock;
   final String Function() _createId;
@@ -151,6 +151,8 @@ class ChatStore {
   var _transactionDepth = 0;
   ({Object error, StackTrace stackTrace})? _transactionFailure;
   var _closed = false;
+  var _streamingWriters = 0;
+  var _synchronous = 2;
 
   Stream<String> get changes => _changes.stream;
 
@@ -181,6 +183,73 @@ class ChatStore {
         }
       });
     }
+    _recoverStreamingBodies();
+  }
+
+  // A process can stop between a body checkpoint and the terminal transaction.
+  // The indexed text is still the old committed text, so this promotion uses
+  // the unchanged FTS trigger's correct OLD values. Do not attach a previous
+  // continuation's completed inspection or usage to a recovered partial body.
+  void _recoverStreamingBodies() {
+    if (_db.select('SELECT 1 FROM nodes WHERE stream_text IS NOT NULL LIMIT 1').isEmpty) return;
+    transaction(() {
+      _db.execute(r'''UPDATE chats SET metadata = json_remove(metadata, '$.dshgo.latestInspection')
+        WHERE EXISTS (SELECT 1 FROM nodes n WHERE n.chat_id = chats.id AND n.stream_text IS NOT NULL
+          AND n.id = json_extract(chats.metadata, '$.dshgo.latestInspection.nodeId'))''');
+      _db.execute(r'''UPDATE nodes SET text = stream_text, reasoning = stream_reasoning,
+        usage = NULL, extra = json_remove(extra, '$.dshgo.inspection'),
+        stream_text = NULL, stream_reasoning = NULL WHERE stream_text IS NOT NULL''');
+    });
+  }
+
+  /// Stream checkpoints use WAL NORMAL. The setting is connection-wide, so
+  /// concurrent turns share a reference count and the final one restores FULL.
+  /// Call outside a transaction and pair with [endStreamingWrites] in finally.
+  void beginStreamingWrites() {
+    _outsideTransaction();
+    if (_streamingWriters == 0) _setSynchronous(1);
+    _streamingWriters++;
+  }
+
+  void endStreamingWrites() {
+    _outsideTransaction();
+    if (_streamingWriters == 0) throw StateError('There is no active streaming writer.');
+    _streamingWriters--;
+    if (_streamingWriters == 0) _setSynchronous(2);
+  }
+
+  T _withDurability<T>(int level, T Function() operation) {
+    _outsideTransaction();
+    _setSynchronous(level);
+    try {
+      return _transaction(operation);
+    } finally {
+      if (_streamingWriters == 0) {
+        _setSynchronous(2);
+      } else {
+        try {
+          _setSynchronous(1);
+        } on SqliteException {
+          // Restoring this optimization failed after COMMIT/ROLLBACK. Keep
+          // the stronger FULL setting; never misreport an already committed
+          // write or replace the operation's original error. The next body
+          // checkpoint explicitly retries NORMAL before its own transaction.
+        }
+      }
+    }
+  }
+
+  void _outsideTransaction() {
+    _ensureOpen();
+    if (_transactionDepth != 0 || !_db.autocommit) {
+      throw StateError('Changing streaming durability requires no active transaction.');
+    }
+  }
+
+  void _setSynchronous(int value) {
+    if (_synchronous == value) return;
+    _db.execute('PRAGMA synchronous = $value');
+    _synchronous = value;
   }
 
   static List<({int version, String sql})> _migrationPlan(int version) {
@@ -209,6 +278,13 @@ class ChatStore {
   /// cannot cancel asynchronous work a callback schedules or hides behind a
   /// dynamic return type.
   T transaction<T>(T Function() operation) {
+    // Only body checkpoints use NORMAL. A different chat's ordinary edits,
+    // settings, rollback and terminal saves retain FULL while streams wait.
+    if (_transactionDepth > 0) return _transaction(operation);
+    return _withDurability(2, operation);
+  }
+
+  T _transaction<T>(T Function() operation) {
     _ensureOpen();
     _checkTransactionState();
     if (operation is Future<dynamic> Function()) {
@@ -519,10 +595,21 @@ class ChatStore {
     );
   }
 
+  /// Counts and recency for the character picker without loading message text.
+  Map<String, ({int count, DateTime lastAt})> characterChatStats() {
+    _ensureOpen();
+    return {
+      for (final row in _db.select(
+        'SELECT character_id, COUNT(*) AS chat_count, MAX(updated_at) AS last_at FROM chats GROUP BY character_id',
+      ))
+        row['character_id'] as String: (count: row['chat_count'] as int, lastAt: _date(row['last_at'])),
+    };
+  }
+
   List<TavernChatSummary> listChats({String? characterId}) {
     _ensureOpen();
     final rows = _db.select(
-      '''SELECT c.*, n.text AS last_text, COALESCE(n.depth, 0) AS message_count
+      '''SELECT c.*, COALESCE(n.stream_text, n.text) AS last_text, COALESCE(n.depth, 0) AS message_count
          FROM chats c LEFT JOIN nodes n ON n.id = c.current_leaf_id
          WHERE (? IS NULL OR c.character_id = ?) ORDER BY c.updated_at DESC, c.id''',
       [characterId, characterId],
@@ -679,18 +766,44 @@ class ChatStore {
       }
       lastId = before['parent_id'] as String?;
     }
-    if (limit == 0 || lastId == null) return [];
+    return [for (final row in _ancestorRows(chatId, lastId, limit: limit)) _message(row)];
+  }
+
+  /// Reads the entire ancestor path of an explicit leaf, including inactive
+  /// branches and stored extra/original fields. There is no 60-message default.
+  /// A non-null leaf uses two SELECTs: the chat check and the recursive query.
+  List<StoredNode> historyTo(String chatId, String? leafId) {
+    _chatRow(chatId);
+    return [for (final row in _ancestorRows(chatId, leafId)) _storedNode(row)];
+  }
+
+  List<Row> _ancestorRows(String chatId, String? leafId, {int? limit}) {
+    if (limit == 0 || leafId == null) return [];
+    // UNION only sees stable identifiers. Including an increasing distance
+    // would defeat duplicate removal for a corrupt cycle. Both recursive
+    // terms stay inside this chat; never trust a foreign parent pointer.
     final rows = _db.select(
-      '''WITH RECURSIVE path(id, parent_id, distance) AS (
-           SELECT id, parent_id, 0 FROM nodes WHERE chat_id = ? AND id = ?
-           UNION ALL
-           SELECT n.id, n.parent_id, p.distance + 1
-           FROM nodes n JOIN path p ON n.id = p.parent_id WHERE p.distance + 1 < ?
-         )
-         SELECT n.*, $_siblingColumns FROM path p JOIN nodes n ON n.id = p.id ORDER BY p.distance DESC''',
-      [chatId, lastId, limit],
+      '''WITH RECURSIVE ancestors(id, parent_id) AS (
+           SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ?
+           UNION
+           SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id
+             WHERE n.chat_id = ?
+           LIMIT ?
+         ) SELECT n.*, $_siblingColumns FROM ancestors a JOIN nodes n ON n.id = a.id''',
+      [chatId, leafId, chatId, limit ?? -1],
     );
-    return [for (final item in rows) _message(item)];
+    final byId = <String, Row>{for (final row in rows) row['id'] as String: row};
+    final reversed = <Row>[];
+    final visited = <String>{};
+    String? next = leafId;
+    while (next != null && (limit == null || reversed.length < limit)) {
+      if (!visited.add(next)) throw StateError('Cycle in the ancestor path: $next');
+      final row = byId[next];
+      if (row == null) throw StateError('Node does not belong to chat or has a broken parent: $next');
+      reversed.add(row);
+      next = row['parent_id'] as String?;
+    }
+    return reversed.reversed.toList();
   }
 
   void selectSibling(String chatId, String nodeId, int index) {
@@ -765,6 +878,21 @@ class ChatStore {
     });
   }
 
+  /// Saves only the current body channels. The ordinary text stays unchanged
+  /// until the terminal update, keeping external-content FTS OLD values valid.
+  /// Usage, state, inspection, original JSON and chat timestamps are untouched.
+  void writeStreamingBody(String chatId, String nodeId, {required String text, String? reasoning}) {
+    _ensureOpen();
+    if (_streamingWriters == 0) throw StateError('A body checkpoint requires an active streaming writer.');
+    _withDurability(1, () {
+      if (_db.select('SELECT 1 FROM nodes WHERE chat_id = ? AND id = ?', [chatId, nodeId]).isEmpty) {
+        throw StateError('Node does not belong to chat: $nodeId');
+      }
+      _db.execute('UPDATE nodes SET stream_text = ?, stream_reasoning = ? WHERE id = ?', [text, reasoning, nodeId]);
+      _changedChats.add(chatId);
+    });
+  }
+
   TavernMessage updateMessage(
     String chatId,
     String nodeId, {
@@ -778,19 +906,32 @@ class ChatStore {
   }) {
     return transaction(() {
       final row = _nodeRow(chatId, nodeId);
-      _db.execute('UPDATE nodes SET text = ?, reasoning = ?, usage = ?, extra = ?, original = ? WHERE id = ?', [
-        text ?? row['text'],
-        clearReasoning ? null : reasoning ?? row['reasoning'],
-        clearUsage
-            ? null
-            : usage == null
-            ? row['usage']
-            : _encodeUsage(usage),
-        extra == null ? row['extra'] : jsonEncode(extra),
-        original == null ? row['original'] : jsonEncode(original),
-        nodeId,
-      ]);
-      _touch(chatId);
+      final hasDraft = row['stream_text'] != null;
+      final promote = hasDraft && (text != null || reasoning != null || clearReasoning);
+      final fields = <String>[];
+      final values = <Object?>[];
+      void put(String name, Object? value) {
+        fields.add('$name = ?');
+        values.add(value);
+      }
+
+      // UPDATE OF text drives the FTS trigger. Metadata-only writes must not
+      // name text, and must not promote an in-progress body as a side effect.
+      if (text != null || promote) put('text', text ?? row['stream_text']);
+      if (reasoning != null || clearReasoning || promote) {
+        put('reasoning', clearReasoning ? null : reasoning ?? (promote ? row['stream_reasoning'] : row['reasoning']));
+      }
+      if (usage != null || clearUsage || promote) put('usage', clearUsage ? null : _encodeUsage(usage));
+      if (extra != null || promote) put('extra', jsonEncode(extra ?? _nodeExtra(row)));
+      if (original != null) put('original', jsonEncode(original));
+      if (promote) {
+        put('stream_text', null);
+        put('stream_reasoning', null);
+      }
+      if (fields.isNotEmpty) {
+        _db.execute('UPDATE nodes SET ${fields.join(', ')} WHERE id = ?', [...values, nodeId]);
+        _touch(chatId);
+      }
       return message(chatId, nodeId);
     });
   }
@@ -910,13 +1051,15 @@ class ChatStore {
     return state;
   }
 
+  /// Searches indexed bodies. Pending streaming bodies join only after final
+  /// promotion, so an old indexed word cannot return unrelated new draft text.
   List<TavernMessage> search(String query, {String? chatId, int limit = 50}) {
     _ensureOpen();
     if (limit < 0) throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
     if (query.trim().isEmpty || limit == 0) return [];
     final rows = _db.select(
       '''SELECT n.*, $_siblingColumns FROM nodes_fts JOIN nodes n ON n.seq = nodes_fts.rowid
-         WHERE nodes_fts MATCH ? AND (? IS NULL OR n.chat_id = ?) ORDER BY rank LIMIT ?''',
+         WHERE nodes_fts MATCH ? AND n.stream_text IS NULL AND (? IS NULL OR n.chat_id = ?) ORDER BY rank LIMIT ?''',
       [query, chatId, chatId, limit],
     );
     return [for (final row in rows) _message(row)];
@@ -925,6 +1068,8 @@ class ChatStore {
   Future<void> close() async {
     if (_closed) return;
     if (_transactionDepth != 0) throw StateError('Cannot close a chat store inside a transaction.');
+    _streamingWriters = 0;
+    _setSynchronous(2);
     _closed = true;
     _db.close();
     await _changes.close();
@@ -964,9 +1109,9 @@ class ChatStore {
       .select(
         '''WITH RECURSIVE ancestors(id, parent_id) AS (
          SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ?
-         UNION ALL SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id
+         UNION SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id WHERE n.chat_id = ?
        ) SELECT 1 FROM ancestors WHERE id = ? LIMIT 1''',
-        [chatId, nodeId, ancestorId],
+        [chatId, nodeId, chatId, ancestorId],
       )
       .isNotEmpty;
 
@@ -1000,22 +1145,31 @@ class ChatStore {
     message: _message(row),
     depth: row['depth'] as int,
     selectedChildId: row['selected_child_id'] as String?,
-    extra: _map(row['extra']),
+    extra: _nodeExtra(row),
     original: _map(row['original']),
   );
+
+  static Map<String, Object?> _nodeExtra(Row row) {
+    final extra = _map(row['extra']);
+    if (row['stream_text'] != null) {
+      final own = extra['dshgo'];
+      if (own is Map<String, Object?>) own.remove('inspection');
+    }
+    return extra;
+  }
 
   static TavernMessage _message(Row row) => TavernMessage(
     nodeId: row['id'] as String,
     parentId: row['parent_id'] as String?,
     role: TavernRole.values.byName(row['role'] as String),
     speaker: row['speaker'] as String,
-    text: row['text'] as String,
-    reasoning: row['reasoning'] as String?,
+    text: (row['stream_text'] ?? row['text']) as String,
+    reasoning: (row['stream_text'] != null ? row['stream_reasoning'] : row['reasoning']) as String?,
     at: _date(row['at']),
     hidden: row['hidden'] == 1,
     siblingIndex: row['sibling_index'] as int,
     siblingCount: row['sibling_count'] as int,
-    usage: _decodeUsage(row['usage']),
+    usage: row['stream_text'] == null ? _decodeUsage(row['usage']) : null,
   );
 
   static DateTime _date(Object? value) => DateTime.fromMillisecondsSinceEpoch(value as int, isUtc: true);
@@ -1145,6 +1299,12 @@ CREATE TRIGGER nodes_fts_update AFTER UPDATE OF text, speaker ON nodes BEGIN
   INSERT INTO nodes_fts(nodes_fts, rowid, text, speaker) VALUES ('delete', old.seq, old.text, old.speaker);
   INSERT INTO nodes_fts(rowid, text, speaker) VALUES (new.seq, new.text, new.speaker);
 END;
+''';
+
+  static const _schemaV4 = '''
+ALTER TABLE nodes ADD COLUMN stream_text TEXT;
+ALTER TABLE nodes ADD COLUMN stream_reasoning TEXT;
+CREATE INDEX nodes_stream_pending ON nodes(chat_id) WHERE stream_text IS NOT NULL;
 ''';
 
   static const _schemaV3 = '''

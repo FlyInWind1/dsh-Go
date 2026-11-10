@@ -76,9 +76,7 @@ final class TavernRegexScript {
   final TavernImportReport? _importReport;
   TavernImportReport? get importReport {
     final report = _importReport;
-    return report == null
-        ? null
-        : report.withStale(report.fingerprint != importFingerprint(TavernImportKind.regex, _raw));
+    return report?.withStale(report.fingerprint != importFingerprint(TavernImportKind.regex, _raw));
   }
 
   Map<String, Object?> get raw => _copy(_raw);

@@ -73,7 +73,9 @@ class _WorldInfoIntake {
     unknownFields(raw, _bookFields, path);
     opaqueExtensions(raw['extensions'], _field(path, 'extensions'));
     for (final key in const ['scan_depth', 'token_budget', 'recursive_scanning']) {
-      if (!raw.containsKey(key)) continue;
+      if (!raw.containsKey(key)) {
+        continue;
+      }
       final value = raw[key];
       final valid = key == 'recursive_scanning' ? value is bool : value is num && value.isFinite;
       add(
@@ -101,7 +103,9 @@ class _WorldInfoIntake {
     if (entries is Map<String, Object?>) {
       counts['entriesStored'] = entries.length;
       for (final entry in entries.entries) {
-        if (entry.value is Map<String, Object?>) continue;
+        if (entry.value is Map<String, Object?>) {
+          continue;
+        }
         malformed = true;
         add(
           '$path.entries[${jsonEncode(entry.key)}]',
@@ -113,7 +117,9 @@ class _WorldInfoIntake {
     } else if (entries is List<Object?>) {
       counts['entriesStored'] = entries.length;
       for (var index = 0; index < entries.length; index++) {
-        if (entries[index] is Map<String, Object?>) continue;
+        if (entries[index] is Map<String, Object?>) {
+          continue;
+        }
         malformed = true;
         add(
           '$path.entries[$index]',
@@ -187,14 +193,18 @@ class _WorldInfoIntake {
     if (entries is List<Object?>) {
       for (var index = 0; index < entries.length; index++) {
         final entry = entries[index];
-        if (entry is! Map<String, Object?>) continue;
+        if (entry is! Map<String, Object?>) {
+          continue;
+        }
         keywords(entry['keys'], '$path.entries[$index].keys', 'primaryKeys', null);
         keywords(entry['secondary_keys'], '$path.entries[$index].secondary_keys', 'secondaryKeys', null);
       }
     } else if (entries is Map<String, Object?>) {
       for (final row in entries.entries) {
         final entry = row.value;
-        if (entry is! Map<String, Object?>) continue;
+        if (entry is! Map<String, Object?>) {
+          continue;
+        }
         final location = '$path.entries[${jsonEncode(row.key)}]';
         keywords(entry['key'], '$location.key', 'primaryKeys', null);
         keywords(entry['keysecondary'], '$location.keysecondary', 'secondaryKeys', null);
@@ -293,7 +303,9 @@ class _WorldInfoIntake {
   }
 
   void keywords(Object? value, String location, String counter, String? id) {
-    if (value == null) return;
+    if (value == null) {
+      return;
+    }
     if (value is! List<Object?>) {
       add(location, 'wi-invalid-key-list', '关键词不是数组，当前执行视图忽略此值。', TavernImportFindingKind.invalid, identifier: id);
       return;
@@ -315,7 +327,9 @@ class _WorldInfoIntake {
   }
 
   void triggers(Object? value, String location, String id) {
-    if (value == null) return;
+    if (value == null) {
+      return;
+    }
     if (value is! List<Object?>) {
       add(
         location,
@@ -328,7 +342,9 @@ class _WorldInfoIntake {
     }
     for (var index = 0; index < value.length; index++) {
       final trigger = value[index];
-      if (_engineTriggers.contains(trigger)) continue;
+      if (_engineTriggers.contains(trigger)) {
+        continue;
+      }
       final known = trigger == 'swipe' || trigger == 'quiet';
       add(
         '$location[$index]',
@@ -353,7 +369,9 @@ class _WorldInfoIntake {
   }
 
   void opaqueExtensions(Object? value, String location, {String? identifier}) {
-    if (value == null) return;
+    if (value == null) {
+      return;
+    }
     if (value is Map<String, Object?>) {
       unknownFields(value, const <String>{}, location, identifier: identifier);
     } else {
@@ -369,7 +387,9 @@ class _WorldInfoIntake {
 
   void unknownFields(Map<String, Object?> object, Set<String> known, String location, {String? identifier}) {
     for (final key in object.keys) {
-      if (known.contains(key)) continue;
+      if (known.contains(key)) {
+        continue;
+      }
       increment('unknownPreservedFields');
       add(
         _field(location, key),
@@ -400,7 +420,9 @@ class _WorldInfoIntake {
       final header = headers[index];
       final state = states[index];
       final name = header.name;
-      if (header.isFallback) increment('fallbackDecoratorLines');
+      if (header.isFallback) {
+        increment('fallbackDecoratorLines');
+      }
       if (name == null) {
         increment('invalidDecoratorSyntax');
         add(
@@ -509,8 +531,12 @@ class _WorldInfoIntake {
 enum _DecoratorState { valid, contextual, ignored, invalid, instruct, unknown }
 
 _DecoratorState _decoratorState(String? name, String value, bool useRegex) {
-  if (_instructDecorators.contains(name)) return _DecoratorState.instruct;
-  if (!_recognizedDecorators.contains(name)) return _DecoratorState.unknown;
+  if (_instructDecorators.contains(name)) {
+    return _DecoratorState.instruct;
+  }
+  if (!_recognizedDecorators.contains(name)) {
+    return _DecoratorState.unknown;
+  }
   if (const {
     'activate',
     'dont_activate',
@@ -518,7 +544,9 @@ _DecoratorState _decoratorState(String? name, String value, bool useRegex) {
     'dont_activate_after_match',
     'ignore_on_max_context',
   }.contains(name)) {
-    if (value.isNotEmpty) return _DecoratorState.invalid;
+    if (value.isNotEmpty) {
+      return _DecoratorState.invalid;
+    }
     return const {'keep_activate_after_match', 'dont_activate_after_match'}.contains(name)
         ? _DecoratorState.contextual
         : _DecoratorState.valid;
@@ -535,25 +563,34 @@ _DecoratorState _decoratorState(String? name, String value, bool useRegex) {
     if (number == null ||
         !number.isFinite ||
         (name == 'activate_only_every' && number <= 0) ||
-        (name == 'is_greeting' && (number < 0 || number != number.toInt())))
+        (name == 'is_greeting' && (number < 0 || number != number.toInt()))) {
       return _DecoratorState.invalid;
+    }
     return const {'activate_only_after', 'activate_only_every', 'is_greeting'}.contains(name)
         ? _DecoratorState.contextual
         : _DecoratorState.valid;
   }
-  if (name == 'role')
+  if (name == 'role') {
     return const {'system', 'user', 'assistant'}.contains(value) ? _DecoratorState.valid : _DecoratorState.invalid;
+  }
   if (name == 'position') {
-    if (value == 'before_desc' || value == 'after_desc') return _DecoratorState.valid;
-    if (value == 'personality' || value == 'scenario') return _DecoratorState.contextual;
+    if (value == 'before_desc' || value == 'after_desc') {
+      return _DecoratorState.valid;
+    }
+    if (value == 'personality' || value == 'scenario') {
+      return _DecoratorState.contextual;
+    }
     return _DecoratorState.invalid;
   }
   if (name == 'additional_keys' || name == 'exclude_keys') {
-    if (name == 'exclude_keys' && useRegex) return _DecoratorState.ignored;
+    if (name == 'exclude_keys' && useRegex) {
+      return _DecoratorState.ignored;
+    }
     return value.split(',').any((key) => key.trim().isEmpty) ? _DecoratorState.invalid : _DecoratorState.valid;
   }
-  if (name == 'is_user_icon')
+  if (name == 'is_user_icon') {
     return value.isEmpty || value.contains(',') ? _DecoratorState.invalid : _DecoratorState.contextual;
+  }
   return const {'system_prompt', 'post_history_instructions'}.contains(value)
       ? _DecoratorState.valid
       : _DecoratorState.invalid;

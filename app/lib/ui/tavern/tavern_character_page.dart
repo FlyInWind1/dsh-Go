@@ -83,7 +83,10 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
     final chats = ref.watch(tavernChatsProvider(character.id)).value ?? const <TavernChatSummary>[];
     // Newest first: the one to pick up again.
     final last = chats.firstOrNull;
-    final greetings = character.greetings.isEmpty ? const [''] : character.greetings;
+    // The list leaves the long fields out; until the details arrive, the page
+    // shows what the list has.
+    final full = ref.watch(tavernCharacterDetailProvider(character.id)).value ?? character;
+    final greetings = full.greetings.isEmpty ? const [''] : full.greetings;
     return AppPage(
       title: character.name,
       showLargeTitle: false,
@@ -262,17 +265,15 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
             ],
           ),
         ),
-        if (character.description.isNotEmpty || character.creatorNotes.isNotEmpty)
+        if (full.description.isNotEmpty || full.creatorNotes.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (character.creatorNotes.isNotEmpty)
-                    _Section(title: l10n.tavernCreatorNotes, text: character.creatorNotes),
-                  if (character.description.isNotEmpty)
-                    _Section(title: l10n.tavernDefinition, text: character.description),
+                  if (full.creatorNotes.isNotEmpty) _Section(title: l10n.tavernCreatorNotes, text: full.creatorNotes),
+                  if (full.description.isNotEmpty) _Section(title: l10n.tavernDefinition, text: full.description),
                 ],
               ),
             ),
