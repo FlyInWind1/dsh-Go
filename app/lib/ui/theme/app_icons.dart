@@ -470,6 +470,9 @@ abstract final class AppIcons {
   static const playVideo = DshGlyphs.playCircle;
   static const mail = DshGlyphs.envelopeSimple;
   static const write = DshGlyphs.notePencil;
+
+  /// 接着写: the reply keeps talking (not an arrow, which reads as send).
+  static const continueReply = DshGlyphs.chatCenteredDots;
   static const featured = DshGlyphs.sparkle;
   static const bug = DshGlyphs.bug;
   static const school = DshGlyphs.graduationCap;

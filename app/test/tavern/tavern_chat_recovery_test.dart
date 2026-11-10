@@ -239,6 +239,30 @@ void main() {
     expect(find.text('「进来吧。」'), findsOneWidget);
   });
 
+  testWidgets('接着写 beside the box carries the newest reply on', (tester) async {
+    final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
+    final chat = await _open(tester, tavern);
+    final before = await tavern.path(chat);
+    expect(before.last.role, TavernRole.character); // the greeting
+
+    await tester.tap(find.byKey(const ValueKey('tavern-continue')));
+    await _settle(tester);
+
+    final after = await tavern.path(chat);
+    expect(after.length, before.length); // no new message: the same one, longer
+    expect(after.last.text, startsWith(before.last.text));
+    expect(after.last.text, contains('还有一件事'));
+    expect(find.textContaining('还有一件事'), findsOneWidget);
+
+    // With something in the box the key steps aside, and comes back when it is empty.
+    await tester.enterText(find.byType(TextField), '你好');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('tavern-continue')), findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('tavern-continue')), findsOneWidget);
+  });
+
   testWidgets('帮我写 drafts the next line into the box without sending it', (tester) async {
     final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
     final chat = await _open(tester, tavern);

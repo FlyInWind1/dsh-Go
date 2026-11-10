@@ -231,6 +231,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _focus.requestFocus();
   }
 
+  /// 接着写: the newest reply goes on from where it stopped.
+  void _continueLast() {
+    final last = _messages?.lastOrNull;
+    if (_running || last == null || last.role != TavernRole.character) return;
+    unawaited(HapticFeedback.selectionClick());
+    _run(() => _tavern.continueReply(widget.chatId, last.nodeId));
+  }
+
   /// 帮我写: the model writes your next line into the composer. Nothing is
   /// sent or stored; edit it, then send. Stop keeps what has arrived.
   void _impersonate() {
@@ -452,7 +460,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                 row(_MessageAction.copy, AppIcons.copy, l10n.commonCopy),
                 row(_MessageAction.edit, AppIcons.edit, l10n.commonEdit),
                 if (character) row(_MessageAction.regenerate, AppIcons.regenerate, l10n.tavernRegenerate),
-                if (character && last) row(_MessageAction.continueReply, AppIcons.forward, l10n.tavernContinueReply),
+                if (character && last)
+                  row(_MessageAction.continueReply, AppIcons.continueReply, l10n.tavernContinueReply),
                 if (character) row(_MessageAction.inspect, AppIcons.code, l10n.tavernInspectMenu),
                 if (message.hidden)
                   row(_MessageAction.hide, AppIcons.showSecret, l10n.tavernUnhide)
@@ -628,12 +637,31 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             ),
             _ => null,
           },
-          // 帮我写 while the box is empty: an idea to start from.
+          // While the box is empty: 帮我写 (an idea to start from) and, after
+          // a reply, 接着写 (it goes on).
           accessory: ValueListenableBuilder<TextEditingValue>(
             valueListenable: _input,
-            builder: (context, value, _) => value.text.isEmpty && !_running && messages != null
-                ? _WriteForMeKey(onPressed: _impersonate)
-                : const SizedBox.shrink(),
+            builder: (context, value, _) {
+              if (value.text.isNotEmpty || _running || messages == null) return const SizedBox.shrink();
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ComposerKey(
+                    key: const ValueKey('tavern-write-for-me'),
+                    icon: AppIcons.write,
+                    label: l10n.tavernWriteForMe,
+                    onPressed: _impersonate,
+                  ),
+                  if (messages.lastOrNull?.role == TavernRole.character)
+                    _ComposerKey(
+                      key: const ValueKey('tavern-continue'),
+                      icon: AppIcons.continueReply,
+                      label: l10n.tavernContinueReply,
+                      onPressed: _continueLast,
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -643,28 +671,28 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
 final _none = TavernMessage(nodeId: '', role: TavernRole.system, speaker: '', text: '', at: DateTime(0));
 
-/// The composer's 帮我写 key, the size of its other round keys.
-class _WriteForMeKey extends StatelessWidget {
-  const _WriteForMeKey({required this.onPressed});
+/// A quiet round key beside the composer's send key, the size of its others.
+class _ComposerKey extends StatelessWidget {
+  const _ComposerKey({super.key, required this.icon, required this.label, required this.onPressed});
 
+  final IconData icon;
+  final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final label = context.l10n.tavernWriteForMe;
     return Semantics(
       button: true,
       label: label,
       child: Tooltip(
         message: label,
         child: InkResponse(
-          key: const ValueKey('tavern-write-for-me'),
           onTap: onPressed,
           radius: 22,
           child: SizedBox.square(
             dimension: 40,
-            child: Icon(AppIcons.write, size: 20, color: scheme.onSurface.withValues(alpha: 0.7)),
+            child: Icon(icon, size: 20, color: scheme.onSurface.withValues(alpha: 0.7)),
           ),
         ),
       ),
