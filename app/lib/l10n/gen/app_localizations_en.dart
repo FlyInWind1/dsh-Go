@@ -19210,6 +19210,24 @@ class L10nEn extends L10n {
   String get tavernErrorTooLong => 'The chat is longer than the model\'s context';
 
   @override
+  String get tavernCutShort =>
+      'The reply reached the reply limit and stopped here. Continue it, or raise the limit in Tavern settings › Generation.';
+
+  @override
+  String get tavernFiltered => 'The model\'s content filter stopped part of this reply.';
+
+  @override
+  String get tavernErrorBalance => 'Your DeepSeek balance is too low. Top up, then try again';
+
+  @override
+  String get tavernErrorParameters => 'The model didn\'t accept this request\'s parameters';
+
+  @override
+  String tavernErrorParametersDetail(String detail) {
+    return 'The model didn\'t accept this request\'s parameters: $detail';
+  }
+
+  @override
   String tavernErrorDetail(String detail) {
     return 'Something went wrong: $detail';
   }

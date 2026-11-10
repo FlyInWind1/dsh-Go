@@ -33248,6 +33248,36 @@ abstract class L10n {
   /// **'对话太长了，超出了模型的上下文'**
   String get tavernErrorTooLong;
 
+  /// No description provided for @tavernCutShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复写到回复上限，在这里断开了。可以接着写，或在酒馆设置 › 生成里把回复上限调高。'**
+  String get tavernCutShort;
+
+  /// No description provided for @tavernFiltered.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条回复被模型的内容过滤拦下了一部分。'**
+  String get tavernFiltered;
+
+  /// No description provided for @tavernErrorBalance.
+  ///
+  /// In zh, this message translates to:
+  /// **'DeepSeek 账户余额不足，充值后再试'**
+  String get tavernErrorBalance;
+
+  /// No description provided for @tavernErrorParameters.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型不接受这次请求的参数'**
+  String get tavernErrorParameters;
+
+  /// No description provided for @tavernErrorParametersDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型不接受这次请求的参数：{detail}'**
+  String tavernErrorParametersDetail(String detail);
+
   /// No description provided for @tavernErrorDetail.
   ///
   /// In zh, this message translates to:

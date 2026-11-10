@@ -71,6 +71,18 @@
   "tavernErrorBusy": "The model is busy; try again in a moment",
   "tavernErrorNetwork": "Can't connect; check the network and retry",
   "tavernErrorTooLong": "The chat is longer than the model's context",
+  "tavernCutShort": "The reply reached the reply limit and stopped here. Continue it, or raise the limit in Tavern settings › Generation.",
+  "tavernFiltered": "The model's content filter stopped part of this reply.",
+  "tavernErrorBalance": "Your DeepSeek balance is too low. Top up, then try again",
+  "tavernErrorParameters": "The model didn't accept this request's parameters",
+  "tavernErrorParametersDetail": "The model didn't accept this request's parameters: {detail}",
+  "@tavernErrorParametersDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "tavernErrorDetail": "Something went wrong: {detail}",
   "@tavernErrorDetail": {
     "placeholders": {

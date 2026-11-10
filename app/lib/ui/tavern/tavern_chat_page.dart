@@ -206,8 +206,30 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           case TavernReasoningDelta(:final nodeId, :final text):
             _adopt(nodeId);
             _stream.value = (text: _stream.value.text, reasoning: _stream.value.reasoning + text);
-          case TavernTurnDone():
-            _finish();
+          case TavernTurnDone(:final message, :final finishReason):
+            // Cut short by the reply limit, or by the provider's filter: say
+            // so over the composer, with the way on.
+            final l10n = context.l10n;
+            switch (finishReason) {
+              case 'length':
+                _finish(
+                  error: l10n.tavernCutShort,
+                  action: (
+                    label: l10n.tavernContinueReply,
+                    onPressed: () => _run(() => _tavern.continueReply(widget.chatId, message.nodeId)),
+                  ),
+                );
+              case 'content_filter':
+                _finish(
+                  error: l10n.tavernFiltered,
+                  action: (
+                    label: l10n.tavernRegenerate,
+                    onPressed: () => _run(() => _tavern.regenerate(widget.chatId, message.nodeId)),
+                  ),
+                );
+              default:
+                _finish();
+            }
           case TavernTurnFailed(:final kind, :final detail, :final partial):
             if (partial == null && draft != null && _input.text.isEmpty) _input.text = draft;
             if (kind == TavernFailure.cancelled) return _finish();
@@ -263,6 +285,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       TavernFailure.busy => l10n.tavernErrorBusy,
       TavernFailure.network => l10n.tavernErrorNetwork,
       TavernFailure.contextTooLong => l10n.tavernErrorTooLong,
+      TavernFailure.insufficientBalance => l10n.tavernErrorBalance,
+      TavernFailure.invalidParameters =>
+        detail == null ? l10n.tavernErrorParameters : l10n.tavernErrorParametersDetail(detail),
       _ => detail == null ? l10n.commonFailedTryAgain : l10n.tavernErrorDetail(detail),
     };
   }

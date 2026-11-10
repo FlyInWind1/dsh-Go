@@ -11261,6 +11261,18 @@
   "tavernErrorBusy": "模型现在有点忙，稍后再试",
   "tavernErrorNetwork": "连不上，检查网络后重试",
   "tavernErrorTooLong": "对话太长了，超出了模型的上下文",
+  "tavernCutShort": "回复写到回复上限，在这里断开了。可以接着写，或在酒馆设置 › 生成里把回复上限调高。",
+  "tavernFiltered": "这条回复被模型的内容过滤拦下了一部分。",
+  "tavernErrorBalance": "DeepSeek 账户余额不足，充值后再试",
+  "tavernErrorParameters": "模型不接受这次请求的参数",
+  "tavernErrorParametersDetail": "模型不接受这次请求的参数：{detail}",
+  "@tavernErrorParametersDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "tavernErrorDetail": "出错了：{detail}",
   "@tavernErrorDetail": {
     "placeholders": {

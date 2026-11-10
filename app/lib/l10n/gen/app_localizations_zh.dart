@@ -18214,6 +18214,23 @@ class L10nZh extends L10n {
   String get tavernErrorTooLong => '对话太长了，超出了模型的上下文';
 
   @override
+  String get tavernCutShort => '回复写到回复上限，在这里断开了。可以接着写，或在酒馆设置 › 生成里把回复上限调高。';
+
+  @override
+  String get tavernFiltered => '这条回复被模型的内容过滤拦下了一部分。';
+
+  @override
+  String get tavernErrorBalance => 'DeepSeek 账户余额不足，充值后再试';
+
+  @override
+  String get tavernErrorParameters => '模型不接受这次请求的参数';
+
+  @override
+  String tavernErrorParametersDetail(String detail) {
+    return '模型不接受这次请求的参数：$detail';
+  }
+
+  @override
   String tavernErrorDetail(String detail) {
     return '出错了：$detail';
   }
