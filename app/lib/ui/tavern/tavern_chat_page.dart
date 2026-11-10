@@ -73,6 +73,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// the box fold away for the reading (back when typing).
   final _readingBack = ValueNotifier(false);
 
+  /// 小说, reading back: the header and the composer step aside for the
+  /// story (docs/design/roleplay-roadmap.md P1), back on the way down to the
+  /// newest lines, near them, or at a tap on the story.
+  final _immersive = ValueNotifier(false);
+
   /// The frame's Scaffold: 舞台 slides in from its right edge.
   final _scaffold = GlobalKey<ScaffoldState>();
 
@@ -151,6 +156,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _focus.dispose();
     _scrolled.dispose();
     _readingBack.dispose();
+    _immersive.dispose();
     super.dispose();
   }
 
@@ -187,6 +193,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   void _run(Stream<TavernEvent> Function() start, {String? draft}) {
+    _immersive.value = false;
     setState(() {
       _error = null;
       _action = null;
@@ -258,6 +265,20 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         if (mounted && _running) _finish();
       },
     );
+  }
+
+  /// 小说: into the story by the reader's own hand hides the header and the
+  /// box; back toward the newest lines, or near them, shows them again. Not
+  /// while a reply is written or something is being typed.
+  void _immerse(ScrollNotification n) {
+    if (n.metrics.pixels <= 240 || _running || _focus.hasFocus) {
+      _immersive.value = false;
+    } else if (n is ScrollUpdateNotification && n.dragDetails != null) {
+      // The list runs newest first: scrolling into the story adds pixels.
+      final delta = n.scrollDelta ?? 0;
+      if (delta > 4) _immersive.value = true;
+      if (delta < -4) _immersive.value = false;
+    }
   }
 
   /// The reply's node, once known: the page places the reply by it.
@@ -602,21 +623,26 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               backgroundColor: Colors.transparent,
               child: AppBackdrop(glow: false, child: SafeArea(child: stage())),
             ),
-      header: BotChatHeader(
-        face: ClipOval(
-          child: TavernPortrait(name: name, path: character?.avatarPath, radius: 0, initialSize: 16),
+      header: _Chrome(
+        key: const ValueKey('tavern-chrome-top'),
+        hidden: _immersive,
+        top: true,
+        child: BotChatHeader(
+          face: ClipOval(
+            child: TavernPortrait(name: name, path: character?.avatarPath, radius: 0, initialSize: 16),
+          ),
+          title: name,
+          status: status,
+          tone: tone,
+          scrolledUnder: _scrolled,
+          // The title is the character's: its page. The chat's own things are in 舞台 › 本局.
+          onDetails: () {
+            if (characterId != null) unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
+          },
+          // 舞台 in place of ⓘ (the title opens the quick look); beside the story
+          // on a wide screen, it needs no key.
+          action: beside ? null : (AppIcons.sidebar, l10n.tavernStage, () => _scaffold.currentState?.openEndDrawer()),
         ),
-        title: name,
-        status: status,
-        tone: tone,
-        scrolledUnder: _scrolled,
-        // The title is the character's: its page. The chat's own things are in 舞台 › 本局.
-        onDetails: () {
-          if (characterId != null) unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
-        },
-        // 舞台 in place of ⓘ (the title opens the quick look); beside the story
-        // on a wide screen, it needs no key.
-        action: beside ? null : (AppIcons.sidebar, l10n.tavernStage, () => _scaffold.currentState?.openEndDrawer()),
       ),
       // The story under 酒馆设置's text size and spacing.
       body: _beside(
@@ -675,90 +701,106 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     if (n.metrics.axis == Axis.vertical) {
                       _scrolled.value = ((n.metrics.maxScrollExtent - n.metrics.pixels) / 24).clamp(0.0, 1.0);
                       _readingBack.value = n.metrics.pixels > 240;
+                      if (novel) _immerse(n);
                       // The list runs newest first: what is left above is older.
                       if (n.metrics.extentAfter < 600) unawaited(_loadOlder());
                     }
                     return false;
                   },
-                  child: ListView(
-                    key: const ValueKey('tavern-transcript'),
-                    reverse: true,
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
-                    children: [
-                      // Keyed by message: a new one below keeps each row's
-                      // state with its message, not with its place.
-                      for (final row in rows.reversed)
-                        Padding(key: row.key, padding: const EdgeInsets.symmetric(vertical: 6), child: row),
-                      if (_hasOlder)
-                        const Padding(
-                          key: ValueKey('tavern-older'),
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: QuietSpinner()),
-                        ),
-                    ],
+                  child: GestureDetector(
+                    // A tap on the story brings the header and the box back.
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => _immersive.value = false,
+                    child: ListView(
+                      key: const ValueKey('tavern-transcript'),
+                      reverse: true,
+                      padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
+                      children: [
+                        // Keyed by message: a new one below keeps each row's
+                        // state with its message, not with its place.
+                        for (final row in rows.reversed)
+                          Padding(key: row.key, padding: const EdgeInsets.symmetric(vertical: 6), child: row),
+                        if (_hasOlder)
+                          const Padding(
+                            key: ValueKey('tavern-older'),
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: QuietSpinner()),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
         ),
       ),
       bottom: [
-        // No key yet: say so before the first line, not after it fails.
-        if (!preview && _error == null && !ref.watch(settingsProvider.select((s) => s.hasApiKey)))
-          _KeyMissing(onAdd: _openKeySettings),
-        _ErrorSlot(
-          error: _error,
-          action: _action,
-          onDismiss: () => setState(() {
-            _error = null;
-            _action = null;
-          }),
-        ),
-        ListenableBuilder(
-          listenable: Listenable.merge([_readingBack, _focus]),
-          builder: (context, _) => Composer(
-            hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
-            controller: _input,
-            focusNode: _focus,
-            connected: messages != null,
-            running: _running,
-            onSend: _send,
-            onStop: _stop,
-            voice: _voice,
-            placeholder: l10n.tavernComposerHint(name),
-            leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
-            tray: !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
-                ? _QuickReplyRow(
-                    replies: ref.watch(tavernQuickRepliesProvider),
-                    onSend: _sendQuick,
-                    onEdit: _editQuick,
-                    onDice: () => unawaited(_dice()),
-                  )
-                : null,
-            // While the box is empty: 帮我写 (an idea to start from) and, after
-            // a reply, 接着写 (it goes on).
-            accessory: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _input,
-              builder: (context, value, _) {
-                if (value.text.isNotEmpty || _running || messages == null) return const SizedBox.shrink();
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ComposerKey(
-                      key: const ValueKey('tavern-write-for-me'),
-                      icon: AppIcons.write,
-                      label: l10n.tavernWriteForMe,
-                      onPressed: _impersonate,
-                    ),
-                    if (messages.lastOrNull?.role == TavernRole.character)
-                      _ComposerKey(
-                        key: const ValueKey('tavern-continue'),
-                        icon: AppIcons.continueReply,
-                        label: l10n.tavernContinueReply,
-                        onPressed: _continueLast,
-                      ),
-                  ],
-                );
-              },
-            ),
+        _Chrome(
+          key: const ValueKey('tavern-chrome-bottom'),
+          hidden: _immersive,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // No key yet: say so before the first line, not after it fails.
+              if (!preview && _error == null && !ref.watch(settingsProvider.select((s) => s.hasApiKey)))
+                _KeyMissing(onAdd: _openKeySettings),
+              _ErrorSlot(
+                error: _error,
+                action: _action,
+                onDismiss: () => setState(() {
+                  _error = null;
+                  _action = null;
+                }),
+              ),
+              ListenableBuilder(
+                listenable: Listenable.merge([_readingBack, _focus]),
+                builder: (context, _) => Composer(
+                  hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
+                  controller: _input,
+                  focusNode: _focus,
+                  connected: messages != null,
+                  running: _running,
+                  onSend: _send,
+                  onStop: _stop,
+                  voice: _voice,
+                  placeholder: l10n.tavernComposerHint(name),
+                  leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
+                  tray: !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
+                      ? _QuickReplyRow(
+                          replies: ref.watch(tavernQuickRepliesProvider),
+                          onSend: _sendQuick,
+                          onEdit: _editQuick,
+                          onDice: () => unawaited(_dice()),
+                        )
+                      : null,
+                  // While the box is empty: 帮我写 (an idea to start from) and, after
+                  // a reply, 接着写 (it goes on).
+                  accessory: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _input,
+                    builder: (context, value, _) {
+                      if (value.text.isNotEmpty || _running || messages == null) return const SizedBox.shrink();
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ComposerKey(
+                            key: const ValueKey('tavern-write-for-me'),
+                            icon: AppIcons.write,
+                            label: l10n.tavernWriteForMe,
+                            onPressed: _impersonate,
+                          ),
+                          if (messages.lastOrNull?.role == TavernRole.character)
+                            _ComposerKey(
+                              key: const ValueKey('tavern-continue'),
+                              icon: AppIcons.continueReply,
+                              label: l10n.tavernContinueReply,
+                              onPressed: _continueLast,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1184,6 +1226,40 @@ class _StreamingReply extends StatelessWidget {
           else if (text.isNotEmpty)
             MarkdownBody(text: text, streaming: true, selectable: false),
         ],
+      );
+    },
+  );
+}
+
+/// The header or the bottom of the chat, stepping aside while [hidden]: the
+/// header slides up, the bottom folds away, so the story has the room.
+class _Chrome extends StatelessWidget {
+  const _Chrome({super.key, required this.hidden, required this.child, this.top = false});
+
+  final ValueListenable<bool> hidden;
+  final Widget child;
+  final bool top;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: hidden,
+    child: child,
+    builder: (context, hidden, child) {
+      final duration = AppMotion.of(context, AppMotion.standard);
+      final shown = AnimatedOpacity(opacity: hidden ? 0 : 1, duration: duration, child: child);
+      return IgnorePointer(
+        ignoring: hidden,
+        child: top
+            ? AnimatedSlide(offset: hidden ? const Offset(0, -1.2) : Offset.zero, duration: duration, child: shown)
+            : ClipRect(
+                child: AnimatedAlign(
+                  alignment: Alignment.topCenter,
+                  heightFactor: hidden ? 0 : 1,
+                  duration: duration,
+                  curve: AppMotion.std,
+                  child: shown,
+                ),
+              ),
       );
     },
   );
