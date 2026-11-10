@@ -19,7 +19,7 @@ import '../theme/theme.dart';
 import 'tavern_ink.dart';
 import 'tavern_widgets.dart';
 
-/// One page of the story: a paragraph of a message.
+/// One page of the story: a paragraph of a message, or part of a long one.
 class TavernPage {
   const TavernPage(this.message, this.text, {this.streaming = false});
   final TavernMessage message;
@@ -31,11 +31,87 @@ class TavernPage {
 List<TavernPage> tavernPages(List<TavernMessage> messages, {String? streamNode, String streamText = ''}) => [
   for (final m in messages)
     for (final paragraph in _paragraphs(m.nodeId == streamNode ? streamText : m.text))
-      TavernPage(m, paragraph, streaming: m.nodeId == streamNode),
+      for (final page in tavernParagraphPages(paragraph)) TavernPage(m, page, streaming: m.nodeId == streamNode),
 ];
 
 Iterable<String> _paragraphs(String text) =>
     text.split(RegExp(r'\n\s*\n')).map((p) => p.trim()).where((p) => p.isNotEmpty);
+
+/// About what the box shows without scrolling on a phone: some six lines at
+/// 酒馆设置's middle text size.
+const tavernPageChars = 120;
+
+/// What ends a sentence; a run of them ends it once (「……」, 「？！」).
+const _sentenceEnds = '。！？!?…';
+const _opens = '「『“（(';
+const _closes = '」』”）)';
+
+/// [paragraph] as pages of about [tavernPageChars] characters, each ending
+/// where a sentence does: never inside a quote, an `*action*`, a tag or code,
+/// so each page reads and colours as it would whole. A sentence longer than
+/// a page is one page (the box scrolls); tables and code blocks stay whole.
+List<String> tavernParagraphPages(String paragraph) {
+  if (paragraph.length <= tavernPageChars || paragraph.contains('```') || paragraph.contains('|')) return [paragraph];
+  final cuts = <int>[];
+  var depth = 0;
+  var stars = 0;
+  var tag = false;
+  var code = false;
+  for (var i = 0; i < paragraph.length; i++) {
+    final c = paragraph[i];
+    if (code) {
+      if (c == '`') code = false;
+      continue;
+    }
+    if (tag) {
+      if (c == '>') tag = false;
+      continue;
+    }
+    switch (c) {
+      case '`':
+        code = true;
+      case '<':
+        tag = true;
+      case '*':
+        stars++;
+      case _ when _opens.contains(c):
+        depth++;
+      case _ when _closes.contains(c):
+        if (depth > 0) depth--;
+    }
+    if (depth > 0 || stars.isOdd) continue;
+    final next = i + 1 < paragraph.length ? paragraph[i + 1] : '';
+    if (_sentenceEnds.contains(next) || _closes.contains(next)) continue; // the end goes on
+    final ends =
+        _sentenceEnds.contains(c) ||
+        (c == '.' && (next == ' ' || next == '')) ||
+        // A quote that ends a sentence: 「好。」
+        (_closes.contains(c) && i > 0 && _sentenceEnds.contains(paragraph[i - 1]));
+    if (ends) cuts.add(i + 1);
+  }
+  final pages = <String>[];
+  var start = 0;
+  int? best;
+  for (final cut in cuts) {
+    while (cut - start > tavernPageChars) {
+      final end = best ?? cut;
+      pages.add(paragraph.substring(start, end).trim());
+      start = end;
+      best = null;
+    }
+    if (cut > start) best = cut;
+  }
+  final rest = paragraph.substring(start).trim();
+  if (rest.isEmpty) return pages;
+  // A last few words go with the page before, not on a page of their own: at
+  // most a quarter page more, or onto a page that scrolls already.
+  if (pages.isNotEmpty && rest.length < tavernPageChars ~/ 4) {
+    pages.last = '${pages.last}${paragraph.substring(start).trimRight()}';
+  } else {
+    pages.add(rest);
+  }
+  return pages.where((p) => p.isNotEmpty).toList();
+}
 
 class TavernVisualNovelView extends StatefulWidget {
   const TavernVisualNovelView({
