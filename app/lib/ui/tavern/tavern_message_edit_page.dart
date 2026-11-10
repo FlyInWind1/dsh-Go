@@ -10,15 +10,19 @@ import '../providers/provider_widgets.dart';
 import '../shell/page_frame.dart';
 
 class TavernMessageEditPage extends StatefulWidget {
-  const TavernMessageEditPage({super.key, required this.speaker, required this.text});
+  const TavernMessageEditPage({super.key, required this.speaker, required this.text, this.title});
 
-  /// Who said it, shown under the title.
+  /// Who said it, shown under the title; or whose text it is.
   final String speaker;
   final String text;
 
-  static Route<String> route({required String speaker, required String text}) => MaterialPageRoute<String>(
-    builder: (_) => TavernMessageEditPage(speaker: speaker, text: text),
-  );
+  /// 编辑消息 unless given: the page also edits a preset's texts.
+  final String? title;
+
+  static Route<String> route({required String speaker, required String text, String? title}) =>
+      MaterialPageRoute<String>(
+        builder: (_) => TavernMessageEditPage(speaker: speaker, text: text, title: title),
+      );
 
   @override
   State<TavernMessageEditPage> createState() => _TavernMessageEditPageState();
@@ -49,7 +53,7 @@ class _TavernMessageEditPageState extends State<TavernMessageEditPage> {
       child: Stack(
         children: [
           AppPage(
-            title: l10n.tavernEditMessage,
+            title: widget.title ?? l10n.tavernEditMessage,
             subtitle: Text(widget.speaker),
             slivers: [
               SliverFillRemaining(

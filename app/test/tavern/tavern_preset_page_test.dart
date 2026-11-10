@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
+import 'package:dsh_app/ui/tavern/tavern_message_edit_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_preset_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_presets_page.dart';
+import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -89,12 +92,12 @@ void main() {
   testWidgets('a prompt switched on, and a number changed, are saved to the preset', (tester) async {
     final (tavern, id) = await _open(tester);
     await tester.tap(
-      find.descendant(of: find.byKey(const ValueKey('tavern-preset-prompt-jailbreak')), matching: find.byType(Switch)),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
       find.descendant(of: find.byKey(const ValueKey('tavern-preset-temperature')), matching: find.text('1.3')),
     );
+    await tester.pumpAndSettle();
+    final jailbreak = find.byKey(const ValueKey('tavern-preset-prompt-jailbreak'));
+    await _center(tester, jailbreak);
+    await tester.tap(find.descendant(of: jailbreak, matching: find.byType(Switch)));
     await tester.pumpAndSettle();
 
     final raw = await _raw(tester, tavern, id);
@@ -110,5 +113,84 @@ void main() {
     await tester.tap(find.text('编辑预设'));
     await tester.pumpAndSettle();
     expect(find.byType(TavernPresetPage), findsOneWidget);
+  });
+
+  prefillAndOrder();
+}
+
+/// Brings [target] to the middle of the page, clear of the glass header.
+Future<void> _center(WidgetTester tester, Finder target) async {
+  unawaited(Scrollable.ensureVisible(tester.element(target), alignment: 0.5));
+  await tester.pumpAndSettle();
+}
+
+Map<String, Object?> _prefill(Map<String, Object?> raw) => switch (raw['extensions']) {
+  {'dshgo': {'prefill': final Map<String, Object?> p}} => p,
+  _ => const {},
+};
+
+/// Lifts [id]'s row in the order sheet by its handle and drops it [rows]
+/// rows down (up when negative), in small steps.
+Future<void> _drag(WidgetTester tester, String id, int rows) async {
+  final row = find.byKey(ValueKey('tavern-preset-order-$id'));
+  final handle = find.descendant(of: row, matching: find.byIcon(AppIcons.dragHandle));
+  final finger = await tester.startGesture(tester.getCenter(handle));
+  await tester.pump(const Duration(milliseconds: 100));
+  final height = tester.getSize(row).height;
+  for (var i = 0; i < 12; i++) {
+    await finger.moveBy(Offset(0, height * rows / 12));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await tester.pump(const Duration(milliseconds: 300));
+  await finger.up();
+  await tester.pumpAndSettle();
+}
+
+void prefillAndOrder() {
+  testWidgets('the prefill is switched on, written, and put in the thinking; each part kept', (tester) async {
+    final (tavern, id) = await _open(tester);
+    expect(find.text('还没写'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-preset-prefill')), matching: find.byType(Switch)),
+    );
+    await tester.pumpAndSettle();
+    expect(_prefill(await _raw(tester, tavern, id))['enabled'], isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('tavern-preset-prefill-text')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TavernMessageEditPage), findsOneWidget);
+    expect(find.text('预填充'), findsWidgets);
+    await tester.enterText(find.byKey(const ValueKey('tavern-message-field')), '好的，我继续以林晚的身份写：\n第二行');
+    await tester.tap(find.byKey(const ValueKey('tavern-message-save')));
+    await tester.pumpAndSettle();
+    expect((await _raw(tester, tavern, id))['assistant_prefill'], '好的，我继续以林晚的身份写：\n第二行');
+    expect(find.text('好的，我继续以林晚的身份写：'), findsOneWidget); // its first line
+
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-preset-prefill-target')), matching: find.text('思考')),
+    );
+    await tester.pumpAndSettle();
+    final raw = await _raw(tester, tavern, id);
+    expect(_prefill(raw), {'enabled': true, 'target': 'reasoning'});
+    expect(raw['prompts'], isA<List<Object?>>().having((p) => p.length, 'length', 3)); // the rest kept
+  });
+
+  testWidgets('调整顺序 drags a prompt up; the order is saved, each switch with it', (tester) async {
+    final (tavern, id) = await _open(tester);
+    final open = find.byKey(const ValueKey('tavern-preset-order'));
+    await _center(tester, open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.text('按住右边的把手拖动。提示词按这个顺序发给模型，关着的也留在原位。'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('tavern-preset-order-jailbreak')), matching: find.text('已关')),
+      findsOneWidget,
+    );
+
+    await _drag(tester, 'jailbreak', -2);
+    final prompts = tavernPresetPrompts(await _raw(tester, tavern, id));
+    expect(prompts.map((p) => p.id), ['jailbreak', 'main', 'chatHistory']);
+    expect(prompts.map((p) => p.enabled), [false, true, true]);
   });
 }

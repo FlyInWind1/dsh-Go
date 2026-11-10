@@ -527,11 +527,14 @@ class PreviewTavern implements Tavern, TavernPreview {
   @override
   Future<TavernPresetImportResult> updatePreset(String presetId, Map<String, Object?> patch, {String? name}) async {
     final old = _presets[presetId]!;
+    // As the engine: objects merge, arrays and scalars are replaced.
+    final raw = _copySetting(old.raw)! as Map<String, Object?>;
+    _mergeSettings(raw, patch);
     final preset = TavernPreset(
       id: old.id,
       name: name ?? old.name,
       sourceText: old.sourceText,
-      raw: {...old.raw, ...patch},
+      raw: raw,
       envelope: old.envelope,
       createdAt: old.createdAt,
       updatedAt: DateTime.now(),

@@ -20440,6 +20440,44 @@ class L10nEn extends L10n {
   String get tavernLorebookMissingSubtitle => 'Still bound and skipped when replying; turn off to unbind';
 
   @override
+  String get tavernPresetOrder => 'Reorder';
+
+  @override
+  String get tavernPresetOrderNote =>
+      'Drag by the handle on the right. Prompts go to the model in this order; the ones switched off keep their place.';
+
+  @override
+  String get tavernPresetPromptOff => 'Off';
+
+  @override
+  String get tavernPrefill => 'Prefill';
+
+  @override
+  String get tavernPrefillOn => 'Start the reply with this';
+
+  @override
+  String get tavernPrefillOnSubtitle => 'The model writes on from it';
+
+  @override
+  String get tavernPrefillText => 'Opening text';
+
+  @override
+  String get tavernPrefillTextEmpty => 'Not written yet';
+
+  @override
+  String get tavernPrefillTarget => 'Goes in';
+
+  @override
+  String get tavernPrefillContent => 'Reply';
+
+  @override
+  String get tavernPrefillReasoning => 'Thinking';
+
+  @override
+  String get tavernPrefillNote =>
+      'When on, this goes to the model as the start of the reply, and it writes on from there. In Thinking it applies only with thinking on; otherwise it goes in the reply. Continuing a reply doesn\'t use it.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

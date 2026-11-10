@@ -35402,6 +35402,78 @@ abstract class L10n {
   /// **'还绑着，生成时会跳过；关掉就解除'**
   String get tavernLorebookMissingSubtitle;
 
+  /// No description provided for @tavernPresetOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整顺序'**
+  String get tavernPresetOrder;
+
+  /// No description provided for @tavernPresetOrderNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'按住右边的把手拖动。提示词按这个顺序发给模型，关着的也留在原位。'**
+  String get tavernPresetOrderNote;
+
+  /// No description provided for @tavernPresetPromptOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关'**
+  String get tavernPresetPromptOff;
+
+  /// No description provided for @tavernPrefill.
+  ///
+  /// In zh, this message translates to:
+  /// **'预填充'**
+  String get tavernPrefill;
+
+  /// No description provided for @tavernPrefillOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复从这段开头'**
+  String get tavernPrefillOn;
+
+  /// No description provided for @tavernPrefillOnSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型接着这段往下写'**
+  String get tavernPrefillOnSubtitle;
+
+  /// No description provided for @tavernPrefillText.
+  ///
+  /// In zh, this message translates to:
+  /// **'开头的文字'**
+  String get tavernPrefillText;
+
+  /// No description provided for @tavernPrefillTextEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没写'**
+  String get tavernPrefillTextEmpty;
+
+  /// No description provided for @tavernPrefillTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'放在'**
+  String get tavernPrefillTarget;
+
+  /// No description provided for @tavernPrefillContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get tavernPrefillContent;
+
+  /// No description provided for @tavernPrefillReasoning.
+  ///
+  /// In zh, this message translates to:
+  /// **'思考'**
+  String get tavernPrefillReasoning;
+
+  /// No description provided for @tavernPrefillNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。'**
+  String get tavernPrefillNote;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

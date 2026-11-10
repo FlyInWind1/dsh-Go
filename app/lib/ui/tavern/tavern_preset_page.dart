@@ -1,6 +1,8 @@
 // 资源库 › 预设 › one preset (docs/design/roleplay-roadmap.md P0, engine T20):
-// its numbers (context, reply length, temperature) and its prompts in the
-// order they are sent, each switched on or off, as the engine edits them.
+// its numbers (context, reply length, temperature), its prefill (the text a
+// reply starts from, and whether it goes in the reply or the thinking), and
+// its prompts in the order they are sent: each switched on or off, the order
+// changed by dragging, as the engine edits them.
 
 import 'dart:async';
 
@@ -12,11 +14,15 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_generation.dart';
 import '../../tavern/tavern_provider.dart';
 import '../common/app_sheet.dart';
+import '../common/brief_notice.dart';
+import '../common/list_page_row.dart';
+import '../common/sheet_title_bar.dart';
 import '../features/feature_kit.dart';
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_message_edit_page.dart';
 import 'tavern_presets_page.dart';
 
 /// One preset, as it is now; again when the library changes.
@@ -69,6 +75,31 @@ class TavernPresetPage extends ConsumerWidget {
     final numbers = TavernGeneration.of(raw);
     final prompts = tavernPresetPrompts(raw);
     void set(String key, Object value) => unawaited(tavern.updatePreset(presetId, {key: value}));
+    // The prefill (engine T20): extensions.dshgo.prefill's switch and target,
+    // and ST's own assistant_prefill text.
+    final prefill = switch (raw['extensions']) {
+      {'dshgo': {'prefill': final Map<String, Object?> p}} => p,
+      _ => const <String, Object?>{},
+    };
+    final prefillText = switch (raw['assistant_prefill']) {
+      final String text => text,
+      _ => '',
+    };
+    void setPrefill(Map<String, Object?> patch) => unawaited(
+      tavern.updatePreset(presetId, {
+        'extensions': {
+          'dshgo': {'prefill': patch},
+        },
+      }),
+    );
+    Future<void> editPrefill() async {
+      final text = await Navigator.of(context)
+          .push(TavernMessageEditPage.route(speaker: preset.name, text: prefillText, title: l10n.tavernPrefill));
+      if (text != null) await tavern.updatePreset(presetId, {'assistant_prefill': text});
+    }
+
+    final theme = Theme.of(context);
+    final quiet = theme.textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary, height: 1.5);
     return AppPage.list(
       title: preset.name,
       children: [
@@ -104,6 +135,39 @@ class TavernPresetPage extends ConsumerWidget {
           ],
         ),
         SheetGroup(
+          key: const ValueKey('tavern-preset-prefill-group'),
+          title: l10n.tavernPrefill,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          children: [
+            SettingsSwitchTile(
+              key: const ValueKey('tavern-preset-prefill'),
+              title: l10n.tavernPrefillOn,
+              subtitle: l10n.tavernPrefillOnSubtitle,
+              value: prefill['enabled'] == true,
+              onChanged: (on) => setPrefill({'enabled': on}),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-preset-prefill-text'),
+              icon: AppIcons.edit,
+              tinted: false,
+              title: l10n.tavernPrefillText,
+              subtitle: prefillText.trim().isEmpty ? l10n.tavernPrefillTextEmpty : _line(prefillText),
+              onTap: () => unawaited(editPrefill()),
+            ),
+            SettingsSegmentTile<bool>(
+              key: const ValueKey('tavern-preset-prefill-target'),
+              title: l10n.tavernPrefillTarget,
+              segments: [PillSegment(false, l10n.tavernPrefillContent), PillSegment(true, l10n.tavernPrefillReasoning)],
+              selected: prefill['target'] == 'reasoning',
+              onChanged: (reasoning) => setPrefill({'target': reasoning ? 'reasoning' : 'content'}),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
+          child: Text(l10n.tavernPrefillNote, style: quiet),
+        ),
+        SheetGroup(
           key: const ValueKey('tavern-preset-prompts'),
           title: l10n.tavernPresetPrompts,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -111,11 +175,7 @@ class TavernPresetPage extends ConsumerWidget {
             if (prompts.isEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Text(
-                  l10n.tavernPresetPromptsEmpty,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: DshColors.of(context).textTertiary, height: 1.5),
-                ),
+                child: Text(l10n.tavernPresetPromptsEmpty, style: quiet),
               ),
             for (final prompt in prompts)
               SettingsSwitchTile(
@@ -125,9 +185,148 @@ class TavernPresetPage extends ConsumerWidget {
                 value: prompt.enabled,
                 onChanged: (on) => unawaited(tavern.setPresetPromptEnabled(presetId, prompt.id, on)),
               ),
+            if (prompts.length > 1)
+              SettingsTile(
+                key: const ValueKey('tavern-preset-order'),
+                icon: AppIcons.dragHandle,
+                tinted: false,
+                title: l10n.tavernPresetOrder,
+                onTap: () => unawaited(showTavernPresetOrder(context, presetId, prompts)),
+              ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// [text] as one short line: its first line, cut at about 40 characters.
+String _line(String text) {
+  final first = text.trim().split('\n').first.trim();
+  return first.length > 40 ? '${first.substring(0, 40)}…' : first;
+}
+
+/// [prompts] in order, each with a handle to drag it; every drop is saved
+/// as the whole order at once.
+Future<void> showTavernPresetOrder(BuildContext context, String presetId, List<TavernPresetPrompt> prompts) =>
+    showAppSheet<void>(
+      context,
+      isScrollControlled: true,
+      builder: (_) => _PresetOrderSheet(presetId: presetId, prompts: prompts),
+    );
+
+class _PresetOrderSheet extends ConsumerStatefulWidget {
+  const _PresetOrderSheet({required this.presetId, required this.prompts});
+
+  final String presetId;
+  final List<TavernPresetPrompt> prompts;
+
+  @override
+  ConsumerState<_PresetOrderSheet> createState() => _PresetOrderSheetState();
+}
+
+class _PresetOrderSheetState extends ConsumerState<_PresetOrderSheet> {
+  late final List<TavernPresetPrompt> _rows = [...widget.prompts];
+
+  /// Saves run one after another, each with the whole order as it then was.
+  Future<void> _saving = Future.value();
+
+  void _move(int from, int to) {
+    setState(() {
+      final moved = _rows.removeAt(from);
+      _rows.insert(to.clamp(0, _rows.length), moved);
+    });
+    final ids = [for (final p in _rows) p.id];
+    final tavern = ref.read(tavernProvider);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final failed = context.l10n.commonSaveFailed;
+    _saving = _saving.then((_) async {
+      try {
+        await tavern.setPresetOrder(widget.presetId, ids);
+      } on Object {
+        messenger?.showBriefNotice(failed);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final colors = DshColors.of(context);
+    Widget row(TavernPresetPrompt prompt, int index) => ListPageRow(
+      key: ValueKey('tavern-preset-order-${prompt.id}'),
+      title: prompt.name,
+      subtitle: !prompt.enabled
+          ? l10n.tavernPresetPromptOff
+          : prompt.marker
+          ? l10n.tavernPresetMarker
+          : null,
+      trailing: ReorderableDragStartListener(
+        index: index,
+        child: Semantics(
+          label: l10n.shellDragToReorder,
+          child: SizedBox.square(dimension: 32, child: Icon(AppIcons.dragHandle, size: 20, color: colors.textTertiary)),
+        ),
+      ),
+    );
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetTitleBar(l10n.tavernPresetOrder),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 6),
+              child: Text(
+                l10n.tavernPresetOrderNote,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.textTertiary, height: 1.5),
+              ),
+            ),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(kSheetGutter, 6, kSheetGutter, 6),
+                child: GlassSurface(
+                  tier: GlassTier.card,
+                  borderRadius: AppShape.radiusLg,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    clipBehavior: Clip.antiAlias,
+                    shape: const RoundedSuperellipseBorder(borderRadius: AppShape.radiusLg),
+                    child: ReorderableListView.builder(
+                      key: const ValueKey('tavern-preset-order-list'),
+                      shrinkWrap: true,
+                      buildDefaultDragHandles: false,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: _rows.length,
+                      // The lifted row keeps its glass look, a touch raised.
+                      proxyDecorator: (child, _, animation) => AnimatedBuilder(
+                        animation: animation,
+                        builder: (context, child) => Material(
+                          color: scheme.surface.withValues(alpha: 0.92),
+                          elevation: 6 * animation.value,
+                          shadowColor: Colors.black26,
+                          shape: Squircle.border(AppShape.md),
+                          clipBehavior: Clip.antiAlias,
+                          child: child,
+                        ),
+                        child: child,
+                      ),
+                      onReorderItem: _move,
+                      itemBuilder: (context, i) => row(_rows[i], i),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
     );
   }
 }

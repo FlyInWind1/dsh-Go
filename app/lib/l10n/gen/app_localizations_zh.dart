@@ -19381,6 +19381,42 @@ class L10nZh extends L10n {
   String get tavernLorebookMissingSubtitle => '还绑着，生成时会跳过；关掉就解除';
 
   @override
+  String get tavernPresetOrder => '调整顺序';
+
+  @override
+  String get tavernPresetOrderNote => '按住右边的把手拖动。提示词按这个顺序发给模型，关着的也留在原位。';
+
+  @override
+  String get tavernPresetPromptOff => '已关';
+
+  @override
+  String get tavernPrefill => '预填充';
+
+  @override
+  String get tavernPrefillOn => '回复从这段开头';
+
+  @override
+  String get tavernPrefillOnSubtitle => '模型接着这段往下写';
+
+  @override
+  String get tavernPrefillText => '开头的文字';
+
+  @override
+  String get tavernPrefillTextEmpty => '还没写';
+
+  @override
+  String get tavernPrefillTarget => '放在';
+
+  @override
+  String get tavernPrefillContent => '正文';
+
+  @override
+  String get tavernPrefillReasoning => '思考';
+
+  @override
+  String get tavernPrefillNote => '开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
