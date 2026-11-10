@@ -27,10 +27,16 @@ class TavernPage {
   final bool streaming;
 }
 
-/// The path cut into pages, the reply being written included.
-List<TavernPage> tavernPages(List<TavernMessage> messages, {String? streamNode, String streamText = ''}) => [
+/// The path cut into pages, the reply being written included; each message
+/// as [shown] gives it (through the display regex), or as written.
+List<TavernPage> tavernPages(
+  List<TavernMessage> messages, {
+  String? streamNode,
+  String streamText = '',
+  String Function(TavernMessage message)? shown,
+}) => [
   for (final m in messages)
-    for (final paragraph in _paragraphs(m.nodeId == streamNode ? streamText : m.text))
+    for (final paragraph in _paragraphs(m.nodeId == streamNode ? streamText : (shown?.call(m) ?? m.text)))
       for (final page in tavernParagraphPages(paragraph)) TavernPage(m, page, streaming: m.nodeId == streamNode),
 ];
 

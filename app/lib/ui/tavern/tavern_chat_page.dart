@@ -46,6 +46,7 @@ import 'tavern_character_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
 import 'tavern_inspector_page.dart';
+import 'tavern_live_display.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_reading.dart';
@@ -103,6 +104,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// message on it.
   String? _streamNode;
   final _stream = ValueNotifier<_Streamed>(_nothing);
+
+  /// The reply's text through the display regex, as it will show once stored.
+  late final _live = TavernLiveDisplay((text) => _tavern.displayText(widget.chatId, nodeId: _streamNode, text: text));
   String? _error;
 
   /// The error's button: 「重试」 when trying again can help, 「设置」 when
@@ -147,6 +151,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (_running) _tavern.stop(widget.chatId);
     unawaited(_turn?.cancel());
     _stream.dispose();
+    _live.dispose();
     _voice.removeListener(_reportVoice);
     _voice.dispose();
     // The page is gone, and its dictation with it.
@@ -200,6 +205,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _streamNode = null;
     });
     _stream.value = _nothing;
+    _live.reset();
     _turn = start().listen(
       (event) {
         if (!mounted) return;
@@ -210,6 +216,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           case TavernTextDelta(:final nodeId, :final text):
             _adopt(nodeId);
             _stream.value = (text: _stream.value.text + text, reasoning: _stream.value.reasoning);
+            _live.text = _stream.value.text;
           case TavernReasoningDelta(:final nodeId, :final text):
             _adopt(nodeId);
             _stream.value = (text: _stream.value.text, reasoning: _stream.value.reasoning + text);
@@ -295,6 +302,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _action = action;
     });
     _stream.value = _nothing;
+    _live.reset();
     unawaited(_reload());
   }
 
@@ -578,7 +586,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final rows = <Widget>[
       for (final m in messages ?? const <TavernMessage>[])
         if (m.nodeId == _streamNode)
-          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream)
+          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream, live: _live)
         else
           _MessageRow(
             chatId: widget.chatId,
@@ -592,7 +600,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             lead: name,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
-        _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream),
+        _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream, live: _live),
     ];
 
     // Read here, not in the 视觉小说 builder below, which reruns on every
@@ -601,6 +609,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         ? null
         : ref.watch(tavernLive2dProvider(characterId)).value;
     final revealRate = ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond));
+    // The pages read each message as shown, through the display regex; the
+    // bubble and novel rows ask for their own.
+    final shownText = layout == TavernLayout.visualNovel
+        ? {
+            for (final m in messages ?? const <TavernMessage>[])
+              m.nodeId: ref.watch(tavernShownTextProvider((widget.chatId, m.nodeId, m.text))).value ?? m.text,
+          }
+        : const <String, String>{};
 
     final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
     final beside = MediaQuery.sizeOf(context).width >= _stageBesideFrom;
@@ -650,13 +666,18 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         beside ? stage(topInset: topInset) : null,
         TavernReading(
           child: layout == TavernLayout.visualNovel
-              ? ValueListenableBuilder(
-                  valueListenable: _stream,
-                  builder: (context, streamed, _) => TavernVisualNovelView(
+              ? ListenableBuilder(
+                  listenable: _live,
+                  builder: (context, _) => TavernVisualNovelView(
                     pages: [
-                      ...tavernPages(messages ?? const [], streamNode: _streamNode, streamText: streamed.text),
+                      ...tavernPages(
+                        messages ?? const [],
+                        streamNode: _streamNode,
+                        streamText: _live.shown,
+                        shown: (m) => shownText[m.nodeId] ?? m.text,
+                      ),
                       if (_running &&
-                          streamed.text.isNotEmpty &&
+                          _live.shown.isNotEmpty &&
                           !(messages?.any((m) => m.nodeId == _streamNode) ?? false))
                         TavernPage(
                           TavernMessage(
@@ -666,7 +687,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                             text: '',
                             at: DateTime(0),
                           ),
-                          streamed.text,
+                          _live.shown,
                           streaming: true,
                         ),
                     ],
@@ -1113,8 +1134,6 @@ Widget _beside(Widget? stage, Widget story) => stage == null
         ],
       );
 
-/// Your line in the bubble layout: the app's bubble, with the story's
-/// Markdown and colours inside (your *actions* in italics, as hers are).
 /// A message as shown (docs/design/roleplay-roadmap.md P0, engine T21): its
 /// text through the display regex of the card, the preset and the library,
 /// never stored. The text as written until that comes, or if it cannot.
@@ -1138,6 +1157,8 @@ class _Shown extends ConsumerWidget {
   }
 }
 
+/// Your line in the bubble layout: the app's bubble, with the story's
+/// Markdown and colours inside (your *actions* in italics, as hers are).
 class _YourLine extends StatelessWidget {
   const _YourLine({required this.child});
 
@@ -1235,25 +1256,28 @@ typedef _Streamed = ({String text, String reasoning});
 
 const _Streamed _nothing = (text: '', reasoning: '');
 
-/// The reply being written, rebuilt alone as each piece arrives.
+/// The reply being written, rebuilt alone as each piece arrives: its text
+/// as [live] shows it, through the display regex.
 class _StreamingReply extends StatelessWidget {
-  const _StreamingReply({super.key, required this.stream});
+  const _StreamingReply({super.key, required this.stream, required this.live});
 
   final ValueListenable<_Streamed> stream;
+  final TavernLiveDisplay live;
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder(
-    valueListenable: stream,
-    builder: (context, streamed, _) {
-      final (:text, :reasoning) = streamed;
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([stream, live]),
+    builder: (context, _) {
+      final (:text, :reasoning) = stream.value;
+      final shown = live.shown;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning, active: text.isEmpty, streaming: true),
           if (text.isEmpty && reasoning.isEmpty)
             const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
-          else if (text.isNotEmpty)
-            MarkdownBody(text: text, streaming: true, selectable: false),
+          else if (shown.isNotEmpty)
+            MarkdownBody(text: shown, streaming: true, selectable: false),
         ],
       );
     },
