@@ -11,6 +11,7 @@ import '../chat/render/markdown_body.dart';
 import '../companion/companion_log.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_ink.dart';
 import 'tavern_widgets.dart';
 
 /// One page of the story: a paragraph of a message.
@@ -197,7 +198,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> {
                       Text(
                         speaker,
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color: user ? dsh.textTertiary : scheme.primary,
+                          color: user ? dsh.textTertiary : tavernNameColor(context, speaker, lead: widget.name),
                           fontWeight: FontWeight.w600,
                         ),
                       ),

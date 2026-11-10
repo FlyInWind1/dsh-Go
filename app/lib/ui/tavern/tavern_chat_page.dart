@@ -25,10 +25,9 @@ import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
-import '../chat/voice/voice_controller.dart';
-import '../companion/companion_stage.dart';
-import '../chat/widgets/notice_row.dart';
 import '../chat/render/markdown_body.dart';
+import '../chat/voice/voice_controller.dart';
+import '../chat/widgets/notice_row.dart';
 import '../chat/widgets/thinking_pill.dart';
 import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
@@ -37,21 +36,23 @@ import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../common/status_dot.dart';
 import '../common/typing_indicator.dart';
+import '../companion/companion_stage.dart';
 import '../features/feature_kit.dart' show QuietSpinner;
 import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
-import '../wallpaper/wallpaper_backdrop.dart';
 import '../theme/theme.dart';
+import '../wallpaper/wallpaper_backdrop.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
-import 'tavern_inspector_page.dart';
 import 'tavern_dice_sheet.dart';
+import 'tavern_ink.dart';
+import 'tavern_inspector_page.dart';
 import 'tavern_message_edit_page.dart';
+import 'tavern_personas.dart';
 import 'tavern_reading.dart';
 import 'tavern_stage_panel.dart';
 import 'tavern_storybook_page.dart';
-import 'tavern_personas.dart';
 import 'tavern_vn_view.dart';
 import 'tavern_widgets.dart';
 
@@ -693,6 +694,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             onMenu: () => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
             onSibling: (delta) => unawaited(_sibling(m, delta)),
             novel: novel,
+            lead: name,
           ),
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
         _StreamingReply(key: const ValueKey('stream-pending'), text: _streamText, reasoning: _streamReasoning),
@@ -910,6 +912,7 @@ class _MessageRow extends StatelessWidget {
     required this.onMenu,
     required this.onSibling,
     this.novel = false,
+    this.lead = '',
   });
 
   final TavernMessage message;
@@ -920,6 +923,9 @@ class _MessageRow extends StatelessWidget {
 
   /// 小说 layout: every message full width under its speaker's name.
   final bool novel;
+
+  /// The chat's own character: their name in the accent, others' in their own colours.
+  final String lead;
 
   @override
   Widget build(BuildContext context) {
@@ -991,7 +997,7 @@ class _MessageRow extends StatelessWidget {
           Text(
             user ? context.l10n.tavernYou : message.speaker,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: user ? DshColors.of(context).textTertiary : theme.colorScheme.primary,
+              color: user ? DshColors.of(context).textTertiary : tavernNameColor(context, message.speaker, lead: lead),
               fontWeight: FontWeight.w600,
             ),
           ),

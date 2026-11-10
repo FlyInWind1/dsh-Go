@@ -20,9 +20,9 @@ import '../theme/theme.dart';
 import 'tavern_character_edit_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_chat_page.dart';
-import 'tavern_lorebook_page.dart';
 import 'tavern_home_page.dart' show plainPreview;
 import 'tavern_live2d_tile.dart';
+import 'tavern_lorebook_page.dart';
 import 'tavern_widgets.dart';
 
 class TavernCharacterPage extends ConsumerStatefulWidget {

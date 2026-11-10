@@ -94,3 +94,28 @@ final tavernInkPattern = InlinePattern(
     );
   },
 );
+
+/// Colours for names other than the chat's own character's, light and dark.
+const _nameColorsLight = [0xFF0F7A6B, 0xFF7A4BB8, 0xFFB03A6E, 0xFF9A5508, 0xFF3D7A1E, 0xFF2B63B0];
+const _nameColorsDark = [0xFF6FD3C2, 0xFFC0A3F2, 0xFFF29BC0, 0xFFF0B868, 0xFFA6D98A, 0xFF8CC2F5];
+
+/// The colour [speaker]'s name is drawn in (docs/design/roleplay-ui.md §10):
+/// the chat's own character ([lead]) in the accent; anyone else (a guest, a
+/// narrator by name, the others of a group) in a colour of their own, the same
+/// every time.
+Color tavernNameColor(BuildContext context, String speaker, {required String lead}) {
+  final theme = Theme.of(context);
+  if (speaker.isEmpty || speaker == lead) return theme.colorScheme.primary;
+  // FNV-1a, then a last stir: names a few CJK characters long still spread
+  // over all the colours.
+  var hash = 0x811c9dc5;
+  for (final rune in speaker.runes) {
+    hash = ((hash ^ rune) * 0x01000193) & 0xffffffff;
+  }
+  hash ^= hash >> 15;
+  hash = (hash * 0x2c1b3c6d) & 0xffffffff;
+  hash ^= hash >> 12;
+  final colors = theme.brightness == Brightness.dark ? _nameColorsDark : _nameColorsLight;
+  // The high half: the low bits of an FNV hash spread poorly.
+  return Color(colors[(hash >> 16) % colors.length]);
+}

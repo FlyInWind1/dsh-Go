@@ -97,6 +97,29 @@ void main() {
     expect(_drawn(tester)['「进来吧」'], TavernInk.of(TavernPalette.ember, Brightness.light).dialogue);
   });
 
+  testWidgets('the chat’s own character is named in the accent; anyone else in a colour of their own', (tester) async {
+    late BuildContext context;
+    await _pump(
+      tester,
+      Builder(
+        builder: (c) {
+          context = c;
+          return const SizedBox();
+        },
+      ),
+    );
+    final accent = Theme.of(context).colorScheme.primary;
+    expect(tavernNameColor(context, '林晚', lead: '林晚'), accent);
+    expect(tavernNameColor(context, '', lead: '林晚'), accent);
+    final guest = tavernNameColor(context, '老周', lead: '林晚');
+    expect(guest, isNot(accent));
+    expect(tavernNameColor(context, '老周', lead: '林晚'), guest); // the same every time
+    final others = {
+      for (final n in ['老周', '阿青', '小满', '掌柜', '船夫', '陌生人']) tavernNameColor(context, n, lead: '林晚'),
+    };
+    expect(others.length, greaterThan(2)); // not all one colour
+  });
+
   testWidgets('酒馆设置 picks the colours, kept', (tester) async {
     await _pump(tester, const TavernSettingsPage());
     await tester.ensureVisible(find.byKey(const ValueKey('tavern-palette')));

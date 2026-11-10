@@ -27,6 +27,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_chat_files.dart' show tavernChatSinkProvider, tavernChatFileName;
+import 'tavern_ink.dart';
 import 'tavern_widgets.dart' show TavernPortrait;
 
 /// The latest lines a long image can hold: more makes a picture no phone
@@ -416,7 +417,7 @@ class TavernStoryCard extends StatelessWidget {
                       line.speaker,
                       style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: line.you ? dsh.textTertiary : scheme.primary,
+                        color: line.you ? dsh.textTertiary : tavernNameColor(context, line.speaker, lead: character),
                       ),
                     ),
                     const SizedBox(height: 4),
