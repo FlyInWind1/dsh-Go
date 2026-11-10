@@ -539,6 +539,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final character = message.role == TavernRole.character;
     final action = await showAppSheet<_MessageAction>(
       context,
+      // As tall as its rows: eight of them pass the default cap on a phone.
+      isScrollControlled: true,
       builder: (sheet) {
         Widget row(_MessageAction action, IconData icon, String title, {bool danger = false}) => SettingsTile(
           key: ValueKey('tavern-menu-${action.name}'),
@@ -565,6 +567,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   row(_MessageAction.hide, AppIcons.showSecret, l10n.tavernUnhide)
                 else
                   row(_MessageAction.hide, AppIcons.hideSecret, l10n.tavernHide),
+                row(_MessageAction.deleteOne, AppIcons.remove, l10n.tavernDeleteOne, danger: true),
                 row(_MessageAction.delete, AppIcons.delete, l10n.tavernDeleteFrom, danger: true),
               ],
             ),
@@ -586,6 +589,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         await Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: message.nodeId));
       case _MessageAction.hide:
         if (!_running) await _tavern.setHidden(widget.chatId, message.nodeId, !message.hidden);
+      case _MessageAction.deleteOne:
+        // Only this one, for good (engine T16): what came after it stays,
+        // joined to the message before. No undo, so ask first.
+        if (_running) return;
+        final l10n = context.l10n;
+        final ok = await confirmTavernDelete(
+          context,
+          title: l10n.tavernDeleteOneTitle,
+          message: l10n.tavernDeleteOneMessage,
+        );
+        if (ok && mounted && !_running) await _tavern.deleteMessage(widget.chatId, message.nodeId);
       case _MessageAction.delete:
         // Gone at once, with 撤销 for a while (engine T24: hidden until the
         // library is next opened); [tavernDeleteAskFrom] or more ask first.
@@ -956,7 +970,7 @@ class _ComposerKey extends StatelessWidget {
   }
 }
 
-enum _MessageAction { copy, edit, regenerate, continueReply, inspect, hide, delete }
+enum _MessageAction { copy, edit, regenerate, continueReply, inspect, hide, deleteOne, delete }
 
 /// A message on the path: the user's in a bubble, the character's as text;
 /// the last character message carries its alternatives.

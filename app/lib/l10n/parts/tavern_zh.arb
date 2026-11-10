@@ -694,5 +694,8 @@
   "tavernSearchChatNone": "没有找到「{query}」",
   "@tavernSearchChatNone": {"placeholders": {"query": {"type": "String"}}},
   "tavernSearchChatFound": "{count, plural, =1{找到 1 条} other{找到 {count} 条，新的在前}}",
-  "@tavernSearchChatFound": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernSearchChatFound": {"placeholders": {"count": {"type": "int"}}},
+  "tavernDeleteOne": "只删这一条",
+  "tavernDeleteOneTitle": "只删除这一条消息？",
+  "tavernDeleteOneMessage": "后面的消息都留着，接到它前面那条上。这样删除不能撤销。"
 }

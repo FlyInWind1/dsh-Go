@@ -98,6 +98,30 @@ void main() {
     expect(find.textContaining('外面怎么了', findRichText: true), findsWidgets);
   });
 
+  testWidgets('just this one asks first, and keeps what came after it', (tester) async {
+    await _openAfterOneExchange(tester);
+    await tester.longPress(find.textContaining('外面怎么了', findRichText: true).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-menu-deleteOne')));
+    await tester.pumpAndSettle();
+    expect(find.text('只删除这一条消息？'), findsOneWidget);
+    expect(find.textContaining('不能撤销'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('外面怎么了', findRichText: true), findsWidgets); // kept
+
+    await tester.longPress(find.textContaining('外面怎么了', findRichText: true).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-menu-deleteOne')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('外面怎么了', findRichText: true), findsNothing);
+    // Her reply stays, now after the greeting; no undo for this one.
+    expect(find.textContaining('地下室', findRichText: true), findsWidgets);
+    expect(find.text('撤销'), findsNothing);
+  });
+
   testWidgets('ten or more ask first, saying they can still be undone', (tester) async {
     await _openAfterOneExchange(tester);
     for (final line in ['你是谁？', '这里是哪？', '有吃的吗？', '我能住一晚吗？']) {

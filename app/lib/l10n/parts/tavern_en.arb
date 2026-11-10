@@ -694,5 +694,8 @@
   "tavernSearchChatNone": "Nothing found for “{query}”",
   "@tavernSearchChatNone": {"placeholders": {"query": {"type": "String"}}},
   "tavernSearchChatFound": "{count, plural, =1{1 found} other{{count} found, newest first}}",
-  "@tavernSearchChatFound": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernSearchChatFound": {"placeholders": {"count": {"type": "int"}}},
+  "tavernDeleteOne": "Delete just this one",
+  "tavernDeleteOneTitle": "Delete just this message?",
+  "tavernDeleteOneMessage": "The messages after it stay, joined to the one before it. This can't be undone."
 }

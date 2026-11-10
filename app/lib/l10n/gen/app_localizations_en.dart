@@ -20558,6 +20558,16 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernDeleteOne => 'Delete just this one';
+
+  @override
+  String get tavernDeleteOneTitle => 'Delete just this message?';
+
+  @override
+  String get tavernDeleteOneMessage =>
+      'The messages after it stay, joined to the one before it. This can\'t be undone.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

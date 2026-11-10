@@ -19485,6 +19485,15 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernDeleteOne => '只删这一条';
+
+  @override
+  String get tavernDeleteOneTitle => '只删除这一条消息？';
+
+  @override
+  String get tavernDeleteOneMessage => '后面的消息都留着，接到它前面那条上。这样删除不能撤销。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

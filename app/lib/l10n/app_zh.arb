@@ -12031,6 +12031,9 @@
       }
     }
   },
+  "tavernDeleteOne": "只删这一条",
+  "tavernDeleteOneTitle": "只删除这一条消息？",
+  "tavernDeleteOneMessage": "后面的消息都留着，接到它前面那条上。这样删除不能撤销。",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

@@ -35558,6 +35558,24 @@ abstract class L10n {
   /// **'{count, plural, =1{找到 1 条} other{找到 {count} 条，新的在前}}'**
   String tavernSearchChatFound(int count);
 
+  /// No description provided for @tavernDeleteOne.
+  ///
+  /// In zh, this message translates to:
+  /// **'只删这一条'**
+  String get tavernDeleteOne;
+
+  /// No description provided for @tavernDeleteOneTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'只删除这一条消息？'**
+  String get tavernDeleteOneTitle;
+
+  /// No description provided for @tavernDeleteOneMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'后面的消息都留着，接到它前面那条上。这样删除不能撤销。'**
+  String get tavernDeleteOneMessage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
