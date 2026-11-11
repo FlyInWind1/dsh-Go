@@ -1181,6 +1181,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   connected: messages != null,
                   running: _running,
                   onSend: _send,
+                  // Long-pressing send, as the key beside it: the line another way.
+                  onSendOptions: _input.text.isEmpty ? null : () => unawaited(_sendOptions()),
                   onStop: _stop,
                   voice: _voice,
                   placeholder: !preview && !ref.watch(settingsProvider.select((s) => s.hasApiKey))

@@ -1,6 +1,7 @@
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
+import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +100,20 @@ void main() {
       expect(find.text('System'), findsNothing);
     });
   }
+
+  testWidgets('with a line written, a long press on send offers the same ways', (tester) async {
+    final tavern = _Counted();
+    final chat = await _open(tester, tavern);
+    await tester.enterText(find.byType(TextField), '雨停了。');
+    await tester.pump();
+    await tester.longPress(find.byIcon(AppIcons.send));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-narrate')));
+    await tester.pumpAndSettle();
+    final last = (await tavern.path(chat)).last;
+    expect((last.role, last.text), (TavernRole.narrator, '雨停了。'));
+    expect(tavern.replies, 0);
+  });
 
   testWidgets('a line that could not go in is back in the box, and says so', (tester) async {
     await _open(tester, _Counted(broken: true));
