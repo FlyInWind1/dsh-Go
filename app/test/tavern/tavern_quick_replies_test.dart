@@ -91,4 +91,47 @@ void main() {
     // The box keeps what was being written.
     expect(find.widgetWithText(TextField, '*坐到壁炉边*'), findsOneWidget);
   });
+
+  testWidgets('全部 shows every quick reply whole: a tap sends, the pencil fills the box', (tester) async {
+    const long = '我把湿透的外套挂在门边，抖掉帽檐上的雨水，然后走到柜台前，问她今晚还有没有空房。';
+    SharedPreferences.setMockInitialValues({
+      TavernQuickReplies.key: ['外面怎么了？', long],
+    });
+    final tavern = _tavern();
+    final chat = await tavern.createChat('sample-innkeeper');
+    await _open(tester, tavern, TavernChatPage(chatId: chat));
+
+    final all = find.byKey(const ValueKey('tavern-qr-all'));
+    await tester.scrollUntilVisible(
+      all,
+      100,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('tavern-quick-replies')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(all);
+    await tester.pumpAndSettle();
+    expect(find.text(long), findsOneWidget); // whole, not cut to the capsule
+    expect(find.byKey(const ValueKey('tavern-qr-manage')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('tavern-qr-all-edit-1')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, long), findsOneWidget);
+
+    await tester.tap(all);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-qr-all-0')));
+    await _settle(tester);
+    expect((await tavern.path(chat)).map((m) => m.text), contains('外面怎么了？'));
+  });
+
+  testWidgets('with no quick replies there is no 全部', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final tavern = _tavern();
+    final chat = await tavern.createChat('sample-innkeeper');
+    await _open(tester, tavern, TavernChatPage(chatId: chat));
+    expect(find.byKey(const ValueKey('tavern-dice')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-qr-all')), findsNothing);
+  });
 }

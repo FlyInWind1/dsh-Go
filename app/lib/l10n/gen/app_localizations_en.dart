@@ -20893,6 +20893,12 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernQuickRepliesAll => 'All';
+
+  @override
+  String get tavernQuickRepliesManage => 'Manage quick replies';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -808,5 +808,7 @@
   "@tavernShelfPicked": {"placeholders": {"count": {"type": "int"}}},
   "tavernShelfExport": "Export the selected cards",
   "tavernDeleteCharactersTitle": "Delete these {count} characters?",
-  "@tavernDeleteCharactersTitle": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernDeleteCharactersTitle": {"placeholders": {"count": {"type": "int"}}},
+  "tavernQuickRepliesAll": "All",
+  "tavernQuickRepliesManage": "Manage quick replies"
 }

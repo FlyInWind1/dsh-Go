@@ -6010,6 +6010,8 @@
   "tavernShelfPicked": "{count} selected",
   "tavernShelfExport": "Export the selected cards",
   "tavernDeleteCharactersTitle": "Delete these {count} characters?",
+  "tavernQuickRepliesAll": "All",
+  "tavernQuickRepliesManage": "Manage quick replies",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

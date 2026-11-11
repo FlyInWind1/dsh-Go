@@ -52,6 +52,7 @@ import 'tavern_inspector_page.dart';
 import 'tavern_live_display.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
+import 'tavern_quick_replies_page.dart';
 import 'tavern_reading.dart';
 import 'tavern_stage_panel.dart';
 import 'tavern_vn_view.dart';
@@ -471,6 +472,56 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   /// Long-press: the quick reply goes into the box to change first.
+  /// 全部: every quick reply whole, as the row can't show them; a tap sends
+  /// one, the pencil puts it in the box, and the last row manages them.
+  Future<void> _allQuick() async {
+    final l10n = context.l10n;
+    final navigator = Navigator.of(context);
+    final replies = ref.read(tavernQuickRepliesProvider);
+    final picked = await showAppSheet<(String, bool)>(
+      context,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: SheetGroup(
+            title: l10n.tavernQuickReplies,
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            children: [
+              for (final (i, reply) in replies.indexed)
+                SettingsTile(
+                  key: ValueKey('tavern-qr-all-$i'),
+                  tinted: false,
+                  title: reply.trim(),
+                  chevron: false,
+                  trailing: IconButton(
+                    key: ValueKey('tavern-qr-all-edit-$i'),
+                    tooltip: l10n.commonEdit,
+                    icon: const Icon(AppIcons.edit, size: 18),
+                    onPressed: () => Navigator.of(sheet).pop((reply, false)),
+                  ),
+                  onTap: () => Navigator.of(sheet).pop((reply, true)),
+                ),
+              SettingsTile(
+                key: const ValueKey('tavern-qr-manage'),
+                icon: AppIcons.configure,
+                tinted: false,
+                title: l10n.tavernQuickRepliesManage,
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  unawaited(navigator.push(TavernQuickRepliesPage.route()));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final (text, send) = picked;
+    send ? _sendQuick(text) : _editQuick(text);
+  }
+
   void _editQuick(String text) {
     _input.value = TextEditingValue(
       text: text,
@@ -989,6 +1040,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                           onSend: _sendQuick,
                           onEdit: _editQuick,
                           onDice: () => unawaited(_dice()),
+                          onAll: () => unawaited(_allQuick()),
                         )
                       : null,
                   // While the box is empty: 帮我写 (an idea to start from) and, after
@@ -1248,12 +1300,21 @@ class _UsageLine extends StatelessWidget {
 /// The capsules above the composer (§6): 快速回复 (tap sends, long-press puts
 /// it in the box), then 掷骰.
 class _QuickReplyRow extends StatelessWidget {
-  const _QuickReplyRow({required this.replies, required this.onSend, required this.onEdit, required this.onDice});
+  const _QuickReplyRow({
+    required this.replies,
+    required this.onSend,
+    required this.onEdit,
+    required this.onDice,
+    required this.onAll,
+  });
 
   final List<String> replies;
   final ValueChanged<String> onSend;
   final ValueChanged<String> onEdit;
   final VoidCallback onDice;
+
+  /// 全部, last in the row while there are replies: every one, whole.
+  final VoidCallback onAll;
 
   /// The first line, kept short enough for a capsule.
   static String _label(String reply) {
@@ -1270,9 +1331,16 @@ class _QuickReplyRow extends StatelessWidget {
         key: const ValueKey('tavern-quick-replies'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: replies.length + 1,
+        itemCount: replies.length + (replies.isEmpty ? 1 : 2),
         separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => i == replies.length
+        itemBuilder: (context, i) => i > replies.length
+            ? CapsuleChoiceChip(
+                key: const ValueKey('tavern-qr-all'),
+                label: context.l10n.tavernQuickRepliesAll,
+                selected: false,
+                onSelected: onAll,
+              )
+            : i == replies.length
             ? CapsuleChoiceChip(
                 key: const ValueKey('tavern-dice'),
                 label: context.l10n.tavernDice,

@@ -36152,6 +36152,18 @@ abstract class L10n {
   /// **'删除这 {count} 个角色？'**
   String tavernDeleteCharactersTitle(int count);
 
+  /// No description provided for @tavernQuickRepliesAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get tavernQuickRepliesAll;
+
+  /// No description provided for @tavernQuickRepliesManage.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理快速回复'**
+  String get tavernQuickRepliesManage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
