@@ -5,7 +5,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +21,7 @@ import '../common/app_sheet.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_import_files.dart';
 
 /// The card picture, or — for a card without one — a quiet field in the
 /// theme's container colour with the name's first character.
@@ -253,7 +253,7 @@ Future<TavernCharacter?> showTavernImport(BuildContext context, WidgetRef ref) a
   );
   if (from == null || !context.mounted) return null;
   return switch (from) {
-    _ImportFrom.file => importTavernCard(context, ref),
+    _ImportFrom.file => importTavernFiles(context, ref),
     _ImportFrom.link => importTavernCardFromLink(context, ref),
   };
 }
@@ -305,25 +305,6 @@ Future<TavernCharacter?> importTavernCardFromLink(BuildContext context, WidgetRe
   } on TavernImportError catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.isLorebook ? l10n.tavernImportLorebook : l10n.tavernImportFailed)));
   } on Object {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImportFailed)));
-  }
-  return null;
-}
-
-/// Picks a card file and imports it; says how it went. Returns the character,
-/// or null when nothing was imported.
-Future<TavernCharacter?> importTavernCard(BuildContext context, WidgetRef ref) async {
-  final l10n = context.l10n;
-  final messenger = ScaffoldMessenger.of(context);
-  final file = (await FilePicker.pickFiles()).firstOrNull;
-  if (file == null) return null;
-  try {
-    final character = await ref.read(tavernProvider).importCard(await file.readAsBytes(), fileName: file.name);
-    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImported(character.name))));
-    return character;
-  } on TavernImportError catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(e.isLorebook ? l10n.tavernImportLorebook : l10n.tavernImportFailed)));
-  } catch (_) {
     messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImportFailed)));
   }
   return null;

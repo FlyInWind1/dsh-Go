@@ -461,7 +461,7 @@
   "tavernLorebookOff": "Off",
   "tavernLorebookEmpty": "This card has no lorebook",
   "tavernImportFromFile": "From a file",
-  "tavernImportFromFileSubtitle": "A PNG, JSON or CHARX card",
+  "tavernImportFromFileSubtitle": "Cards, presets, lorebooks, regex, quick replies or chats, told apart for you",
   "tavernImportFromLink": "From a link",
   "tavernImportFromLinkSubtitle": "A direct link to the card file (.png, .json, .charx)",
   "tavernLinkInvalid": "That isn't a web address",
@@ -827,5 +827,18 @@
   "tavernStorageLive2d": "Live2D figures",
   "tavernStorageOther": "Backgrounds, lorebooks, regex and settings",
   "tavernStorageNote": "All of it lives on this device only; before you change phones or uninstall, back up the whole tavern.",
-  "tavernDefaultPresetEmpty": "Import presets in Library › Presets to pick another."
+  "tavernDefaultPresetEmpty": "Import presets in Library › Presets to pick another.",
+  "tavernQuickRepliesAdded": "{count, plural, =1{Added 1 quick reply} other{Added {count} quick replies}}",
+  "@tavernQuickRepliesAdded": {"placeholders": {"count": {"type": "int"}}},
+  "tavernQuickRepliesAddedSkipped": "Added {count} quick replies; {skipped} were ST slash commands and left out",
+  "@tavernQuickRepliesAddedSkipped": {"placeholders": {"count": {"type": "int"}, "skipped": {"type": "int"}}},
+  "tavernImportChatNoName": "This chat doesn't say whose it is; import it from the character's page",
+  "tavernImportChatNoCharacter": "No single “{name}” on the shelf; import this chat from the character's page",
+  "@tavernImportChatNoCharacter": {"placeholders": {"name": {"type": "String"}}},
+  "tavernImportedChatsTo": "{count, plural, =1{Imported 1 chat to “{name}”} other{Imported {count} chats to “{name}”}}",
+  "@tavernImportedChatsTo": {"placeholders": {"count": {"type": "int"}, "name": {"type": "String"}}},
+  "tavernImportUnknown": "Can't tell what {name} is",
+  "@tavernImportUnknown": {"placeholders": {"name": {"type": "String"}}},
+  "tavernImportFileFailed": "Couldn't import {name}: {reason}",
+  "@tavernImportFileFailed": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}}
 }

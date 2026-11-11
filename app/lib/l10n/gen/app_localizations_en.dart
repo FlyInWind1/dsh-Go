@@ -20055,7 +20055,8 @@ class L10nEn extends L10n {
   String get tavernImportFromFile => 'From a file';
 
   @override
-  String get tavernImportFromFileSubtitle => 'A PNG, JSON or CHARX card';
+  String get tavernImportFromFileSubtitle =>
+      'Cards, presets, lorebooks, regex, quick replies or chats, told apart for you';
 
   @override
   String get tavernImportFromLink => 'From a link';
@@ -20946,6 +20947,51 @@ class L10nEn extends L10n {
 
   @override
   String get tavernDefaultPresetEmpty => 'Import presets in Library › Presets to pick another.';
+
+  @override
+  String tavernQuickRepliesAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Added $count quick replies',
+      one: 'Added 1 quick reply',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tavernQuickRepliesAddedSkipped(int count, int skipped) {
+    return 'Added $count quick replies; $skipped were ST slash commands and left out';
+  }
+
+  @override
+  String get tavernImportChatNoName => 'This chat doesn\'t say whose it is; import it from the character\'s page';
+
+  @override
+  String tavernImportChatNoCharacter(String name) {
+    return 'No single “$name” on the shelf; import this chat from the character\'s page';
+  }
+
+  @override
+  String tavernImportedChatsTo(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count chats to “$name”',
+      one: 'Imported 1 chat to “$name”',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tavernImportUnknown(String name) {
+    return 'Can\'t tell what $name is';
+  }
+
+  @override
+  String tavernImportFileFailed(String name, String reason) {
+    return 'Couldn\'t import $name: $reason';
+  }
 
   @override
   String get updateCheck => 'Check for updates';

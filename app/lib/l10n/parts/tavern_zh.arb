@@ -461,7 +461,7 @@
   "tavernLorebookOff": "已关",
   "tavernLorebookEmpty": "这张卡没有世界书",
   "tavernImportFromFile": "从文件导入",
-  "tavernImportFromFileSubtitle": "PNG、JSON 或 CHARX 角色卡",
+  "tavernImportFromFileSubtitle": "角色卡、预设、世界书、正则、快速回复或聊天记录，会自己认出来",
   "tavernImportFromLink": "从链接导入",
   "tavernImportFromLinkSubtitle": "卡文件的直链（.png、.json、.charx）",
   "tavernLinkInvalid": "这不是一个网址",
@@ -827,5 +827,18 @@
   "tavernStorageLive2d": "Live2D 形象",
   "tavernStorageOther": "背景图、世界书、正则和设置",
   "tavernStorageNote": "这些都只存在这台设备上；换手机或卸载前，先「备份整个酒馆」。",
-  "tavernDefaultPresetEmpty": "在 资源库 › 预设 里导入以后，就能换成别的。"
+  "tavernDefaultPresetEmpty": "在 资源库 › 预设 里导入以后，就能换成别的。",
+  "tavernQuickRepliesAdded": "加了 {count} 条快速回复",
+  "@tavernQuickRepliesAdded": {"placeholders": {"count": {"type": "int"}}},
+  "tavernQuickRepliesAddedSkipped": "加了 {count} 条快速回复；{skipped} 条是 ST 的斜杠命令，没有加",
+  "@tavernQuickRepliesAddedSkipped": {"placeholders": {"count": {"type": "int"}, "skipped": {"type": "int"}}},
+  "tavernImportChatNoName": "这份聊天记录没写是哪个角色的，到角色页里导入它",
+  "tavernImportChatNoCharacter": "书架上找不到唯一的「{name}」，到角色页里导入这段聊天",
+  "@tavernImportChatNoCharacter": {"placeholders": {"name": {"type": "String"}}},
+  "tavernImportedChatsTo": "{count} 段对话导入到了「{name}」",
+  "@tavernImportedChatsTo": {"placeholders": {"count": {"type": "int"}, "name": {"type": "String"}}},
+  "tavernImportUnknown": "认不出 {name} 是什么文件",
+  "@tavernImportUnknown": {"placeholders": {"name": {"type": "String"}}},
+  "tavernImportFileFailed": "{name} 没能导入：{reason}",
+  "@tavernImportFileFailed": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}}
 }

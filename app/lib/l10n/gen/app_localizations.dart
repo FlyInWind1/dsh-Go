@@ -34721,7 +34721,7 @@ abstract class L10n {
   /// No description provided for @tavernImportFromFileSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'PNG、JSON 或 CHARX 角色卡'**
+  /// **'角色卡、预设、世界书、正则、快速回复或聊天记录，会自己认出来'**
   String get tavernImportFromFileSubtitle;
 
   /// No description provided for @tavernImportFromLink.
@@ -36247,6 +36247,48 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'在 资源库 › 预设 里导入以后，就能换成别的。'**
   String get tavernDefaultPresetEmpty;
+
+  /// No description provided for @tavernQuickRepliesAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'加了 {count} 条快速回复'**
+  String tavernQuickRepliesAdded(int count);
+
+  /// No description provided for @tavernQuickRepliesAddedSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'加了 {count} 条快速回复；{skipped} 条是 ST 的斜杠命令，没有加'**
+  String tavernQuickRepliesAddedSkipped(int count, int skipped);
+
+  /// No description provided for @tavernImportChatNoName.
+  ///
+  /// In zh, this message translates to:
+  /// **'这份聊天记录没写是哪个角色的，到角色页里导入它'**
+  String get tavernImportChatNoName;
+
+  /// No description provided for @tavernImportChatNoCharacter.
+  ///
+  /// In zh, this message translates to:
+  /// **'书架上找不到唯一的「{name}」，到角色页里导入这段聊天'**
+  String tavernImportChatNoCharacter(String name);
+
+  /// No description provided for @tavernImportedChatsTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 段对话导入到了「{name}」'**
+  String tavernImportedChatsTo(int count, String name);
+
+  /// No description provided for @tavernImportUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'认不出 {name} 是什么文件'**
+  String tavernImportUnknown(String name);
+
+  /// No description provided for @tavernImportFileFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 没能导入：{reason}'**
+  String tavernImportFileFailed(String name, String reason);
 
   /// No description provided for @updateCheck.
   ///

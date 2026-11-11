@@ -19012,7 +19012,7 @@ class L10nZh extends L10n {
   String get tavernImportFromFile => '从文件导入';
 
   @override
-  String get tavernImportFromFileSubtitle => 'PNG、JSON 或 CHARX 角色卡';
+  String get tavernImportFromFileSubtitle => '角色卡、预设、世界书、正则、快速回复或聊天记录，会自己认出来';
 
   @override
   String get tavernImportFromLink => '从链接导入';
@@ -19864,6 +19864,39 @@ class L10nZh extends L10n {
 
   @override
   String get tavernDefaultPresetEmpty => '在 资源库 › 预设 里导入以后，就能换成别的。';
+
+  @override
+  String tavernQuickRepliesAdded(int count) {
+    return '加了 $count 条快速回复';
+  }
+
+  @override
+  String tavernQuickRepliesAddedSkipped(int count, int skipped) {
+    return '加了 $count 条快速回复；$skipped 条是 ST 的斜杠命令，没有加';
+  }
+
+  @override
+  String get tavernImportChatNoName => '这份聊天记录没写是哪个角色的，到角色页里导入它';
+
+  @override
+  String tavernImportChatNoCharacter(String name) {
+    return '书架上找不到唯一的「$name」，到角色页里导入这段聊天';
+  }
+
+  @override
+  String tavernImportedChatsTo(int count, String name) {
+    return '$count 段对话导入到了「$name」';
+  }
+
+  @override
+  String tavernImportUnknown(String name) {
+    return '认不出 $name 是什么文件';
+  }
+
+  @override
+  String tavernImportFileFailed(String name, String reason) {
+    return '$name 没能导入：$reason';
+  }
 
   @override
   String get updateCheck => '检查更新';
