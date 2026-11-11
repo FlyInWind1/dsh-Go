@@ -589,6 +589,11 @@ final _macroIsoDate = RegExp(
   r'(Z|[+-]\d{2}(?::?\d{2})?)?)?$',
   caseSensitive: false,
 );
+final _macroIsoUtcGap = RegExp(
+  r'^((?:[+-]\d{6}|\d{4})(?:'
+  r'-\d{2}-\d{2}[T ]\d{2}(?::\d{2}(?::\d{2}(?:[.,]\d+)?)?)?'
+  r'|\d{4}[T ]\d{2}(?:\d{2}(?:\d{2}(?:[.,]\d+)?)?)?))\s+Z$',
+);
 
 class _Evaluation {
   _Evaluation(
@@ -1142,8 +1147,8 @@ String _trimScoped(String text) {
 
 String _examples(String raw) {
   if (raw.isEmpty || raw == '<START>') return '';
-  if (!raw.startsWith('<START>')) raw = '<START>\n${raw.trim()}';
-  return raw.split(_macroExampleStart).skip(1).map((part) => '<START>\n${part.trim()}\n').join();
+  if (!raw.startsWith('<START>')) raw = '<START>\n${trimJsWhitespace(raw)}';
+  return raw.split(_macroExampleStart).skip(1).map((part) => '<START>\n${trimJsWhitespace(part)}\n').join();
 }
 
 List<String> _randomList(String input) {
@@ -1835,7 +1840,13 @@ class _MacroClock {
   /// Locale-dependent free-form Date parsing is intentionally not delegated to
   /// the host. Invalid calendar dates are rejected rather than normalized.
   DateTime? parse(String input) {
-    final match = _macroIsoDate.firstMatch(input.trim());
+    var match = _macroIsoDate.firstMatch(input.trim());
+    if (match == null && input.endsWith('Z')) {
+      // Only complete Moment ISO calendar forms gain pre-Z whitespace. Do not
+      // promote legacy arguments with trailing whitespace into the ISO path.
+      final utcGap = _macroIsoUtcGap.firstMatch(trimJsWhitespace(input));
+      if (utcGap != null) match = _macroIsoDate.firstMatch('${utcGap[1]}Z');
+    }
     if (match == null) return null;
     final year = int.parse(match[1]!);
     final month = int.parse(match[2] ?? '1');
