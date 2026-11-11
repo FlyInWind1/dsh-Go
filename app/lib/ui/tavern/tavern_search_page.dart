@@ -1,7 +1,7 @@
 // 舞台 › 本局 › 在对话里搜索 (docs/design/roleplay-roadmap.md P1, engine T24):
 // a line or a word across every branch of this chat, newest first, each hit
-// with the words around it. A hit opens whole, to read or copy; going to it
-// in the story waits for the branch tree (T16).
+// with the words around it. A hit opens whole, to read or copy, or to go to
+// in the story: its branch becomes the current one and the chat scrolls there.
 
 import 'dart:async';
 
@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_provider.dart';
 import '../bots/bot_format.dart' show shortTime;
 import '../chat/render/markdown_body.dart';
@@ -123,7 +124,7 @@ class _TavernSearchPageState extends ConsumerState<TavernSearchPage> {
           ),
           SheetGroup(
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            children: [for (final hit in hits) _Hit(message: hit, query: _asked)],
+            children: [for (final hit in hits) _Hit(chatId: widget.chatId, message: hit, query: _asked)],
           ),
         ],
       ],
@@ -133,8 +134,9 @@ class _TavernSearchPageState extends ConsumerState<TavernSearchPage> {
 
 /// One hit: who said it and when, and the words around the match.
 class _Hit extends StatelessWidget {
-  const _Hit({required this.message, required this.query});
+  const _Hit({required this.chatId, required this.message, required this.query});
 
+  final String chatId;
   final TavernMessage message;
   final String query;
 
@@ -205,6 +207,22 @@ class _Hit extends StatelessWidget {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 12),
                   child: MarkdownBody(key: const ValueKey('tavern-chat-search-whole'), text: message.text),
+                ),
+              ),
+              // Into the story: its branch the current one, the chat scrolled there.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 8),
+                child: FilledButton(
+                  key: const ValueKey('tavern-chat-search-go'),
+                  onPressed: () async {
+                    final container = ProviderScope.containerOf(context, listen: false);
+                    final page = Navigator.of(context);
+                    Navigator.of(sheet).pop();
+                    await container.read(tavernProvider).selectSibling(chatId, message.nodeId, message.siblingIndex);
+                    container.read(tavernJumpProvider(chatId).notifier).go(message.nodeId);
+                    if (page.mounted) page.pop();
+                  },
+                  child: Text(l10n.tavernSearchGoTo),
                 ),
               ),
               Padding(

@@ -21047,6 +21047,9 @@ class L10nEn extends L10n {
   String get tavernNewCharacterName => 'New character';
 
   @override
+  String get tavernSearchGoTo => 'Go to it in the chat';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

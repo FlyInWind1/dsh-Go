@@ -855,5 +855,6 @@
   "tavernComposerNoKey": "填好 Key 就能开始",
   "tavernWriteOwn": "自己写一个角色",
   "tavernWriteOwnSubtitle": "从一张空白卡开始，名字、设定和开场白都自己填",
-  "tavernNewCharacterName": "新角色"
+  "tavernNewCharacterName": "新角色",
+  "tavernSearchGoTo": "到对话里这一条"
 }

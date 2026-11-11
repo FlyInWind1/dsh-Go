@@ -6047,6 +6047,7 @@
   "tavernWriteOwn": "Write your own character",
   "tavernWriteOwnSubtitle": "Start from a blank card and fill in the name, setting and greeting",
   "tavernNewCharacterName": "New character",
+  "tavernSearchGoTo": "Go to it in the chat",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

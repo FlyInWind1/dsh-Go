@@ -23,6 +23,7 @@ import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
+import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
@@ -193,6 +194,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _focus.dispose();
     _scrolled.dispose();
     _readingBack.dispose();
+    _transcript.dispose();
     _immersive.dispose();
     super.dispose();
   }
@@ -216,6 +218,48 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _messages = messages;
       _hasOlder = messages.length >= window;
     });
+  }
+
+  /// The transcript's scroll (newest at 0: it runs reversed).
+  final _transcript = ScrollController();
+
+  /// The message being gone to (a search hit), marked a moment once there.
+  String? _jumpTarget;
+  final _jumpKey = GlobalKey();
+
+  /// Goes to [nodeId] in the story, already on the current path: loads back
+  /// a page at a time until it is in the transcript, then scrolls back until
+  /// it is built and brings it to the middle. Gives up quietly after a while.
+  Future<void> _jumpTo(String nodeId) async {
+    ref.read(tavernJumpProvider(widget.chatId).notifier).done();
+    bool loaded() => _messages?.any((m) => m.nodeId == nodeId) ?? false;
+    // Its branch was just switched to: read the path again, then page back.
+    await _reload();
+    for (var i = 0; i < 40 && mounted && !loaded() && _hasOlder; i++) {
+      _window += _page;
+      await _reload();
+    }
+    if (!mounted || !loaded()) return;
+    setState(() => _jumpTarget = nodeId);
+    for (var i = 0; i < 60; i++) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      if (_jumpKey.currentContext case final row? when row.mounted) {
+        await Scrollable.ensureVisible(row, alignment: 0.5, duration: const Duration(milliseconds: 280));
+        break;
+      }
+      if (!_transcript.hasClients) continue;
+      final position = _transcript.position;
+      if (position.pixels >= position.maxScrollExtent) {
+        // At the top of what is loaded: the row is built by now or never.
+        if (i > 2) break;
+        continue;
+      }
+      _transcript.jumpTo((position.pixels + position.viewportDimension * 0.8).clamp(0, position.maxScrollExtent));
+    }
+    // The mark fades after a moment.
+    await Future<void>.delayed(const Duration(milliseconds: 1600));
+    if (mounted && _jumpTarget == nodeId) setState(() => _jumpTarget = null);
   }
 
   /// Near the oldest loaded message: load another page before it.
@@ -789,6 +833,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    // A message to go to (舞台 › 在对话里搜索 › 到对话里这一条).
+    ref.listen(tavernJumpProvider(widget.chatId), (_, nodeId) {
+      if (nodeId != null) unawaited(_jumpTo(nodeId));
+    });
     final l10n = context.l10n;
     final characterId = ref
         .watch(tavernChatsProvider(null))
@@ -1005,13 +1053,21 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     onTap: () => _immersive.value = false,
                     child: ListView(
                       key: const ValueKey('tavern-transcript'),
+                      controller: _transcript,
                       reverse: true,
                       padding: EdgeInsets.fromLTRB(16, 12, 16, topInset + 8),
                       children: [
                         // Keyed by message: a new one below keeps each row's
                         // state with its message, not with its place.
                         for (final row in rows.reversed)
-                          Padding(key: row.key, padding: const EdgeInsets.symmetric(vertical: 6), child: row),
+                          Padding(
+                            key: row.key,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            // The message gone to, marked for a moment.
+                            child: _jumpTarget != null && row.key == ValueKey<String>(_jumpTarget!)
+                                ? _JumpMark(key: _jumpKey, child: row)
+                                : row,
+                          ),
                         if (_hasOlder)
                           const Padding(
                             key: ValueKey('tavern-older'),
@@ -1497,6 +1553,22 @@ final tavernShownTextProvider = FutureProvider.autoDispose.family<String, (Strin
   final shown = await ref.watch(tavernProvider).displayText(chatId, nodeId: nodeId, text: text);
   return shown.superseded ? text : shown.text;
 });
+
+/// The message gone to: a soft wash of the accent for a moment.
+class _JumpMark extends StatelessWidget {
+  const _JumpMark({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(AppShape.lg),
+    ),
+    child: child,
+  );
+}
 
 /// [message]'s text as [tavernShownTextProvider] shows it.
 class _Shown extends ConsumerWidget {

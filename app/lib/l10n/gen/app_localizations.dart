@@ -36374,6 +36374,12 @@ abstract class L10n {
   /// **'新角色'**
   String get tavernNewCharacterName;
 
+  /// No description provided for @tavernSearchGoTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'到对话里这一条'**
+  String get tavernSearchGoTo;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

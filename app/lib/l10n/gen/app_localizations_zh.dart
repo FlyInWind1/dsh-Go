@@ -19943,6 +19943,9 @@ class L10nZh extends L10n {
   String get tavernNewCharacterName => '新角色';
 
   @override
+  String get tavernSearchGoTo => '到对话里这一条';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
