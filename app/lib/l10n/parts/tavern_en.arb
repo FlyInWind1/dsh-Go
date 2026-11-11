@@ -912,5 +912,9 @@
   "@tavernDirectorRunFailed": {"placeholders": {"reason": {"type": "String"}}},
   "tavernBranchHere": "Branch from here",
   "tavernBranchedHere": "Back to this message; what came after is kept in Branches",
-  "tavernBranchHereFailed": "Could not go back to this message"
+  "tavernBranchHereFailed": "Could not go back to this message",
+  "tavernStateItems": "{count} items",
+  "@tavernStateItems": {"placeholders": {"count": {"type": "int"}}},
+  "tavernStateSearch": "Search the values",
+  "tavernStateNoMatch": "Nothing matches"
 }

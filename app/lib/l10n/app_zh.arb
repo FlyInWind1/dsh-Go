@@ -12450,6 +12450,16 @@
   "tavernBranchHere": "从这里分叉",
   "tavernBranchedHere": "回到了这一条，后面的内容留在「分支」里",
   "tavernBranchHereFailed": "没能回到这一条",
+  "tavernStateItems": "{count} 项",
+  "@tavernStateItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernStateSearch": "搜变量",
+  "tavernStateNoMatch": "没有符合的",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

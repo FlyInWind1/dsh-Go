@@ -36680,6 +36680,24 @@ abstract class L10n {
   /// **'没能回到这一条'**
   String get tavernBranchHereFailed;
 
+  /// No description provided for @tavernStateItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 项'**
+  String tavernStateItems(int count);
+
+  /// No description provided for @tavernStateSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜变量'**
+  String get tavernStateSearch;
+
+  /// No description provided for @tavernStateNoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有符合的'**
+  String get tavernStateNoMatch;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -21,6 +21,7 @@ import '../../tavern/tavern_session_usage.dart';
 import '../../tavern/tavern_settings.dart';
 import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
+import '../common/search_capsule.dart';
 import '../common/sheet_title_bar.dart';
 import '../features/feature_kit.dart' show QuietSpinner;
 import '../settings/settings_widgets.dart';
@@ -582,6 +583,51 @@ class _StateViewState extends ConsumerState<_StateView> {
     }
   }
 
+  /// Branches opened by a tap, by path.
+  final _expanded = <String>{};
+
+  /// What 搜 holds; with words in it the tree lies flat, every match by path.
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// [value] opens into rows of its own: an object, or a list not all words
+  /// (a list of words stays one line, as a bag reads).
+  static bool _branch(Object? value) =>
+      (value is Map<String, Object?> && value.isNotEmpty) ||
+      (value is List<Object?> && value.isNotEmpty && !value.every((item) => item is String));
+
+  /// The rows under [value] at [path], opened ones' children after them; with
+  /// [all], every row regardless, for 搜.
+  static void _walk(
+    List<_StateRow> rows,
+    String title,
+    String trail,
+    String path,
+    Object? value,
+    int depth, {
+    required bool Function(String path) open,
+    required bool all,
+  }) {
+    rows.add((title: title, trail: trail, path: path, value: value, depth: depth));
+    if (!_branch(value) || !(all || open(path))) return;
+    switch (value) {
+      case final Map<String, Object?> map:
+        for (final key in map.keys) {
+          _walk(rows, key, '$trail › $key', '$path${_pointer(key)}', map[key], depth + 1, open: open, all: all);
+        }
+      case final List<Object?> list:
+        for (var i = 0; i < list.length; i++) {
+          _walk(rows, '[$i]', '$trail › [$i]', '$path/$i', list[i], depth + 1, open: open, all: all);
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -595,7 +641,7 @@ class _StateViewState extends ConsumerState<_StateView> {
         // What is saved; with nothing saved yet, the card's starting values.
         final preview = state != null && !state.valueExists && state.initialValuesAvailable;
         final values = state == null ? null : (preview ? state.initialValues : state.values);
-        final rows = <(String, String, Object?)>[
+        final top = <(String, String, Object?)>[
           if (values case final Map<String, Object?> map)
             for (final key in state!.legacy ? (map.keys.toList()..sort()) : map.keys) (key, _pointer(key), map[key])
           else if (state != null && (state.valueExists || preview))
@@ -605,7 +651,7 @@ class _StateViewState extends ConsumerState<_StateView> {
           for (final issue in state?.issues ?? const <Map<String, Object?>>[])
             '${issue['message'] ?? issue['code'] ?? ''}',
         ].where((line) => line.isNotEmpty).toList();
-        if (state == null || (rows.isEmpty && issues.isEmpty)) {
+        if (state == null || (top.isEmpty && issues.isEmpty)) {
           return _Waiting(
             key: const ValueKey('tavern-stage-state'),
             icon: AppIcons.chart,
@@ -613,10 +659,53 @@ class _StateViewState extends ConsumerState<_StateView> {
             message: l10n.tavernStageStateNote,
           );
         }
+        // Every row, for 搜 and to know whether there are enough to search.
+        final every = <_StateRow>[];
+        for (final (title, path, value) in top) {
+          _walk(every, title, title, path, value, 0, open: (_) => true, all: true);
+        }
+        final query = _query.trim().toLowerCase();
+        final rows = <_StateRow>[];
+        if (query.isEmpty) {
+          for (final (title, path, value) in top) {
+            _walk(
+              rows,
+              title,
+              title,
+              path,
+              value,
+              0,
+              open: (path) => _expanded.contains(path) && !_hidden(state, path),
+              all: false,
+            );
+          }
+        } else {
+          // Flat: each match by its whole path; a spoiler matches by name only.
+          for (final row in every) {
+            final shown = _hidden(state, row.path) ? '' : _line(row.value);
+            if (row.trail.toLowerCase().contains(query) ||
+                (!_branch(row.value) && shown.toLowerCase().contains(query))) {
+              rows.add((title: row.trail, trail: row.trail, path: row.path, value: row.value, depth: 0));
+            }
+          }
+        }
         final quiet = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.72));
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (every.length >= 8) ...[
+              SearchCapsule(
+                key: const ValueKey('tavern-state-search'),
+                controller: _search,
+                hint: l10n.tavernStateSearch,
+                onChanged: (q) => setState(() => _query = q),
+                onClear: () => setState(() {
+                  _search.clear();
+                  _query = '';
+                }),
+              ),
+              const SizedBox(height: 12),
+            ],
             SettingsSection(
               key: const ValueKey('tavern-stage-variables'),
               title: state.legacy ? l10n.tavernStateVariables : l10n.tavernStageState,
@@ -628,48 +717,90 @@ class _StateViewState extends ConsumerState<_StateView> {
               ),
               margin: EdgeInsets.zero,
               children: [
-                for (final (title, path, value) in rows)
-                  InkWell(
-                    key: ValueKey('tavern-variable-$title'),
-                    onTap: () => unawaited(_open(state, title, path, value)),
-                    splashFactory: rowSplash(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: SettingsMetrics.inset, vertical: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 120),
-                            child: Text(
-                              title,
-                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          if (_mark(state, path, l10n) case final mark?) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              mark,
-                              key: ValueKey('tavern-state-change-$title'),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w700,
+                if (rows.isEmpty)
+                  Padding(
+                    key: const ValueKey('tavern-state-no-match'),
+                    padding: const EdgeInsets.all(SettingsMetrics.inset),
+                    child: Text(l10n.tavernStateNoMatch, style: quiet),
+                  ),
+                for (final row in rows)
+                  () {
+                    final hidden = _hidden(state, row.path);
+                    final branch = _branch(row.value) && !hidden && query.isEmpty;
+                    final open = branch && _expanded.contains(row.path);
+                    final count = switch (row.value) {
+                      final Map<String, Object?> map => map.length,
+                      final List<Object?> list => list.length,
+                      _ => 0,
+                    };
+                    return InkWell(
+                      key: ValueKey(
+                        row.depth == 0 && query.isEmpty
+                            ? 'tavern-variable-${row.title}'
+                            : 'tavern-variable-${row.path}',
+                      ),
+                      // A branch opens and closes; a long press, or a leaf's tap,
+                      // shows it whole to read or change.
+                      onTap: branch
+                          ? () => setState(() => open ? _expanded.remove(row.path) : _expanded.add(row.path))
+                          : () => unawaited(_open(state, row.trail, row.path, row.value)),
+                      onLongPress: () => unawaited(_open(state, row.trail, row.path, row.value)),
+                      splashFactory: rowSplash(context),
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          SettingsMetrics.inset + 16.0 * row.depth,
+                          10,
+                          SettingsMetrics.inset,
+                          10,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: query.isEmpty ? 120 : 200),
+                              child: Text(
+                                row.title,
+                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
-                          ],
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _hidden(state, path) ? l10n.tavernStateHidden : _line(value),
-                              textAlign: TextAlign.end,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: _hidden(state, path) ? quiet?.copyWith(fontStyle: FontStyle.italic) : quiet,
+                            if (_mark(state, row.path, l10n) case final mark?) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                mark,
+                                key: ValueKey('tavern-state-change-${row.title}'),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                hidden
+                                    ? l10n.tavernStateHidden
+                                    : branch
+                                    ? l10n.tavernStateItems(count)
+                                    : _line(row.value),
+                                textAlign: TextAlign.end,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: hidden ? quiet?.copyWith(fontStyle: FontStyle.italic) : quiet,
+                              ),
                             ),
-                          ),
-                        ],
+                            if (branch) ...[
+                              const SizedBox(width: 4),
+                              AnimatedRotation(
+                                turns: open ? 0.25 : 0,
+                                duration: AppMotion.of(context, AppMotion.standard),
+                                child: Icon(AppIcons.disclosure, size: 18, color: dsh.textTertiary),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  }(),
               ],
             ),
             // The engine's word on what it could not read or keep.
@@ -688,6 +819,10 @@ class _StateViewState extends ConsumerState<_StateView> {
     );
   }
 }
+
+/// One row of 状态: its name, its whole path to show, its pointer, its value,
+/// and how deep it sits.
+typedef _StateRow = ({String title, String trail, String path, Object? value, int depth});
 
 /// 导演 (engine T18; docs/design/roleplay-agent.md §3): the director's latest
 /// word on this chat, followed live. Its beat for the next turn, three things

@@ -20108,6 +20108,17 @@ class L10nZh extends L10n {
   String get tavernBranchHereFailed => '没能回到这一条';
 
   @override
+  String tavernStateItems(int count) {
+    return '$count 项';
+  }
+
+  @override
+  String get tavernStateSearch => '搜变量';
+
+  @override
+  String get tavernStateNoMatch => '没有符合的';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

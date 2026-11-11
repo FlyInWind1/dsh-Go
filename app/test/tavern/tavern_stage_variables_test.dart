@@ -72,6 +72,32 @@ class _Saved extends PreviewTavern {
   }
 }
 
+/// [_Saved], its edits written at their whole path.
+class _Nested extends _Saved {
+  _Nested(super.values) : super(legacy: true);
+
+  @override
+  Future<TavernStateEditResult> setStateValue(
+    String chatId,
+    String path,
+    Object? value, {
+    String? expectedNodeId,
+  }) async {
+    edits.add((path, value, expectedNodeId));
+    final steps = path.substring(1).split('/');
+    Object? at = values;
+    for (final step in steps.take(steps.length - 1)) {
+      at = at is Map ? at[step] : (at as List)[int.parse(step)];
+    }
+    if (at is Map) {
+      at[steps.last] = value;
+    } else {
+      (at as List)[int.parse(steps.last)] = value;
+    }
+    return TavernStateEditResult(applied: true, changed: true, snapshot: await readState(chatId));
+  }
+}
+
 Future<void> _open(WidgetTester tester, PreviewTavern tavern, {Size size = const Size(390, 844)}) async {
   SharedPreferences.setMockInitialValues({});
   final chat = (await tester.runAsync(() => tavern.createChat('sample-innkeeper')))!;
@@ -137,14 +163,66 @@ void main() {
     expect(find.text('变量'), findsOneWidget);
     expect(find.descendant(of: _row('affection'), matching: find.text('5')), findsOneWidget);
     expect(find.descendant(of: _row('location'), matching: find.text('旅店')), findsOneWidget);
-    expect(find.descendant(of: _row('stat_data'), matching: find.text('{"hp":10,"items":["钥匙"]}')), findsOneWidget);
+    expect(find.descendant(of: _row('stat_data'), matching: find.text('2 项')), findsOneWidget);
     expect(tester.getTopLeft(_row('affection')).dy, lessThan(tester.getTopLeft(_row('location')).dy)); // sorted by name
 
+    // An object opens in place; its values are rows of their own.
     await tester.tap(_row('stat_data'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: _row('/stat_data/hp'), matching: find.text('10')), findsOneWidget);
+    expect(find.descendant(of: _row('/stat_data/items'), matching: find.text('钥匙')), findsOneWidget);
+    await tester.tap(_row('stat_data'));
+    await tester.pumpAndSettle();
+    expect(_row('/stat_data/hp'), findsNothing);
+
+    // Held, it shows whole.
+    await tester.longPress(_row('stat_data'));
     await tester.pumpAndSettle();
     final whole = tester.widget<SelectableText>(find.byKey(const ValueKey('tavern-variable-whole')));
     expect(whole.data, contains('"hp": 10'));
     expect(whole.data, contains('"钥匙"'));
+  });
+
+  testWidgets('a value deep inside is changed at its own path', (tester) async {
+    final tavern = _Nested({
+      'stat_data': {
+        'hp': 10,
+        'bag': [
+          {'name': '钥匙'},
+        ],
+      },
+    });
+    await _openState(tester, tavern);
+    await tester.tap(_row('stat_data'));
+    await tester.pumpAndSettle();
+    await tester.tap(_row('/stat_data/bag'));
+    await tester.pumpAndSettle();
+    await tester.tap(_row('/stat_data/bag/0'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: _row('/stat_data/bag/0/name'), matching: find.text('钥匙')), findsOneWidget);
+
+    await _change(tester, '/stat_data/hp', '7');
+    expect(tavern.edits.single.$1, '/stat_data/hp');
+    expect(tavern.edits.single.$2, 7);
+    expect(find.descendant(of: _row('/stat_data/hp'), matching: find.text('7')), findsOneWidget);
+  });
+
+  testWidgets('with many values, 搜 finds them by name or value, each by its whole path', (tester) async {
+    await _openState(
+      tester,
+      _Saved({
+        for (var i = 0; i < 6; i++) 'v$i': i,
+        'stat_data': {'hp': 10, 'mood': '平静'},
+      }),
+    );
+    expect(find.byKey(const ValueKey('tavern-state-search')), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('tavern-state-search')), '平静');
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: _row('/stat_data/mood'), matching: find.text('stat_data › mood')), findsOneWidget);
+    expect(_row('v0'), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('tavern-state-search')), '没有这个');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-state-no-match')), findsOneWidget);
   });
 
   testWidgets('with nothing saved, 状态 says what will be there', (tester) async {

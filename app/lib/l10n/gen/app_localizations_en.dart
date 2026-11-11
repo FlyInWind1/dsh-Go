@@ -21217,6 +21217,17 @@ class L10nEn extends L10n {
   String get tavernBranchHereFailed => 'Could not go back to this message';
 
   @override
+  String tavernStateItems(int count) {
+    return '$count items';
+  }
+
+  @override
+  String get tavernStateSearch => 'Search the values';
+
+  @override
+  String get tavernStateNoMatch => 'Nothing matches';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override
