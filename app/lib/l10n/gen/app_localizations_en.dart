@@ -20664,7 +20664,7 @@ class L10nEn extends L10n {
 
   @override
   String get tavernStateVariablesNote =>
-      'What the card\'s and the chat\'s macros, such as {{setvar}}, saved, as of the current message. Read-only for now; once a card defines its state, it can be changed here.';
+      'What macros like {{setvar}} saved in the card and this chat, as of the current message. Tap one to see it whole or change it.';
 
   @override
   String get tavernData => 'Data';
@@ -21127,6 +21127,45 @@ class L10nEn extends L10n {
   @override
   String tavernRegexTestFailed(String reason) {
     return 'Could not try it: $reason';
+  }
+
+  @override
+  String get tavernStateNote =>
+      'The card\'s own state, as of the current message. What changed this turn is marked (like +5); tap one to see it whole or change it. A change is kept on this message, so swiping or switching branches takes it back with the rest.';
+
+  @override
+  String get tavernStatePreview => 'Nothing is saved yet; these are the card\'s starting values.';
+
+  @override
+  String get tavernStateChanged => 'changed';
+
+  @override
+  String get tavernStateHidden => 'Spoiler · tap to see';
+
+  @override
+  String get tavernStateWhole => 'All of it';
+
+  @override
+  String get tavernStateEdit => 'Change';
+
+  @override
+  String get tavernStateEditText => 'The text is kept as written';
+
+  @override
+  String get tavernStateEditJson => 'Write JSON: a number, true / false, \"quoted text\", […], {…}';
+
+  @override
+  String get tavernStateEditBad => 'That is not valid JSON; nothing changed';
+
+  @override
+  String get tavernStateEditSaved => 'Changed';
+
+  @override
+  String get tavernStateEditSame => 'It was already that';
+
+  @override
+  String tavernStateEditRefused(String reason) {
+    return 'Not changed: $reason';
   }
 
   @override

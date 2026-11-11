@@ -12071,7 +12071,7 @@
   "tavernNarrateSubtitle": "作为叙述插进故事，不算你说的话",
   "tavernSendFailed": "没能发出去",
   "tavernStateVariables": "变量",
-  "tavernStateVariablesNote": "卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。",
+  "tavernStateVariablesNote": "卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。点一项看全部，也能直接改。",
   "tavernData": "数据",
   "tavernBackup": "备份整个酒馆",
   "tavernBackupSubtitle": "角色卡、对话、预设、世界书、人设和设置，打成一个 zip",
@@ -12397,6 +12397,25 @@
   },
   "tavernRegexTestFailed": "没能试：{reason}",
   "@tavernRegexTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStateNote": "卡定义的状态，到当前这条消息为止。这回合变了的标着「+5」这样的记号；点一项看全部，也能直接改，改动记在这条消息上，换回答、切分支会跟着回退。",
+  "tavernStatePreview": "还没开始记，下面是卡给的初始值。",
+  "tavernStateChanged": "变了",
+  "tavernStateHidden": "剧透 · 点开看",
+  "tavernStateWhole": "整体",
+  "tavernStateEdit": "改",
+  "tavernStateEditText": "这段文字原样保存",
+  "tavernStateEditJson": "写 JSON：数字、true / false、\"带引号的文字\"、[…]、{…}",
+  "tavernStateEditBad": "这不是有效的 JSON，没有改",
+  "tavernStateEditSaved": "改好了",
+  "tavernStateEditSame": "值没变",
+  "tavernStateEditRefused": "没改成：{reason}",
+  "@tavernStateEditRefused": {
     "placeholders": {
       "reason": {
         "type": "String"

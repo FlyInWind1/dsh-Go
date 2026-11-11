@@ -3,8 +3,7 @@
 // this chat runs on and looks like, and where else to go from it), 状态 (the
 // card's state: relations, numbers, things, the time and place), 导演 (the
 // director's notes and next beat) and 本回合 (what went into this turn:
-// lorebook entries, tokens, the cache). 状态 and 导演 wait on the engine (T17,
-// T18) and say what they will hold.
+// lorebook entries, tokens, the cache). 导演 still says what it will hold.
 
 import 'dart:async';
 import 'dart:convert';
@@ -33,6 +32,7 @@ import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_lorebooks_page.dart';
+import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
 import 'tavern_search_page.dart';
@@ -76,13 +76,7 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
   TavernStageTab _tab = TavernStageTab.session;
   late Future<TavernTurnInspection?> _record = _read();
 
-  /// The variables saved at the current message (engine T16), read again
-  /// whenever the latest message changes.
-  late Future<Map<String, Object?>> _variables = _readVariables();
-
   Future<TavernTurnInspection?> _read() => ref.read(tavernProvider).inspectTurn(widget.chatId);
-
-  Future<Map<String, Object?>> _readVariables() => ref.read(tavernProvider).readVariables(widget.chatId);
 
   /// The current line's replies added up (本局用量), read again each turn.
   late Future<TavernSessionUsage> _usage = tavernSessionUsage(ref.read(tavernProvider), widget.chatId);
@@ -92,7 +86,6 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
     super.didUpdateWidget(old);
     if (old.turn != widget.turn || old.chatId != widget.chatId) {
       _record = _read();
-      _variables = _readVariables();
       _usage = tavernSessionUsage(ref.read(tavernProvider), widget.chatId);
     }
   }
@@ -129,21 +122,11 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
             name: widget.name,
             busy: widget.busy,
           ),
-          // Until a card defines its state (engine T17), what its macros saved.
-          TavernStageTab.state => FutureBuilder<Map<String, Object?>>(
-            future: _variables,
-            builder: (context, snapshot) => switch (snapshot.data) {
-              final variables? when variables.isNotEmpty => _Variables(
-                key: const ValueKey('tavern-stage-variables'),
-                variables: variables,
-              ),
-              _ => _Waiting(
-                key: const ValueKey('tavern-stage-state'),
-                icon: AppIcons.chart,
-                title: l10n.tavernStageStateEmpty,
-                message: l10n.tavernStageStateNote,
-              ),
-            },
+          // The card's state (engine T17), or what an older card's macros saved.
+          TavernStageTab.state => _StateView(
+            key: const ValueKey('tavern-stage-state-view'),
+            chatId: widget.chatId,
+            turn: widget.turn,
           ),
           TavernStageTab.director => _Waiting(
             key: const ValueKey('tavern-stage-director'),
@@ -417,94 +400,283 @@ Future<void> chooseTavernBackground(BuildContext context, WidgetRef ref, String 
   if (text != null) messenger?.showBriefNotice(text);
 }
 
-/// A page whose contents the engine doesn't give yet: what will be here.
-/// The variables a chat's macros saved ({{setvar}} and the like), as of the
-/// current message, read-only; a tap shows one whole.
-class _Variables extends StatelessWidget {
-  const _Variables({super.key, required this.variables});
+/// 状态 (engine T17): the card's state as of the current message, or, for a
+/// card without one, what its macros saved. Each top-level value is a row;
+/// what changed this turn carries a mark (「+5」), what the card keeps from the
+/// model is folded like a spoiler, and a tap shows one whole and lets it be
+/// changed (docs/design/roleplay-ui.md §8).
+class _StateView extends ConsumerStatefulWidget {
+  const _StateView({super.key, required this.chatId, required this.turn});
 
-  final Map<String, Object?> variables;
+  final String chatId;
 
-  /// [value] on a line: text as written, the rest as compact JSON.
+  /// The newest message's node: a new one means the state to read again.
+  final String? turn;
+
+  @override
+  ConsumerState<_StateView> createState() => _StateViewState();
+}
+
+class _StateViewState extends ConsumerState<_StateView> {
+  late Future<TavernStateSnapshot> _state = _read();
+
+  Future<TavernStateSnapshot> _read() => ref.read(tavernProvider).readState(widget.chatId);
+
+  @override
+  void didUpdateWidget(_StateView old) {
+    super.didUpdateWidget(old);
+    if (old.turn != widget.turn || old.chatId != widget.chatId) _state = _read();
+  }
+
+  /// [key] as a JSON Pointer under the root.
+  static String _pointer(String key) => '/${key.replaceAll('~', '~0').replaceAll('/', '~1')}';
+
+  /// [value] on a line: text as written, a list of words as a list (a bag,
+  /// say), the rest as compact JSON.
   static String _line(Object? value) => switch (value) {
     final String text => text,
     null => 'null',
+    final List<Object?> list when list.isNotEmpty && list.every((item) => item is String) => list.join('、'),
     _ => jsonEncode(value),
   };
+
+  /// What changed at or under [path] in this message: a number's difference,
+  /// or that it changed.
+  static String? _mark(TavernStateSnapshot state, String path, L10n l10n) {
+    final hits = [
+      for (final change in state.changes)
+        if (change['path'] case final String at when at == path || at.startsWith('$path/') || path.isEmpty) change,
+    ];
+    if (hits.isEmpty) return null;
+    if (hits.length == 1 &&
+        hits.single['path'] == path &&
+        hits.single['oldExists'] == true &&
+        hits.single['newExists'] == true) {
+      if ((hits.single['old'], hits.single['new']) case (final num old, final num now) when now != old) {
+        final delta = now - old;
+        final shown = delta == delta.roundToDouble() ? delta.round().abs().toString() : delta.abs().toString();
+        return delta > 0 ? '+$shown' : '−$shown';
+      }
+    }
+    return l10n.tavernStateChanged;
+  }
+
+  /// Kept from the model: at, above or below a hidden path.
+  static bool _hidden(TavernStateSnapshot state, String path) =>
+      state.hiddenPaths.any((at) => at == path || path.startsWith('$at/') || at.startsWith('$path/') || path.isEmpty);
+
+  Future<void> _open(TavernStateSnapshot state, String title, String path, Object? value) async {
+    final l10n = context.l10n;
+    final edit = await showAppSheet<bool>(
+      context,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.7),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SheetTitleBar(title),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 8),
+                  child: SelectableText(
+                    value is String ? value : const JsonEncoder.withIndent('  ').convert(value),
+                    key: const ValueKey('tavern-variable-whole'),
+                    style: Theme.of(sheet).textTheme.bodySmall?.copyWith(fontFamily: 'monospace', height: 1.5),
+                  ),
+                ),
+              ),
+              // Saved at a message: there is one to change it on.
+              if (state.nodeId != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.tonal(
+                      key: const ValueKey('tavern-state-edit'),
+                      onPressed: () => Navigator.of(sheet).pop(true),
+                      child: Text(l10n.tavernStateEdit),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (edit != true || !mounted) return;
+    await _edit(state, title, path, value);
+  }
+
+  /// [value] changed in the whole-page editor: text kept as written, anything
+  /// else as JSON. The engine checks it against the card's rules; whether it
+  /// went in is said either way.
+  Future<void> _edit(TavernStateSnapshot state, String title, String path, Object? value) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final text = await Navigator.of(context).push(
+      TavernMessageEditPage.route(
+        title: title,
+        speaker: value is String ? l10n.tavernStateEditText : l10n.tavernStateEditJson,
+        text: value is String ? value : const JsonEncoder.withIndent('  ').convert(value),
+      ),
+    );
+    if (text == null || !mounted) return;
+    final Object? next;
+    if (value is String) {
+      next = text;
+    } else {
+      try {
+        next = jsonDecode(text);
+      } on FormatException {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.tavernStateEditBad)));
+        return;
+      }
+    }
+    try {
+      final result = await ref
+          .read(tavernProvider)
+          .setStateValue(widget.chatId, path, next, expectedNodeId: state.nodeId);
+      if (!mounted) return;
+      setState(() {
+        _state = Future.value(result.snapshot);
+      });
+      final reason = [for (final issue in result.issues) '${issue['message'] ?? issue['code'] ?? ''}']
+          .where((line) => line.isNotEmpty)
+          .join('；');
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              !result.applied
+                  ? l10n.tavernStateEditRefused(reason)
+                  : result.changed
+                  ? l10n.tavernStateEditSaved
+                  : l10n.tavernStateEditSame,
+            ),
+          ),
+        );
+    } on Object catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tavernStateEditRefused('$e'))));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    final keys = variables.keys.toList()..sort();
-    return SettingsSection(
-      title: l10n.tavernStateVariables,
-      footer: Text(l10n.tavernStateVariablesNote),
-      margin: EdgeInsets.zero,
-      children: [
-        for (final key in keys)
-          InkWell(
-            key: ValueKey('tavern-variable-$key'),
-            onTap: () => unawaited(_open(context, key, variables[key])),
-            splashFactory: rowSplash(context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: SettingsMetrics.inset, vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 120),
-                    child: Text(key, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _line(variables[key]),
-                      textAlign: TextAlign.end,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+    final dsh = DshColors.of(context);
+    return FutureBuilder<TavernStateSnapshot>(
+      future: _state,
+      builder: (context, snapshot) {
+        final state = snapshot.data;
+        if (state == null && !snapshot.hasError) return const SizedBox.shrink();
+        // What is saved; with nothing saved yet, the card's starting values.
+        final preview = state != null && !state.valueExists && state.initialValuesAvailable;
+        final values = state == null ? null : (preview ? state.initialValues : state.values);
+        final rows = <(String, String, Object?)>[
+          if (values case final Map<String, Object?> map)
+            for (final key in state!.legacy ? (map.keys.toList()..sort()) : map.keys) (key, _pointer(key), map[key])
+          else if (state != null && (state.valueExists || preview))
+            (l10n.tavernStateWhole, '', values),
+        ];
+        final issues = [
+          for (final issue in state?.issues ?? const <Map<String, Object?>>[])
+            '${issue['message'] ?? issue['code'] ?? ''}',
+        ].where((line) => line.isNotEmpty).toList();
+        if (state == null || (rows.isEmpty && issues.isEmpty)) {
+          return _Waiting(
+            key: const ValueKey('tavern-stage-state'),
+            icon: AppIcons.chart,
+            title: l10n.tavernStageStateEmpty,
+            message: l10n.tavernStageStateNote,
+          );
+        }
+        final quiet = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.72));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SettingsSection(
+              key: const ValueKey('tavern-stage-variables'),
+              title: state.legacy ? l10n.tavernStateVariables : l10n.tavernStageState,
+              footer: Text(
+                [
+                  if (preview) l10n.tavernStatePreview,
+                  state.legacy ? l10n.tavernStateVariablesNote : l10n.tavernStateNote,
+                ].join('\n'),
+              ),
+              margin: EdgeInsets.zero,
+              children: [
+                for (final (title, path, value) in rows)
+                  InkWell(
+                    key: ValueKey('tavern-variable-$title'),
+                    onTap: () => unawaited(_open(state, title, path, value)),
+                    splashFactory: rowSplash(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: SettingsMetrics.inset, vertical: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 120),
+                            child: Text(
+                              title,
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          if (_mark(state, path, l10n) case final mark?) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              mark,
+                              key: ValueKey('tavern-state-change-$title'),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _hidden(state, path) ? l10n.tavernStateHidden : _line(value),
+                              textAlign: TextAlign.end,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: _hidden(state, path) ? quiet?.copyWith(fontStyle: FontStyle.italic) : quiet,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _open(BuildContext context, String key, Object? value) => showAppSheet<void>(
-    context,
-    isScrollControlled: true,
-    builder: (sheet) => SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.7),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SheetTitleBar(key),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 16),
-                child: SelectableText(
-                  value is String ? value : const JsonEncoder.withIndent('  ').convert(value),
-                  key: const ValueKey('tavern-variable-whole'),
-                  style: Theme.of(sheet).textTheme.bodySmall?.copyWith(fontFamily: 'monospace', height: 1.5),
+            // The engine's word on what it could not read or keep.
+            if (issues.isNotEmpty)
+              Padding(
+                key: const ValueKey('tavern-state-issues'),
+                padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 10, SettingsMetrics.inset, 0),
+                child: Text(
+                  issues.join('\n'),
+                  style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5),
                 ),
               ),
-            ),
           ],
-        ),
-      ),
-    ),
-  );
+        );
+      },
+    );
+  }
 }
 
+/// A page whose contents the engine doesn't give yet: what will be here.
 class _Waiting extends StatelessWidget {
   const _Waiting({super.key, required this.icon, required this.title, required this.message});
 

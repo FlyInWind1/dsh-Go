@@ -35759,7 +35759,7 @@ abstract class L10n {
   /// No description provided for @tavernStateVariablesNote.
   ///
   /// In zh, this message translates to:
-  /// **'卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。'**
+  /// **'卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。点一项看全部，也能直接改。'**
   String get tavernStateVariablesNote;
 
   /// No description provided for @tavernData.
@@ -36523,6 +36523,78 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'没能试：{reason}'**
   String tavernRegexTestFailed(String reason);
+
+  /// No description provided for @tavernStateNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡定义的状态，到当前这条消息为止。这回合变了的标着「+5」这样的记号；点一项看全部，也能直接改，改动记在这条消息上，换回答、切分支会跟着回退。'**
+  String get tavernStateNote;
+
+  /// No description provided for @tavernStatePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没开始记，下面是卡给的初始值。'**
+  String get tavernStatePreview;
+
+  /// No description provided for @tavernStateChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'变了'**
+  String get tavernStateChanged;
+
+  /// No description provided for @tavernStateHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧透 · 点开看'**
+  String get tavernStateHidden;
+
+  /// No description provided for @tavernStateWhole.
+  ///
+  /// In zh, this message translates to:
+  /// **'整体'**
+  String get tavernStateWhole;
+
+  /// No description provided for @tavernStateEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'改'**
+  String get tavernStateEdit;
+
+  /// No description provided for @tavernStateEditText.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段文字原样保存'**
+  String get tavernStateEditText;
+
+  /// No description provided for @tavernStateEditJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'写 JSON：数字、true / false、\"带引号的文字\"、[…]、{…}'**
+  String get tavernStateEditJson;
+
+  /// No description provided for @tavernStateEditBad.
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是有效的 JSON，没有改'**
+  String get tavernStateEditBad;
+
+  /// No description provided for @tavernStateEditSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'改好了'**
+  String get tavernStateEditSaved;
+
+  /// No description provided for @tavernStateEditSame.
+  ///
+  /// In zh, this message translates to:
+  /// **'值没变'**
+  String get tavernStateEditSame;
+
+  /// No description provided for @tavernStateEditRefused.
+  ///
+  /// In zh, this message translates to:
+  /// **'没改成：{reason}'**
+  String tavernStateEditRefused(String reason);
 
   /// No description provided for @updateCheck.
   ///

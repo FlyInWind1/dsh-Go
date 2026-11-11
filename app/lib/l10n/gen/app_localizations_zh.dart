@@ -19586,7 +19586,7 @@ class L10nZh extends L10n {
   String get tavernStateVariables => '变量';
 
   @override
-  String get tavernStateVariablesNote => '卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。';
+  String get tavernStateVariablesNote => '卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。点一项看全部，也能直接改。';
 
   @override
   String get tavernData => '数据';
@@ -20021,6 +20021,44 @@ class L10nZh extends L10n {
   @override
   String tavernRegexTestFailed(String reason) {
     return '没能试：$reason';
+  }
+
+  @override
+  String get tavernStateNote => '卡定义的状态，到当前这条消息为止。这回合变了的标着「+5」这样的记号；点一项看全部，也能直接改，改动记在这条消息上，换回答、切分支会跟着回退。';
+
+  @override
+  String get tavernStatePreview => '还没开始记，下面是卡给的初始值。';
+
+  @override
+  String get tavernStateChanged => '变了';
+
+  @override
+  String get tavernStateHidden => '剧透 · 点开看';
+
+  @override
+  String get tavernStateWhole => '整体';
+
+  @override
+  String get tavernStateEdit => '改';
+
+  @override
+  String get tavernStateEditText => '这段文字原样保存';
+
+  @override
+  String get tavernStateEditJson => '写 JSON：数字、true / false、\"带引号的文字\"、[…]、{…}';
+
+  @override
+  String get tavernStateEditBad => '这不是有效的 JSON，没有改';
+
+  @override
+  String get tavernStateEditSaved => '改好了';
+
+  @override
+  String get tavernStateEditSame => '值没变';
+
+  @override
+  String tavernStateEditRefused(String reason) {
+    return '没改成：$reason';
   }
 
   @override
