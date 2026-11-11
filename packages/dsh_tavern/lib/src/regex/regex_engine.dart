@@ -464,9 +464,15 @@ num _number(Object? value) {
   if (text.isEmpty) return 0;
   if (text == 'Infinity' || text == '+Infinity') return double.infinity;
   if (text == '-Infinity') return double.negativeInfinity;
-  if (RegExp(r'^0[xX][0-9a-fA-F]+$').hasMatch(text)) return int.tryParse(text.substring(2), radix: 16) ?? double.nan;
-  if (RegExp(r'^0[bB][01]+$').hasMatch(text)) return int.tryParse(text.substring(2), radix: 2) ?? double.nan;
-  if (RegExp(r'^0[oO][0-7]+$').hasMatch(text)) return int.tryParse(text.substring(2), radix: 8) ?? double.nan;
+  if (RegExp(r'^0[xX][0-9a-fA-F]+$').hasMatch(text)) {
+    return BigInt.tryParse(text.substring(2), radix: 16)?.toDouble() ?? double.nan;
+  }
+  if (RegExp(r'^0[bB][01]+$').hasMatch(text)) {
+    return BigInt.tryParse(text.substring(2), radix: 2)?.toDouble() ?? double.nan;
+  }
+  if (RegExp(r'^0[oO][0-7]+$').hasMatch(text)) {
+    return BigInt.tryParse(text.substring(2), radix: 8)?.toDouble() ?? double.nan;
+  }
   if (!RegExp(r'^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$').hasMatch(text)) return double.nan;
   return num.tryParse(text) ?? double.nan;
 }

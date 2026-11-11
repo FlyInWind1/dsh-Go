@@ -77,7 +77,7 @@ final class PromptSource {
 
 /// Content and its origin before it is placed into a message.
 final class PromptFragment {
-  const PromptFragment(this.content, this.source, {this.role, this.trimOnOverflow = false});
+  const PromptFragment(this.content, this.source, {this.role, this.trimOnOverflow = false, this.expandMacros = true});
   final String content;
   final PromptSource source;
 
@@ -87,6 +87,11 @@ final class PromptFragment {
   /// Remove this complete source entry before truncating history at capacity.
   /// Expanded results are retained; removal must not replay macro calls.
   final bool trimOnOverflow;
+
+  /// Generated state/effect text is already resolved. Keep its literal values
+  /// out of both preparation and later history macro expansion. Existing ST
+  /// fragments retain their observable expansion phases by default.
+  final bool expandMacros;
 }
 
 /// One ST worldInfoExamples item, in the original mixed before/after order.

@@ -568,10 +568,27 @@ String _portableFileName(String value, Set<String> used) {
     stem = '_$stem';
   }
   stem = String.fromCharCodes(stem.runes.take(100));
-  var name = '$stem.jsonl';
+  String withSuffix(String suffix) {
+    // Keep the complete name within 255 UTF-8 bytes, including
+    // its extension and collision suffix. Never split a Unicode code point.
+    var remaining = 255 - utf8.encode('$suffix.jsonl').length;
+    final prefix = StringBuffer();
+    for (final rune in stem.runes) {
+      final character = String.fromCharCode(rune);
+      final size = utf8.encode(character).length;
+      if (size > remaining) {
+        break;
+      }
+      prefix.write(character);
+      remaining -= size;
+    }
+    return '$prefix$suffix.jsonl';
+  }
+
+  var name = withSuffix('');
   var suffix = 2;
   while (!used.add(name.toLowerCase())) {
-    name = '$stem-${suffix++}.jsonl';
+    name = withSuffix('-${suffix++}');
   }
   return name;
 }

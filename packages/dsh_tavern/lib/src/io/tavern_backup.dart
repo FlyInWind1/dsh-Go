@@ -621,7 +621,21 @@ Future<void> _recover(Directory root) async {
   final file = _journalFile(root);
   final journalType = await _type(file.path);
   if (journalType == FileSystemEntityType.notFound) {
-    return;
+    try {
+      // Unlike type(), identical() preserves lookup errors and does not read
+      // file contents or follow the final link. A successful probe is not absence.
+      await FileSystemEntity.identical(file.path, file.path);
+    } on PathNotFoundException catch (error) {
+      final code = error.osError?.errorCode;
+      if (code != 2 && !(Platform.isWindows && code == 3)) {
+        rethrow;
+      }
+      if (await _type(file.path) != FileSystemEntityType.notFound) {
+        rethrow;
+      }
+      return;
+    }
+    throw FileSystemException('The restore journal could not be identified as absent.', file.path);
   }
   if (journalType != FileSystemEntityType.file) {
     throw FileSystemException('The restore journal is not a regular file.', file.path);

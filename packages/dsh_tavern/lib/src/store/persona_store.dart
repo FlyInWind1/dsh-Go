@@ -20,9 +20,19 @@ class PersonaStore {
   /// [tavernDirectory] is already the tavern root, not its parent.
   static Future<PersonaStore> open(Directory tavernDirectory, {String Function()? createId}) async {
     final file = File('${tavernDirectory.path}/personas/index.json');
-    final document = await FileSystemEntity.type(file.path) != FileSystemEntityType.notFound
-        ? _decode(await file.readAsString())
-        : <String, Object?>{'version': 1, 'personas': <Object?>[], 'defaultPersonaId': null};
+    String? text;
+    try {
+      // A type lookup can report notFound for access errors; read the source.
+      text = await file.readAsString();
+    } on PathNotFoundException catch (error) {
+      final code = error.osError?.errorCode;
+      if (code != 2 && (!Platform.isWindows || code != 3)) rethrow;
+      // Opening a known non-file can also report a missing path.
+      if (await FileSystemEntity.type(file.path) != FileSystemEntityType.notFound) rethrow;
+    }
+    final document = text == null
+        ? <String, Object?>{'version': 1, 'personas': <Object?>[], 'defaultPersonaId': null}
+        : _decode(text);
     _validate(document);
     return PersonaStore._(file, document, createId ?? _newId);
   }
@@ -159,7 +169,7 @@ class PersonaStore {
   /// when the profile is already absent. Failures propagate to the caller.
   Future<bool> delete(String id, {required ChatStore chats}) => _enqueue(() async {
     // Validate the database owner before starting the file commit.
-    chats.listChats();
+    chats.listChatPersonaBindings();
     final existed = _find(_document, id) != null;
     var changed = false;
     if (existed || _document['defaultPersonaId'] == id) {
@@ -170,7 +180,7 @@ class PersonaStore {
       changed = true;
     }
     try {
-      final affected = chats.listChats().where((chat) => chats.chat(chat.id).personaId == id).toList();
+      final affected = chats.listChatPersonaBindings().where((chat) => chat.personaId == id).toList();
       if (affected.isNotEmpty) {
         chats.transaction(() {
           for (final chat in affected) {

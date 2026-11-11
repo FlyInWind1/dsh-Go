@@ -16,21 +16,46 @@ void main() {
   });
 
   test('DeepSeek URL normalizes beta and generic services retain their API prefix', () {
-    expect(TavernModelClient.endpoint(config()).path, '/beta/chat/completions');
-    expect(TavernModelClient.endpoint(config(baseUrl: 'https://example.test/v1/')).path, '/beta/chat/completions');
-    expect(TavernModelClient.endpoint(config(baseUrl: 'https://example.test/beta')).path, '/beta/chat/completions');
+    expect(TavernModelClient.endpoint(config()), Uri.parse('https://api.deepseek.com/beta/chat/completions'));
     expect(
-      TavernModelClient.endpoint(config(baseUrl: 'https://api.deepseek.com/v1/chat/completions')).path,
-      '/beta/chat/completions',
+      TavernModelClient.endpoint(config(baseUrl: 'https://example.test/v1/')),
+      Uri.parse('https://example.test/beta/chat/completions'),
     );
     expect(
-      TavernModelClient.endpoint(config(deepseek: false, baseUrl: 'http://localhost:9000/service/v1')).path,
-      '/service/v1/chat/completions',
+      TavernModelClient.endpoint(config(baseUrl: 'https://example.test/beta')),
+      Uri.parse('https://example.test/beta/chat/completions'),
     );
     expect(
-      TavernModelClient.endpoint(config(deepseek: false, baseUrl: 'https://example.test/v1/chat/completions')).path,
-      '/v1/chat/completions',
+      TavernModelClient.endpoint(config(baseUrl: 'https://api.deepseek.com/v1/chat/completions')),
+      Uri.parse('https://api.deepseek.com/beta/chat/completions'),
     );
+    expect(
+      TavernModelClient.endpoint(config(deepseek: false, baseUrl: 'http://localhost:9000/service/v1')),
+      Uri.parse('http://localhost:9000/service/v1/chat/completions'),
+    );
+    expect(
+      TavernModelClient.endpoint(config(deepseek: false, baseUrl: 'https://example.test/v1/chat/completions')),
+      Uri.parse('https://example.test/v1/chat/completions'),
+    );
+    // Removing a fragment must preserve the service's query, including an
+    // explicitly empty query, for both path construction and a complete URL.
+    for (final row in const [
+      (
+        true,
+        'https://example.test/v1?key=one%2Ftwo#client',
+        'https://example.test/beta/chat/completions?key=one%2Ftwo',
+      ),
+      (false, 'http://localhost:9000/service/v1?#', 'http://localhost:9000/service/v1/chat/completions?'),
+      (
+        false,
+        'https://example.test/v1/chat/completions?key=one%2Ftwo#client',
+        'https://example.test/v1/chat/completions?key=one%2Ftwo',
+      ),
+    ]) {
+      final endpoint = TavernModelClient.endpoint(config(deepseek: row.$1, baseUrl: row.$2));
+      expect(endpoint, Uri.parse(row.$3));
+      expect(endpoint.hasFragment, isFalse);
+    }
   });
 
   test('streams reasoning and text, then reads usage with empty choices', () async {

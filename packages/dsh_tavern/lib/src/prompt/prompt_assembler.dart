@@ -106,6 +106,7 @@ final class _Prompt {
     this.role = 'system',
     this.data = const {},
     this.injected = false,
+    this.expandMacros = true,
     this.placement,
     this.extension = false,
     this.explicitRole = false,
@@ -118,6 +119,7 @@ final class _Prompt {
   Object? role;
   Map<String, Object?> data;
   final bool injected;
+  final bool expandMacros;
   PromptPlacement? placement;
   bool extension;
   final bool explicitRole;
@@ -140,6 +142,7 @@ final class _Prompt {
     role: role,
     data: {...data},
     injected: injected,
+    expandMacros: expandMacros,
     placement: placement,
     extension: extension,
     explicitRole: explicitRole,
@@ -268,7 +271,7 @@ final class _AssemblyRun {
   }
 
   PromptSegment message(_Prompt prompt, {bool expandText = false, bool includeName = false}) {
-    final content = expandText ? expand(prompt.content) : prompt.content;
+    final content = expandText && prompt.expandMacros ? expand(prompt.content) : prompt.content;
     final data = <String, Object?>{'role': presetTruthy(prompt.role) ? prompt.role : 'system', 'content': content};
     final name = prompt.data['name'];
     if (includeName && name is String && name.isNotEmpty) data['name'] = sanitizeName(name);
@@ -284,7 +287,7 @@ final class _AssemblyRun {
     return segment;
   }
 
-  bool decorated(PromptFragment fragment) => fragment.role != null || fragment.trimOnOverflow;
+  bool decorated(PromptFragment fragment) => fragment.role != null || fragment.trimOnOverflow || !fragment.expandMacros;
   List<PromptFragment> injectionPieces(PromptInjection injection) =>
       injection.fragments.isEmpty ? [injection.fragment] : injection.fragments;
   bool decoratedInjection(PromptInjection injection) => injection.fragments.isNotEmpty || decorated(injection.fragment);
@@ -372,7 +375,9 @@ final class _AssemblyRun {
   }
 
   bool meaningful(PromptSegment segment) =>
-      segment.message['content'] != '' || segment.message.containsKey('tool_calls');
+      segment.message['content'] != '' ||
+      segment.message.containsKey('tool_calls') ||
+      segment.message['role'] == 'tool';
   void addFixed(String id) {
     final prompt = get(id);
     if (prompt == null || prompt.absolute || (disabled.contains(id) && id != 'main')) return;
@@ -472,12 +477,13 @@ final class _AssemblyRun {
               for (var i = 0; i < fragments.length; i++)
                 _Prompt(
                   '$id-piece-$i',
-                  expand(fragments[i].content),
+                  fragments[i].expandMacros ? expand(fragments[i].content) : fragments[i].content,
                   [fragments[i].source],
                   role: fragments[i].role ?? inheritedRole,
                   data: {...metadata},
                   explicitRole: fragments[i].role != null,
                   trimGroup: groupFor(fragments[i]),
+                  expandMacros: fragments[i].expandMacros,
                 ),
             ];
       final replacement = _Prompt(
@@ -515,6 +521,7 @@ final class _AssemblyRun {
                     fragment.source,
                     role: fragment.role,
                     trimOnOverflow: fragment.trimOnOverflow,
+                    expandMacros: fragment.expandMacros,
                   ),
               ]
             : null,
@@ -703,9 +710,12 @@ final class _AssemblyRun {
         message(
           _Prompt(
             'worldPrefill-$i',
-            expand(input.assistantPrefill[i].content),
+            input.assistantPrefill[i].expandMacros
+                ? expand(input.assistantPrefill[i].content)
+                : input.assistantPrefill[i].content,
             [input.assistantPrefill[i].source],
             role: 'assistant',
+            expandMacros: input.assistantPrefill[i].expandMacros,
             trimGroup: groupFor(input.assistantPrefill[i]),
           ),
         ),
@@ -833,7 +843,9 @@ final class _AssemblyRun {
   }
 
   List<_Prompt> injectDepth(List<_Prompt> absolute, List<PromptInjection> extensions, List<_Prompt> history) {
-    if (!absolute.any((prompt) => prompt.pieces != null || prompt.explicitRole || prompt.trimGroup != null) &&
+    if (!absolute.any(
+          (prompt) => prompt.pieces != null || prompt.explicitRole || prompt.trimGroup != null || !prompt.expandMacros,
+        ) &&
         !extensions.any((injection) => injection.v3Depth || decoratedInjection(injection))) {
       return injectDepthLegacy(absolute, extensions, history);
     }
@@ -867,7 +879,7 @@ final class _AssemblyRun {
             return byKey != 0 ? byKey : a.index.compareTo(b.index);
           });
           final split =
-              own.any((prompt) => prompt.explicitRole || prompt.trimGroup != null) ||
+              own.any((prompt) => prompt.explicitRole || prompt.trimGroup != null || !prompt.expandMacros) ||
               ext.any((piece) => decoratedInjection(piece.injection));
           if (!split) {
             final ownText = own.map((prompt) => prompt.content).join('\n');
@@ -904,12 +916,13 @@ final class _AssemblyRun {
                 role: role,
                 injected: true,
                 trimGroup: prompt.trimGroup,
+                expandMacros: prompt.expandMacros,
               ),
             );
           }
           for (final piece in ext) {
             final raw = piece.fragment.content.trim();
-            final text = raw.isEmpty ? '' : expand(raw).trim();
+            final text = raw.isEmpty ? '' : (piece.fragment.expandMacros ? expand(raw) : raw).trim();
             if (text.isEmpty) continue;
             parts.add(
               _Prompt(
@@ -919,6 +932,7 @@ final class _AssemblyRun {
                 role: role,
                 injected: true,
                 trimGroup: groupFor(piece.fragment),
+                expandMacros: piece.fragment.expandMacros,
               ),
             );
           }
@@ -980,8 +994,7 @@ final class _AssemblyRun {
 
   void addHistory(List<_Prompt> history, String cyclePrompt) {
     if (get('chatHistory') == null) return;
-    final output = <PromptSegment>[];
-    collections['chatHistory'] = output;
+    final reverseOutput = <PromptSegment>[];
     final newChatKey = input.groupNames.isEmpty ? 'new_chat_prompt' : 'new_group_chat_prompt';
     final newChat = message(_Prompt('newMainChat', expand(setting(newChatKey)), [PromptSource('control', newChatKey)]));
     reserve(newChat);
@@ -1008,7 +1021,7 @@ final class _AssemblyRun {
       makeRoom(emptyUser.tokens);
       if (emptyUser.tokens <= remaining) {
         spend(emptyUser);
-        output.add(emptyUser);
+        reverseOutput.add(emptyUser);
       }
     }
     final pool = history.reversed.toList();
@@ -1037,11 +1050,13 @@ final class _AssemblyRun {
       }
       if (meaningful(segment)) {
         spend(segment);
-        output.insert(0, segment);
+        reverseOutput.add(segment);
       }
     }
     commitReserved(newChat);
-    output.insert(0, newChat);
+    // Keep newest-first expansion and budgeting, then order references once.
+    final output = <PromptSegment>[newChat, ...reverseOutput.reversed];
+    collections['chatHistory'] = output;
     if (groupNudge != null) {
       commitReserved(groupNudge);
       output.add(groupNudge);
@@ -1099,7 +1114,7 @@ final class _AssemblyRun {
       // S4646 applies baseChatReplace again, after the WI activation expansion.
       // Keep mixed order for side effects; each before item unshifts its blocks.
       final blocks = parse(
-        baseExpand(example.fragment.content),
+        example.fragment.expandMacros ? baseExpand(example.fragment.content) : example.fragment.content,
         example.fragment.source,
         role: example.fragment.role,
         trimGroup: groupFor(example.fragment),

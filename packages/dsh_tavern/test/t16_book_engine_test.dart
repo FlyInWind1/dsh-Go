@@ -9,6 +9,127 @@ import 'package:test/test.dart';
 // Real facade, files, JSONL, macros, regex, WI and SQLite; synthetic model
 // output and clock/random only. No model account is contacted.
 void main() {
+  test('public book preview matches Cherokee Mtavruli and Adlam uppercase text', () async {
+    const families = <(String, String, String)>[
+      ('\u13a0', '\uab70', 'CHEROKEE_MARKER'),
+      ('\u1c90', '\u10d0', 'MTAVRULI_MARKER'),
+      ('\u{1e900}', '\u{1e922}', 'ADLAM_MARKER'),
+    ];
+    for (final (upper, lower, content) in families) {
+      final (h, characterId) = await _plainCaseBook(lower, content);
+      expect(_hits(await h.engine.previewCharacterBook(characterId, lower)).map((hit) => hit['content']), [content]);
+      final preview = await h.engine.previewCharacterBook(characterId, upper);
+      expect(preview['scope'], 'character-book');
+      expect(preview['stage'], 'world-info');
+      expect(preview['overflowed'], isFalse);
+      expect(preview['regexDiagnostics'], isNull);
+      // First behavioral oracle after the common lowercase/public prerequisites.
+      expect(_hits(preview).map((hit) => hit['content']), [content]);
+      final hit = _hits(preview).single;
+      expect(
+        {
+          'bookId': hit['bookId'],
+          'source': hit['source'],
+          'reason': hit['reason'],
+          'phase': hit['phase'],
+          'primaryKey': hit['primaryKey'],
+        },
+        {
+          'bookId': '$characterId:card',
+          'source': 'character',
+          'reason': 'keywords',
+          'phase': 'initial',
+          'primaryKey': lower,
+        },
+      );
+      if (upper == '\u13a0') {
+        await h.engine.updateCharacterBookEntry(characterId, 0, {
+          'keys': [upper],
+        });
+        final reverse = await h.engine.previewCharacterBook(characterId, lower);
+        expect(_hits(reverse).map((value) => value['content']), [content]);
+        expect(_hits(reverse).single['primaryKey'], upper);
+        expect((await _entries(h.engine, characterId)).single['keys'], [upper]);
+        await h.engine.updateCharacterBookEntry(characterId, 0, {'case_sensitive': true});
+        expect(_hits(await h.engine.previewCharacterBook(characterId, lower)), isEmpty);
+        expect(_hits(await h.engine.previewCharacterBook(characterId, upper)).map((value) => value['content']), [
+          content,
+        ]);
+      }
+      expect(h.model.bodies, isEmpty);
+      expect(await h.engine.watchChats().first, isEmpty);
+    }
+  });
+
+  test('public book preview applies final sigma without a nonfinal false positive', () async {
+    final (h, characterId) = await _plainCaseBook('\u03bf\u03c2', 'SIGMA_MARKER');
+    expect(_hits(await h.engine.previewCharacterBook(characterId, '\u03bf\u03c2')).map((hit) => hit['content']), [
+      'SIGMA_MARKER',
+    ]);
+    final preview = await h.engine.previewCharacterBook(characterId, '\u039f\u03a3');
+    expect(preview['scope'], 'character-book');
+    expect(preview['stage'], 'world-info');
+    expect(preview['overflowed'], isFalse);
+    expect(preview['regexDiagnostics'], isNull);
+    // Fixed ST default lowercase: ΟΣ -> ος; old native simple mapping gives οσ.
+    expect(_hits(preview).map((hit) => hit['content']), ['SIGMA_MARKER']);
+    final hit = _hits(preview).single;
+    expect(
+      {
+        'bookId': hit['bookId'],
+        'source': hit['source'],
+        'reason': hit['reason'],
+        'phase': hit['phase'],
+        'primaryKey': hit['primaryKey'],
+      },
+      {
+        'bookId': '$characterId:card',
+        'source': 'character',
+        'reason': 'keywords',
+        'phase': 'initial',
+        'primaryKey': '\u03bf\u03c2',
+      },
+    );
+    await h.engine.updateCharacterBookEntry(characterId, 0, {
+      'keys': ['\u03bf\u03c3'],
+    });
+    expect(_hits(await h.engine.previewCharacterBook(characterId, '\u039f\u03a3')), isEmpty);
+    await h.engine.updateCharacterBookEntry(characterId, 0, {
+      'keys': ['\u03bf\u03c2'],
+      'case_sensitive': true,
+    });
+    expect(_hits(await h.engine.previewCharacterBook(characterId, '\u039f\u03a3')), isEmpty);
+    expect(_hits(await h.engine.previewCharacterBook(characterId, '\u03bf\u03c2')).map((value) => value['content']), [
+      'SIGMA_MARKER',
+    ]);
+    expect(h.model.bodies, isEmpty);
+    expect(await h.engine.watchChats().first, isEmpty);
+  });
+
+  test('public book preview expands dotted I without an ASCII i false positive', () async {
+    final (h, characterId) = await _plainCaseBook('i\u0307', 'DOTTED_I_MARKER');
+    expect(_hits(await h.engine.previewCharacterBook(characterId, 'i\u0307')).map((hit) => hit['content']), [
+      'DOTTED_I_MARKER',
+    ]);
+    final preview = await h.engine.previewCharacterBook(characterId, '\u0130');
+    expect(preview['scope'], 'character-book');
+    expect(preview['stage'], 'world-info');
+    expect(preview['overflowed'], isFalse);
+    expect(preview['regexDiagnostics'], isNull);
+    // A bare i key would also match the JS expansion and would not detect loss.
+    expect(_hits(preview).map((hit) => hit['content']), ['DOTTED_I_MARKER']);
+    expect(_hits(preview).single['primaryKey'], 'i\u0307');
+    await h.engine.updateCharacterBookEntry(characterId, 0, {
+      'keys': ['\u0130'],
+    });
+    expect(_hits(await h.engine.previewCharacterBook(characterId, 'i')), isEmpty);
+    expect(_hits(await h.engine.previewCharacterBook(characterId, '\u0130')).map((hit) => hit['content']), [
+      'DOTTED_I_MARKER',
+    ]);
+    expect(h.model.bodies, isEmpty);
+    expect(await h.engine.watchChats().first, isEmpty);
+  });
+
   test('public book edits notify selectors and preserve unknown fields across reopen', () async {
     final h = await _open();
     final character = await h.engine.importCard(_card());
@@ -604,6 +725,35 @@ void main() {
 }
 
 final _at = DateTime.utc(2026, 11, 10, 12);
+
+Future<(_Harness, String)> _plainCaseBook(String key, String content) async {
+  final h = await _open();
+  final character = await h.engine.importCard(_card());
+  await h.engine.setPreset(
+    ChatPreset({...ChatPreset.stDefault().raw, 'openai_max_context': 4096, 'openai_max_tokens': 256}),
+  );
+  await h.engine.setSettings({
+    'worldInfo': {
+      'world_info_depth': 1,
+      'world_info_budget': 50,
+      'world_info_include_names': false,
+      'world_info_recursive': false,
+      'world_info_case_sensitive': false,
+      'world_info_match_whole_words': false,
+    },
+  });
+  await h.engine.addCharacterBookEntry(character.id, {
+    'keys': [key],
+    'content': content,
+    'enabled': true,
+    'constant': false,
+    'selective': false,
+    'use_regex': false,
+    'case_sensitive': false,
+    'extensions': {'useProbability': false, 'match_whole_words': false},
+  });
+  return (h, character.id);
+}
 
 Future<_Harness> _open({double Function()? random}) async {
   final directory = await Directory.systemTemp.createTemp('dsh-t16-book-');

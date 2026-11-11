@@ -16,6 +16,8 @@ class TavernTurnInspection {
     TavernInspectionStatus status = TavernInspectionStatus.preparing,
     PromptAssembly? prompt,
     Map<String, Object?> worldInfo = const {},
+    Map<String, Object?> state = const {},
+    Map<String, Object?> director = const {},
     TavernUsage? reportedUsage,
     TavernFailure? failure,
     String? detail,
@@ -29,6 +31,8 @@ class TavernTurnInspection {
     status,
     prompt == null ? null : _readAssembly(prompt.toJson()),
     _freezeMap(worldInfo),
+    _freezeMap(state),
+    _freezeMap(director),
     reportedUsage,
     failure,
     detail,
@@ -44,6 +48,8 @@ class TavernTurnInspection {
     this.status,
     this.prompt,
     this.worldInfo,
+    this.state,
+    this.director,
     this.reportedUsage,
     this.failure,
     this.detail,
@@ -64,6 +70,8 @@ class TavernTurnInspection {
       _enumValue(TavernInspectionStatus.values, json['status'], 'status'),
       prompt == null ? null : _readAssembly(_object(prompt, 'prompt')),
       _freezeMap(_object(json['worldInfo'], 'worldInfo')),
+      json.containsKey('state') ? _freezeMap(_object(json['state'], 'state')) : const {},
+      json.containsKey('director') ? _freezeMap(_object(json['director'], 'director')) : const {},
       usage == null ? null : _readUsage(_object(usage, 'reportedUsage')),
       failure == null ? null : _enumValue(TavernFailure.values, failure, 'failure'),
       _optionalText(json['detail'], 'detail'),
@@ -90,6 +98,14 @@ class TavernTurnInspection {
   /// Actual WI admission trace, including entry ids and match reasons.
   final Map<String, Object?> worldInfo;
 
+  /// Recorded state preparation and settlement. Empty for ordinary legacy
+  /// cards; detailed accepted/rejected operations remain in agent runs.
+  final Map<String, Object?> state;
+
+  /// The captured prior result and actual beat/prefetch preparation, never
+  /// the private helper input or notes. Empty keeps the legacy wire intact.
+  final Map<String, Object?> director;
+
   /// Null until THIS call reports usage. It is never inferred from estimates
   /// or the previous portion of a continued message. Zero is a reported value.
   final TavernUsage? reportedUsage;
@@ -112,6 +128,8 @@ class TavernTurnInspection {
     TavernInspectionStatus? status,
     PromptAssembly? prompt,
     Map<String, Object?>? worldInfo,
+    Map<String, Object?>? state,
+    Map<String, Object?>? director,
     TavernUsage? reportedUsage,
     TavernFailure? failure,
     String? detail,
@@ -125,6 +143,8 @@ class TavernTurnInspection {
     status ?? this.status,
     prompt == null ? this.prompt : _readAssembly(prompt.toJson()),
     worldInfo == null ? this.worldInfo : _freezeMap(worldInfo),
+    state == null ? this.state : _freezeMap(state),
+    director == null ? this.director : _freezeMap(director),
     reportedUsage ?? this.reportedUsage,
     failure ?? this.failure,
     detail ?? this.detail,
@@ -141,6 +161,8 @@ class TavernTurnInspection {
     'status': status.name,
     'prompt': prompt?.toJson(),
     'worldInfo': worldInfo,
+    if (state.isNotEmpty) 'state': state,
+    if (director.isNotEmpty) 'director': director,
     'reportedUsage': reportedUsage == null
         ? null
         : {

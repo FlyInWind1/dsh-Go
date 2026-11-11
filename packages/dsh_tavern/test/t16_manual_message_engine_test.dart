@@ -9,7 +9,194 @@ import 'support/t24_engine_harness.dart';
 
 // Real facade, files, SQLite and both macro engines. Only the model is scripted.
 void main() {
+  test('legacy manual variable names keep NEL keys distinct through persistence', () async {
+    final h = await _open(mode: 'legacy');
+    final greeting = (await h.engine.path(h.chatId)).single;
+    final ready = await h.engine.sendOnly(h.chatId, 'READY');
+    expect(ready.text, 'READY');
+    final collision = await h.engine.sendOnly(
+      h.chatId,
+      '{{setvar::KEY::A}}{{setvar::\u0085KEY::B}}{{getvar::KEY}}/{{getvar::\u0085KEY}}',
+    );
+    expect(
+      {'text': collision.text, 'variables': h.engine.variables(h.chatId)},
+      {
+        'text': 'A/B',
+        'variables': {'KEY': 'A', '\u0085KEY': 'B'},
+      },
+    );
+    // Legacy executes whole passes in set/add/inc/dec/get order.
+    final arithmetic = await h.engine.sendOnly(
+      h.chatId,
+      '{{setvar::COUNT::plain}}{{setvar::\u0085COUNT::2}}{{addvar::\u0085COUNT::3}}'
+      '{{incvar::\u0085COUNT}}/{{decvar::\u0085COUNT}}/{{getvar::\u0085COUNT}}',
+    );
+    expect(arithmetic.text, '6/5/5');
+    const local = {'KEY': 'A', '\u0085KEY': 'B', 'COUNT': 'plain', '\u0085COUNT': 5};
+    expect(h.engine.variables(h.chatId), local);
+    final global = await h.engine.sendOnly(h.chatId, '{{setglobalvar::\u0085KEY::GLOBAL}}{{getglobalvar::\u0085KEY}}');
+    expect(global.text, 'GLOBAL');
+    expect(h.engine.globalVariables, {'\u0085KEY': 'GLOBAL'});
+    expect(h.engine.variables(h.chatId), local);
+    await h.reopen();
+    expect(h.engine.variables(h.chatId), local);
+    expect(h.engine.globalVariables, {'\u0085KEY': 'GLOBAL'});
+    expect((await h.engine.path(h.chatId)).map((node) => (node.nodeId, node.text)), [
+      (greeting.nodeId, 'G'),
+      (ready.nodeId, 'READY'),
+      (collision.nodeId, 'A/B'),
+      (arithmetic.nodeId, '6/5/5'),
+      (global.nodeId, 'GLOBAL'),
+    ]);
+    expect(h.model.generated, 0);
+  });
+
+  test('modern manual shorthand values preserve NEL after evaluation and persistence', () async {
+    final h = await _open();
+    final greeting = (await h.engine.path(h.chatId)).single;
+    final ready = await h.engine.sendOnly(h.chatId, 'READY');
+    expect(ready.text, 'READY');
+    final value = await h.engine.sendOnly(h.chatId, '{{.x = \u0085VALUE}}{{.x}}');
+    expect(
+      {'text': value.text, 'variables': h.engine.variables(h.chatId)},
+      {
+        'text': '\u0085VALUE',
+        'variables': {'x': '\u0085VALUE'},
+      },
+    );
+    final spaces = await h.engine.sendOnly(h.chatId, '{{.spaces = \u00a0\ufeffVALUE\ufeff\u00a0}}{{.spaces}}');
+    expect(spaces.text, 'VALUE');
+    final inside = await h.engine.sendOnly(h.chatId, '{{.inside = V\u0085ALUE}}{{.inside}}');
+    expect(inside.text, 'V\u0085ALUE');
+    final nested = await h.engine.sendOnly(h.chatId, '{{.nested = {{getvar::x}}}}{{.nested}}');
+    expect(nested.text, '\u0085VALUE');
+    const local = {'x': '\u0085VALUE', 'spaces': 'VALUE', 'inside': 'V\u0085ALUE', 'nested': '\u0085VALUE'};
+    expect(h.engine.variables(h.chatId), local);
+    await h.reopen();
+    expect(h.engine.variables(h.chatId), local);
+    expect((await h.engine.path(h.chatId)).map((node) => (node.nodeId, node.text)), [
+      (greeting.nodeId, 'G'),
+      (ready.nodeId, 'READY'),
+      (value.nodeId, '\u0085VALUE'),
+      (spaces.nodeId, 'VALUE'),
+      (inside.nodeId, 'V\u0085ALUE'),
+      (nested.nodeId, '\u0085VALUE'),
+    ]);
+    expect(h.model.generated, 0);
+  });
+
   for (final mode in ['modern', 'legacy']) {
+    test('$mode sendOnly random lists preserve NEL and JavaScript trim rules', () async {
+      final h = await _open(mode: mode);
+      final greeting = (await h.engine.path(h.chatId)).single;
+      final ready = await h.engine.sendOnly(h.chatId, 'READY');
+      expect(ready.text, 'READY');
+
+      final nel = await h.engine.sendOnly(h.chatId, '{{random::\u0085KEY}}');
+      expect(nel.text.codeUnits, [133, 75, 69, 89]);
+
+      // Identical comma choices leave JS whitespace inside the modern
+      // parser's outer slice, so the list helper itself still has to trim.
+      final spaces = await h.engine.sendOnly(
+        h.chatId,
+        '{{random::\u00a0\ufeffKEY\ufeff\u00a0,\u00a0\ufeffKEY\ufeff\u00a0}}',
+      );
+      expect(spaces.text, 'KEY');
+      final inside = await h.engine.sendOnly(h.chatId, '{{random::K\u0085EY}}');
+      expect(inside.text, 'K\u0085EY');
+
+      // The single-colon form reaches modern's one-argument list splitter.
+      // Legacy deliberately preserves spaces in its remaining :: branch.
+      final split = await h.engine.sendOnly(h.chatId, '{{random: \u0085KEY :: \u0085KEY }}');
+      final splitText = mode == 'legacy' ? ' \u0085KEY ' : '\u0085KEY';
+      expect(split.text, splitText);
+      final pick = await h.engine.sendOnly(h.chatId, '{{pick::\u0085KEY}}');
+      expect(pick.text, '\u0085KEY');
+
+      await h.reopen();
+      expect((await h.engine.path(h.chatId)).map((node) => (node.nodeId, node.text)), [
+        (greeting.nodeId, 'G'),
+        (ready.nodeId, 'READY'),
+        (nel.nodeId, '\u0085KEY'),
+        (spaces.nodeId, 'KEY'),
+        (inside.nodeId, 'K\u0085EY'),
+        (split.nodeId, splitText),
+        (pick.nodeId, '\u0085KEY'),
+      ]);
+      expect(h.model.generated, 0);
+    });
+
+    test('$mode sendOnly datetimeformat era tokens persist the context year', () async {
+      final h = await _open(mode: mode);
+      final Tavern facade = h.engine;
+      final greeting = (await facade.path(h.chatId)).single;
+      final ready = await facade.sendOnly(h.chatId, 'READY');
+      expect(ready.text, 'READY');
+      final input = mode == 'legacy' ? '{{datetimeformat N|y|YYYY}}' : '{{datetimeformat::N|y|YYYY}}';
+      final era = await facade.sendOnly(h.chatId, input);
+      // T24's fixed UTC clock is 2026-11-10; unsupported N/y remain literal on S2.
+      expect(era.text, 'AD|2026|2026');
+      final expected = [(greeting.nodeId, 'G'), (ready.nodeId, 'READY'), (era.nodeId, 'AD|2026|2026')];
+      expect((await facade.path(h.chatId)).map((message) => (message.nodeId, message.text)), expected);
+      await h.reopen();
+      expect((await h.engine.path(h.chatId)).map((message) => (message.nodeId, message.text)), expected);
+      expect(h.model.generated, 0);
+    });
+
+    test('$mode sendOnly datetimeformat escapes whole tokens and persists literal output', () async {
+      final h = await _open(mode: mode);
+      final Tavern facade = h.engine;
+      String dateMacro(String pattern) =>
+          mode == 'legacy' ? '{{datetimeformat $pattern}}' : '{{datetimeformat::$pattern}}';
+      final greeting = (await facade.path(h.chatId)).single;
+      final ready = await facade.sendOnly(h.chatId, 'READY');
+      expect(ready.text, 'READY');
+      final month = await facade.sendOnly(h.chatId, dateMacro(r'\MM'));
+      // The old one-character escape produces M plus a month number, never MM.
+      expect(month.text, 'MM');
+      final literals = await facade.sendOnly(h.chatId, dateMacro(r'\YYYY|\LLLL'));
+      expect(literals.text, 'YYYY|LLLL');
+      final expected = [
+        (greeting.nodeId, 'G'),
+        (ready.nodeId, 'READY'),
+        (month.nodeId, 'MM'),
+        (literals.nodeId, 'YYYY|LLLL'),
+      ];
+      expect((await facade.path(h.chatId)).map((message) => (message.nodeId, message.text)), expected);
+      await h.reopen();
+      expect((await h.engine.path(h.chatId)).map((message) => (message.nodeId, message.text)), expected);
+      expect(h.model.generated, 0);
+    });
+
+    test('$mode manual card description preserves JavaScript whitespace through persistence', () async {
+      final h = await _open(mode: mode);
+      final greeting = (await h.engine.path(h.chatId)).single;
+      await h.engine.updateCharacterFields(h.characterId, {'description': '\u0085D'});
+      expect((await h.engine.characterFields(h.characterId))!['description'], '\u0085D');
+      final ready = await h.engine.sendOnly(h.chatId, 'READY');
+      expect(ready.text, 'READY');
+      final nel = await h.engine.sendOnly(h.chatId, '{{description}}');
+      expect(nel.text.codeUnits, [133, 68]);
+      const spaced = '\u00a0\ufeffD\ufeff\u00a0';
+      await h.engine.updateCharacterFields(h.characterId, {'description': spaced});
+      final spaces = await h.engine.sendOnly(h.chatId, '{{description}}');
+      expect(spaces.text, 'D');
+      expect((await h.engine.characterFields(h.characterId))!['description'], spaced);
+      await h.engine.updateCharacterFields(h.characterId, {'description': 'D\u0085X'});
+      final inside = await h.engine.sendOnly(h.chatId, '{{description}}');
+      expect(inside.text, 'D\u0085X');
+      await h.reopen();
+      expect((await h.engine.characterFields(h.characterId))!['description'], 'D\u0085X');
+      expect((await h.engine.path(h.chatId)).map((node) => (node.nodeId, node.text)), [
+        (greeting.nodeId, 'G'),
+        (ready.nodeId, 'READY'),
+        (nel.nodeId, '\u0085D'),
+        (spaces.nodeId, 'D'),
+        (inside.nodeId, 'D\u0085X'),
+      ]);
+      expect(h.model.generated, 0);
+    });
+
     test(
       '$mode sendOnly applies input regex before one whole-body expansion and stores whitespace and empty input',
       () async {
@@ -130,6 +317,34 @@ void main() {
       expect(await h.engine.inspectTurn(h.chatId), isNull);
     });
   }
+
+  test('modern main turn sends prepared NEL description to the actual provider', () async {
+    final h = await _open();
+    await h.engine.updateCharacterFields(h.characterId, {'description': '\u0085D'});
+    expect((await h.engine.characterFields(h.characterId))!['description'], '\u0085D');
+    h.engine.configure(TavernModelConfig(apiKey: () async => 'fixture-key', model: 'fixture-model', deepseek: false));
+    // The ordinary Q has no card macro. The enabled t24Preset description
+    // marker must receive prepareCharacterFields, not a lazy macro getter.
+    final call = h.model.prepare();
+    final events = T24Events(h.engine.send(h.chatId, 'Q'));
+    await Future.any<void>([call.listening.future, events.done.future]);
+    expect(call.cancellation, isNotNull, reason: 'The main turn must reach modelClient.generate.');
+    try {
+      expect(h.model.generated, 1);
+      expect(call.body!['messages'], [
+        {'role': 'system', 'content': '\u0085D'},
+        {'role': 'assistant', 'content': 'G'},
+        {'role': 'user', 'content': 'Q'},
+      ]);
+    } finally {
+      call.add(const ModelText('OK'));
+      await call.finish();
+      await events.done.future;
+    }
+    expect(events.values.whereType<TavernTurnFailed>(), isEmpty);
+    expect(events.values.whereType<TavernTurnDone>().single.message.text, 'OK');
+    expect(h.model.generated, 1);
+  });
 
   test('narrator names preserve explicit empty and literal values before metadata and System fallback', () async {
     final h = await _open();

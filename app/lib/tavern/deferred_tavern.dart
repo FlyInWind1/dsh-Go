@@ -146,6 +146,10 @@ class DeferredTavern implements Tavern {
       (await _ready).selectSibling(chatId, nodeId, index);
 
   @override
+  Future<void> selectNode(String chatId, String nodeId, {bool restoreDescendants = false}) async =>
+      (await _ready).selectNode(chatId, nodeId, restoreDescendants: restoreDescendants);
+
+  @override
   Future<void> edit(String chatId, String nodeId, String text) async => (await _ready).edit(chatId, nodeId, text);
 
   @override
@@ -176,6 +180,21 @@ class DeferredTavern implements Tavern {
 
   @override
   Future<Map<String, Object?>> readVariables(String chatId) async => (await _ready).readVariables(chatId);
+
+  @override
+  Future<TavernStateSnapshot> readState(String chatId) async => (await _ready).readState(chatId);
+
+  @override
+  Future<TavernStateEditResult> setStateValue(
+    String chatId,
+    String path,
+    Object? value, {
+    String? expectedNodeId,
+  }) async => (await _ready).setStateValue(chatId, path, value, expectedNodeId: expectedNodeId);
+
+  @override
+  Future<List<TavernAgentRun>> readAgentRuns(String chatId, {String? nodeId, int limit = 50}) async =>
+      (await _ready).readAgentRuns(chatId, nodeId: nodeId, limit: limit);
 
   @override
   Future<TavernMessage> sendOnly(String chatId, String text) async => (await _ready).sendOnly(chatId, text);
@@ -349,6 +368,19 @@ class DeferredTavern implements Tavern {
   @override
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) async =>
       (await _ready).setSettings(patch, chatId: chatId);
+
+  @override
+  Future<TavernDirectorSnapshot> readDirector(String chatId) async => (await _ready).readDirector(chatId);
+
+  @override
+  Stream<TavernDirectorSnapshot> watchDirector(String chatId) => _stream((t) => t.watchDirector(chatId));
+
+  @override
+  Future<TavernDirectorRun> runDirector(String chatId) async => (await _ready).runDirector(chatId);
+
+  @override
+  Future<List<TavernDirectorEvent>> readDirectorEvents(String chatId, {int limit = 50, String? beforeEventId}) async =>
+      (await _ready).readDirectorEvents(chatId, limit: limit, beforeEventId: beforeEventId);
 
   /// Nothing to close when it never opened.
   @override

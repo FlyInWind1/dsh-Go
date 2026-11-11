@@ -4,11 +4,14 @@ import '../import_report.dart';
 import '../preset_library.dart';
 import '../regex/regex_engine.dart';
 import '../regex_library.dart';
+import '../state/state_engine.dart' as state_core;
 import '../worldinfo/world_info.dart';
 import 'world_info_intake.dart';
 
 /// Static capability inspection. JSON, macros, scripts and remote assets are
 /// never executed here. Regex evidence comes from the protected importer.
+/// State inspection only compiles explicit definitions; it does not construct
+/// initial values, evaluate derive/rules, or inspect saved chat state.
 /// [path] can retain an imported array member's original location. Preset
 /// envelope findings use `$.envelope`; supplied codec issues retain their own
 /// original import path, which may include `$.preset.data`.
@@ -164,6 +167,10 @@ final class _Intake {
       regexList(extensions['regex_scripts'], '$path.extensions.regex_scripts');
       helpers(extensions, '$path.extensions');
       text(_map(extensions['depth_prompt'])?['prompt'], '$path.extensions.depth_prompt.prompt');
+      final dshgo = _map(extensions['dshgo']);
+      if (dshgo != null) {
+        stateDefinition(dshgo, '$path.extensions.dshgo');
+      }
     }
     final embedded = data['character_book'];
     if (embedded is Map<String, Object?>) {
@@ -176,6 +183,38 @@ final class _Intake {
         kind: TavernImportFindingKind.invalid,
       );
     }
+  }
+
+  void stateDefinition(Map<String, Object?> dshgo, String path) {
+    final raw = _map(dshgo['state']);
+    // Absence of schema is the legacy-card contract. Do not infer a schema,
+    // reinterpret opaque extension values, or add new counts to old reports.
+    if (raw == null || !raw.containsKey('schema')) {
+      return;
+    }
+    count('stateDefinitions');
+    final rules = raw['rules'];
+    // Declared rows, including invalid ones; this is not an execution count.
+    count('stateRules', rules is List<Object?> ? rules.length : 0);
+    final definition = state_core.StateDefinition.parse(raw, version: dshgo.containsKey('v') ? dshgo['v'] : 1);
+    final before = findings.length;
+    for (final issue in definition.issues) {
+      final code = issue['code']! as String;
+      final location = code == 'state_version'
+          ? '$path.v'
+          : _stateIssuePath(raw, '$path.state', issue['path']! as String);
+      finding(
+        location,
+        code,
+        issue['message']! as String,
+        kind: switch (issue['kind']) {
+          'unknown' => TavernImportFindingKind.unknown,
+          'unsupported' => TavernImportFindingKind.unsupported,
+          _ => TavernImportFindingKind.invalid,
+        },
+      );
+    }
+    count('stateDefinitionIssues', findings.length - before);
   }
 
   void preset(
@@ -580,6 +619,28 @@ final class _Intake {
 }
 
 Map<String, Object?>? _map(Object? value) => value is Map<String, Object?> ? value : null;
+
+final _pathField = RegExp(r'^[A-Za-z_$][A-Za-z0-9_$]*$');
+
+/// The pure compiler reports JSON Pointers relative to state. Walk the raw
+/// containers so an object key "0" cannot be confused with an array index.
+String _stateIssuePath(Object? raw, String path, String pointer) {
+  var current = raw;
+  for (final escaped in pointer.split('/').skip(1)) {
+    final token = escaped.replaceAll('~1', '/').replaceAll('~0', '~');
+    final index = current is List<Object?> ? int.tryParse(token) : null;
+    if (current is List<Object?> && index != null && index >= 0 && '$index' == token) {
+      path += '[$index]';
+      current = index < current.length ? current[index] : null;
+    } else {
+      final simple = _pathField.firstMatch(token);
+      path += simple != null && simple.end == token.length ? '.$token' : '[${jsonEncode(token)}]';
+      current = _map(current)?[token];
+    }
+  }
+  return path;
+}
+
 bool _truthy(Object? value) =>
     value != null && value != false && value != '' && !(value is num && (value == 0 || value.isNaN));
 bool _disabled(Map<String, Object?> value) => _truthy(value['disabled']);

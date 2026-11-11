@@ -1,5 +1,6 @@
 // Adapted from SillyTavern public/script.js getCharacterCardFields (AGPL-3.0).
 // Source commit: 7e8663cd9c184a550b37238218bdd32c6efc68e9 (1.19.0).
+import '../js_string.dart';
 import 'prompt_types.dart';
 
 /// ST's eager field snapshot, resolved before scanning world info and reused
@@ -22,7 +23,7 @@ PreparedCharacterFields prepareCharacterFields(
   required PromptExpansion expand,
 }) {
   String base(Object? value) {
-    final text = value is String ? value.trim() : '';
+    final text = value is String ? trimJsWhitespace(value) : '';
     return text.isEmpty ? '' : expand(text, const {}).replaceAll('\r', '');
   }
 

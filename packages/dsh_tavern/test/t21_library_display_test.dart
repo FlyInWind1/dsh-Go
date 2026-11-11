@@ -197,6 +197,49 @@ void main() {
     expect((await h.engine.displayText(chat, text: 'A', depth: 2, role: TavernRole.user)).text, 'A');
   });
 
+  test('public display honors a based minDepth beyond signed int range', () async {
+    final h = await _open();
+    final raw = _rule('A', 'B', extra: {'minDepth': '0x8000000000000000'});
+    final source = jsonEncode(raw);
+    final imported = await h.engine.importRegexScripts(source);
+    expect(imported.scripts, hasLength(1));
+    final script = imported.scripts.single;
+    expect(script.enabled, isTrue);
+    expect(script.compatible, isTrue);
+    expect(script.raw, raw);
+    expect(script.sourceText, source);
+    expect(jsonDecode(await h.engine.exportRegex(regexId: script.id)), raw);
+
+    final chat = await h.chat();
+    final path = await h.engine.path(chat);
+    expect(path, hasLength(1));
+    expect(path.single.text, 'A');
+    final withoutDepth = await h.engine.displayText(chat, text: 'A');
+    expect(withoutDepth.text, 'B');
+    expect(withoutDepth.warnings, isEmpty);
+    expect(withoutDepth.superseded, isFalse);
+    expect(withoutDepth.replacements, 1);
+
+    final withDepth = await h.engine.displayText(chat, text: 'A', depth: 0);
+    expect(withDepth.warnings, isEmpty);
+    expect(withDepth.superseded, isFalse);
+    expect((await h.engine.path(chat)).map((message) => message.text), ['A']);
+    final retained = await h.engine.listRegexScripts();
+    expect(retained, hasLength(1));
+    expect(retained.single.raw, raw);
+    expect(retained.single.sourceText, source);
+    expect(h.model.bodies, isEmpty);
+    print('T12 based-depth READY: imported rule active without depth; no warning; stored A and raw source intact');
+
+    // Fixed ST coerces this unsigned hex string to positive 2^63, so 0 is below it.
+    // The old explicit-radix int parser instead returns null, producing NaN and B.
+    expect(withDepth.text, 'A');
+    expect(withDepth.replacements, 0);
+    expect(jsonDecode(await h.engine.exportRegex(regexId: script.id)), raw);
+    expect((await h.engine.path(chat)).map((message) => message.text), ['A']);
+    expect(h.model.bodies, isEmpty);
+  });
+
   test('reasoning and body display are independent and leave stored fields intact', () async {
     final h = await _open();
     h.engine.configure(

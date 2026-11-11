@@ -276,7 +276,7 @@ class _LegacyEvaluation {
   String _base(Object? value) {
     if (value == null) return '';
     if (value is! String) throw ArgumentError.value(value, 'card field', 'Expected a string');
-    final text = value.trim();
+    final text = trimJsWhitespace(value);
     if (text.isEmpty) return '';
     var result = _LegacyEvaluation(
       engine,
@@ -325,16 +325,16 @@ class _LegacyEvaluation {
     final scope = global ? 'globalvar' : 'var';
     return [
       _legacyPass('{{set$scope::([^:]+)::([^}]*)}}', (match) {
-        _setVariable(vars, match[1]!.trim(), match[2]!);
+        _setVariable(vars, trimJsWhitespace(match[1]!), match[2]!);
         return '';
       }),
       _legacyPass('{{add$scope::([^:]+)::([^}]+)}}', (match) {
-        _addVariable(vars, match[1]!.trim(), match[2]!);
+        _addVariable(vars, trimJsWhitespace(match[1]!), match[2]!);
         return '';
       }),
-      _legacyPass('{{inc$scope::([^}]+)}}', (match) => _addVariable(vars, match[1]!.trim(), 1)),
-      _legacyPass('{{dec$scope::([^}]+)}}', (match) => _addVariable(vars, match[1]!.trim(), -1)),
-      _legacyPass('{{get$scope::([^}]+)}}', (match) => _getVariable(vars, match[1]!.trim())),
+      _legacyPass('{{inc$scope::([^}]+)}}', (match) => _addVariable(vars, trimJsWhitespace(match[1]!), 1)),
+      _legacyPass('{{dec$scope::([^}]+)}}', (match) => _addVariable(vars, trimJsWhitespace(match[1]!), -1)),
+      _legacyPass('{{get$scope::([^}]+)}}', (match) => _getVariable(vars, trimJsWhitespace(match[1]!))),
     ];
   }
 
@@ -394,7 +394,7 @@ class _LegacyEvaluation {
         : input
               .replaceAll(r'\,', '##�COMMA�##')
               .split(',')
-              .map((item) => item.trim().replaceAll('##�COMMA�##', ','))
+              .map((item) => trimJsWhitespace(item).replaceAll('##�COMMA�##', ','))
               .toList();
     return values[(random * values.length).floor()];
   }

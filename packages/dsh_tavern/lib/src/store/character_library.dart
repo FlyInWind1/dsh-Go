@@ -156,7 +156,9 @@ class CharacterLibrary {
       if (report != null) {
         await File('${staging.path}/import-report.json').writeAsString(jsonEncode(report.toJson()), flush: true);
       }
-      await File('${staging.path}/original.${card.sourceFormat.name}').writeAsBytes(bytes, flush: true);
+      // Keep the source from this decode, even if the caller reuses its input
+      // buffer while the completed card is being inspected or published.
+      await File('${staging.path}/original.${card.sourceFormat.name}').writeAsBytes(card.originalBytes!, flush: true);
       if (card.png != null) await File('${staging.path}/source.png').writeAsBytes(card.png!, flush: true);
       if (portrait != null) await File('${staging.path}/portrait.png').writeAsBytes(portrait, flush: true);
       for (final entry in card.assets.entries) {
@@ -440,8 +442,22 @@ class CharacterLibrary {
     final directory = Directory('${_characters.path}/$id');
     final type = await FileSystemEntity.type(directory.path, followLinks: false);
     if (type == FileSystemEntityType.notFound) {
-      await _discardSummary(id);
-      return;
+      try {
+        // type() also hides lookup errors. Only confirmed absence may let the
+        // facade remove this character's chats without renaming its directory.
+        await FileSystemEntity.identical(directory.path, directory.path);
+      } on PathNotFoundException catch (error) {
+        final code = error.osError?.errorCode;
+        if (code != 2 && !(Platform.isWindows && code == 3)) {
+          rethrow;
+        }
+        if (await FileSystemEntity.type(directory.path, followLinks: false) != FileSystemEntityType.notFound) {
+          rethrow;
+        }
+        await _discardSummary(id);
+        return;
+      }
+      throw FileSystemException('The character folder could not be identified as absent.', directory.path);
     }
     if (type != FileSystemEntityType.directory) throw const FileSystemException('Character folder is not a directory');
     final trash = await directory.rename('${_characters.path}/.trash-${_newId()}');
@@ -498,13 +514,29 @@ class CharacterLibrary {
   }
 
   Future<void> _invalidateSummary(String id) async {
-    if (await FileSystemEntity.type(_indexes.path, followLinks: false) != FileSystemEntityType.directory) return;
+    final parentType = await FileSystemEntity.type(_indexes.path, followLinks: false);
+    if (parentType != FileSystemEntityType.directory && parentType != FileSystemEntityType.notFound) return;
     final file = _indexFile(id);
-    if (await FileSystemEntity.type(file.path, followLinks: false) == FileSystemEntityType.file) {
-      // A readable index must be removed before source publication. Do not
-      // swallow this error and then commit a new card with a stale summary.
-      await file.delete();
+    final type = await FileSystemEntity.type(file.path, followLinks: false);
+    if (type != FileSystemEntityType.file) {
+      if (type != FileSystemEntityType.notFound) return;
+      // type also reports lookup errors as notFound. On Linux, delete can
+      // remap the same error to ENOENT, so probe with a read-only open first.
+      final RandomAccessFile probe;
+      try {
+        probe = await file.open(mode: FileMode.read);
+      } on PathNotFoundException catch (error) {
+        final code = error.osError?.errorCode;
+        // Accept only ENOENT / Windows file-or-path-not-found. Other Windows
+        // PathNotFoundException codes include unavailable network paths.
+        if (code == 2 || (Platform.isWindows && code == 3)) return;
+        rethrow;
+      }
+      await probe.close();
     }
+    // A readable index must be removed before source publication. Close and
+    // delete failures must not be mistaken for absence by the open catch.
+    await file.delete();
   }
 
   Future<void> _discardSummary(String id) async {

@@ -9,12 +9,14 @@
 import 'dart:typed_data';
 
 import 'backup.dart';
+import 'director.dart';
 import 'import_report.dart';
 import 'inspection.dart';
 import 'lorebook_library.dart';
 import 'persona.dart';
 import 'preset_library.dart';
 import 'regex_library.dart';
+import 'state.dart';
 import 'worldinfo/world_info.dart' show WorldInfoSource;
 
 enum PresetSelectionSource { chat, chatInline, globalDefault, globalInline, stDefault }
@@ -363,8 +365,11 @@ class TavernModelConfig {
 abstract interface class Tavern {
   // Library ------------------------------------------------------------------
 
-  /// The saved capability snapshot, or null for a missing/legacy asset. Edited
-  /// content marks the snapshot stale; reading does not run compatibility work.
+  /// The saved capability snapshot, or null for a missing/legacy asset.
+  /// Reading compares the current inspection-input fingerprint with the saved
+  /// fingerprint. Restoring a match can make stale false; checkedAt and findings
+  /// still describe the saved snapshot. Only explicit rechecking refreshes that
+  /// snapshot; reading does not run compatibility work.
   Future<TavernImportReport?> readImportReport(TavernImportKind kind, String assetId);
 
   /// Explicitly inspects the current asset, including legacy imports, and
@@ -524,6 +529,20 @@ abstract interface class Tavern {
   /// macro effects, mutate state, or cancel a turn; global variables are separate.
   Future<Map<String, Object?>> readVariables(String chatId);
 
+  /// The selected leaf's saved DSH state and raw schema, or saved ST local
+  /// variables for cards without a schema. Reading has no state side effects.
+  Future<TavernStateSnapshot> readState(String chatId);
+
+  /// Sets a JSON Pointer on the selected leaf through user permissions and
+  /// the same validator/rules as model updates. An empty pointer means root.
+  /// An empty selected chat path is rejected. [expectedNodeId], when supplied,
+  /// protects an editor against a changed selection after cancelling a turn.
+  Future<TavernStateEditResult> setStateValue(String chatId, String path, Object? value, {String? expectedNodeId});
+
+  /// Most recent persistent state/agent execution records, newest first.
+  /// An explicit node filter excludes records whose node was permanently deleted.
+  Future<List<TavernAgentRun>> readAgentRuns(String chatId, {String? nodeId, int limit = 50});
+
   /// Fires whenever the current path changes (a turn, a swipe, an edit) so the
   /// screen re-reads [path].
   Stream<void> pathChanges(String chatId);
@@ -614,6 +633,15 @@ abstract interface class Tavern {
   /// Makes sibling [index] of [nodeId] current (and its subtree's remembered
   /// path below it).
   Future<void> selectSibling(String chatId, String nodeId, int index);
+
+  /// Selects any visible node in this chat, cancelling and awaiting its active
+  /// turn first. By default the path stops exactly at [nodeId]: its first
+  /// selected child edge is persistently cleared, without deleting descendants.
+  /// With [restoreDescendants], follows the path currently remembered beneath
+  /// the node; this does not reconstruct an edge cleared by an earlier stop.
+  /// Selection and restoration of the chosen leaf's variables are atomic.
+  /// ST-hidden messages remain selectable; soft-deleted messages do not.
+  Future<void> selectNode(String chatId, String nodeId, {bool restoreDescendants = false});
 
   /// Labels a visible branch root in extra.dshgo.branchName. Trims the name;
   /// null/empty clears it. Cancels and awaits this chat's active turn before
@@ -742,6 +770,30 @@ abstract interface class Tavern {
   /// Legacy global patches containing preset write settings.json before the
   /// SQLite selection; a second-step failure leaves the file change committed.
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId});
+
+  /// Latest successful director output and the latest attempt are separate.
+  /// Notes are marked spoilers; stale branch results remain readable but are
+  /// not injected into a main turn. The optional story view reads the selected
+  /// branch's saved progress independently of the helper. Optional eventRules
+  /// exposes that branch's fixed-card event ledger and literal prompt queue.
+  /// Reading never calls a model, executes handlers or advances chapters.
+  Future<TavernDirectorSnapshot> readDirector(String chatId);
+
+  /// Initial snapshot, then independent background completion/failure updates.
+  /// Cancelling this subscription does not stop a helper or a main turn.
+  Stream<TavernDirectorSnapshot> watchDirector(String chatId);
+
+  /// One explicit helper invocation, even when automatic directing is off.
+  /// Returns busy during a main generation or tree mutation, without cancelling
+  /// or waiting for it. The source is saved context, never streaming buffers.
+  Future<TavernDirectorRun> runDirector(String chatId);
+
+  /// Pending proposals, newest first by publication order. Pass the last id
+  /// as beforeEventId for the next page. A proposal remains globally pending;
+  /// branch-local fixed-card execution is recorded separately in eventRules.
+  /// A malformed/unsupported row retains its id with available=false and null
+  /// payload, so it neither invents a proposal nor hides valid neighboring rows.
+  Future<List<TavernDirectorEvent>> readDirectorEvents(String chatId, {int limit = 50, String? beforeEventId});
 
   /// Creates a complete ZIP at [destinationPath], outside this data root.
   /// Active turns or another backup return busy. New operations are rejected

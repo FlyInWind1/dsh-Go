@@ -101,6 +101,33 @@ class StoredPresetSummary {
   final bool hasEnvelope;
 }
 
+/// One tool invocation or explicit user edit. JSON is snapshotted at
+/// construction and every read is detached. A null nodeId is an unanchored
+/// audit record, never an alias for the chat's current leaf.
+class StoredAgentRun {
+  StoredAgentRun({
+    required this.id,
+    required this.chatId,
+    this.nodeId,
+    required this.kind,
+    required this.at,
+    Map<String, Object?>? usage,
+    required Map<String, Object?> result,
+  }) : _usage = usage == null ? null : jsonEncode(usage),
+       _result = jsonEncode(result);
+
+  final String id;
+  final String chatId;
+  final String? nodeId;
+  final String kind;
+  final DateTime at;
+  final String? _usage;
+  final String _result;
+
+  Map<String, Object?>? get usage => _usage == null ? null : jsonDecode(_usage) as Map<String, Object?>;
+  Map<String, Object?> get result => jsonDecode(_result) as Map<String, Object?>;
+}
+
 /// The SQLite owner. Methods are synchronous so a tree edit and its remembered
 /// path cannot be interleaved by a streaming callback on this isolate.
 ///
@@ -135,12 +162,19 @@ class ChatStore {
     return ChatStore._(database, clock: clock, createId: createId);
   }
 
-  static const schemaVersion = 5;
+  static const schemaVersion = 6;
 
   // Keys are destination versions. Future upgrades register every successor
   // here and increase schemaVersion; no existing schema is dropped or replayed.
   // Steps run inside one transaction and must not manage transactions themselves.
-  static const _schemaMigrations = <int, String>{1: _schemaV1, 2: _schemaV2, 3: _schemaV3, 4: _schemaV4, 5: _schemaV5};
+  static const _schemaMigrations = <int, String>{
+    1: _schemaV1,
+    2: _schemaV2,
+    3: _schemaV3,
+    4: _schemaV4,
+    5: _schemaV5,
+    6: _schemaV6,
+  };
   final Database _db;
   final DateTime Function() _clock;
   final String Function() _createId;
@@ -225,11 +259,11 @@ class ChatStore {
     if (_streamingWriters == 0) _setSynchronous(2);
   }
 
-  T _withDurability<T>(int level, T Function() operation) {
+  T _withDurability<T>(int level, T Function() operation, {void Function()? onCommitted}) {
     _outsideTransaction();
     _setSynchronous(level);
     try {
-      return _transaction(operation);
+      return _transaction(operation, onCommitted: onCommitted);
     } finally {
       if (_streamingWriters == 0) {
         _setSynchronous(2);
@@ -284,14 +318,25 @@ class ChatStore {
   /// is identifiable. Only synchronous callbacks are supported: this method
   /// cannot cancel asynchronous work a callback schedules or hides behind a
   /// dynamic return type.
-  T transaction<T>(T Function() operation) {
+  /// [onCommitted] is an internal synchronous adoption hook for an outer
+  /// transaction. Prepare its objects first: it must only assign references,
+  /// before notifications or durability restoration can throw after COMMIT.
+  /// Nested hooks and identifiable Future-returning hooks are rejected before
+  /// the operation starts.
+  T transaction<T>(T Function() operation, {void Function()? onCommitted}) {
     // Only body checkpoints use NORMAL. A different chat's ordinary edits,
     // settings, rollback and terminal saves retain FULL while streams wait.
-    if (_transactionDepth > 0) return _transaction(operation);
-    return _withDurability(2, operation);
+    if (_transactionDepth > 0) {
+      if (onCommitted != null) throw StateError('A savepoint cannot announce a durable commit.');
+      return _transaction(operation);
+    }
+    if (onCommitted is Future<dynamic> Function()) {
+      throw ArgumentError('ChatStore.transaction requires a synchronous onCommitted hook.');
+    }
+    return _withDurability(2, operation, onCommitted: onCommitted);
   }
 
-  T _transaction<T>(T Function() operation) {
+  T _transaction<T>(T Function() operation, {void Function()? onCommitted}) {
     _ensureOpen();
     _checkTransactionState();
     if (operation is Future<dynamic> Function()) {
@@ -318,6 +363,7 @@ class ChatStore {
       _checkTransactionState();
       _db.execute(depth == 0 ? 'COMMIT' : 'RELEASE SAVEPOINT $savepoint');
       completed = true;
+      onCommitted?.call();
     } catch (error, stackTrace) {
       try {
         // FULL/IOERR can make SQLite roll back without another SQL statement.
@@ -407,11 +453,8 @@ class ChatStore {
 
   StoredPreset? preset(String id) {
     _ensureOpen();
-    // sqlite3 decodes TEXT with Dart's UTF-8 decoder, which removes one
-    // leading BOM. Guard the archived text during decoding and remove only
-    // that guard below; source_text itself and the schema remain unchanged.
     final rows = _db.select(
-      '''SELECT id, name, char(1) || source_text AS guarded_source_text,
+      '''SELECT id, char(1) || name AS name, char(1) || source_text AS guarded_source_text,
                 raw_json, envelope_json, import_report_json, created_at, updated_at
          FROM presets WHERE id = ?''',
       [id],
@@ -422,8 +465,8 @@ class ChatStore {
     final row = rows.single;
     return StoredPreset(
       id: row['id'] as String,
-      name: row['name'] as String,
-      sourceText: (row['guarded_source_text'] as String).substring(1),
+      name: _unguardText(row['name'])!,
+      sourceText: _unguardText(row['guarded_source_text'])!,
       raw: _map(row['raw_json']),
       envelope: row['envelope_json'] == null ? null : _map(row['envelope_json']),
       importReport: row['import_report_json'] == null
@@ -436,13 +479,15 @@ class ChatStore {
 
   List<StoredPresetSummary> listPresets() {
     _ensureOpen();
-    final rows = _db.select('''SELECT id, name, created_at, updated_at, envelope_json IS NOT NULL AS has_envelope
-         FROM presets ORDER BY updated_at DESC, id''');
+    final rows = _db.select(
+      '''SELECT id, char(1) || name AS name, created_at, updated_at, envelope_json IS NOT NULL AS has_envelope
+         FROM presets ORDER BY updated_at DESC, id''',
+    );
     return [
       for (final row in rows)
         StoredPresetSummary(
           id: row['id'] as String,
-          name: row['name'] as String,
+          name: _unguardText(row['name'])!,
           createdAt: _date(row['created_at']),
           updatedAt: _date(row['updated_at']),
           hasEnvelope: row['has_envelope'] == 1,
@@ -549,6 +594,181 @@ class ChatStore {
     }
   }
 
+  /// Uses the ordinary nested transaction contract, so terminal state, own
+  /// node audit and these records can share one caller-owned SQL commit.
+  /// Audit writes do not change the selected path, revision or notifications.
+  void writeAgentRun(StoredAgentRun run) => transaction(() {
+    _chatRow(run.chatId);
+    final nodeId = run.nodeId;
+    if (nodeId != null) {
+      // A soft-deleted node remains a valid physical audit anchor. The FK
+      // alone cannot enforce that the referenced node belongs to this chat.
+      _nodeRow(run.chatId, nodeId, includeDeleted: true);
+    }
+    _db.execute(
+      '''INSERT INTO agent_runs (id, chat_id, node_id, kind, at, usage, result_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?)''',
+      [run.id, run.chatId, nodeId, run.kind, run.at.millisecondsSinceEpoch, run._usage, run._result],
+    );
+  });
+
+  /// Omitted nodeId reads the complete chat audit, including unanchored runs.
+  /// An explicit id matches only that physical anchor; null records are not
+  /// reassigned to the current branch. Equal timestamps put newer inserts first.
+  List<StoredAgentRun> agentRuns(String chatId, {String? nodeId, int limit = 50}) {
+    _chatRow(chatId);
+    if (limit < 0) {
+      throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
+    }
+    if (limit == 0) {
+      return [];
+    }
+    final rows = _db.select(
+      '''SELECT id, chat_id, node_id, kind, at, usage, result_json FROM agent_runs
+         WHERE chat_id = ? AND (? IS NULL OR node_id = ?)
+         ORDER BY at DESC, rowid DESC LIMIT ?''',
+      [chatId, nodeId, nodeId, limit],
+    );
+    return [
+      for (final row in rows)
+        StoredAgentRun(
+          id: row['id'] as String,
+          chatId: row['chat_id'] as String,
+          nodeId: row['node_id'] as String?,
+          kind: row['kind'] as String,
+          at: _date(row['at']),
+          usage: row['usage'] == null ? null : _map(row['usage']),
+          result: _map(row['result_json']),
+        ),
+    ];
+  }
+
+  /// Director queries use publication order, independent of clock changes or
+  /// interleaved state tools. The existing general audit ordering is unchanged.
+  List<StoredAgentRun> agentRunsByKind(String chatId, Set<String> kinds, {int limit = 50, String? beforeId}) {
+    _chatRow(chatId);
+    if (limit < 0) throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
+    if (kinds.isEmpty || limit == 0) return [];
+    final values = kinds.toList(growable: false);
+    final slots = List.filled(values.length, '?').join(',');
+    int? before;
+    if (beforeId != null) {
+      final anchor = _db.select('SELECT rowid FROM agent_runs WHERE chat_id = ? AND id = ? AND kind IN ($slots)', [
+        chatId,
+        beforeId,
+        ...values,
+      ]);
+      if (anchor.isEmpty) throw StateError('Agent run cursor not found in this chat and kind.');
+      before = anchor.single['rowid'] as int;
+    }
+    final List<Row> rows;
+    if (values.length == 1) {
+      rows = _agentRunRowsByKind(chatId, values.single, limit, before);
+    } else {
+      // A row below the first N of its own kind cannot be in the global first
+      // N. Merge raw rows before decoding so excluded malformed documents do
+      // not become observable, and bad selected rows still occupy their slot.
+      final candidates = <Row>[for (final kind in values) ..._agentRunRowsByKind(chatId, kind, limit, before)];
+      candidates.sort((left, right) => (right['rowid'] as int).compareTo(left['rowid'] as int));
+      rows = candidates.take(limit).toList();
+    }
+    return [for (final row in rows) _directorStoredRun(row)];
+  }
+
+  List<Row> _agentRunRowsByKind(String chatId, String kind, int limit, int? before) {
+    final cursor = before == null ? '' : ' AND rowid < ?';
+    return _db.select(
+      '''SELECT rowid, id, chat_id, node_id, kind, at, usage, result_json
+      FROM agent_runs WHERE chat_id = ? AND kind = ?$cursor
+      ORDER BY rowid DESC LIMIT ?''',
+      [chatId, kind, ?before, limit],
+    );
+  }
+
+  /// Exact persisted identity, independent of a pagination window or newer
+  /// publications. Foreign-chat ids return null; malformed JSON stays inert.
+  StoredAgentRun? agentRunById(String chatId, String id) {
+    _chatRow(chatId);
+    final rows = _db.select(
+      '''SELECT id, chat_id, node_id, kind, at, usage, result_json
+      FROM agent_runs WHERE chat_id = ? AND id = ?''',
+      [chatId, id],
+    );
+    return rows.isEmpty ? null : _directorStoredRun(rows.single);
+  }
+
+  StoredAgentRun _directorStoredRun(Row row) {
+    try {
+      return StoredAgentRun(
+        id: row['id'] as String,
+        chatId: row['chat_id'] as String,
+        nodeId: row['node_id'] as String?,
+        kind: row['kind'] as String,
+        at: _date(row['at']),
+        usage: row['usage'] == null ? null : _map(row['usage']),
+        result: _map(row['result_json']),
+      );
+    } catch (_) {
+      // Preserve the bad bytes on disk. A caller can show this row as
+      // unavailable without treating it as a valid empty director result.
+      // Construction also encodes a private copy: an overflowing JSON number
+      // may decode to Infinity yet fail that encoding. Isolate the whole row.
+      return StoredAgentRun(
+        id: row['id'] as String,
+        chatId: row['chat_id'] as String,
+        nodeId: row['node_id'] as String?,
+        kind: row['kind'] as String,
+        at: _date(row['at']),
+        result: {'version': 0, 'unavailable': 'invalid_saved_director_json'},
+      );
+    }
+  }
+
+  /// Existing summaries only; both endpoints must belong to this ordered
+  /// source path. No summary is generated or rewritten by a director read.
+  List<Map<String, Object?>> directorSummaries(String chatId, List<String> path, {int limit = 20}) {
+    _chatRow(chatId);
+    if (limit < 0) throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
+    if (limit == 0) return [];
+    final positions = {for (var i = 0; i < path.length; i++) path[i]: i};
+    final result = <Map<String, Object?>>[];
+    for (final row in _db.select(
+      'SELECT id, from_node_id, to_node_id, text FROM summaries WHERE chat_id = ? ORDER BY rowid DESC',
+      [chatId],
+    )) {
+      final first = positions[row['from_node_id']];
+      final last = positions[row['to_node_id']];
+      if (first == null || last == null || first > last) continue;
+      result.add({
+        'id': row['id'],
+        'fromNodeId': row['from_node_id'],
+        'toNodeId': row['to_node_id'],
+        'text': row['text'],
+      });
+      if (result.length == limit) break;
+    }
+    return result.reversed.toList(growable: false);
+  }
+
+  /// Chat-owned raw memory entries. Invalid JSON remains preserved and is
+  /// reported by the adapter instead of being repaired during a read.
+  List<({String id, Map<String, Object?> entry, bool valid})> directorMemories(String chatId) {
+    _chatRow(chatId);
+    final result = <({String id, Map<String, Object?> entry, bool valid})>[];
+    for (final row in _db.select('SELECT id, entry_json FROM memories WHERE chat_id = ? ORDER BY rowid', [chatId])) {
+      try {
+        final entry = _map(row['entry_json']);
+        // The adapter/WorldInfoBook must be able to copy the complete native
+        // document, including unknown fields. Do not repair non-finite values.
+        jsonEncode(entry);
+        result.add((id: row['id'] as String, entry: entry, valid: true));
+      } catch (_) {
+        result.add((id: row['id'] as String, entry: <String, Object?>{}, valid: false));
+      }
+    }
+    return result;
+  }
+
   String createChat({
     required String characterId,
     String title = '',
@@ -589,7 +809,7 @@ class ChatStore {
     return StoredChat(
       id: row['id'] as String,
       characterId: row['character_id'] as String,
-      title: row['title'] as String,
+      title: _unguardText(row['title'])!,
       createdAt: _date(row['created_at']),
       updatedAt: _date(row['updated_at']),
       personaId: row['persona_id'] as String?,
@@ -600,6 +820,16 @@ class ChatStore {
       variables: _map(row['variables']),
       settings: _map(row['settings']),
     );
+  }
+
+  /// Explicit persona bindings in the same recency order as [listChats].
+  /// Selection and cleanup do not need message bodies or chat JSON documents.
+  List<({String id, String? personaId})> listChatPersonaBindings() {
+    _ensureOpen();
+    return [
+      for (final row in _db.select('SELECT id, persona_id FROM chats ORDER BY updated_at DESC, id'))
+        (id: row['id'] as String, personaId: row['persona_id'] as String?),
+    ];
   }
 
   /// Counts and recency for the character picker without loading message text.
@@ -616,7 +846,8 @@ class ChatStore {
   List<TavernChatSummary> listChats({String? characterId}) {
     _ensureOpen();
     final rows = _db.select(
-      '''SELECT c.*, COALESCE(n.stream_text, n.text) AS last_text, COALESCE(n.depth, 0) AS message_count
+      '''SELECT c.id, c.character_id, char(1) || c.title AS title, c.updated_at,
+                char(1) || COALESCE(n.stream_text, n.text) AS last_text, COALESCE(n.depth, 0) AS message_count
          FROM chats c LEFT JOIN nodes n ON n.id = c.current_leaf_id AND n.deleted_by IS NULL
          WHERE (? IS NULL OR c.character_id = ?) ORDER BY c.updated_at DESC, c.id''',
       [characterId, characterId],
@@ -626,9 +857,9 @@ class ChatStore {
         TavernChatSummary(
           id: row['id'] as String,
           characterId: row['character_id'] as String,
-          title: row['title'] as String,
+          title: _unguardText(row['title'])!,
           updatedAt: _date(row['updated_at']),
-          lastText: row['last_text'] as String?,
+          lastText: _unguardText(row['last_text']),
           messageCount: row['message_count'] as int,
         ),
     ];
@@ -653,7 +884,7 @@ class ChatStore {
         '''UPDATE chats SET title = ?, persona_id = ?, preset_id = ?, metadata = ?, variables = ?, settings = ?
            WHERE id = ?''',
         [
-          title ?? row['title'],
+          title ?? _unguardText(row['title']),
           clearPersona ? null : personaId ?? row['persona_id'],
           clearPreset ? null : presetId ?? row['preset_id'],
           metadata == null ? row['metadata'] : jsonEncode(metadata),
@@ -741,11 +972,36 @@ class ChatStore {
 
   StoredNode node(String chatId, String nodeId) => _storedNode(_nodeRow(chatId, nodeId));
 
+  /// Detached physical extra, including inspection hidden by a stream view.
+  /// Internal state transactions must preserve that raw carrier verbatim.
+  Map<String, Object?> rawNodeExtra(String chatId, String nodeId) => _map(_nodeRow(chatId, nodeId)['extra']);
+
+  /// A soft-deleted future is still a future: binding facts to a shared old
+  /// source must not silently rewrite any retained descendant's provenance.
+  bool hasPhysicalChildren(String chatId, String nodeId) {
+    _nodeRow(chatId, nodeId);
+    return _db.select('SELECT 1 FROM nodes WHERE chat_id = ? AND parent_id = ? LIMIT 1', [chatId, nodeId]).isNotEmpty;
+  }
+
   List<StoredNode> allNodes(String chatId) {
     _chatRow(chatId);
     return [
       for (final row in _db.select(
-        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.deleted_by IS NULL ORDER BY n.seq',
+        '''
+WITH siblings AS (
+  SELECT seq,
+    row_number() OVER (PARTITION BY parent_id ORDER BY seq) - 1 AS sibling_index,
+    count(*) OVER (
+      PARTITION BY parent_id ORDER BY seq
+      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+    ) AS sibling_count
+  FROM nodes
+  WHERE chat_id = ? AND deleted_by IS NULL
+)
+SELECT $_nodeColumns, s.sibling_index, s.sibling_count
+FROM siblings s JOIN nodes n ON n.seq = s.seq
+ORDER BY n.seq
+''',
         [chatId],
       ))
         _storedNode(row),
@@ -757,7 +1013,7 @@ class ChatStore {
     if (parentId != null) _nodeRow(chatId, parentId);
     return [
       for (final row in _db.select(
-        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id IS ? AND n.deleted_by IS NULL ORDER BY n.seq',
+        'SELECT $_nodeColumns, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id IS ? AND n.deleted_by IS NULL ORDER BY n.seq',
         [chatId, parentId],
       ))
         _storedNode(row),
@@ -789,11 +1045,21 @@ class ChatStore {
     return [for (final row in _ancestorRows(chatId, leafId)) _storedNode(row)];
   }
 
-  List<Row> _ancestorRows(String chatId, String? leafId, {int? limit}) {
+  /// Reads only root-to-leaf identities, validating the same visible ancestor
+  /// structure as [historyTo]. It does not decode message/state documents: bad
+  /// unrelated extra/original JSON cannot invalidate a membership-only read.
+  List<String> ancestorIds(String chatId, String? leafId) {
+    _chatRow(chatId);
+    return [for (final row in _ancestorRows(chatId, leafId, identitiesOnly: true)) row['id'] as String];
+  }
+
+  List<Row> _ancestorRows(String chatId, String? leafId, {int? limit, bool identitiesOnly = false}) {
     if (limit == 0 || leafId == null) return [];
     // UNION only sees stable identifiers. Including an increasing distance
     // would defeat duplicate removal for a corrupt cycle. Both recursive
     // terms stay inside this chat; never trust a foreign parent pointer.
+    final projection = identitiesOnly ? 'a.id, a.parent_id' : '$_nodeColumns, $_siblingColumns';
+    final source = identitiesOnly ? 'ancestors a' : 'ancestors a JOIN nodes n ON n.id = a.id';
     final rows = _db.select(
       '''WITH RECURSIVE ancestors(id, parent_id) AS (
            SELECT id, parent_id FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by IS NULL
@@ -801,7 +1067,7 @@ class ChatStore {
            SELECT n.id, n.parent_id FROM nodes n JOIN ancestors a ON n.id = a.parent_id
              WHERE n.chat_id = ? AND n.deleted_by IS NULL
            LIMIT ?
-         ) SELECT n.*, $_siblingColumns FROM ancestors a JOIN nodes n ON n.id = a.id''',
+         ) SELECT $projection FROM $source''',
       [chatId, leafId, chatId, limit ?? -1],
     );
     final byId = <String, Row>{for (final row in rows) row['id'] as String: row};
@@ -838,6 +1104,18 @@ class ChatStore {
       _nodeRow(chatId, nodeId);
       if (!restoreDescendants) _db.execute('UPDATE nodes SET selected_child_id = NULL WHERE id = ?', [nodeId]);
       _activate(chatId, nodeId);
+      _touch(chatId, tree: true);
+    });
+  }
+
+  /// Restores an explicit empty active path without changing any remembered
+  /// child choices or decoding message documents. An already empty path is a
+  /// no-op, including its revision, timestamp and notifications.
+  void clearSelection(String chatId) {
+    transaction(() {
+      final chat = _chatRow(chatId);
+      if (chat['selected_root_id'] == null && chat['current_leaf_id'] == null) return;
+      _db.execute('UPDATE chats SET selected_root_id = NULL, current_leaf_id = NULL WHERE id = ?', [chatId]);
       _touch(chatId, tree: true);
     });
   }
@@ -935,9 +1213,12 @@ class ChatStore {
 
       // UPDATE OF text drives the FTS trigger. Metadata-only writes must not
       // name text, and must not promote an in-progress body as a side effect.
-      if (text != null || promote) put('text', text ?? row['stream_text']);
+      if (text != null || promote) put('text', text ?? _unguardText(row['stream_text']));
       if (reasoning != null || clearReasoning || promote) {
-        put('reasoning', clearReasoning ? null : reasoning ?? (promote ? row['stream_reasoning'] : row['reasoning']));
+        put(
+          'reasoning',
+          clearReasoning ? null : reasoning ?? _unguardText(promote ? row['stream_reasoning'] : row['reasoning']),
+        );
       }
       if (usage != null || clearUsage || promote) put('usage', clearUsage ? null : _encodeUsage(usage));
       if (extra != null || promote) {
@@ -996,7 +1277,7 @@ class ChatStore {
           ? chat['selected_root_id'] as String?
           : _nodeRow(chatId, parentId)['selected_child_id'] as String?;
       final children = _db.select(
-        'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id = ? ORDER BY n.seq',
+        'SELECT $_nodeColumns, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id = ? ORDER BY n.seq',
         [chatId, nodeId],
       );
       final snapshots = <String, ({String state, String? extra})>{};
@@ -1246,20 +1527,43 @@ class ChatStore {
     bool includeDeleted = false,
   }) {
     _nodeRow(chatId, nodeId, includeDeleted: includeDeleted);
+    // Keep recursive rows stable so a corrupt cycle terminates in SQL before
+    // the reconstruction below rejects it. A checkpoint still stops the walk.
     final rows = _db.select(
-      '''WITH RECURSIVE states(id, parent_id, delta_json, full_json, distance) AS (
-           SELECT n.id, n.parent_id, s.delta_json, s.full_json, 0
+      '''WITH RECURSIVE states(id, parent_id, delta_json, full_json) AS (
+           SELECT n.id, n.parent_id, s.delta_json, s.full_json
            FROM nodes n JOIN node_states s ON s.node_id = n.id WHERE n.chat_id = ? AND n.id = ?
-           UNION ALL
-           SELECT n.id, n.parent_id, s.delta_json, s.full_json, p.distance + 1
+           UNION
+           SELECT n.id, n.parent_id, s.delta_json, s.full_json
            FROM states p JOIN nodes n ON n.id = p.parent_id JOIN node_states s ON s.node_id = n.id
            WHERE p.full_json IS NULL
-         ) SELECT * FROM states ORDER BY distance DESC''',
+         ) SELECT char(1) || id AS id, char(1) || parent_id AS parent_id,
+             delta_json, full_json FROM states''',
       [chatId, nodeId],
     );
+    // Keep the prefix in these internal keys: UTF-8 decoding must not merge a
+    // leading-BOM identity with an otherwise identical unprefixed identity.
+    final byId = <String, Row>{for (final row in rows) row['id'] as String: row};
+    final reversed = <Row>[];
+    final visited = <String>{};
+    String? next = '\u0001$nodeId';
+    while (next != null) {
+      if (!visited.add(next)) {
+        throw StateError('Cycle in the state ancestor path.');
+      }
+      final row = byId[next];
+      if (row == null) {
+        break;
+      }
+      reversed.add(row);
+      if (row['full_json'] != null) {
+        break;
+      }
+      next = row['parent_id'] as String?;
+    }
     var state = <String, Object?>{};
     var deltas = 0;
-    for (final row in rows) {
+    for (final row in reversed.reversed) {
       if (row['full_json'] != null) {
         state = _map(row['full_json']);
         deltas = 0;
@@ -1291,7 +1595,7 @@ class ChatStore {
     if (limit < 0) throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
     if (query.trim().isEmpty || limit == 0) return [];
     final rows = _db.select(
-      '''SELECT n.*, $_siblingColumns FROM nodes_fts JOIN nodes n ON n.seq = nodes_fts.rowid
+      '''SELECT $_nodeColumns, $_siblingColumns FROM nodes_fts JOIN nodes n ON n.seq = nodes_fts.rowid
          WHERE nodes_fts MATCH ? AND n.stream_text IS NULL AND n.deleted_by IS NULL AND (? IS NULL OR n.chat_id = ?) ORDER BY rank LIMIT ?''',
       [query, chatId, chatId, limit],
     );
@@ -1299,19 +1603,19 @@ class ChatStore {
   }
 
   /// Literal substring search over visible, finalized messages of one chat.
-  /// SQLite's ordinary LIKE case rules apply; FTS syntax stays in [search].
+  /// SQLite's ASCII case folding applies; FTS syntax stays in [search].
   List<TavernMessage> searchChat(String chatId, String query, {int limit = 50}) {
     _chatRow(chatId);
     if (limit < 0) throw ArgumentError.value(limit, 'limit', 'Must be non-negative.');
     if (query.trim().isEmpty || limit == 0) return [];
-    final escaped = query.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
-    final pattern = '%$escaped%';
     final rows = _db.select(
-      '''SELECT n.*, $_siblingColumns FROM nodes n
+      '''SELECT $_nodeColumns, $_siblingColumns FROM (
+      SELECT * FROM nodes n
       WHERE n.chat_id = ? AND n.deleted_by IS NULL AND n.stream_text IS NULL
-        AND (n.text LIKE ? ESCAPE '!' OR n.speaker LIKE ? ESCAPE '!')
-      ORDER BY n.seq DESC LIMIT ?''',
-      [chatId, pattern, pattern, limit],
+        AND (instr(lower(n.text), lower(?)) > 0 OR instr(lower(n.speaker), lower(?)) > 0)
+      ORDER BY n.seq DESC LIMIT ?
+    ) AS n ORDER BY n.seq DESC''',
+      [chatId, query, query, limit],
     );
     return [for (final row in rows) _message(row)];
   }
@@ -1384,30 +1688,47 @@ class ChatStore {
   }
 
   void _activate(String chatId, String nodeId) {
-    final ancestors = _db.select(
-      '''WITH RECURSIVE ancestors(id, parent_id, distance) AS (
-           SELECT id, parent_id, 0 FROM nodes WHERE chat_id = ? AND id = ? AND deleted_by IS NULL
-           UNION ALL SELECT n.id, n.parent_id, a.distance + 1 FROM nodes n JOIN ancestors a ON n.id = a.parent_id WHERE n.deleted_by IS NULL
-         ) SELECT id FROM ancestors ORDER BY distance DESC''',
-      [chatId, nodeId],
+    final ancestors = _ancestorRows(chatId, nodeId);
+    // Validate only the path being selected. Stable UNION rows terminate even
+    // for corrupt cycles; chat/visibility/parent checks reject stale remembered
+    // edges instead of following them into an unrelated branch or chat.
+    final descendants = _db.select(
+      '''WITH RECURSIVE descendants(id, parent_id, selected_child_id) AS (
+           SELECT id, parent_id, selected_child_id FROM nodes
+             WHERE chat_id = ? AND id = ? AND deleted_by IS NULL
+           UNION
+           SELECT n.id, n.parent_id, n.selected_child_id
+           FROM nodes n JOIN descendants d ON n.id = d.selected_child_id
+             WHERE n.chat_id = ? AND n.parent_id = d.id AND n.deleted_by IS NULL
+         ) SELECT * FROM descendants''',
+      [chatId, nodeId, chatId],
     );
+    final byId = <String, Row>{for (final row in descendants) row['id'] as String: row};
+    final visited = <String>{};
+    var leaf = nodeId;
+    while (true) {
+      if (!visited.add(leaf)) {
+        throw StateError('Cycle in the selected descendant path: $leaf');
+      }
+      final row = byId[leaf];
+      if (row == null) {
+        throw StateError('Selected child is not a visible child in this chat: $leaf');
+      }
+      final next = row['selected_child_id'] as String?;
+      if (next == null) {
+        break;
+      }
+      leaf = next;
+    }
     for (var index = 0; index + 1 < ancestors.length; index++) {
       _db.execute('UPDATE nodes SET selected_child_id = ? WHERE id = ?', [
         ancestors[index + 1]['id'],
         ancestors[index]['id'],
       ]);
     }
-    final descendants = _db.select(
-      '''WITH RECURSIVE descendants(id, selected_child_id, distance) AS (
-           SELECT id, selected_child_id, 0 FROM nodes WHERE id = ? AND deleted_by IS NULL
-           UNION ALL SELECT n.id, n.selected_child_id, d.distance + 1
-           FROM nodes n JOIN descendants d ON n.id = d.selected_child_id WHERE n.deleted_by IS NULL
-         ) SELECT id FROM descendants ORDER BY distance DESC LIMIT 1''',
-      [nodeId],
-    );
     _db.execute('UPDATE chats SET selected_root_id = ?, current_leaf_id = ? WHERE id = ?', [
       ancestors.first['id'],
-      descendants.first['id'],
+      leaf,
       chatId,
     ]);
   }
@@ -1424,7 +1745,7 @@ class ChatStore {
 
   Row _chatRow(String chatId) {
     _ensureOpen();
-    final rows = _db.select('SELECT * FROM chats WHERE id = ?', [chatId]);
+    final rows = _db.select('SELECT $_chatColumns FROM chats c WHERE c.id = ?', [chatId]);
     if (rows.isEmpty) throw StateError('Chat not found: $chatId');
     return rows.first;
   }
@@ -1432,7 +1753,7 @@ class ChatStore {
   Row _nodeRow(String chatId, String nodeId, {bool includeDeleted = false}) {
     _ensureOpen();
     final rows = _db.select(
-      'SELECT n.*, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.id = ? AND (n.deleted_by IS NULL OR ? = 1)',
+      'SELECT $_nodeColumns, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.id = ? AND (n.deleted_by IS NULL OR ? = 1)',
       [chatId, nodeId, includeDeleted ? 1 : 0],
     );
     if (rows.isEmpty) throw StateError('Node does not belong to chat: $nodeId');
@@ -1473,9 +1794,9 @@ class ChatStore {
     nodeId: row['id'] as String,
     parentId: row['parent_id'] as String?,
     role: TavernRole.values.byName(row['role'] as String),
-    speaker: row['speaker'] as String,
-    text: (row['stream_text'] ?? row['text']) as String,
-    reasoning: (row['stream_text'] != null ? row['stream_reasoning'] : row['reasoning']) as String?,
+    speaker: _unguardText(row['speaker'])!,
+    text: _unguardText(row['stream_text'] ?? row['text'])!,
+    reasoning: _unguardText(row['stream_text'] != null ? row['stream_reasoning'] : row['reasoning']),
     at: _date(row['at']),
     hidden: row['hidden'] == 1,
     siblingIndex: row['sibling_index'] as int,
@@ -1486,6 +1807,11 @@ class ChatStore {
 
   static DateTime _date(Object? value) => DateTime.fromMillisecondsSinceEpoch(value as int, isUtc: true);
   static Map<String, Object?> _map(Object? value) => jsonDecode(value as String) as Map<String, Object?>;
+
+  // sqlite3's UTF-8 decoder removes a leading BOM. User TEXT projections add
+  // char(1) before decoding; remove only that read-time guard, preserving null,
+  // an original char(1), and every original BOM. Never persist the guarded value.
+  static String? _unguardText(Object? value) => (value as String?)?.substring(1);
 
   static String? _encodeUsage(TavernUsage? usage) => usage == null
       ? null
@@ -1557,6 +1883,20 @@ class ChatStore {
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-'
         '${hex.substring(16, 20)}-${hex.substring(20)}';
   }
+
+  // Explicit projections read each potentially long body only once. JSON
+  // containers and host-generated identities do not need a decoding guard.
+  static const _nodeColumns = '''
+    n.seq, n.id, n.chat_id, n.parent_id, n.selected_child_id, n.depth, n.role,
+    char(1) || n.speaker AS speaker, char(1) || n.text AS text,
+    char(1) || n.reasoning AS reasoning, n.at, n.hidden, n.usage, n.extra, n.original,
+    char(1) || n.stream_text AS stream_text, char(1) || n.stream_reasoning AS stream_reasoning,
+    n.deleted_by, n.reported_usage''';
+
+  static const _chatColumns = '''
+    c.id, c.character_id, char(1) || c.title AS title, c.created_at, c.updated_at,
+    c.persona_id, c.preset_id, c.selected_root_id, c.current_leaf_id,
+    c.metadata, c.variables, c.settings, c.tree_revision''';
 
   static const _siblingColumns = '''
     (SELECT COUNT(*) FROM nodes s WHERE s.chat_id = n.chat_id AND s.parent_id IS n.parent_id AND s.deleted_by IS NULL AND s.seq < n.seq)
@@ -1639,6 +1979,10 @@ CREATE TRIGGER nodes_fts_update AFTER UPDATE OF text, speaker ON nodes BEGIN
   INSERT INTO nodes_fts(nodes_fts, rowid, text, speaker) VALUES ('delete', old.seq, old.text, old.speaker);
   INSERT INTO nodes_fts(rowid, text, speaker) VALUES (new.seq, new.text, new.speaker);
 END;
+''';
+
+  static const _schemaV6 = '''
+CREATE INDEX agent_runs_chat_kind ON agent_runs(chat_id, kind);
 ''';
 
   static const _schemaV5 = r'''

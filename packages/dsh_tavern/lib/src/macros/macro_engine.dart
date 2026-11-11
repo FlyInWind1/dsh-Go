@@ -719,12 +719,14 @@ class _Evaluation {
     String? cachedValue;
     String value() => cachedValue ??= call.args.isEmpty
         ? ''
-        : evaluate(
-            document.text.substring(call.args.first.start, call.args.first.end),
-            offset: offset + call.args.first.start,
-            processors: false,
-            scopes: false,
-          ).trim();
+        : trimJsWhitespace(
+            evaluate(
+              document.text.substring(call.args.first.start, call.args.first.end),
+              offset: offset + call.args.first.start,
+              processors: false,
+              scopes: false,
+            ),
+          );
     final current = _getVariable(vars, call.name);
     switch (call.variableOperator) {
       case null:
@@ -946,7 +948,7 @@ class _Evaluation {
   }
 
   String _baseCardValue(Object? raw) {
-    final text = raw is String ? raw.trim() : '';
+    final text = raw is String ? trimJsWhitespace(raw) : '';
     if (text.isEmpty) return '';
     var expanded = _Evaluation(
       context,
@@ -1044,15 +1046,20 @@ class _Evaluation {
     final sides = int.tryParse(match[2]!);
     final modifier = match[3] == null ? 0 : int.tryParse(match[3]!);
     if (count == null || sides == null || modifier == null) return '';
-    var total = modifier;
+    // Fixed ST 1.19.0 (7e8663cd) uses droll 0.2.1 (MIT):
+    // https://github.com/thebinarypenguin/droll/blob/v0.2.1/droll.js
+    // This tag supplied the semantics; npm tarball bytes were not compared.
+    // Each die and the dice sum use binary64; add the modifier only once, last.
+    final doubleSides = sides.toDouble();
+    var total = 0.0;
     for (var i = 0; i < count; i++) {
       final random = context.random();
       if (!random.isFinite || random < 0 || random >= 1) {
         throw ArgumentError.value(random);
       }
-      total += (random * sides).floor() + 1;
+      total += 1.0 + (random * doubleSides).floorToDouble();
     }
-    return '$total';
+    return _numberString(total + modifier.toDouble());
   }
 
   String _time(String name, List<String> args) {
@@ -1131,8 +1138,12 @@ String _examples(String raw) {
 }
 
 List<String> _randomList(String input) {
-  if (input.contains('::')) return input.split('::').map((s) => s.trim()).toList();
-  return input.replaceAll(r'\,', '##�COMMA�##').split(',').map((s) => s.trim().replaceAll('##�COMMA�##', ',')).toList();
+  if (input.contains('::')) return input.split('::').map(trimJsWhitespace).toList();
+  return input
+      .replaceAll(r'\,', '##�COMMA�##')
+      .split(',')
+      .map((s) => trimJsWhitespace(s).replaceAll('##�COMMA�##', ','))
+      .toList();
 }
 
 const _undefined = _Undefined();
@@ -1474,6 +1485,11 @@ class _MacroClock {
   final String locale;
   bool get chinese => locale == 'zh-cn';
 
+  // Moment 2.30.1 src/lib/units/era.js and src/lib/locale/en.js define these outputs.
+  // src/locale/zh-cn.js has no eras, so era.js falls back to en.
+  // Boundaries use this context's fixed-offset local calendar, not hidden host anchors.
+  int get _eraYear => local.year >= 1 ? local.year : 1 - local.year;
+
   void _checkLocale() {
     if (!chinese && locale != 'en' && locale != 'en-us') {
       throw ArgumentError.value(locale, 'locale', 'Supported: en, zh-cn');
@@ -1527,6 +1543,16 @@ class _MacroClock {
     'YYYY',
     'YY',
     'Y',
+    'NNNNN',
+    'NNNN',
+    'NNN',
+    'NN',
+    'N',
+    'yyyy',
+    'yyy',
+    'yy',
+    'yo',
+    'y',
     'Qo',
     'Q',
     'MMMM',
@@ -1588,8 +1614,18 @@ class _MacroClock {
     'z',
     'X',
     'x',
-    ..._longEn.keys,
   ]..sort((a, b) => b.length.compareTo(a.length));
+
+  // Moment 2.30.1 src/lib/format/format.js expands aliases before rendering.
+  // Escapes consume its full lexical token, including unsupported output tokens.
+  static final _longFormatTokens = RegExp(r'(\[[^\[]*\])|(\\)?(LTS|LT|LL?L?L?|l{1,4})');
+  static final _formatTokens = RegExp(
+    r'(\[[^\[]*\])|\\(?:'
+    r'[Hh]mm(?:ss)?|Mo|MM?M?M?|Do|DDDo|DD?D?D?|ddd?d?|do?|w[o|w]?|W[o|W]?|Qo?|N{1,5}|'
+    r'YYYYYY|YYYYY|YYYY|YY|y{2,4}|yo?|gg(?:ggg?)?|GG(?:GGG?)?|e|E|a|A|hh?|HH?|kk?|mm?|ss?|'
+    r'S{1,9}|x|X|zz?|ZZ?|.)|(?:'
+    '${_tokens.map(RegExp.escape).join('|')}|.)',
+  );
 
   String format(String pattern) {
     _checkLocale();
@@ -1597,35 +1633,19 @@ class _MacroClock {
   }
 
   String _format(String pattern) {
+    final longFormats = chinese ? _longZh : _longEn;
+    // The fixed locale definitions contain no further long-format aliases.
+    final expanded = pattern.replaceAllMapped(_longFormatTokens, (match) => longFormats[match[0]] ?? match[0]!);
     final result = StringBuffer();
-    for (var i = 0; i < pattern.length;) {
-      if (pattern[i] == '[') {
-        final end = pattern.indexOf(']', i + 1);
-        if (end >= 0) {
-          result.write(pattern.substring(i + 1, end));
-          i = end + 1;
-          continue;
-        }
+    for (final match in _formatTokens.allMatches(expanded)) {
+      final token = match[0]!;
+      if (match[1] != null) {
+        result.write(token.substring(1, token.length - 1));
+      } else if (token.contains('\\')) {
+        result.write(token.replaceAll('\\', ''));
+      } else {
+        result.write(_token(token));
       }
-      if (pattern[i] == '\\' && i + 1 < pattern.length) {
-        result.write(pattern[i + 1]);
-        i += 2;
-        continue;
-      }
-      String? token;
-      for (final candidate in _tokens) {
-        if (pattern.startsWith(candidate, i)) {
-          token = candidate;
-          break;
-        }
-      }
-      if (token == null) {
-        result.write(pattern[i++]);
-        continue;
-      }
-      final longFormat = (chinese ? _longZh : _longEn)[token];
-      result.write(longFormat == null ? _token(token) : _format(longFormat));
-      i += token.length;
     }
     return result.toString();
   }
@@ -1682,6 +1702,20 @@ class _MacroClock {
         return _pad(local.year, 5);
       case 'YYYYYY':
         return '${local.year >= 0 ? '+' : '-'}${_pad(local.year.abs(), 6)}';
+      case 'N':
+      case 'NN':
+      case 'NNN':
+      case 'NNNNN':
+        return local.year >= 1 ? 'AD' : 'BC';
+      case 'NNNN':
+        return local.year >= 1 ? 'Anno Domini' : 'Before Christ';
+      case 'y':
+      case 'yy':
+      case 'yyy':
+      case 'yyyy':
+        return _pad(_eraYear, token.length);
+      case 'yo':
+        return _ordinal(_eraYear, 'y');
       case 'Q':
         return '${(local.month + 2) ~/ 3}';
       case 'Qo':

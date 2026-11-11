@@ -151,6 +151,96 @@ void main() {
     expect(result.remainingBudget, 0);
   });
 
+  test('history evaluates newest first while retaining all chronological segments and group controls', () {
+    final raw = _preset({
+      'names_behavior': 1,
+      'openai_max_context': 20,
+      'openai_max_tokens': 0,
+      'send_if_empty': 'EMPTY 等待🌊',
+      'new_chat_prompt': 'SOLO must not appear',
+      'new_group_chat_prompt': 'NEW 群聊🐋',
+      'group_nudge_prompt': 'GROUP 接续🧭',
+      'squash_system_messages': false,
+    }).raw;
+    (raw['prompts'] as List<Object?>).whereType<Map<String, Object?>>().firstWhere(
+      (prompt) => prompt['identifier'] == 'main',
+    )['content'] = 'MAIN';
+    final visits = <String>[];
+    var ticks = 0;
+    final result = _assemble(
+      preset: ChatPreset(raw),
+      deepseek: false,
+      groupNames: ['Whale', 'Other'],
+      history: const [
+        PromptHistoryMessage(id: 'h1', role: 'user', name: 'User one', content: '一{{visit::h1}}🐋'),
+        PromptHistoryMessage(id: 'h2', role: 'assistant', name: 'Whale-2', content: '二{{visit::h2}}🌊'),
+        PromptHistoryMessage(id: 'h3', role: 'user', name: 'User_3', content: '三{{visit::h3}}🧭'),
+        PromptHistoryMessage(id: 'h4', role: 'assistant', name: 'Other.4', content: '四{{visit::h4}}🐋'),
+        PromptHistoryMessage(id: 'h5', role: 'user', name: 'User five', content: '五{{visit::h5}}🌊'),
+        PromptHistoryMessage(id: 'h6', role: 'assistant', name: 'Whale six', content: '六{{visit::h6}}🧭'),
+      ],
+      expansion: (text, _) => text.replaceAllMapped(RegExp(r'\{\{visit::(h[1-6])\}\}'), (match) {
+        visits.add(match[1]!);
+        return '${++ticks}';
+      }),
+    );
+    expect(visits, ['h6', 'h5', 'h4', 'h3', 'h2', 'h1']);
+    expect(ticks, 6);
+
+    Map<String, Object?> segment(
+      String id,
+      String role,
+      String content,
+      String kind,
+      String sourceId, {
+      String name = '',
+      String label = '',
+    }) => {
+      'id': id,
+      'message': {'role': role, 'content': content, if (name.isNotEmpty) 'name': name},
+      'sources': [
+        {'kind': kind, 'id': sourceId, 'label': label, 'details': <String, Object?>{}},
+      ],
+      'tokens': 1,
+    };
+    // Explicit chronological expectations: do not derive these from reversed
+    // history or replay the expansion callback to construct the oracle.
+    final expected = [
+      segment('main', 'system', 'MAIN', 'preset', 'main', label: 'Main Prompt'),
+      segment('newMainChat', 'system', 'NEW 群聊🐋', 'control', 'new_group_chat_prompt'),
+      segment('h1', 'user', '一6🐋', 'history', 'h1', name: 'User_one', label: 'User one'),
+      segment('h2', 'assistant', '二5🌊', 'history', 'h2', name: 'Whale_2', label: 'Whale-2'),
+      segment('h3', 'user', '三4🧭', 'history', 'h3', name: 'User_3', label: 'User_3'),
+      segment('h4', 'assistant', '四3🐋', 'history', 'h4', name: 'Other_4', label: 'Other.4'),
+      segment('h5', 'user', '五2🌊', 'history', 'h5', name: 'User_five', label: 'User five'),
+      segment('h6', 'assistant', '六1🧭', 'history', 'h6', name: 'Whale_six', label: 'Whale six'),
+      segment('emptyUserMessageReplacement', 'user', 'EMPTY 等待🌊', 'control', 'send_if_empty'),
+      segment('groupNudge', 'system', 'GROUP 接续🧭', 'control', 'group_nudge_prompt'),
+    ];
+    expect(result.beforePostProcessing.map((item) => item.toJson()).toList(), expected);
+    expect(result.afterPostProcessing.map((item) => item.toJson()).toList(), expected);
+    expect(result.body['messages'], expected.map((item) => item['message']).toList());
+    expect(result.excluded.map((item) => item.toJson()).toList(), [
+      {
+        'id': 'enhanceDefinitions',
+        'reason': 'disabled',
+        'sources': [
+          {
+            'kind': 'preset',
+            'id': 'enhanceDefinitions',
+            'label': 'Enhance Definitions',
+            'details': <String, Object?>{},
+          },
+        ],
+      },
+    ]);
+    expect(result.budget, 20);
+    // Ten nonempty messages plus the existing three-token assembly overhead.
+    expect(result.remainingBudget, 7);
+    expect(result.exactTokenCounts, isFalse);
+    expect(result.counterName, 'synthetic one token per message');
+  });
+
   test('examples are atomic; pinning gives their whole block priority', () {
     final preset = _preset({'openai_max_context': 8, 'openai_max_tokens': 0});
     const card = {'name': 'Whale', 'mes_example': '<START>\nUser: example U\nWhale: example A'};

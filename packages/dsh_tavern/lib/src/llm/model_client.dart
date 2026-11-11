@@ -24,6 +24,32 @@ class ModelReasoning extends ModelDelta {
   final String text;
 }
 
+/// An unexecuted tool fragment. An absent/invalid streaming index is never
+/// guessed. Protocol diagnostics travel beside the other response channels.
+/// The accumulator, rather than the transport, owns call identity and JSON.
+class ModelToolFragment extends ModelDelta {
+  ModelToolFragment({
+    this.index,
+    this.id,
+    this.type,
+    this.name,
+    this.arguments,
+    List<Map<String, Object?>> issues = const [],
+  }) : _issues = jsonEncode(issues);
+
+  final int? index;
+  final String? id;
+  final String? type;
+  final String? name;
+  final String? arguments;
+  final String _issues;
+
+  /// Every read is detached, including nested diagnostic metadata.
+  List<Map<String, Object?>> get issues => [
+    for (final issue in jsonDecode(_issues) as List<Object?>) issue as Map<String, Object?>,
+  ];
+}
+
 class ModelUsage extends ModelDelta {
   const ModelUsage(this.usage);
   final TavernUsage usage;
@@ -211,6 +237,10 @@ class TavernModelClient {
           cancellation.check();
           yield ModelText(content);
         }
+        for (final fragment in _toolFragments(message['tool_calls'], streaming: false)) {
+          cancellation.check();
+          yield fragment;
+        }
         if (result['usage'] case final Map<String, dynamic> usage) {
           cancellation.check();
           yield ModelUsage(_usage(usage, result['model'] as String? ?? config.model));
@@ -246,6 +276,10 @@ class TavernModelClient {
           cancellation.check();
           yield ModelText(content);
         }
+        for (final fragment in _toolFragments(delta['tool_calls'], streaming: true)) {
+          cancellation.check();
+          yield fragment;
+        }
         if (choice['finish_reason'] case final String reason) {
           finishReason = reason;
           sawFinish = true;
@@ -272,33 +306,31 @@ class TavernModelClient {
   /// Generic services supply their own API prefix (for example /v1). A full
   /// /chat/completions URL is accepted. DeepSeek roots and /v1 become /beta.
   static Uri endpoint(TavernModelConfig config) {
-    final uri = Uri.parse(config.baseUrl);
+    final uri = Uri.parse(config.baseUrl).removeFragment();
     if (!uri.hasAuthority || (uri.scheme != 'https' && uri.scheme != 'http')) {
       throw const TavernModelException(TavernFailure.network, 'invalid_base_url');
     }
     var path = uri.path.replaceFirst(RegExp(r'/+$'), '');
     if (path.endsWith('/chat/completions')) {
-      if (!config.deepseek) return uri.replace(path: path, fragment: '');
+      if (!config.deepseek) return uri.replace(path: path);
       path = path.substring(0, path.length - '/chat/completions'.length);
     }
     if (config.deepseek && !path.endsWith('/beta')) {
       if (path.endsWith('/v1')) path = path.substring(0, path.length - 3);
       path += '/beta';
     }
-    return uri.replace(path: '$path/chat/completions', fragment: '');
+    return uri.replace(path: '$path/chat/completions');
   }
 }
 
 /// SSE framing is independent of HTTP chunk boundaries and UTF-8 characters.
+/// Malformed UTF-8 is replaced before fields and comments are interpreted.
+/// UTF-8 decoding removes at most one leading BOM for the entire stream.
 /// Comments/keepalives are ignored; multiple data fields join with a newline.
+/// Only a terminating blank line dispatches an event; EOF discards pending data.
 Stream<String> decodeServerSentEvents(Stream<List<int>> bytes) async* {
   final data = <String>[];
-  var first = true;
-  await for (var line in bytes.transform(utf8.decoder).transform(const LineSplitter())) {
-    if (first) {
-      first = false;
-      if (line.startsWith('\uFEFF')) line = line.substring(1);
-    }
+  await for (final line in bytes.transform(const Utf8Decoder(allowMalformed: true)).transform(const LineSplitter())) {
     if (line.isEmpty) {
       if (data.isNotEmpty) {
         yield data.join('\n');
@@ -314,7 +346,6 @@ Stream<String> decodeServerSentEvents(Stream<List<int>> bytes) async* {
     if (value.startsWith(' ')) value = value.substring(1);
     data.add(value);
   }
-  if (data.isNotEmpty) yield data.join('\n');
 }
 
 Map<String, Object?> _object(Object? value) {
@@ -330,6 +361,83 @@ Map<String, Object?> _firstChoice(Map<String, Object?> response) {
     if (choice['index'] == null || choice['index'] == 0) return choice;
   }
   return const {};
+}
+
+Iterable<ModelToolFragment> _toolFragments(Object? value, {required bool streaming}) sync* {
+  if (value == null) {
+    return;
+  }
+  if (value is! List<Object?>) {
+    yield ModelToolFragment(
+      issues: [
+        {'code': 'invalid_tool_calls', 'field': 'tool_calls', 'message': 'Expected an array of tool calls.'},
+      ],
+    );
+    return;
+  }
+  for (var ordinal = 0; ordinal < value.length; ordinal++) {
+    final item = value[ordinal];
+    if (item is! Map<String, Object?>) {
+      yield ModelToolFragment(
+        index: streaming ? null : ordinal,
+        issues: [
+          {
+            'code': 'invalid_tool_call',
+            'field': 'tool_calls',
+            'ordinal': ordinal,
+            if (!streaming) 'index': ordinal,
+            'message': 'Expected a tool call object.',
+          },
+        ],
+      );
+      continue;
+    }
+    final issues = <Map<String, Object?>>[];
+    int? index;
+    if (!streaming) {
+      index = ordinal;
+    } else if (item['index'] case final int position when position >= 0) {
+      index = position;
+    } else {
+      issues.add({
+        'code': 'invalid_index',
+        'field': 'index',
+        'ordinal': ordinal,
+        'message': 'A streaming tool fragment requires a non-negative integer index.',
+      });
+    }
+    String? field(Map<String, Object?> object, String key, String path) {
+      if (!object.containsKey(key)) {
+        return null;
+      }
+      final raw = object[key];
+      if (raw is String) {
+        return raw;
+      }
+      issues.add({'code': 'invalid_field_type', 'field': path, 'index': ?index, 'message': 'Expected a string.'});
+      return null;
+    }
+
+    final id = field(item, 'id', 'id');
+    final type = field(item, 'type', 'type');
+    String? name;
+    String? arguments;
+    if (item.containsKey('function')) {
+      final function = item['function'];
+      if (function is Map<String, Object?>) {
+        name = field(function, 'name', 'function.name');
+        arguments = field(function, 'arguments', 'function.arguments');
+      } else {
+        issues.add({
+          'code': 'invalid_field_type',
+          'field': 'function',
+          'index': ?index,
+          'message': 'Expected a function object.',
+        });
+      }
+    }
+    yield ModelToolFragment(index: index, id: id, type: type, name: name, arguments: arguments, issues: issues);
+  }
 }
 
 TavernUsage _usage(Map<String, Object?> data, String model) {

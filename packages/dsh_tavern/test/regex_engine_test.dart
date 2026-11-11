@@ -121,6 +121,65 @@ void main() {
     expect(() => scripts.clear(), throwsUnsupportedError);
   });
 
+  test('based regex numeric strings keep their value and syntax boundaries', () {
+    // All three strings denote exact binary64 2^63; no product parser builds the oracle.
+    const huge = 9223372036854775808.0;
+    const literals = [
+      '0x8000000000000000',
+      '0b1000000000000000000000000000000000000000000000000000000000000000',
+      '0o1000000000000000000000',
+    ];
+    for (final literal in literals) {
+      final raw = <String, Object?>{
+        'findRegex': 'A',
+        'replaceString': 'B',
+        'placement': [2],
+        'markdownOnly': true,
+        'promptOnly': true,
+        'minDepth': literal,
+        'maxDepth': literal,
+        'substituteRegex': '0x2',
+        'foreign': {'keep': null},
+      };
+      final before = jsonEncode(raw);
+      final script = RegexScript.fromJson(raw);
+      expect(script.minDepth, huge, reason: literal);
+      expect(script.maxDepth, huge, reason: literal);
+      expect(script.minDepth?.isFinite, isTrue);
+      expect(script.maxDepth?.isFinite, isTrue);
+      expect(script.substituteRegex, 2);
+      final engine = RegexEngine(globalScripts: [script]);
+      expect(engine.apply('A', placement: 2, phase: RegexPhase.prompt, depth: 0), 'A');
+      expect(engine.apply('A', placement: 2, phase: RegexPhase.prompt, depth: huge), 'B');
+      expect(engine.apply('A', placement: 2, phase: RegexPhase.prompt, depth: 18446744073709551616.0), 'A');
+      expect(jsonEncode(raw), before);
+    }
+
+    for (final raw in const <Map<String, Object?>>[
+      {},
+      {'minDepth': null, 'maxDepth': null},
+    ]) {
+      final script = RegexScript.fromJson(raw);
+      expect([script.minDepth, script.maxDepth], [null, null]);
+    }
+    final empty = RegexScript.fromJson({'minDepth': '', 'maxDepth': ''});
+    expect([empty.minDepth, empty.maxDepth], [0, 0]);
+    for (final invalid in ['+0x10', '-0b10', '0o8', '0x']) {
+      final script = RegexScript.fromJson({'minDepth': invalid, 'maxDepth': invalid});
+      expect(script.minDepth?.isNaN, isTrue, reason: invalid);
+      expect(script.maxDepth?.isNaN, isTrue, reason: invalid);
+    }
+    final ordinary = RegexScript.fromJson({
+      'findRegex': 'A',
+      'replaceString': 'B',
+      'placement': [2],
+      'markdownOnly': false,
+      'promptOnly': false,
+      'minDepth': literals.first,
+    });
+    expect(RegexEngine(globalScripts: [ordinary]).apply('A', placement: 2, depth: 0), 'B');
+  });
+
   test('expanded patterns are cached by expanded value without caching macro side effects', () {
     final script = _script(findRegex: '/{{user}}/g', substituteRegex: 2);
     final engine = RegexEngine(globalScripts: [script]);

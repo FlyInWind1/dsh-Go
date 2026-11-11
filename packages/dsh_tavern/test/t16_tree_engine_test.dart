@@ -249,6 +249,113 @@ void main() {
     expect((await h.engine.tree(chat)).first.branchName, 'B');
     expect((await h.engine.tree(chat)).singleWhere((node) => node.isCurrentPath).nodeId, first.nodeId);
   });
+
+  test('tree ranks imported swipe families across hidden deletion undo and reopen', () async {
+    final h = await _open();
+    final character = await h.engine.importCard(_card());
+    final chat = await h.importChat(character.id, _swipeTreeRows());
+    final ids = await _swipeTreeIds(h.engine, chat);
+    final other = await h.importChat(character.id, [
+      _swipeTreeRow('OTHER ZERO', swipes: ['OTHER ZERO', 'OTHER ONE']),
+    ]);
+    final otherNodes = await h.engine.tree(other);
+    expect(
+      otherNodes.map((node) => (node.preview, node.parentId, node.siblingIndex, node.siblingCount, node.isCurrentPath)),
+      [('OTHER ZERO', null, 0, 2, true), ('OTHER ONE', null, 1, 2, false)],
+    );
+    final otherBefore = _treeFields(otherNodes);
+
+    await h.engine.setHidden(chat, ids[4], true);
+    await h.engine.nameBranch(chat, ids[4], '离线路');
+    await h.engine.nameBranch(chat, ids[1], '主根');
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids));
+    final selected = [ids[1], ids[2], ids[5], ids[6], ids[8]];
+    expect((await h.engine.path(chat)).map((node) => node.nodeId), selected);
+
+    final token = await h.engine.deleteFrom(chat, ids[4]);
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids, deleted: true));
+    expect((await h.engine.path(chat)).map((node) => node.nodeId), selected);
+    expect(_treeFields(await h.engine.tree(other)), otherBefore);
+    // Undo belongs to this open-store lifetime, before selection or reopening.
+    expect(await h.engine.undoDeleteFrom(chat, token), isTrue);
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids));
+
+    await h.engine.selectNode(chat, ids[3]);
+    expect((await h.engine.path(chat)).map((node) => node.nodeId), [ids[1], ids[2], ids[3]]);
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids, stopped: true));
+    await h.reopen();
+    expect((await h.engine.path(chat)).map((node) => node.nodeId), [ids[1], ids[2], ids[3]]);
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids, stopped: true));
+    expect(_treeFields(await h.engine.tree(other)), otherBefore);
+    expect(h.model.bodies, isEmpty);
+  });
+
+  test('JSONL export preserves explicit swipe families and Unicode payloads', () async {
+    final h = await _open();
+    final character = await h.engine.importCard(_card());
+    final chat = await h.importChat(character.id, _swipeTreeRows(), variables: {'n': 7});
+    final ids = await _swipeTreeIds(h.engine, chat);
+    await h.engine.setHidden(chat, ids[4], true);
+    await h.engine.nameBranch(chat, ids[4], '离线路');
+    await h.engine.nameBranch(chat, ids[1], '主根');
+    await h.reopen();
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids));
+
+    final files = await h.engine.exportChat(chat);
+    expect(files, hasLength(1));
+    final document = StChatDocument.decode(files.single.fileName, files.single.bytes);
+    final rows = document.messages;
+    expect(rows.map((row) => row['mes']), [
+      _swipeTreeBodies[1],
+      _swipeTreeBodies[2],
+      _swipeTreeBodies[5],
+      _swipeTreeBodies[6],
+      _swipeTreeBodies[8],
+    ]);
+    expect(rows.map((row) => row['swipe_id']), [1, 0, 2, 0, 1]);
+    expect(rows.map((row) => row['swipes']), [
+      [_swipeTreeBodies[0], _swipeTreeBodies[1]],
+      [_swipeTreeBodies[2]],
+      [_swipeTreeBodies[3], _swipeTreeBodies[4], _swipeTreeBodies[5]],
+      [_swipeTreeBodies[6]],
+      [_swipeTreeBodies[7], _swipeTreeBodies[8]],
+    ]);
+    expect(rows.map((row) => row['is_user']), [false, true, false, true, false]);
+    expect(rows.map((row) => row['name']), ['Guide', 'User', 'Guide', 'User', 'Guide']);
+    expect(rows.map((row) => row['send_date']), List.filled(5, _at.toIso8601String()));
+    expect(_map(rows[2]['extra'])['reasoning'], '\ufeff思考🌙');
+    expect(_map(rows[2]['extra'])['foreign'], {
+      'keep': [null, '值'],
+    });
+    final infos = rows[2]['swipe_info']! as List<Object?>;
+    expect(infos, hasLength(3));
+    expect(_map(_map(infos[0])['extra'])['reasoning'], '\ufeff旧思考🐋');
+    expect(_map(_map(infos[0])['extra'])['foreign'], {'old': true});
+    final hiddenOwn = _map(_map(_map(infos[1])['extra'])['dshgo']);
+    expect(hiddenOwn['branchName'], '离线路');
+    expect(_map(hiddenOwn['chatJsonl'])['hidden'], isTrue);
+    expect(rows[2]['is_system'], isFalse);
+    expect(_map(_map(rows[0]['extra'])['dshgo'])['branchName'], '主根');
+    expect(_map(document.header['chat_metadata'])['variables'], {'n': 7});
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids));
+    expect((await h.engine.path(chat)).map((node) => node.nodeId), [ids[1], ids[2], ids[5], ids[6], ids[8]]);
+
+    final imported = await h.engine.importChats(character.id, files);
+    expect(imported.chatIds, hasLength(1));
+    final next = imported.chatIds.single;
+    final nextIds = await _swipeTreeIds(h.engine, next);
+    expect(_treeFields(await h.engine.tree(next)), _swipeTreeExpected(nextIds));
+    expect((await h.engine.path(next)).map((node) => node.nodeId), [
+      nextIds[1],
+      nextIds[2],
+      nextIds[5],
+      nextIds[6],
+      nextIds[8],
+    ]);
+    expect(h.engine.variables(next), {'n': 7});
+    expect(_treeFields(await h.engine.tree(chat)), _swipeTreeExpected(ids));
+    expect(h.model.bodies, isEmpty);
+  });
 }
 
 final _at = DateTime.utc(2026, 11, 10, 12);
@@ -387,3 +494,105 @@ Uint8List _card([Map<String, Object?> fields = const {}]) => Uint8List.fromList(
     }),
   ),
 );
+
+const _swipeTreeBodies = ['\ufeff根零🌊', '根一', '问一', '\ufeff答零🐋', '答一', '答二', '问二', '尾零', '\ufeff尾一🌙'];
+
+Map<String, Object?> _swipeTreeRow(
+  String text, {
+  bool user = false,
+  List<String>? swipes,
+  int selected = 0,
+  Map<String, Object?> extra = const {},
+  List<Map<String, Object?>>? swipeInfo,
+}) => {
+  'name': user ? 'User' : 'Guide',
+  'is_user': user,
+  'is_system': false,
+  'send_date': _at.toIso8601String(),
+  'mes': text,
+  'extra': extra,
+  'swipes': ?swipes,
+  if (swipes != null) 'swipe_id': selected,
+  'swipe_info': ?swipeInfo,
+};
+
+List<Map<String, Object?>> _swipeTreeRows() => [
+  _swipeTreeRow(_swipeTreeBodies[1], swipes: [_swipeTreeBodies[0], _swipeTreeBodies[1]], selected: 1),
+  _swipeTreeRow(_swipeTreeBodies[2], user: true),
+  _swipeTreeRow(
+    _swipeTreeBodies[5],
+    swipes: [_swipeTreeBodies[3], _swipeTreeBodies[4], _swipeTreeBodies[5]],
+    selected: 2,
+    extra: {
+      'reasoning': '\ufeff思考🌙',
+      'foreign': {
+        'keep': [null, '值'],
+      },
+    },
+    swipeInfo: [
+      {
+        'send_date': _at.toIso8601String(),
+        'extra': {
+          'reasoning': '\ufeff旧思考🐋',
+          'foreign': {'old': true},
+        },
+      },
+      {'send_date': _at.toIso8601String(), 'extra': <String, Object?>{}},
+      {
+        'send_date': _at.toIso8601String(),
+        'extra': {'reasoning': 'stale selected info'},
+      },
+    ],
+  ),
+  _swipeTreeRow(_swipeTreeBodies[6], user: true),
+  _swipeTreeRow(_swipeTreeBodies[8], swipes: [_swipeTreeBodies[7], _swipeTreeBodies[8]], selected: 1),
+];
+
+Future<List<String>> _swipeTreeIds(TavernEngine engine, String chat) async {
+  final nodes = await engine.tree(chat);
+  expect(nodes.map((node) => node.preview), _swipeTreeBodies);
+  return nodes.map((node) => node.nodeId).toList();
+}
+
+List<List<Object?>> _treeFields(List<TavernTreeNode> nodes) => [
+  for (final node in nodes)
+    [
+      node.nodeId,
+      node.parentId,
+      node.role,
+      node.speaker,
+      node.preview,
+      node.at,
+      node.isCurrentPath,
+      node.siblingIndex,
+      node.siblingCount,
+      node.hidden,
+      node.branchName,
+    ],
+];
+
+// Independent fixture table: fixed parent/index/count values, never regrouping
+// the result. The two flags select the three explicit lifecycle expectations.
+List<List<Object?>> _swipeTreeExpected(List<String> id, {bool deleted = false, bool stopped = false}) => [
+  [id[0], null, TavernRole.character, 'Guide', _swipeTreeBodies[0], _at, false, 0, 2, false, null],
+  [id[1], null, TavernRole.character, 'Guide', _swipeTreeBodies[1], _at, true, 1, 2, false, '主根'],
+  [id[2], id[1], TavernRole.user, 'User', _swipeTreeBodies[2], _at, true, 0, 1, false, null],
+  [id[3], id[2], TavernRole.character, 'Guide', _swipeTreeBodies[3], _at, stopped, 0, deleted ? 2 : 3, false, null],
+  if (!deleted) [id[4], id[2], TavernRole.character, 'Guide', _swipeTreeBodies[4], _at, false, 1, 3, true, '离线路'],
+  [
+    id[5],
+    id[2],
+    TavernRole.character,
+    'Guide',
+    _swipeTreeBodies[5],
+    _at,
+    !stopped,
+    deleted ? 1 : 2,
+    deleted ? 2 : 3,
+    false,
+    null,
+  ],
+  [id[6], id[5], TavernRole.user, 'User', _swipeTreeBodies[6], _at, !stopped, 0, 1, false, null],
+  [id[7], id[6], TavernRole.character, 'Guide', _swipeTreeBodies[7], _at, false, 0, 2, false, null],
+  [id[8], id[6], TavernRole.character, 'Guide', _swipeTreeBodies[8], _at, !stopped, 1, 2, false, null],
+];

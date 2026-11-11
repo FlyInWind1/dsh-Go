@@ -7,8 +7,10 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import '../js_string.dart';
 import '../regex/regex_program.dart' show isNativeRegexLiteral;
 import '../regex/regex_types.dart';
+import 'world_info_case.dart';
 
 part 'timed_effects.dart';
 part 'decorators.dart';
@@ -16,6 +18,13 @@ part 'decorators.dart';
 enum WorldInfoSource { global, character, chat, persona, memory }
 
 enum WorldInfoStrategy { evenly, characterFirst, globalFirst }
+
+/// Local book identity and the loader-normalized entry uid. Display titles and
+/// ST source names are not interchangeable with this reference.
+typedef WorldInfoEntryRef = (String bookId, String uid);
+
+/// Per-evaluation external requests and their result rows are bounded together.
+const worldInfoExternalActivationLimit = 64;
 
 /// The indices are ST's persisted position values, including AN before depth.
 enum WorldInfoPosition {
@@ -85,7 +94,7 @@ class WorldInfoEntry {
   final String uid;
   final Map<String, Object?> raw;
   final Map<String, Object?> _fields;
-  (String, String) get identity => (book.id, uid);
+  WorldInfoEntryRef get identity => (book.id, uid);
   List<String> get keys => _strings(_fields['key']);
   List<String> get secondaryKeys => _strings(_fields['keysecondary']);
   String get content => _string(_fields['content']);
@@ -196,7 +205,7 @@ List<WorldInfoRegexInput> worldInfoRegexInputs(WorldInfoBook book) {
       // possible regex even if its stored key has surrounding whitespace.
       // V3 inputs retain their pattern text. The runtime scorer still reads
       // untrimmed raw keys independently, exactly as before this inspection.
-      if (!entry.useRegex) pattern = pattern.trim();
+      if (!entry.useRegex) pattern = trimJsWhitespace(pattern);
       final dynamicPattern = pattern.contains('{{') || _worldInfoMacroAlias.hasMatch(pattern);
       if (!entry.useRegex && !dynamicPattern && !isNativeRegexLiteral(pattern)) return;
       result.add(
@@ -348,6 +357,7 @@ class WorldInfoInput {
     required this.random,
     this.expand = _identity,
     this.settings = const WorldInfoSettings(),
+    this.externalActivations = const <WorldInfoEntryRef>{},
     this.scanInjections = const [],
     this.personaDescription = '',
     this.characterDescription = '',
@@ -376,6 +386,12 @@ class WorldInfoInput {
   final double Function() random;
   final String Function(String) expand;
   final WorldInfoSettings settings;
+
+  /// Requests activation of already-loaded entries. The evaluator snapshots
+  /// at most [worldInfoExternalActivationLimit] references before its first
+  /// await. Gates, groups, probability and budget still apply. A duplicate uid
+  /// in one effective book is ambiguous and receives no external privilege.
+  final Set<WorldInfoEntryRef> externalActivations;
   final List<String> scanInjections;
   final String personaDescription;
   final String characterDescription;
@@ -458,6 +474,53 @@ class WorldInfoRegexDiagnostic {
   };
 }
 
+/// The last actual decision for one bounded external request. This is not a
+/// replay of the scan and does not assert that a provider received the content.
+/// An ambiguous reference reports its resolution failure independently of any
+/// ordinary keyword/sticky admission with the same identity.
+class WorldInfoExternalActivation {
+  const WorldInfoExternalActivation({
+    required this.bookId,
+    required this.uid,
+    required this.resolved,
+    required this.admitted,
+    required this.retained,
+    this.reason,
+    this.code,
+    this.stage,
+    this.phase,
+    this.round,
+  });
+  final String bookId;
+  final String uid;
+  final bool resolved;
+
+  /// Admitted by the WI scan before the optional final filter.
+  final bool admitted;
+
+  /// Still present after [WorldInfoResult.withoutEntries]. This alone does not
+  /// prove consumption of an outlet or inclusion by the prompt assembler.
+  final bool retained;
+  final String? reason;
+  final String? code;
+  final String? stage;
+  final WorldInfoScanPhase? phase;
+  final int? round;
+  WorldInfoEntryRef get identity => (bookId, uid);
+  Map<String, Object?> toJson() => {
+    'bookId': bookId,
+    'uid': uid,
+    'resolved': resolved,
+    'admitted': admitted,
+    'retained': retained,
+    if (reason != null) 'reason': reason,
+    if (code != null) 'code': code,
+    if (stage != null) 'stage': stage,
+    if (phase != null) 'phase': phase!.name,
+    if (round != null) 'round': round,
+  };
+}
+
 /// One admitted entry, including both original and macro-expanded content.
 class WorldInfoHit {
   const WorldInfoHit({
@@ -479,7 +542,7 @@ class WorldInfoHit {
   });
   final WorldInfoEntry entry;
   final String content;
-  final String reason; // constant, keywords, sticky, decorator-activate or decorator-keep.
+  final String reason; // constant, keywords, sticky, external or a force decorator.
   final String? primaryKey;
   final List<String> secondaryMatches;
   final WorldInfoScanPhase phase;
@@ -538,10 +601,13 @@ class WorldInfoResult {
     required this.timedWorldInfo,
     required this.decoratorState,
     required List<WorldInfoRegexDiagnostic> regexDiagnostics,
+    List<WorldInfoExternalActivation> externalActivations = const [],
+    this.externalActivationsOmitted = 0,
     required WorldInfoResult Function(List<WorldInfoHit>) finalize,
   }) : _finalize = finalize,
        activated = List.unmodifiable(hits),
-       regexDiagnostics = List.unmodifiable(regexDiagnostics) {
+       regexDiagnostics = List.unmodifiable(regexDiagnostics),
+       externalActivations = List.unmodifiable(externalActivations) {
     final groups = <(int, int), List<WorldInfoHit>>{};
     for (final hit in _stableSort(hits, (a, b) => b.order.compareTo(a.order))) {
       if (hit.disabledUiPrompt case final prompt?) disabledUiPrompts.add(prompt);
@@ -589,6 +655,10 @@ class WorldInfoResult {
   final Map<String, Object?> timedWorldInfo;
   final Map<String, Object?> decoratorState;
   final List<WorldInfoRegexDiagnostic> regexDiagnostics;
+  final List<WorldInfoExternalActivation> externalActivations;
+
+  /// References beyond the bounded input prefix, not evaluated externally.
+  final int externalActivationsOmitted;
   final WorldInfoResult Function(List<WorldInfoHit>) _finalize;
 
   /// Finalize state after the prompt assembler drops optional V3 entries.
@@ -609,15 +679,20 @@ class WorldInfoEngine {
 
   Future<WorldInfoResult> evaluate(WorldInfoInput input) async {
     input.checkCancelled?.call();
+    // Capture the bounded request set before awaited work can publish a
+    // different director result or mutate the caller's collection.
+    final external = _ExternalActivations(input.externalActivations);
     final settings = input.settings;
     // JS Math.round rounds ties toward +infinity, unlike Dart for negatives.
     var budget = (settings.budgetPercent * input.maxContext / 100 + 0.5).floor();
     if (budget == 0) budget = 1;
     if (settings.budgetCap > 0 && budget > settings.budgetCap) budget = settings.budgetCap;
-    final sorted = _sortedEntries(input.books, settings.strategy).map((entry) => _RuntimeEntry(entry, input)).toList();
+    final entries = worldInfoExecutionEntries(input.books, strategy: settings.strategy);
+    external.resolve(entries);
+    final sorted = entries.map((entry) => _RuntimeEntry(entry, input)).toList();
     final timed = _TimedEffects(input, sorted);
     final decoratorHistory = _DecoratorHistory(input);
-    final buffer = _ScanBuffer(input, _worker);
+    final buffer = _ScanBuffer(input, _worker, external);
     final activated = <(String, String), WorldInfoHit>{};
     final failedProbability = <_RuntimeEntry>{};
     final levels = sorted.map((item) => item.entry.delayUntilRecursion).where((level) => level != 0).toSet().toList()
@@ -639,19 +714,43 @@ class WorldInfoEngine {
         buffer.checkCancelled();
         if (buffer.skippedEntries.contains(entry.identity)) continue;
         try {
-          if (failedProbability.contains(item) || activated.containsKey(entry.identity) || entry.disabled) continue;
-          if (entry.triggers.isNotEmpty && !entry.triggers.contains(input.trigger)) continue;
-          if (!_characterAllowed(entry, input)) continue;
+          if (failedProbability.contains(item) || activated.containsKey(entry.identity)) continue;
+          if (entry.disabled) {
+            external.reject(entry.identity, 'disabled', 'candidate', phase, rounds);
+            continue;
+          }
+          if (entry.triggers.isNotEmpty && !entry.triggers.contains(input.trigger)) {
+            external.reject(entry.identity, 'trigger', 'candidate', phase, rounds);
+            continue;
+          }
+          if (!_characterAllowed(entry, input)) {
+            external.reject(entry.identity, 'character-filter', 'candidate', phase, rounds);
+            continue;
+          }
           final sticky = timed.isActive('sticky', item);
-          if (timed.isActive('delay', item) || (timed.isActive('cooldown', item) && !sticky)) continue;
-          if (!sticky && phase != WorldInfoScanPhase.recursion && entry.delayUntilRecursion != 0) continue;
+          if (timed.isActive('delay', item) || (timed.isActive('cooldown', item) && !sticky)) {
+            external.reject(
+              entry.identity,
+              timed.isActive('delay', item) ? 'delay' : 'cooldown',
+              'candidate',
+              phase,
+              rounds,
+            );
+            continue;
+          }
+          if (!sticky && phase != WorldInfoScanPhase.recursion && entry.delayUntilRecursion != 0) {
+            external.reject(entry.identity, 'recursion-phase', 'candidate', phase, rounds);
+            continue;
+          }
           if (phase == WorldInfoScanPhase.recursion &&
               entry.delayUntilRecursion != 0 &&
               entry.delayUntilRecursion > currentLevel &&
               !sticky) {
+            external.reject(entry.identity, 'recursion-level', 'candidate', phase, rounds);
             continue;
           }
           if (phase == WorldInfoScanPhase.recursion && settings.recursive && entry.excludeRecursion && !sticky) {
+            external.reject(entry.identity, 'exclude-recursion', 'candidate', phase, rounds);
             continue;
           }
           final decorators = item.decorators;
@@ -660,14 +759,22 @@ class WorldInfoEngine {
             reason = const _MatchReason('decorator-activate');
           } else {
             final matchedBefore = decoratorHistory.previous(item) > 1;
-            if (decorators.dontActivate || (decorators.dontAfterMatch && matchedBefore)) continue;
+            if (decorators.dontActivate || (decorators.dontAfterMatch && matchedBefore)) {
+              external.reject(entry.identity, 'decorator-block', 'candidate', phase, rounds);
+              continue;
+            }
             if (decorators.keepAfterMatch && matchedBefore) {
               reason = const _MatchReason('decorator-keep');
             } else {
               final allowed = await decorators.allows(buffer, phase);
               buffer.checkCancelled();
-              if (!allowed) continue;
-              reason = entry.constant && !entry.useRegex
+              if (!allowed) {
+                external.reject(entry.identity, 'decorator-condition', 'candidate', phase, rounds);
+                continue;
+              }
+              reason = external.contains(entry.identity)
+                  ? const _MatchReason('external')
+                  : entry.constant && !entry.useRegex
                   ? const _MatchReason('constant')
                   : sticky
                   ? const _MatchReason('sticky')
@@ -675,9 +782,9 @@ class WorldInfoEngine {
               buffer.checkCancelled();
             }
           }
-          if (reason?.kind == 'sticky' && entry.useRegex) {
-            // Sticky is an ST extension, not a V3 IN ANY CASE decorator. It may
-            // bypass a missing match, but not the validity of primary regexes.
+          if ((reason?.kind == 'sticky' || reason?.kind == 'external') && entry.useRegex) {
+            // Sticky and external activation are extensions, not V3 IN ANY
+            // CASE decorators. They bypass a match, not primary regex validity.
             final keys = entry.keys.map(buffer.expand).toList();
             for (var index = 0; index < keys.length; index++) {
               await buffer.validate(keys[index], entry, phase, _keywordPath(entry, false, index));
@@ -704,7 +811,7 @@ class WorldInfoEngine {
       candidates
         ..clear()
         ..addAll(prioritized);
-      await _filterGroups(candidates, activated.values, buffer, phase, input, timed);
+      await _filterGroups(candidates, activated.values, buffer, phase, input, timed, external);
       buffer.checkCancelled();
       var ignoresBudget = candidates.where((item) => item.entry.ignoreBudget).length;
       for (final item in candidates) {
@@ -712,7 +819,10 @@ class WorldInfoEngine {
         final entry = item.entry;
         if (entry.ignoreBudget) ignoresBudget--;
         if (overflowed && !entry.ignoreBudget) {
+          external.reject(entry.identity, 'world-budget', 'budget', phase, rounds);
           if (ignoresBudget > 0) continue;
+          // The remaining ordinary candidates are skipped by this same break.
+          external.rejectRemaining(candidates, item, phase, rounds);
           break;
         }
         double? roll;
@@ -720,6 +830,7 @@ class WorldInfoEngine {
           roll = _random(input) * 100;
           if (roll > entry.probability) {
             failedProbability.add(item);
+            external.reject(entry.identity, 'probability', 'probability', phase, rounds);
             continue;
           }
         }
@@ -727,6 +838,7 @@ class WorldInfoEngine {
         newContent += '${item.content}\n';
         if (!entry.ignoreBudget && previousTokens + _tokens(input, newContent) >= budget) {
           overflowed = true;
+          external.reject(entry.identity, 'world-budget', 'budget', phase, rounds);
           continue;
         }
         final reason = reasons[item]!;
@@ -747,6 +859,7 @@ class WorldInfoEngine {
           ignoreOnMaxContext: item.decorators.ignoreOnMaxContext,
           assistantPrefill: item.decorators.assistantPrefill,
         );
+        external.admit(entry.identity, reason.kind, phase, rounds);
       }
 
       // ST removes only probability failures from this "successful" list.
@@ -810,6 +923,8 @@ class WorldInfoEngine {
         timedWorldInfo: effects.state,
         decoratorState: history.state,
         regexDiagnostics: buffer.diagnostics,
+        externalActivations: external.finish(retained),
+        externalActivationsOmitted: external.omitted,
         finalize: finalize,
       );
     }
@@ -836,6 +951,98 @@ class _MatchReason {
   final List<String> secondary;
 }
 
+/// A bounded snapshot and one final decision per requested identity. No
+/// expanded content, regex result, entropy or per-round history is retained.
+class _ExternalActivations {
+  _ExternalActivations(Set<WorldInfoEntryRef> requests)
+    : _decisions = {
+        for (final identity in requests.take(worldInfoExternalActivationLimit)) identity: _ExternalDecision(identity),
+      },
+      omitted = math.max(0, requests.length - worldInfoExternalActivationLimit);
+
+  final Map<WorldInfoEntryRef, _ExternalDecision> _decisions;
+  final int omitted;
+
+  void resolve(List<WorldInfoEntry> entries) {
+    if (_decisions.isEmpty) return;
+    for (final entry in entries) {
+      final decision = _decisions[entry.identity];
+      if (decision != null) decision.matches++;
+    }
+    for (final decision in _decisions.values) {
+      if (decision.matches != 1) {
+        decision.code = decision.matches == 0 ? 'unresolved-reference' : 'ambiguous-reference';
+        decision.stage = 'resolution';
+      }
+    }
+  }
+
+  bool contains(WorldInfoEntryRef identity) => _decisions[identity]?.matches == 1;
+
+  void reject(WorldInfoEntryRef identity, String code, String stage, WorldInfoScanPhase phase, int round) {
+    final decision = _decisions[identity];
+    if (decision == null || decision.matches != 1 || decision.admitted) return;
+    decision
+      ..code = code
+      ..stage = stage
+      ..phase = phase
+      ..round = round;
+  }
+
+  void rejectRemaining(List<_RuntimeEntry> candidates, _RuntimeEntry from, WorldInfoScanPhase phase, int round) {
+    if (_decisions.isEmpty) return;
+    var remaining = false;
+    for (final item in candidates) {
+      if (identical(item, from)) remaining = true;
+      if (remaining && !item.entry.ignoreBudget) {
+        reject(item.entry.identity, 'world-budget', 'budget', phase, round);
+      }
+    }
+  }
+
+  void admit(WorldInfoEntryRef identity, String reason, WorldInfoScanPhase phase, int round) {
+    final decision = _decisions[identity];
+    if (decision == null || decision.matches != 1) return;
+    decision
+      ..admitted = true
+      ..reason = reason
+      ..phase = phase
+      ..round = round
+      ..code = null
+      ..stage = null;
+  }
+
+  List<WorldInfoExternalActivation> finish(Set<WorldInfoEntryRef> retained) => [
+    for (final decision in _decisions.values)
+      WorldInfoExternalActivation(
+        bookId: decision.identity.$1,
+        uid: decision.identity.$2,
+        resolved: decision.matches == 1,
+        admitted: decision.admitted,
+        retained: decision.admitted && retained.contains(decision.identity),
+        reason: decision.reason,
+        code: decision.admitted
+            ? (retained.contains(decision.identity) ? null : 'final-filter')
+            : (decision.code ?? 'not-admitted'),
+        stage: decision.admitted ? (retained.contains(decision.identity) ? null : 'final') : (decision.stage ?? 'scan'),
+        phase: decision.phase,
+        round: decision.round,
+      ),
+  ];
+}
+
+class _ExternalDecision {
+  _ExternalDecision(this.identity);
+  final WorldInfoEntryRef identity;
+  var matches = 0;
+  var admitted = false;
+  String? reason;
+  String? code;
+  String? stage;
+  WorldInfoScanPhase? phase;
+  int? round;
+}
+
 final _worldInfoWhitespace = RegExp(r'\s+');
 final _worldInfoGroupSeparator = RegExp(r',\s*');
 const _worldInfoPlainPatternLimit = 1000;
@@ -858,7 +1065,7 @@ RegExp _worldInfoPlainPattern(String needle) {
 }
 
 class _ScanBuffer {
-  _ScanBuffer(this.input, this.worker) {
+  _ScanBuffer(this.input, this.worker, this.external) {
     var index = 0;
     for (final message in input.messages.reversed.take(1000)) {
       final text = input.settings.includeNames ? '${message.speaker}: ${message.text}' : message.text;
@@ -866,13 +1073,14 @@ class _ScanBuffer {
         while (messages.length <= index) {
           messages.add('');
         }
-        messages[index] = text.trim();
+        messages[index] = trimJsWhitespace(text);
       }
       index++;
     }
   }
   final WorldInfoInput input;
   final RegexExecutor worker;
+  final _ExternalActivations external;
   final messages = <String>[];
   final recursive = <String>[];
   final skippedEntries = <(String, String)>{};
@@ -894,6 +1102,7 @@ class _ScanBuffer {
 
   Never _skip(WorldInfoEntry entry, WorldInfoScanPhase phase, String keyPath, String code, String message) {
     skippedEntries.add(entry.identity);
+    external.reject(entry.identity, code, 'regex', phase, round);
     if (_diagnosticKeys.add((entry.book.id, entry.uid, keyPath, code))) {
       diagnostics.add(
         WorldInfoRegexDiagnostic(
@@ -996,8 +1205,8 @@ class _ScanBuffer {
 
   bool _plainMatches(String haystack, String needle, WorldInfoEntry entry) {
     if (!(entry.caseSensitive ?? input.settings.caseSensitive)) {
-      haystack = haystack.toLowerCase();
-      needle = needle.toLowerCase();
+      haystack = lowercaseWorldInfoPlain(haystack);
+      needle = lowercaseWorldInfoPlain(needle);
     }
     if (!(entry.matchWholeWords ?? input.settings.matchWholeWords) || needle.split(_worldInfoWhitespace).length > 1) {
       return haystack.contains(needle);
@@ -1078,7 +1287,7 @@ Future<_MatchReason?> _keywords(
     final substituted = buffer.expand(key);
     final found =
         substituted.isNotEmpty &&
-        await buffer.matches(text, substituted.trim(), entry, phase, _keywordPath(entry, false, index));
+        await buffer.matches(text, trimJsWhitespace(substituted), entry, phase, _keywordPath(entry, false, index));
     buffer.checkCancelled();
     if (found) {
       primary = key;
@@ -1096,7 +1305,7 @@ Future<_MatchReason?> _keywords(
     final substituted = buffer.expand(key);
     final found =
         substituted.isNotEmpty &&
-        await buffer.matches(text, substituted.trim(), entry, phase, _keywordPath(entry, true, index));
+        await buffer.matches(text, trimJsWhitespace(substituted), entry, phase, _keywordPath(entry, true, index));
     buffer.checkCancelled();
     if (found) {
       any = true;
@@ -1120,6 +1329,7 @@ Future<void> _filterGroups(
   WorldInfoScanPhase phase,
   WorldInfoInput input,
   _TimedEffects timed,
+  _ExternalActivations external,
 ) async {
   final groups = <String, List<_RuntimeEntry>>{};
   for (final item in candidates) {
@@ -1130,10 +1340,13 @@ Future<void> _filterGroups(
   // JS uses splice(indexOf(entry), 1), including -1 for entries already removed
   // by another group. Preserve its candidate-only effect for ST parity; see the
   // independent overlapping-group fixture. No original book data is removed.
-  void remove(_RuntimeEntry item) {
+  void remove(_RuntimeEntry item, String code) {
     if (candidates.isEmpty) return;
     final index = candidates.indexOf(item);
-    candidates.removeAt(index < 0 ? candidates.length - 1 : index);
+    final removed = candidates.removeAt(index < 0 ? candidates.length - 1 : index);
+    // In an overlapping group the actual victim can differ from item. Record
+    // what the preserved ST splice(-1) operation really removed.
+    external.reject(removed.entry.identity, code, 'group', phase, buffer.round);
   }
 
   final stickyGroups = <String>{};
@@ -1142,17 +1355,17 @@ Future<void> _filterGroups(
     final sticky = group.where((item) => timed.isActive('sticky', item)).toSet();
     if (sticky.isNotEmpty) {
       for (final item in group) {
-        if (!sticky.contains(item)) remove(item);
+        if (!sticky.contains(item)) remove(item, 'group-sticky');
       }
       stickyGroups.add(key);
     }
     // ST also removes sticky entries if they are simultaneously on cooldown.
     // This group-specific behavior intentionally differs from candidate filtering.
     for (final item in group) {
-      if (timed.isActive('cooldown', item)) remove(item);
+      if (timed.isActive('cooldown', item)) remove(item, 'group-cooldown');
     }
     for (final item in group) {
-      if (timed.isActive('delay', item)) remove(item);
+      if (timed.isActive('delay', item)) remove(item, 'group-delay');
     }
   }
   // Scoring is pure: it expands no macros and draws no random values. Resolve
@@ -1187,7 +1400,7 @@ Future<void> _filterGroups(
     final maximum = scores.reduce(math.max);
     for (var index = 0; index < group.length; index++) {
       if ((group[index].entry.useGroupScoring ?? input.settings.useGroupScoring) && scores[index] < maximum) {
-        remove(group[index]);
+        remove(group[index], 'group-score');
         group.removeAt(index);
         scores.removeAt(index);
         index--;
@@ -1199,7 +1412,7 @@ Future<void> _filterGroups(
     if (stickyGroups.contains(key)) continue;
     if (activated.any((hit) => hit.entry.group == key)) {
       for (final item in group) {
-        remove(item);
+        remove(item, 'group-already-activated');
       }
       continue;
     }
@@ -1225,11 +1438,20 @@ Future<void> _filterGroups(
     }
     if (winner != null) {
       for (final item in group) {
-        if (!identical(item, winner)) remove(item);
+        if (!identical(item, winner)) remove(item, priority.isNotEmpty ? 'group-override' : 'group-weight');
       }
     }
   }
 }
+
+/// The same effective book selection and insertion order used by evaluation.
+/// This keeps native duplicate uids visible so callers can diagnose ambiguity;
+/// V3 duplicate ids have already been resolved by [WorldInfoBook]. No macros,
+/// conditions or regexes are evaluated to construct this immutable view.
+List<WorldInfoEntry> worldInfoExecutionEntries(
+  List<WorldInfoBook> books, {
+  WorldInfoStrategy strategy = WorldInfoStrategy.evenly,
+}) => List.unmodifiable(_sortedEntries(books, strategy));
 
 List<WorldInfoEntry> _sortedEntries(List<WorldInfoBook> books, WorldInfoStrategy strategy) {
   // Loading deduplicates by book identity before applying insertion priorities.

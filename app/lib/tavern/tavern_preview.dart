@@ -413,6 +413,23 @@ class PreviewTavern implements Tavern, TavernPreview {
     chat.changes.add(null);
   }
 
+  /// As the engine: [nodeId] and all its ancestors chosen; the path stops at
+  /// it unless [restoreDescendants] keeps what was chosen below. Nothing is
+  /// deleted.
+  @override
+  Future<void> selectNode(String chatId, String nodeId, {bool restoreDescendants = false}) async {
+    final chat = _chats[chatId]!;
+    var at = chat.nodes[nodeId] ?? (throw StateError('No message $nodeId in $chatId'));
+    if (!restoreDescendants) chat.chosen.remove(nodeId);
+    for (;;) {
+      chat.chosen[at.parent] = at.id;
+      final parent = at.parent;
+      if (parent == null) break;
+      at = chat.nodes[parent]!;
+    }
+    chat.changes.add(null);
+  }
+
   @override
   Future<void> edit(String chatId, String nodeId, String text) async {
     final chat = _chats[chatId]!;
@@ -595,6 +612,30 @@ class PreviewTavern implements Tavern, TavernPreview {
   @override
   Future<Map<String, Object?>> readVariables(String chatId) async => {};
 
+  /// The preview keeps no state: the selected leaf's empty ST-variables view,
+  /// as a card without a state schema reads.
+  @override
+  Future<TavernStateSnapshot> readState(String chatId) async => TavernStateSnapshot(
+    chatId: chatId,
+    nodeId: _chats[chatId]!.tail()?.id,
+    legacy: true,
+    initialized: false,
+    valueExists: false,
+    automaticEnabled: false,
+    values: const <String, Object?>{},
+  );
+
+  /// Not kept here, so not pretended: an edit is refused.
+  @override
+  Future<TavernStateEditResult> setStateValue(String chatId, String path, Object? value, {String? expectedNodeId}) =>
+      Future.error(UnsupportedError('The preview tavern keeps no state.'));
+
+  @override
+  Future<List<TavernAgentRun>> readAgentRuns(String chatId, {String? nodeId, int limit = 50}) async {
+    if (limit < 0) throw ArgumentError.value(limit, 'limit');
+    return const [];
+  }
+
   /// [node] added at the end of [chat]'s current path.
   TavernMessage _append(_Chat chat, TavernRole role, String speaker, String text) {
     final parent = chat.tail()?.id;
@@ -673,6 +714,34 @@ class PreviewTavern implements Tavern, TavernPreview {
   @override
   Future<void> setSettings(Map<String, Object?> patch, {String? chatId}) async =>
       _mergeSettings(chatId == null ? _globalSettings : _chatSettings.putIfAbsent(chatId, () => {}), patch);
+
+  /// No helper runs in the preview: directing is off, nothing pending, no
+  /// runs or proposals.
+  @override
+  Future<TavernDirectorSnapshot> readDirector(String chatId) async {
+    if (!_chats.containsKey(chatId)) throw StateError('No chat $chatId');
+    return TavernDirectorSnapshot(
+      chatId: chatId,
+      automaticEnabled: false,
+      pendingJobs: 0,
+      running: false,
+      stale: false,
+    );
+  }
+
+  @override
+  Stream<TavernDirectorSnapshot> watchDirector(String chatId) => Stream.fromFuture(readDirector(chatId));
+
+  /// No model here to ask, so not pretended.
+  @override
+  Future<TavernDirectorRun> runDirector(String chatId) =>
+      Future.error(UnsupportedError('The preview tavern has no director.'));
+
+  @override
+  Future<List<TavernDirectorEvent>> readDirectorEvents(String chatId, {int limit = 50, String? beforeEventId}) async {
+    if (limit < 0) throw ArgumentError.value(limit, 'limit');
+    return const [];
+  }
 
   // Presets, kept in memory as the engine keeps them; no regex scripts or
   // lorebooks of its own (importing one says so), and its text shows as written.

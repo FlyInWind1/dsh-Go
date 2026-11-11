@@ -4,6 +4,7 @@ library;
 
 export 'src/api.dart';
 export 'src/backup.dart';
+export 'src/director.dart';
 export 'src/engine.dart';
 export 'src/import_report.dart';
 export 'src/inspection.dart';
@@ -16,6 +17,7 @@ export 'src/macros/macro_engine.dart';
 export 'src/persona.dart';
 export 'src/preset_library.dart';
 export 'src/regex_library.dart';
+export 'src/state.dart';
 export 'src/io/preset_codec.dart';
 export 'src/prompt/character_fields.dart';
 export 'src/prompt/deepseek_processing.dart';

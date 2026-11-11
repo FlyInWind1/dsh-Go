@@ -22,8 +22,23 @@ final class RegexLibrary {
   File get _file => File('${root.path}/regex-library.json');
 
   Future<void> initialize() async {
-    if (!await _file.exists()) return;
-    final decoded = jsonDecode(await _file.readAsString());
+    final file = _file;
+    final String text;
+    try {
+      // A failed existence lookup can hide a committed library; read it.
+      text = await file.readAsString();
+    } on PathNotFoundException catch (error) {
+      final code = error.osError?.errorCode;
+      if (code != 2 && (!Platform.isWindows || code != 3)) {
+        rethrow;
+      }
+      // A known non-file can also fail to open with a missing-path error.
+      if (await FileSystemEntity.type(file.path) != FileSystemEntityType.notFound) {
+        rethrow;
+      }
+      return;
+    }
+    final decoded = jsonDecode(text);
     if (decoded is! Map<String, Object?> || decoded['version'] != 1 || decoded['scripts'] is! List<Object?>) {
       throw const FormatException('Unsupported regex library.');
     }

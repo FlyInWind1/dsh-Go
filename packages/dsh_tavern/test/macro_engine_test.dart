@@ -512,6 +512,97 @@ void main() {
       );
     });
 
+    test('datetimeformat separates alias expansion from literal token boundaries', () {
+      String formatted(String pattern, {String locale = 'en'}) => engine.expand(
+        '{{datetimeformat::$pattern}}',
+        MacroContext(now: DateTime.utc(2024, 2, 29, 18, 7, 8, 123), timeZoneOffset: Duration.zero, locale: locale),
+      );
+      // Moment 2.30.1 expands aliases before the basic formatting-token pass.
+      for (final row in const [('en', 'LT1|6:07:08 PM'), ('zh-cn', 'LT1|18:07:08')]) {
+        expect(
+          formatted(r'\LTS|LTS', locale: row.$1),
+          row.$2,
+          reason: '${row.$1}: escaped LTS leaves S executable, while the ordinary alias expands',
+        );
+      }
+      expect(formatted('LY'), '02/29/02024', reason: 'expanded L joins the adjacent Y into YYYYY');
+      expect(formatted(r'[\MM]'), r'\MM', reason: 'bracket literals retain their internal backslash');
+      expect(formatted('[x]MM]'), 'x]MM', reason: 'Moment bracket matching is greedy through closing brackets');
+      expect(formatted(r'\\MM'), '02', reason: 'both literal backslashes disappear before the ordinary MM');
+      expect(formatted('MM\\'), '02', reason: 'a trailing literal backslash also disappears');
+      expect(
+        formatted(r'\gggggg|\GGGGGG'),
+        'gggggg|GGGGGG',
+        reason: 'escaped five-letter tokens consume whole tokens without enabling new numeric outputs',
+      );
+      expect(formatted('HH\nmm'), '1807', reason: 'the token regex skips a newline outside brackets');
+    });
+
+    test('datetimeformat era families share the explicit context calendar boundary', () {
+      String formatted(String pattern, DateTime instant, {String locale = 'en', Duration offset = Duration.zero}) =>
+          engine.expand(
+            '{{datetimeformat::$pattern}}',
+            MacroContext(now: instant, timeZoneOffset: offset, locale: locale, random: () => 0.5),
+          );
+      const all = 'N|NN|NNN|NNNN|NNNNN|y|yy|yyy|yyyy|yo|YYYY';
+      // Moment 2.30.1 era.js/en.js define the names and widths; zh-cn has no
+      // era override and its ordinal for unit y is the number without a suffix.
+      final rows = [
+        (
+          DateTime.utc(2024, 2, 29),
+          'AD|AD|AD|Anno Domini|AD|2024|2024|2024|2024|2024th|2024',
+          'AD|AD|AD|Anno Domini|AD|2024|2024|2024|2024|2024|2024',
+        ),
+        (
+          DateTime.utc(1),
+          'AD|AD|AD|Anno Domini|AD|1|01|001|0001|1st|0001',
+          'AD|AD|AD|Anno Domini|AD|1|01|001|0001|1|0001',
+        ),
+        (
+          DateTime.utc(0),
+          'BC|BC|BC|Before Christ|BC|1|01|001|0001|1st|0000',
+          'BC|BC|BC|Before Christ|BC|1|01|001|0001|1|0000',
+        ),
+        (
+          DateTime.utc(-1),
+          'BC|BC|BC|Before Christ|BC|2|02|002|0002|2nd|-0001',
+          'BC|BC|BC|Before Christ|BC|2|02|002|0002|2|-0001',
+        ),
+      ];
+      for (final row in rows) {
+        expect(formatted(all, row.$1), row.$2, reason: 'en UTC calendar year ${row.$1.year}');
+        expect(
+          formatted(all, row.$1, locale: 'zh-cn'),
+          row.$3,
+          reason: 'zh-cn UTC calendar year ${row.$1.year} retains English era names',
+        );
+      }
+      for (final locale in ['en', 'zh-cn']) {
+        expect(
+          formatted(r'[N NN NNN NNNN NNNNN y yy yyy yyyy yo]|\NNNN|\yyyy|\yo', rows.first.$1, locale: locale),
+          'N NN NNN NNNN NNNNN y yy yyy yyyy yo|NNNN|yyyy|yo',
+          reason: '$locale: bracket and full-token escapes stay literal after adding era outputs',
+        );
+        expect(
+          formatted('NNNNNN|yyyyy', rows.first.$1, locale: locale),
+          'ADAD|20242024',
+          reason: '$locale: ordinary tokens use longest boundaries, not repeated single letters',
+        );
+      }
+      // These are the approved same-Context policy, not Moment observations
+      // with separately cached host-local era anchors and an instance offset.
+      expect(
+        formatted('N|y|YYYY-MM-DD HH:mm|Z', DateTime.utc(0, 12, 31, 16, 30), offset: const Duration(hours: 8)),
+        'AD|1|0001-01-01 00:30|+08:00',
+        reason: 'positive offset uses the same local year for era and calendar fields',
+      );
+      expect(
+        formatted('N|y|YYYY-MM-DD HH:mm|Z', DateTime.utc(1, 1, 1, 0, 30), offset: const Duration(hours: -1)),
+        'BC|1|0000-12-31 23:30|-01:00',
+        reason: 'negative offset keeps year zero in BC with era year one',
+      );
+    });
+
     test('idle duration skips newest non-system message then finds older user', () {
       final now = DateTime.utc(2024, 1, 1, 12);
       final c = MacroContext(
