@@ -12340,6 +12340,16 @@
   "tavernIslandNoScriptsSubtitle": "卡自带的 JavaScript 不运行；要靠脚本动起来的状态栏会停住",
   "tavernIslandOffline": "网页不联网",
   "tavernIslandOfflineSubtitle": "只用卡里自带的图片和字体，不从网上加载任何东西",
+  "tavernSessionUsage": "本局用量",
+  "tavernSessionUsageNote": "当前这条线上 {count} 条回复的合计；换掉的备选不算",
+  "@tavernSessionUsageNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernSessionUsageNone": "还没有模型报告过用量",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

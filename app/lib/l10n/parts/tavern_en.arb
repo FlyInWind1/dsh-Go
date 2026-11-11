@@ -847,5 +847,9 @@
   "tavernIslandNoScripts": "No card scripts in those pages",
   "tavernIslandNoScriptsSubtitle": "The card's own JavaScript doesn't run; status bars that need it stay still",
   "tavernIslandOffline": "Keep those pages offline",
-  "tavernIslandOfflineSubtitle": "Only pictures and fonts inside the card; nothing is loaded from the internet"
+  "tavernIslandOfflineSubtitle": "Only pictures and fonts inside the card; nothing is loaded from the internet",
+  "tavernSessionUsage": "This chat's usage",
+  "tavernSessionUsageNote": "{count, plural, =1{1 reply on the current line} other{{count} replies on the current line}}, added up; replaced alternatives aren't counted",
+  "@tavernSessionUsageNote": {"placeholders": {"count": {"type": "int"}}},
+  "tavernSessionUsageNone": "The model hasn't reported any usage yet"
 }

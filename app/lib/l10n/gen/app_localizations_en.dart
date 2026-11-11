@@ -21018,6 +21018,23 @@ class L10nEn extends L10n {
       'Only pictures and fonts inside the card; nothing is loaded from the internet';
 
   @override
+  String get tavernSessionUsage => 'This chat\'s usage';
+
+  @override
+  String tavernSessionUsageNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count replies on the current line',
+      one: '1 reply on the current line',
+    );
+    return '$_temp0, added up; replaced alternatives aren\'t counted';
+  }
+
+  @override
+  String get tavernSessionUsageNone => 'The model hasn\'t reported any usage yet';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

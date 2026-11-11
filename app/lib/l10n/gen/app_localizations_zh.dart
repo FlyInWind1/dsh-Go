@@ -19920,6 +19920,17 @@ class L10nZh extends L10n {
   String get tavernIslandOfflineSubtitle => '只用卡里自带的图片和字体，不从网上加载任何东西';
 
   @override
+  String get tavernSessionUsage => '本局用量';
+
+  @override
+  String tavernSessionUsageNote(int count) {
+    return '当前这条线上 $count 条回复的合计；换掉的备选不算';
+  }
+
+  @override
+  String get tavernSessionUsageNone => '还没有模型报告过用量';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

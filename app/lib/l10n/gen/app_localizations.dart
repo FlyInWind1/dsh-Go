@@ -36332,6 +36332,24 @@ abstract class L10n {
   /// **'只用卡里自带的图片和字体，不从网上加载任何东西'**
   String get tavernIslandOfflineSubtitle;
 
+  /// No description provided for @tavernSessionUsage.
+  ///
+  /// In zh, this message translates to:
+  /// **'本局用量'**
+  String get tavernSessionUsage;
+
+  /// No description provided for @tavernSessionUsageNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前这条线上 {count} 条回复的合计；换掉的备选不算'**
+  String tavernSessionUsageNote(int count);
+
+  /// No description provided for @tavernSessionUsageNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有模型报告过用量'**
+  String get tavernSessionUsageNone;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

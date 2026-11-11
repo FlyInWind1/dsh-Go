@@ -17,6 +17,7 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_session_usage.dart';
 import '../../tavern/tavern_settings.dart';
 import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
@@ -80,12 +81,16 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
 
   Future<Map<String, Object?>> _readVariables() => ref.read(tavernProvider).readVariables(widget.chatId);
 
+  /// The current line's replies added up (本局用量), read again each turn.
+  late Future<TavernSessionUsage> _usage = tavernSessionUsage(ref.read(tavernProvider), widget.chatId);
+
   @override
   void didUpdateWidget(TavernStagePanel old) {
     super.didUpdateWidget(old);
     if (old.turn != widget.turn || old.chatId != widget.chatId) {
       _record = _read();
       _variables = _readVariables();
+      _usage = tavernSessionUsage(ref.read(tavernProvider), widget.chatId);
     }
   }
 
@@ -115,6 +120,7 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
         switch (_tab) {
           TavernStageTab.session => _Session(
             key: const ValueKey('tavern-stage-session'),
+            usage: _usage,
             chatId: widget.chatId,
             characterId: widget.characterId,
             name: widget.name,
@@ -171,8 +177,16 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
 
 /// 本局: what this chat runs on, how it looks, and where else to go from it.
 class _Session extends ConsumerWidget {
-  const _Session({super.key, required this.chatId, required this.characterId, required this.name, required this.busy});
+  const _Session({
+    super.key,
+    required this.usage,
+    required this.chatId,
+    required this.characterId,
+    required this.name,
+    required this.busy,
+  });
 
+  final Future<TavernSessionUsage> usage;
   final String chatId;
   final String? characterId;
   final String name;
@@ -200,6 +214,13 @@ class _Session extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        FutureBuilder<TavernSessionUsage>(
+          future: usage,
+          builder: (context, snapshot) => switch (snapshot.data) {
+            final usage? => _SessionUsageView(usage: usage),
+            null => const SizedBox.shrink(),
+          },
+        ),
         SettingsSection(
           title: l10n.tavernSessionUsing,
           margin: const EdgeInsets.only(bottom: 12),
@@ -565,6 +586,67 @@ class _ThisTurn extends StatelessWidget {
 }
 
 /// One number, under what it is.
+/// 本局用量: what the current line's replies took, added up.
+class _SessionUsageView extends StatelessWidget {
+  const _SessionUsageView({required this.usage});
+
+  final TavernSessionUsage usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final quiet = theme.textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary);
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    return Padding(
+      key: const ValueKey('tavern-session-usage'),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Titled as the sections under it are.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Semantics(
+              header: true,
+              child: Text(l10n.tavernSessionUsage, style: SettingsSection.titleStyle(context)),
+            ),
+          ),
+          if (usage.replies == 0)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(l10n.tavernSessionUsageNone, style: quiet),
+            )
+          else ...[
+            Row(
+              children: [
+                _Figure(
+                  label: l10n.tavernStageTokensIn,
+                  value: tavernTokenCount(usage.prompt, zh: zh),
+                ),
+                const SizedBox(width: 8),
+                _Figure(
+                  label: l10n.tavernStageCache,
+                  value: usage.prompt == 0 ? '—' : '${(100 * usage.cacheHit / usage.prompt).round()}%',
+                ),
+                const SizedBox(width: 8),
+                _Figure(
+                  label: l10n.tavernStageTokensOut,
+                  value: tavernTokenCount(usage.completion, zh: zh),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 6),
+              child: Text(l10n.tavernSessionUsageNote(usage.replies), style: quiet),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _Figure extends StatelessWidget {
   const _Figure({required this.label, required this.value});
 
