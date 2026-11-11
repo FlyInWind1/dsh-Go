@@ -106,6 +106,11 @@ final class ChatJsonlCodec {
                 'fileName': file.document.fileName,
                 'header': _sourceHeader(file.document.header, keepSourceFileName: true),
                 'path': [for (final node in file.path) ids[node.id]],
+                // Shared variants do not own a source row's unused array tail.
+                'unusedTails': {
+                  for (var index = 0; index < file.path.length; index++)
+                    ids[file.path[index].id]!: _unusedMessageTails(file.document.messages[index]),
+                },
               },
           ],
         });
@@ -160,12 +165,20 @@ const _namespace = 'chatJsonl';
 const _sourceKey = 'chatJsonlSourceFile';
 
 final class _ExportJob {
-  _ExportJob(this.path, this.header, this.proposedName, this.sourceFileName, {this.keepEmptyVariables = false});
+  _ExportJob(
+    this.path,
+    this.header,
+    this.proposedName,
+    this.sourceFileName, {
+    this.keepEmptyVariables = false,
+    this.unusedTails = const {},
+  });
   final List<StoredNode> path;
   final Map<String, Object?> header;
   final String proposedName;
   final String sourceFileName;
   final bool keepEmptyVariables;
+  final Map<String, Object?> unusedTails;
   late String fileName;
 }
 
@@ -269,6 +282,7 @@ final class _ExportTree {
         mainHeader,
         mainName,
         _originalLabel(mainHeader, _text(source['fileName']).isEmpty ? mainName : _text(source['fileName'])),
+        unusedTails: _map(source['unusedTails']),
       ),
     ];
     for (var index = 0; index < sourceFiles.length; index++) {
@@ -285,6 +299,7 @@ final class _ExportTree {
           name,
           _originalLabel(header, name),
           keepEmptyVariables: source['path'] is List<Object?> && (source['path'] as List<Object?>).isEmpty,
+          unusedTails: _map(source['unusedTails']),
         ),
       );
     }
@@ -354,7 +369,7 @@ final class _ExportTree {
         StChatDocument(
           fileName: jobs[index].fileName,
           header: _exportHeader(jobs[index], jobs.first.fileName, index == 0, integrities),
-          messages: [for (final node in jobs[index].path) _exportMessage(node)],
+          messages: [for (final node in jobs[index].path) _exportMessage(node, jobs[index].unusedTails)],
         ),
     ];
   }
@@ -519,7 +534,7 @@ final class _ExportTree {
     return result;
   }
 
-  Map<String, Object?> _exportMessage(StoredNode node) {
+  Map<String, Object?> _exportMessage(StoredNode node, Map<String, Object?> unusedTails) {
     final family = children[node.message.parentId]!;
     final result = {
       ..._messageFields(node),
@@ -530,21 +545,34 @@ final class _ExportTree {
       'swipes': [for (final sibling in family) _rawSwipe(sibling)],
       'swipe_info': <Object?>[for (final sibling in family) _swipeInfo(sibling)],
     };
-    final oldSwipes = node.original['swipes'];
-    final oldCount = oldSwipes is List<Object?> ? oldSwipes.length : 1;
-    final oldInfo = node.original['swipe_info'];
-    if (oldInfo is List<Object?> && oldInfo.length > oldCount) {
-      (result['swipe_info'] as List<Object?>).addAll(oldInfo.skip(oldCount));
+    // An explicit empty source tail overrides another file's original. Older
+    // catalogues and generated paths without a source row keep the fallback.
+    final savedTails = unusedTails[node.message.nodeId];
+    final tails = savedTails is Map<String, Object?> ? savedTails : _unusedMessageTails(node.original);
+    final infoTail = tails['swipe_info'];
+    if (infoTail is List<Object?>) {
+      (result['swipe_info'] as List<Object?>).addAll(infoTail);
     }
-    final oldVariables = node.original['variables'];
-    if (family.any((sibling) => _state(sibling).containsKey('messageVariables')) || oldVariables is List<Object?>) {
+    final variableTail = tails['variables'];
+    if (family.any((sibling) => _state(sibling).containsKey('messageVariables')) ||
+        node.original['variables'] is List<Object?> ||
+        variableTail is List<Object?> && variableTail.isNotEmpty) {
       result['variables'] = <Object?>[
         for (final sibling in family) _state(sibling)['messageVariables'],
-        if (oldVariables is List<Object?>) ...oldVariables.skip(oldCount),
+        if (variableTail is List<Object?>) ...variableTail,
       ];
     }
     return result;
   }
+}
+
+Map<String, Object?> _unusedMessageTails(Map<String, Object?> message) {
+  final swipes = message['swipes'];
+  final count = swipes is List<Object?> ? swipes.length : 1;
+  return _clone({
+    for (final key in ['swipe_info', 'variables'])
+      key: message[key] is List<Object?> ? (message[key] as List<Object?>).skip(count).toList() : <Object?>[],
+  });
 }
 
 bool _samePath(List<StoredNode> first, List<StoredNode> second) =>

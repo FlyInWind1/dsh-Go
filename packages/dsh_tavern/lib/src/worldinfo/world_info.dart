@@ -1232,7 +1232,9 @@ class _ScanBuffer {
       if (found) secondary++;
     }
     if (keys.isEmpty) return 0;
+    // ST defaults nullish logic during activation, but not during scoring.
     if (secondaryKeys.isNotEmpty &&
+        entry._fields['selectiveLogic'] != null &&
         (entry.selectiveLogic == 0 || (entry.selectiveLogic == 3 && secondary == secondaryKeys.length))) {
       return primary + secondary;
     }

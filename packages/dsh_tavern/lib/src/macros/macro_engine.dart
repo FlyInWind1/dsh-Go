@@ -577,6 +577,7 @@ final _macroDice = RegExp(r'^([1-9]\d*)?d([1-9]\d*)([+-]\d+)?$', caseSensitive: 
 final _macroUtcOffset = RegExp(r'^UTC([+-]\d+)$');
 final _macroIntegerArgument = RegExp(r'^-?\d+$');
 final _macroIndentation = RegExp(r'^[ \t]*');
+final _macroLeadingWhitespace = RegExp(r'^\s+');
 final _macroExampleStart = RegExp('<START>', caseSensitive: false);
 final _macroBasedNumber = RegExp(r'^0([xbo])([0-9a-f]+)$', caseSensitive: false);
 final _macroDecimalNumber = RegExp(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$');
@@ -1123,19 +1124,20 @@ String _trimScoped(String text) {
   final lines = text.split('\n');
   var indent = 0;
   for (final line in lines) {
-    if (line.trim().isNotEmpty) {
+    if (trimJsWhitespace(line).isNotEmpty) {
       indent = _macroIndentation.firstMatch(line)![0]!.length;
       break;
     }
   }
-  if (indent == 0) return text.trim();
-  return lines
-      .map((line) {
-        final count = _macroIndentation.firstMatch(line)![0]!.length;
-        return count >= indent ? line.substring(indent) : line.trimLeft();
-      })
-      .join('\n')
-      .trim();
+  if (indent == 0) return trimJsWhitespace(text);
+  return trimJsWhitespace(
+    lines
+        .map((line) {
+          final count = _macroIndentation.firstMatch(line)![0]!.length;
+          return count >= indent ? line.substring(indent) : line.replaceFirst(_macroLeadingWhitespace, '');
+        })
+        .join('\n'),
+  );
 }
 
 String _examples(String raw) {
