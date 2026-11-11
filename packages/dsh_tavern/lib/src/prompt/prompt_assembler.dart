@@ -3,6 +3,7 @@
 // Source commit: 7e8663cd9c184a550b37238218bdd32c6efc68e9 (1.19.0).
 import 'dart:convert';
 
+import '../js_string.dart';
 import 'character_fields.dart';
 import 'deepseek_processing.dart';
 import 'preset.dart';
@@ -883,12 +884,9 @@ final class _AssemblyRun {
               ext.any((piece) => decoratedInjection(piece.injection));
           if (!split) {
             final ownText = own.map((prompt) => prompt.content).join('\n');
-            final extensionRaw = ext.map((piece) => piece.fragment.content.trim()).join('\n');
+            final extensionRaw = ext.map((piece) => trimJsWhitespace(piece.fragment.content)).join('\n');
             final extensionText = extensionRaw.isEmpty ? '' : expand(extensionRaw);
-            final text = [
-              ownText,
-              extensionText,
-            ].where((text) => text.isNotEmpty).map((text) => text.trim()).join('\n');
+            final text = [ownText, extensionText].where((text) => text.isNotEmpty).map(trimJsWhitespace).join('\n');
             if (text.isEmpty) continue;
             injected.add(
               _Prompt(
@@ -906,7 +904,7 @@ final class _AssemblyRun {
           // or another mandatory entry in the same native depth group.
           final parts = <_Prompt>[];
           for (final prompt in own) {
-            final text = prompt.content.trim();
+            final text = trimJsWhitespace(prompt.content);
             if (text.isEmpty) continue;
             parts.add(
               _Prompt(
@@ -921,8 +919,8 @@ final class _AssemblyRun {
             );
           }
           for (final piece in ext) {
-            final raw = piece.fragment.content.trim();
-            final text = raw.isEmpty ? '' : (piece.fragment.expandMacros ? expand(raw) : raw).trim();
+            final raw = trimJsWhitespace(piece.fragment.content);
+            final text = raw.isEmpty ? '' : trimJsWhitespace(piece.fragment.expandMacros ? expand(raw) : raw);
             if (text.isEmpty) continue;
             parts.add(
               _Prompt(
@@ -970,9 +968,9 @@ final class _AssemblyRun {
               : <PromptInjection>[];
           final ownText = own.map((prompt) => prompt.content).join('\n');
           ext.sort((a, b) => a.fragment.source.id.compareTo(b.fragment.source.id));
-          final extensionRaw = ext.map((prompt) => prompt.fragment.content.trim()).join('\n');
+          final extensionRaw = ext.map((prompt) => trimJsWhitespace(prompt.fragment.content)).join('\n');
           final extensionText = extensionRaw.isEmpty ? '' : expand(extensionRaw);
-          final text = [ownText, extensionText].where((text) => text.isNotEmpty).map((text) => text.trim()).join('\n');
+          final text = [ownText, extensionText].where((text) => text.isNotEmpty).map(trimJsWhitespace).join('\n');
           if (text.isEmpty) continue;
           messages.add(
             _Prompt(

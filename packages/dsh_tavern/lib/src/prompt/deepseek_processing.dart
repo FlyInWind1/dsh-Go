@@ -179,7 +179,8 @@ Map<String, Object?> deepSeekRequestBody({
   Object? toolChoice,
 }) {
   final thinking = presetTruthy(settings['show_thoughts']);
-  final topP = _sampling(settings, 'top_p', 1);
+  // ST applies its NaN/zero fallback before JSON turns Infinity into null.
+  final topP = settings.containsKey('top_p') ? presetJsNumber(settings['top_p']) : 1;
   final effort = settings.containsKey('reasoning_effort') ? settings['reasoning_effort'] : 'auto';
   final body = <String, Object?>{
     'messages': messages.map((message) => message.message).toList(),
@@ -191,7 +192,11 @@ Map<String, Object?> deepSeekRequestBody({
     'stream': presetTruthy(settings['stream_openai']) && generationType != 'quiet',
     'presence_penalty': _sampling(settings, 'presence_penalty', 0),
     'frequency_penalty': _sampling(settings, 'frequency_penalty', 0),
-    'top_p': topP == 0 ? 2.220446049250313e-16 : topP,
+    'top_p': topP == 0 || topP.isNaN
+        ? 2.220446049250313e-16
+        : topP.isFinite
+        ? topP
+        : null,
     if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
     // ST's normal DeepSeek frontend excludes seed, though its backend accepts it.
     'thinking': {'type': thinking ? 'enabled' : 'disabled'},

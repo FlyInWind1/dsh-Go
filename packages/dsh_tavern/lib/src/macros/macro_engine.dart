@@ -1700,9 +1700,9 @@ class _MacroClock {
     }
     switch (token) {
       case 'Y':
-        return local.year <= 9999 ? '${local.year}' : '+${local.year}';
+        return local.year <= 9999 ? _pad(local.year, 4) : '+${local.year}';
       case 'YY':
-        return _pad(local.year % 100);
+        return _pad(local.year.remainder(100).toInt());
       case 'YYYY':
         return _pad(local.year, 4);
       case 'YYYYY':
@@ -1776,7 +1776,7 @@ class _MacroClock {
         final iso = token[0] == token[0].toUpperCase() || chinese;
         final week = _weekOfYear(local, iso ? 1 : 0, iso ? 4 : 6);
         if (token[0].toLowerCase() == 'g') {
-          return token.length == 2 ? _pad(week.year % 100) : _pad(week.year, 4);
+          return token.length == 2 ? _pad(week.year.remainder(100).toInt()) : _pad(week.year, 4);
         }
         if (token.endsWith('o')) return _ordinal(week.week, token[0]);
         return token.length == 2 ? _pad(week.week) : '${week.week}';

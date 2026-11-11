@@ -407,23 +407,51 @@ void main() {
     expect(absent.containsKey('reasoning_effort'), isFalse);
   });
 
-  test('nonfinite sampling becomes JSON null while explicit null converts to zero', () {
+  test('DeepSeek top_p handles NaN and zero before nonfinite JSON normalization', () {
     const keys = ['temperature', 'top_p', 'presence_penalty', 'frequency_penalty'];
-    for (final value in ['bad', 'Infinity', '-Infinity', '1e309', '\u0085']) {
+    const epsilon = 2.220446049250313e-16;
+    // Independent fixed-ST Number -> DeepSeek OR -> JSON expectations. The
+    // previous oracle incorrectly grouped NaN with Infinity for this field.
+    for (final (label, value, generic, deepSeekTopP) in <(String, Object?, num?, num?)>[
+      ('finite', 0.75, 0.75, 0.75),
+      ('finite string', '0.25', 0.25, 0.25),
+      ('negative finite', -0.5, -0.5, -0.5),
+      ('zero', 0, 0, epsilon),
+      ('negative zero', -0.0, 0, epsilon),
+      ('zero string', '0', 0, epsilon),
+      ('negative zero string', '-0', 0, epsilon),
+      ('explicit null', null, 0, epsilon),
+      ('false', false, 0, epsilon),
+      ('empty string', '', 0, epsilon),
+      ('empty array', <Object?>[], 0, epsilon),
+      ('bad string', 'bad', null, epsilon),
+      ('NEL', '\u0085', null, epsilon),
+      ('object', <String, Object?>{}, null, epsilon),
+      ('bad array', ['bad'], null, epsilon),
+      ('Infinity', 'Infinity', null, null),
+      ('negative Infinity', '-Infinity', null, null),
+      ('overflow', '1e309', null, null),
+      ('negative overflow', '-1e309', null, null),
+    ]) {
       for (final deepseek in [false, true]) {
         final body = _assemble(_preset({for (final key in keys) key: value}), deepseek: deepseek).body;
         for (final key in keys) {
-          expect(body[key], isNull, reason: '$key / $value');
+          expect(
+            body[key],
+            deepseek && key == 'top_p' ? deepSeekTopP : generic,
+            reason: '$key / $label / deepseek=$deepseek',
+          );
         }
         expect(() => jsonEncode(body), returnsNormally);
       }
     }
     for (final deepseek in [false, true]) {
-      final body = _assemble(_preset({for (final key in keys) key: null}), deepseek: deepseek).body;
-      expect(body['temperature'], 0);
-      expect(body['presence_penalty'], 0);
-      expect(body['frequency_penalty'], 0);
-      expect(body['top_p'], deepseek ? 2.220446049250313e-16 : 0);
+      final body = _assemble(_preset({}), deepseek: deepseek).body;
+      expect(
+        {for (final key in keys) key: body[key]},
+        {'temperature': 1, 'top_p': 1, 'presence_penalty': 0, 'frequency_penalty': 0},
+      );
+      expect(() => jsonEncode(body), returnsNormally);
     }
   });
 
