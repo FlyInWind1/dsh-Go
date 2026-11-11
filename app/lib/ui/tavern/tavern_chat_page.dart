@@ -1025,6 +1025,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                 listenable: Listenable.merge([_readingBack, _focus]),
                 builder: (context, _) => Composer(
                   hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
+                  // Nothing written: the character speaks next (engine send with no line).
+                  sendWhenEmpty: messages != null && messages.isNotEmpty,
+                  emptySendLabel: l10n.tavernSpeakNext(name),
                   controller: _input,
                   focusNode: _focus,
                   connected: messages != null,

@@ -6012,6 +6012,7 @@
   "tavernDeleteCharactersTitle": "Delete these {count} characters?",
   "tavernQuickRepliesAll": "All",
   "tavernQuickRepliesManage": "Manage quick replies",
+  "tavernSpeakNext": "Let {name} go on",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

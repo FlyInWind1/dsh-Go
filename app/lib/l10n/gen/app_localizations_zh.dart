@@ -19818,6 +19818,11 @@ class L10nZh extends L10n {
   String get tavernQuickRepliesManage => '管理快速回复';
 
   @override
+  String tavernSpeakNext(String name) {
+    return '让$name接着说';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

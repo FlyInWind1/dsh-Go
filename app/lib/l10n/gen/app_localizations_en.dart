@@ -20899,6 +20899,11 @@ class L10nEn extends L10n {
   String get tavernQuickRepliesManage => 'Manage quick replies';
 
   @override
+  String tavernSpeakNext(String name) {
+    return 'Let $name go on';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -12240,6 +12240,14 @@
   },
   "tavernQuickRepliesAll": "全部",
   "tavernQuickRepliesManage": "管理快速回复",
+  "tavernSpeakNext": "让{name}接着说",
+  "@tavernSpeakNext": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

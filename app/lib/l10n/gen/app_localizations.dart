@@ -36164,6 +36164,12 @@ abstract class L10n {
   /// **'管理快速回复'**
   String get tavernQuickRepliesManage;
 
+  /// No description provided for @tavernSpeakNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'让{name}接着说'**
+  String tavernSpeakNext(String name);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

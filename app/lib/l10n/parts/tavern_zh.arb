@@ -810,5 +810,7 @@
   "tavernDeleteCharactersTitle": "删除这 {count} 个角色？",
   "@tavernDeleteCharactersTitle": {"placeholders": {"count": {"type": "int"}}},
   "tavernQuickRepliesAll": "全部",
-  "tavernQuickRepliesManage": "管理快速回复"
+  "tavernQuickRepliesManage": "管理快速回复",
+  "tavernSpeakNext": "让{name}接着说",
+  "@tavernSpeakNext": {"placeholders": {"name": {"type": "String"}}}
 }
