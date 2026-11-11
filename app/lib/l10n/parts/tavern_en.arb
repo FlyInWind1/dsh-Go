@@ -896,5 +896,18 @@
   "tavernStateEditSaved": "Changed",
   "tavernStateEditSame": "It was already that",
   "tavernStateEditRefused": "Not changed: {reason}",
-  "@tavernStateEditRefused": {"placeholders": {"reason": {"type": "String"}}}
+  "@tavernStateEditRefused": {"placeholders": {"reason": {"type": "String"}}},
+  "tavernDirectorAuto": "Director runs on its own",
+  "tavernDirectorAutoNote": "For this chat only. Every few turns, after a reply, the model is asked once more: where the next beat goes, and three things you might do. Each time uses a little more.",
+  "tavernDirectorRun": "Ask the director now",
+  "tavernDirectorRunning": "The director is thinking…",
+  "tavernDirectorBeat": "The next beat",
+  "tavernDirectorSuggestions": "You might…",
+  "tavernDirectorSuggestionsNote": "Tap one to put it in the box; changing and sending it is up to you.",
+  "tavernDirectorNotes": "The director's notes",
+  "tavernDirectorStale": "This was thought out for an earlier moment and may not fit now; it is kept to read.",
+  "tavernDirectorFailed": "The last try did not work: {reason}",
+  "@tavernDirectorFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "tavernDirectorRunFailed": "Could not do that: {reason}",
+  "@tavernDirectorRunFailed": {"placeholders": {"reason": {"type": "String"}}}
 }

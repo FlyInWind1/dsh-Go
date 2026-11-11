@@ -20062,6 +20062,43 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernDirectorAuto => '自动导演';
+
+  @override
+  String get tavernDirectorAutoNote => '只对这段对话。开了以后每隔几个回合，在回复写完后多问一次模型：下一拍往哪走、给你三条可以做的事。每次都会多用一些额度。';
+
+  @override
+  String get tavernDirectorRun => '让导演想一想';
+
+  @override
+  String get tavernDirectorRunning => '导演在想…';
+
+  @override
+  String get tavernDirectorBeat => '下一拍';
+
+  @override
+  String get tavernDirectorSuggestions => '你可以…';
+
+  @override
+  String get tavernDirectorSuggestionsNote => '点一条放进输入框，改不改、发不发由你。';
+
+  @override
+  String get tavernDirectorNotes => '导演笔记';
+
+  @override
+  String get tavernDirectorStale => '这是之前的情况下想的，现在不一定合适，只供参考。';
+
+  @override
+  String tavernDirectorFailed(String reason) {
+    return '上次没想成：$reason';
+  }
+
+  @override
+  String tavernDirectorRunFailed(String reason) {
+    return '没能做到：$reason';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

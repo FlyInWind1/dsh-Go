@@ -36596,6 +36596,72 @@ abstract class L10n {
   /// **'没改成：{reason}'**
   String tavernStateEditRefused(String reason);
 
+  /// No description provided for @tavernDirectorAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动导演'**
+  String get tavernDirectorAuto;
+
+  /// No description provided for @tavernDirectorAutoNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'只对这段对话。开了以后每隔几个回合，在回复写完后多问一次模型：下一拍往哪走、给你三条可以做的事。每次都会多用一些额度。'**
+  String get tavernDirectorAutoNote;
+
+  /// No description provided for @tavernDirectorRun.
+  ///
+  /// In zh, this message translates to:
+  /// **'让导演想一想'**
+  String get tavernDirectorRun;
+
+  /// No description provided for @tavernDirectorRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演在想…'**
+  String get tavernDirectorRunning;
+
+  /// No description provided for @tavernDirectorBeat.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一拍'**
+  String get tavernDirectorBeat;
+
+  /// No description provided for @tavernDirectorSuggestions.
+  ///
+  /// In zh, this message translates to:
+  /// **'你可以…'**
+  String get tavernDirectorSuggestions;
+
+  /// No description provided for @tavernDirectorSuggestionsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'点一条放进输入框，改不改、发不发由你。'**
+  String get tavernDirectorSuggestionsNote;
+
+  /// No description provided for @tavernDirectorNotes.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演笔记'**
+  String get tavernDirectorNotes;
+
+  /// No description provided for @tavernDirectorStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是之前的情况下想的，现在不一定合适，只供参考。'**
+  String get tavernDirectorStale;
+
+  /// No description provided for @tavernDirectorFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次没想成：{reason}'**
+  String tavernDirectorFailed(String reason);
+
+  /// No description provided for @tavernDirectorRunFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能做到：{reason}'**
+  String tavernDirectorRunFailed(String reason);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

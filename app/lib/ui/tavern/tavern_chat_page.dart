@@ -1002,6 +1002,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       characterId: characterId,
       name: name,
       busy: _running,
+      onSuggest: (text) {
+        _input.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+        _scaffold.currentState?.closeEndDrawer();
+        _focus.requestFocus();
+      },
     );
     return BotChatFrame(
       // The chat's picture, when it has one; the page's gradient otherwise.

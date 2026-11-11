@@ -21169,6 +21169,45 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernDirectorAuto => 'Director runs on its own';
+
+  @override
+  String get tavernDirectorAutoNote =>
+      'For this chat only. Every few turns, after a reply, the model is asked once more: where the next beat goes, and three things you might do. Each time uses a little more.';
+
+  @override
+  String get tavernDirectorRun => 'Ask the director now';
+
+  @override
+  String get tavernDirectorRunning => 'The director is thinking…';
+
+  @override
+  String get tavernDirectorBeat => 'The next beat';
+
+  @override
+  String get tavernDirectorSuggestions => 'You might…';
+
+  @override
+  String get tavernDirectorSuggestionsNote => 'Tap one to put it in the box; changing and sending it is up to you.';
+
+  @override
+  String get tavernDirectorNotes => 'The director\'s notes';
+
+  @override
+  String get tavernDirectorStale =>
+      'This was thought out for an earlier moment and may not fit now; it is kept to read.';
+
+  @override
+  String tavernDirectorFailed(String reason) {
+    return 'The last try did not work: $reason';
+  }
+
+  @override
+  String tavernDirectorRunFailed(String reason) {
+    return 'Could not do that: $reason';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

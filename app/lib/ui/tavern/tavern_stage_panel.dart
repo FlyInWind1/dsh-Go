@@ -3,7 +3,7 @@
 // this chat runs on and looks like, and where else to go from it), 状态 (the
 // card's state: relations, numbers, things, the time and place), 导演 (the
 // director's notes and next beat) and 本回合 (what went into this turn:
-// lorebook entries, tokens, the cache). 导演 still says what it will hold.
+// lorebook entries, tokens, the cache).
 
 import 'dart:async';
 import 'dart:convert';
@@ -50,6 +50,7 @@ class TavernStagePanel extends ConsumerStatefulWidget {
     this.characterId,
     this.name = '',
     this.busy = false,
+    this.onSuggest,
   });
 
   final String chatId;
@@ -66,6 +67,9 @@ class TavernStagePanel extends ConsumerStatefulWidget {
 
   /// A reply is being written: the persona waits until it is done.
   final bool busy;
+
+  /// One of the director's suggestions, picked: into the chat's box.
+  final ValueChanged<String>? onSuggest;
 
   @override
   ConsumerState<TavernStagePanel> createState() => _TavernStagePanelState();
@@ -128,11 +132,10 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
             chatId: widget.chatId,
             turn: widget.turn,
           ),
-          TavernStageTab.director => _Waiting(
-            key: const ValueKey('tavern-stage-director'),
-            icon: AppIcons.lorebook,
-            title: l10n.tavernStageDirectorEmpty,
-            message: l10n.tavernStageDirectorNote,
+          TavernStageTab.director => _DirectorView(
+            key: const ValueKey('tavern-stage-director-view'),
+            chatId: widget.chatId,
+            onSuggest: widget.onSuggest,
           ),
           TavernStageTab.turn => FutureBuilder<TavernTurnInspection?>(
             future: _record,
@@ -672,6 +675,258 @@ class _StateViewState extends ConsumerState<_StateView> {
           ],
         );
       },
+    );
+  }
+}
+
+/// 导演 (engine T18; docs/design/roleplay-agent.md §3): the director's latest
+/// word on this chat, followed live. Its beat for the next turn, three things
+/// you might do (a tap puts one in the box, never sends it), and its notes,
+/// folded as spoilers. It runs on its own every few turns once turned on for
+/// this chat, or once now on asking; either is one more model request.
+class _DirectorView extends ConsumerStatefulWidget {
+  const _DirectorView({super.key, required this.chatId, this.onSuggest});
+
+  final String chatId;
+  final ValueChanged<String>? onSuggest;
+
+  @override
+  ConsumerState<_DirectorView> createState() => _DirectorViewState();
+}
+
+class _DirectorViewState extends ConsumerState<_DirectorView> {
+  StreamSubscription<TavernDirectorSnapshot>? _watch;
+  TavernDirectorSnapshot? _shown;
+  Object? _error;
+
+  /// Asked for and not yet back: the button waits.
+  bool _asking = false;
+
+  /// The switch as just set, until the engine's next view says the same.
+  bool? _auto;
+
+  /// The notes, shown on asking.
+  bool _notes = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _follow();
+  }
+
+  @override
+  void didUpdateWidget(_DirectorView old) {
+    super.didUpdateWidget(old);
+    if (old.chatId != widget.chatId) _follow();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_watch?.cancel());
+    super.dispose();
+  }
+
+  void _follow() {
+    unawaited(_watch?.cancel());
+    _watch = ref
+        .read(tavernProvider)
+        .watchDirector(widget.chatId)
+        .listen(
+          (snapshot) => setState(() {
+            _shown = snapshot;
+            _error = null;
+            _auto = null;
+          }),
+          onError: (Object e) => setState(() => _error = e),
+        );
+  }
+
+  Future<void> _setAuto(bool on) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(tavernProvider).setSettings({
+        'director': {'enabled': on},
+      }, chatId: widget.chatId);
+      if (mounted) setState(() => _auto = on);
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.tavernDirectorRunFailed('$e'))));
+    }
+  }
+
+  Future<void> _run() async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _asking = true);
+    try {
+      final run = await ref.read(tavernProvider).runDirector(widget.chatId);
+      if (!run.success) {
+        messenger.showSnackBar(SnackBar(content: Text(l10n.tavernDirectorFailed(run.failure ?? ''))));
+      }
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.tavernDirectorRunFailed('$e'))));
+    } finally {
+      if (mounted) setState(() => _asking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final dsh = DshColors.of(context);
+    final shown = _shown;
+    if (shown == null) {
+      return _error == null
+          ? const SizedBox.shrink()
+          : _Waiting(
+              key: const ValueKey('tavern-stage-director'),
+              icon: AppIcons.error,
+              title: l10n.tavernStageDirectorEmpty,
+              message: '$_error',
+            );
+    }
+    final busy = _asking || shown.running || shown.pendingJobs > 0;
+    final success = shown.latestSuccess;
+    final attempt = shown.latestAttempt;
+    final failed = attempt != null && !attempt.success && attempt.id != success?.id ? attempt : null;
+    final quiet = theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary, height: 1.5);
+    final issues = [for (final issue in shown.issues) '${issue['message'] ?? issue['code'] ?? ''}']
+        .where((line) => line.isNotEmpty)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingsSection(
+          footer: Text(l10n.tavernDirectorAutoNote),
+          margin: EdgeInsets.zero,
+          children: [
+            SettingsSwitchTile(
+              key: const ValueKey('tavern-director-auto'),
+              icon: AppIcons.lorebook,
+              tinted: false,
+              title: l10n.tavernDirectorAuto,
+              value: _auto ?? shown.automaticEnabled,
+              onChanged: (on) => unawaited(_setAuto(on)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonal(
+            key: const ValueKey('tavern-director-run'),
+            onPressed: busy ? null : () => unawaited(_run()),
+            child: Text(busy ? l10n.tavernDirectorRunning : l10n.tavernDirectorRun),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (failed != null)
+          Padding(
+            key: const ValueKey('tavern-director-failed'),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              l10n.tavernDirectorFailed(failed.failure ?? ''),
+              style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5),
+            ),
+          ),
+        if (success == null)
+          _Waiting(
+            key: const ValueKey('tavern-stage-director'),
+            icon: AppIcons.lorebook,
+            title: l10n.tavernStageDirectorEmpty,
+            message: l10n.tavernStageDirectorNote,
+          )
+        else ...[
+          // Thought for an earlier moment: kept to read, not offered to act on.
+          if (shown.stale)
+            Padding(
+              key: const ValueKey('tavern-director-stale'),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(l10n.tavernDirectorStale, style: quiet),
+            ),
+          if ((success.beat ?? '').trim().isNotEmpty) ...[
+            SettingsSection(
+              title: l10n.tavernDirectorBeat,
+              margin: EdgeInsets.zero,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(SettingsMetrics.inset),
+                  child: Text(
+                    success.beat!.trim(),
+                    key: const ValueKey('tavern-director-beat'),
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (!shown.stale && success.suggestions.isNotEmpty) ...[
+            SettingsSection(
+              title: l10n.tavernDirectorSuggestions,
+              footer: Text(l10n.tavernDirectorSuggestionsNote),
+              margin: EdgeInsets.zero,
+              children: [
+                for (final (i, suggestion) in success.suggestions.indexed)
+                  if (suggestion['text'] case final String text when text.trim().isNotEmpty)
+                    InkWell(
+                      key: ValueKey('tavern-director-suggestion-$i'),
+                      onTap: widget.onSuggest == null ? null : () => widget.onSuggest!(text.trim()),
+                      splashFactory: rowSplash(context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: SettingsMetrics.inset, vertical: 10),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(text.trim(), style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)),
+                              if (suggestion['risk'] case final String risk when risk.trim().isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(risk.trim(), style: quiet),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          if ((success.notes ?? '').trim().isNotEmpty)
+            SettingsSection(
+              title: l10n.tavernDirectorNotes,
+              margin: EdgeInsets.zero,
+              children: [
+                InkWell(
+                  key: const ValueKey('tavern-director-notes'),
+                  onTap: () => setState(() => _notes = !_notes),
+                  splashFactory: rowSplash(context),
+                  child: Padding(
+                    padding: const EdgeInsets.all(SettingsMetrics.inset),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _notes
+                          ? SelectableText(
+                              success.notes!.trim(),
+                              style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+                            )
+                          : Text(l10n.tavernStateHidden, style: quiet?.copyWith(fontStyle: FontStyle.italic)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+        if (issues.isNotEmpty)
+          Padding(
+            key: const ValueKey('tavern-director-issues'),
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(issues.join('\n'), style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5)),
+          ),
+      ],
     );
   }
 }
