@@ -36356,6 +36356,24 @@ abstract class L10n {
   /// **'填好 Key 就能开始'**
   String get tavernComposerNoKey;
 
+  /// No description provided for @tavernWriteOwn.
+  ///
+  /// In zh, this message translates to:
+  /// **'自己写一个角色'**
+  String get tavernWriteOwn;
+
+  /// No description provided for @tavernWriteOwnSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'从一张空白卡开始，名字、设定和开场白都自己填'**
+  String get tavernWriteOwnSubtitle;
+
+  /// No description provided for @tavernNewCharacterName.
+  ///
+  /// In zh, this message translates to:
+  /// **'新角色'**
+  String get tavernNewCharacterName;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

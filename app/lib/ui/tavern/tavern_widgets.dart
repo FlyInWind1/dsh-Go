@@ -1,6 +1,7 @@
 // Pieces the tavern's pages share: a character's picture, importing a card,
 // deleting with a confirmation, and the long-press action sheet.
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -216,11 +217,12 @@ final tavernHttpClientProvider = Provider<http.Client>((ref) {
   return client;
 });
 
-enum _ImportFrom { file, link }
+enum _ImportFrom { file, link, blank }
 
-/// 导入: from a file, or from a link to a card file. Returns the imported
-/// character so the caller can open it.
-Future<TavernCharacter?> showTavernImport(BuildContext context, WidgetRef ref) async {
+/// 导入: from a file, from a link to a card file, or a blank card of your
+/// own. Returns the character so the caller can open it ([blank]: open it
+/// for writing).
+Future<({TavernCharacter character, bool blank})?> showTavernImport(BuildContext context, WidgetRef ref) async {
   final l10n = context.l10n;
   final from = await showAppSheet<_ImportFrom>(
     context,
@@ -247,15 +249,61 @@ Future<TavernCharacter?> showTavernImport(BuildContext context, WidgetRef ref) a
             chevron: false,
             onTap: () => Navigator.of(sheet).pop(_ImportFrom.link),
           ),
+          SettingsTile(
+            key: const ValueKey('tavern-import-blank'),
+            icon: AppIcons.edit,
+            tinted: false,
+            title: l10n.tavernWriteOwn,
+            subtitle: l10n.tavernWriteOwnSubtitle,
+            chevron: false,
+            onTap: () => Navigator.of(sheet).pop(_ImportFrom.blank),
+          ),
         ],
       ),
     ),
   );
   if (from == null || !context.mounted) return null;
-  return switch (from) {
+  final character = await switch (from) {
     _ImportFrom.file => importTavernFiles(context, ref),
     _ImportFrom.link => importTavernCardFromLink(context, ref),
+    _ImportFrom.blank => createBlankTavernCharacter(context, ref),
   };
+  return character == null ? null : (character: character, blank: from == _ImportFrom.blank);
+}
+
+/// A character of your own: a blank V2 card (only its name, 新角色), taken
+/// in as any card is, for you to write. Null when it couldn't be.
+Future<TavernCharacter?> createBlankTavernCharacter(BuildContext context, WidgetRef ref) async {
+  final l10n = context.l10n;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final card = {
+    'spec': 'chara_card_v2',
+    'spec_version': '2.0',
+    'data': {
+      'name': l10n.tavernNewCharacterName,
+      'description': '',
+      'personality': '',
+      'scenario': '',
+      'first_mes': '',
+      'mes_example': '',
+      'creator_notes': '',
+      'system_prompt': '',
+      'post_history_instructions': '',
+      'alternate_greetings': <String>[],
+      'tags': <String>[],
+      'creator': '',
+      'character_version': '',
+      'extensions': <String, Object?>{},
+    },
+  };
+  try {
+    return await ref
+        .read(tavernProvider)
+        .importCard(Uint8List.fromList(utf8.encode(jsonEncode(card))), fileName: 'new_character.json');
+  } on Object {
+    messenger?.showSnackBar(SnackBar(content: Text(l10n.tavernImportFailed)));
+    return null;
+  }
 }
 
 /// Asks for a link to a card file (PNG, JSON or CHARX), downloads it and

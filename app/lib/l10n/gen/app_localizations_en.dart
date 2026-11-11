@@ -21038,6 +21038,15 @@ class L10nEn extends L10n {
   String get tavernComposerNoKey => 'Add a key to begin';
 
   @override
+  String get tavernWriteOwn => 'Write your own character';
+
+  @override
+  String get tavernWriteOwnSubtitle => 'Start from a blank card and fill in the name, setting and greeting';
+
+  @override
+  String get tavernNewCharacterName => 'New character';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

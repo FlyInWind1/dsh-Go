@@ -852,5 +852,8 @@
   "tavernSessionUsageNote": "{count, plural, =1{1 reply on the current line} other{{count} replies on the current line}}, added up; replaced alternatives aren't counted",
   "@tavernSessionUsageNote": {"placeholders": {"count": {"type": "int"}}},
   "tavernSessionUsageNone": "The model hasn't reported any usage yet",
-  "tavernComposerNoKey": "Add a key to begin"
+  "tavernComposerNoKey": "Add a key to begin",
+  "tavernWriteOwn": "Write your own character",
+  "tavernWriteOwnSubtitle": "Start from a blank card and fill in the name, setting and greeting",
+  "tavernNewCharacterName": "New character"
 }

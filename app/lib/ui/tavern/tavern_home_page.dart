@@ -94,8 +94,20 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
   /// 导入 (a file or a link), then the card's page.
   Future<void> _import() async {
     final navigator = Navigator.of(context);
-    final character = await showTavernImport(context, ref);
-    if (character != null && mounted) unawaited(navigator.push(TavernCharacterPage.route(character.id)));
+    final result = await showTavernImport(context, ref);
+    if (result == null || !mounted) return;
+    unawaited(navigator.push(TavernCharacterPage.route(result.character.id)));
+    // A blank card of your own opens for writing, its page under it.
+    if (result.blank) unawaited(navigator.push(TavernCharacterEditPage.route(result.character.id)));
+  }
+
+  /// 自己写一个角色: a blank card, open for writing.
+  Future<void> _writeOwn() async {
+    final navigator = Navigator.of(context);
+    final character = await createBlankTavernCharacter(context, ref);
+    if (character == null || !mounted) return;
+    unawaited(navigator.push(TavernCharacterPage.route(character.id)));
+    unawaited(navigator.push(TavernCharacterEditPage.route(character.id)));
   }
 
   /// Imports the sample card and opens it, as an imported card would be.
@@ -219,6 +231,11 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
                   key: const ValueKey('tavern-try-sample'),
                   onPressed: () => unawaited(_trySample()),
                   child: Text(l10n.tavernTrySample),
+                ),
+                TextButton(
+                  key: const ValueKey('tavern-write-own'),
+                  onPressed: () => unawaited(_writeOwn()),
+                  child: Text(l10n.tavernWriteOwn),
                 ),
               ],
             ),

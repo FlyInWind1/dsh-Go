@@ -19934,6 +19934,15 @@ class L10nZh extends L10n {
   String get tavernComposerNoKey => '填好 Key 就能开始';
 
   @override
+  String get tavernWriteOwn => '自己写一个角色';
+
+  @override
+  String get tavernWriteOwnSubtitle => '从一张空白卡开始，名字、设定和开场白都自己填';
+
+  @override
+  String get tavernNewCharacterName => '新角色';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
