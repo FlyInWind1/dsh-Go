@@ -20099,6 +20099,15 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernBranchHere => '从这里分叉';
+
+  @override
+  String get tavernBranchedHere => '回到了这一条，后面的内容留在「分支」里';
+
+  @override
+  String get tavernBranchHereFailed => '没能回到这一条';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

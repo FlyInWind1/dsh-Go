@@ -909,5 +909,8 @@
   "tavernDirectorFailed": "The last try did not work: {reason}",
   "@tavernDirectorFailed": {"placeholders": {"reason": {"type": "String"}}},
   "tavernDirectorRunFailed": "Could not do that: {reason}",
-  "@tavernDirectorRunFailed": {"placeholders": {"reason": {"type": "String"}}}
+  "@tavernDirectorRunFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "tavernBranchHere": "Branch from here",
+  "tavernBranchedHere": "Back to this message; what came after is kept in Branches",
+  "tavernBranchHereFailed": "Could not go back to this message"
 }

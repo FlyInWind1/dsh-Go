@@ -835,6 +835,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                 if (character && last)
                   row(_MessageAction.continueReply, AppIcons.continueReply, l10n.tavernContinueReply),
                 if (character) row(_MessageAction.inspect, AppIcons.code, l10n.tavernInspectMenu),
+                // Back to here, what came after kept as a branch (engine T16 selectNode).
+                if (_messages?.lastOrNull?.nodeId != message.nodeId)
+                  row(_MessageAction.branchHere, AppIcons.fork, l10n.tavernBranchHere),
                 if (message.hidden)
                   row(_MessageAction.hide, AppIcons.showSecret, l10n.tavernUnhide)
                 else
@@ -863,6 +866,25 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         if (!_running) _run(() => _tavern.continueReply(widget.chatId, message.nodeId));
       case _MessageAction.inspect:
         await Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: message.nodeId));
+      case _MessageAction.branchHere:
+        // The story goes on from here; what came after stays, a branch to
+        // find in 分支. 撤销 picks the old end again.
+        if (_running) return;
+        final messenger = ScaffoldMessenger.of(context);
+        final end = _messages?.lastOrNull?.nodeId;
+        try {
+          await _tavern.selectNode(widget.chatId, message.nodeId);
+        } on Object {
+          messenger.showBriefNotice(l10n.tavernBranchHereFailed);
+          return;
+        }
+        if (!mounted || end == null) return;
+        messenger.showUndoNotice(
+          l10n.tavernBranchedHere,
+          undoLabel: l10n.tavernUndo,
+          window: tavernUndoWindow,
+          onUndo: () => unawaited(_tavern.selectNode(widget.chatId, end).catchError((Object _) {})),
+        );
       case _MessageAction.hide:
         if (!_running) await _tavern.setHidden(widget.chatId, message.nodeId, !message.hidden);
       case _MessageAction.deleteOne:
@@ -1330,7 +1352,7 @@ class _ComposerKey extends StatelessWidget {
   }
 }
 
-enum _MessageAction { copy, edit, bookmark, regenerate, continueReply, inspect, hide, deleteOne, delete }
+enum _MessageAction { copy, edit, bookmark, regenerate, continueReply, inspect, branchHere, hide, deleteOne, delete }
 
 /// A message on the path: the user's in a bubble, the character's as text;
 /// the last character message carries its alternatives.

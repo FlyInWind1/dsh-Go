@@ -909,5 +909,8 @@
   "tavernDirectorFailed": "上次没想成：{reason}",
   "@tavernDirectorFailed": {"placeholders": {"reason": {"type": "String"}}},
   "tavernDirectorRunFailed": "没能做到：{reason}",
-  "@tavernDirectorRunFailed": {"placeholders": {"reason": {"type": "String"}}}
+  "@tavernDirectorRunFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "tavernBranchHere": "从这里分叉",
+  "tavernBranchedHere": "回到了这一条，后面的内容留在「分支」里",
+  "tavernBranchHereFailed": "没能回到这一条"
 }

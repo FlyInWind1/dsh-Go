@@ -21208,6 +21208,15 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernBranchHere => 'Branch from here';
+
+  @override
+  String get tavernBranchedHere => 'Back to this message; what came after is kept in Branches';
+
+  @override
+  String get tavernBranchHereFailed => 'Could not go back to this message';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -36662,6 +36662,24 @@ abstract class L10n {
   /// **'没能做到：{reason}'**
   String tavernDirectorRunFailed(String reason);
 
+  /// No description provided for @tavernBranchHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'从这里分叉'**
+  String get tavernBranchHere;
+
+  /// No description provided for @tavernBranchedHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到了这一条，后面的内容留在「分支」里'**
+  String get tavernBranchedHere;
+
+  /// No description provided for @tavernBranchHereFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能回到这一条'**
+  String get tavernBranchHereFailed;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
