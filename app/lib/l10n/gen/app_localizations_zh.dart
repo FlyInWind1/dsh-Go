@@ -19946,6 +19946,30 @@ class L10nZh extends L10n {
   String get tavernSearchGoTo => '到对话里这一条';
 
   @override
+  String get tavernBookmarks => '书签';
+
+  @override
+  String get tavernBookmarkAdd => '加书签';
+
+  @override
+  String get tavernBookmarkRemove => '去掉书签';
+
+  @override
+  String get tavernBookmarkAdded => '加了书签，在 舞台 › 本局 › 书签 里找';
+
+  @override
+  String get tavernBookmarkRemoved => '书签去掉了';
+
+  @override
+  String get tavernBookmarksEmpty => '还没有书签';
+
+  @override
+  String get tavernBookmarksEmptyMessage => '长按一条消息，选「加书签」';
+
+  @override
+  String get tavernBookmarkGone => '那一条已经不在了，书签去掉了';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

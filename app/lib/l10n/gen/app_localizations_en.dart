@@ -21050,6 +21050,30 @@ class L10nEn extends L10n {
   String get tavernSearchGoTo => 'Go to it in the chat';
 
   @override
+  String get tavernBookmarks => 'Bookmarks';
+
+  @override
+  String get tavernBookmarkAdd => 'Bookmark';
+
+  @override
+  String get tavernBookmarkRemove => 'Remove bookmark';
+
+  @override
+  String get tavernBookmarkAdded => 'Bookmarked; find it in Stage › This chat › Bookmarks';
+
+  @override
+  String get tavernBookmarkRemoved => 'Bookmark removed';
+
+  @override
+  String get tavernBookmarksEmpty => 'No bookmarks yet';
+
+  @override
+  String get tavernBookmarksEmptyMessage => 'Long-press a message and choose Bookmark';
+
+  @override
+  String get tavernBookmarkGone => 'That line is gone; its bookmark was removed';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

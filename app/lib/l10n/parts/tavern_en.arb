@@ -856,5 +856,13 @@
   "tavernWriteOwn": "Write your own character",
   "tavernWriteOwnSubtitle": "Start from a blank card and fill in the name, setting and greeting",
   "tavernNewCharacterName": "New character",
-  "tavernSearchGoTo": "Go to it in the chat"
+  "tavernSearchGoTo": "Go to it in the chat",
+  "tavernBookmarks": "Bookmarks",
+  "tavernBookmarkAdd": "Bookmark",
+  "tavernBookmarkRemove": "Remove bookmark",
+  "tavernBookmarkAdded": "Bookmarked; find it in Stage › This chat › Bookmarks",
+  "tavernBookmarkRemoved": "Bookmark removed",
+  "tavernBookmarksEmpty": "No bookmarks yet",
+  "tavernBookmarksEmptyMessage": "Long-press a message and choose Bookmark",
+  "tavernBookmarkGone": "That line is gone; its bookmark was removed"
 }

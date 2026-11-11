@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
+import '../../tavern/tavern_bookmarks.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_session_usage.dart';
@@ -26,6 +27,7 @@ import '../features/feature_kit.dart' show QuietSpinner;
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_bookmarks_page.dart';
 import 'tavern_branches_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
@@ -341,6 +343,17 @@ class _Session extends ConsumerWidget {
               tinted: false,
               title: l10n.tavernSearchChat,
               onTap: () => open(TavernSearchPage.route(chatId)),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-bookmarks'),
+              icon: AppIcons.bookmark,
+              tinted: false,
+              title: l10n.tavernBookmarks,
+              value: switch (ref.watch(tavernBookmarksProvider(chatId)).length) {
+                0 => null,
+                final n => Text('$n'),
+              },
+              onTap: () => open(TavernBookmarksPage.route(chatId)),
             ),
             SettingsTile(
               key: const ValueKey('tavern-chat-branches'),

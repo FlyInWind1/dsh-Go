@@ -19,6 +19,7 @@ import '../../state/voice_model_state.dart';
 import '../../state/voice_settings.dart';
 import '../../state/voice_state.dart';
 import '../../tavern/tavern_backgrounds.dart';
+import '../../tavern/tavern_bookmarks.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
@@ -699,6 +700,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   Future<void> _menu(TavernMessage message, {required bool last}) async {
     final l10n = context.l10n;
     final character = message.role == TavernRole.character;
+    final marked = ref.read(tavernBookmarksProvider(widget.chatId).notifier).has(message.nodeId);
     final action = await showAppSheet<_MessageAction>(
       context,
       // As tall as its rows: eight of them pass the default cap on a phone.
@@ -721,6 +723,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               children: [
                 row(_MessageAction.copy, AppIcons.copy, l10n.commonCopy),
                 row(_MessageAction.edit, AppIcons.edit, l10n.commonEdit),
+                if (marked)
+                  row(_MessageAction.bookmark, AppIcons.bookmarkActive, l10n.tavernBookmarkRemove)
+                else
+                  row(_MessageAction.bookmark, AppIcons.bookmark, l10n.tavernBookmarkAdd),
                 if (character) row(_MessageAction.regenerate, AppIcons.regenerate, l10n.tavernRegenerate),
                 if (character && last)
                   row(_MessageAction.continueReply, AppIcons.continueReply, l10n.tavernContinueReply),
@@ -743,6 +749,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         await Clipboard.setData(ClipboardData(text: message.text));
       case _MessageAction.edit:
         await _edit(message);
+      case _MessageAction.bookmark:
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        final now = await ref.read(tavernBookmarksProvider(widget.chatId).notifier).toggle(message);
+        messenger?.showBriefNotice(now ? l10n.tavernBookmarkAdded : l10n.tavernBookmarkRemoved);
       case _MessageAction.regenerate:
         if (!_running) _run(() => _tavern.regenerate(widget.chatId, message.nodeId));
       case _MessageAction.continueReply:
@@ -1202,7 +1212,7 @@ class _ComposerKey extends StatelessWidget {
   }
 }
 
-enum _MessageAction { copy, edit, regenerate, continueReply, inspect, hide, deleteOne, delete }
+enum _MessageAction { copy, edit, bookmark, regenerate, continueReply, inspect, hide, deleteOne, delete }
 
 /// A message on the path: the user's in a bubble, the character's as text;
 /// the last character message carries its alternatives.

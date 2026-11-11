@@ -36380,6 +36380,54 @@ abstract class L10n {
   /// **'到对话里这一条'**
   String get tavernSearchGoTo;
 
+  /// No description provided for @tavernBookmarks.
+  ///
+  /// In zh, this message translates to:
+  /// **'书签'**
+  String get tavernBookmarks;
+
+  /// No description provided for @tavernBookmarkAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'加书签'**
+  String get tavernBookmarkAdd;
+
+  /// No description provided for @tavernBookmarkRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'去掉书签'**
+  String get tavernBookmarkRemove;
+
+  /// No description provided for @tavernBookmarkAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'加了书签，在 舞台 › 本局 › 书签 里找'**
+  String get tavernBookmarkAdded;
+
+  /// No description provided for @tavernBookmarkRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'书签去掉了'**
+  String get tavernBookmarkRemoved;
+
+  /// No description provided for @tavernBookmarksEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有书签'**
+  String get tavernBookmarksEmpty;
+
+  /// No description provided for @tavernBookmarksEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'长按一条消息，选「加书签」'**
+  String get tavernBookmarksEmptyMessage;
+
+  /// No description provided for @tavernBookmarkGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'那一条已经不在了，书签去掉了'**
+  String get tavernBookmarkGone;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

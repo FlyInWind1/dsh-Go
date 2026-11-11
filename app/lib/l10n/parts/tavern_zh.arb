@@ -856,5 +856,13 @@
   "tavernWriteOwn": "自己写一个角色",
   "tavernWriteOwnSubtitle": "从一张空白卡开始，名字、设定和开场白都自己填",
   "tavernNewCharacterName": "新角色",
-  "tavernSearchGoTo": "到对话里这一条"
+  "tavernSearchGoTo": "到对话里这一条",
+  "tavernBookmarks": "书签",
+  "tavernBookmarkAdd": "加书签",
+  "tavernBookmarkRemove": "去掉书签",
+  "tavernBookmarkAdded": "加了书签，在 舞台 › 本局 › 书签 里找",
+  "tavernBookmarkRemoved": "书签去掉了",
+  "tavernBookmarksEmpty": "还没有书签",
+  "tavernBookmarksEmptyMessage": "长按一条消息，选「加书签」",
+  "tavernBookmarkGone": "那一条已经不在了，书签去掉了"
 }
