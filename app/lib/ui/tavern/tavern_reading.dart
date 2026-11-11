@@ -22,33 +22,46 @@ ThemeData tavernReadingTheme(ThemeData theme, {required double size, required do
 
 final _readingThemes = Expando<Map<(double, double), ThemeData>>('tavernReading');
 
+/// [theme] with a card's [accent] as its primary colour; the same object for
+/// the same inputs, like [tavernReadingTheme].
+ThemeData tavernAccentTheme(ThemeData theme, Color accent) {
+  final byTheme = _accentThemes[theme] ??= {};
+  return byTheme[accent] ??= theme.copyWith(colorScheme: theme.colorScheme.copyWith(primary: accent));
+}
+
+final _accentThemes = Expando<Map<Color, ThemeData>>('tavernAccent');
+
 /// The patterns a coloured story is drawn with: one list, so the text's parse
 /// cache keeps hitting.
 final _inkPatterns = [tavernInkPattern];
 
-/// [child] (the transcript) under the reading settings.
+/// [child] (the transcript) under the reading settings, and under a card's
+/// own [accent] and [names] colours when it has them.
 class TavernReading extends ConsumerWidget {
-  const TavernReading({super.key, required this.child});
+  const TavernReading({super.key, required this.child, this.accent, this.names = const {}});
 
   final Widget child;
+  final Color? accent;
+  final Map<String, Color> names;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (size, height, palette) = ref.watch(
       tavernSettingsProvider.select((s) => (s.textSize, s.lineHeight, s.palette)),
     );
-    final theme = Theme.of(context);
+    final accent = this.accent;
+    final theme = accent == null ? Theme.of(context) : tavernAccentTheme(Theme.of(context), accent);
     final ink = TavernInk.of(palette, theme.brightness);
     final read = Theme(
       data: tavernReadingTheme(theme, size: size, height: height),
-      child: child,
+      child: names.isEmpty ? child : TavernNameColors(names: names, child: child),
     );
     return TavernInkScope(
       ink: ink,
       child: MarkdownPatterns(
         patterns: _inkPatterns,
         // Drawn afresh in other colours: the text keeps the spans it made.
-        child: KeyedSubtree(key: ValueKey((palette, theme.brightness)), child: read),
+        child: KeyedSubtree(key: ValueKey((palette, theme.brightness, accent)), child: read),
       ),
     );
   }

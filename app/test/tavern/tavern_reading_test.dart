@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/tavern/tavern_quick_replies.dart';
@@ -63,10 +65,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(_story(tester, preview).fontSize, 15);
 
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-text-size')), matching: find.text('小')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-line-height')), matching: find.text('宽松')));
-    await tester.pumpAndSettle();
+    // Each row to the middle first: on this short window the others pass
+    // under the glass header.
+    Future<void> pick(String row, String label) async {
+      unawaited(Scrollable.ensureVisible(tester.element(find.byKey(ValueKey(row))), alignment: 0.5));
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byKey(ValueKey(row)), matching: find.text(label)));
+      await tester.pumpAndSettle();
+    }
+
+    await pick('tavern-text-size', '小');
+    await pick('tavern-line-height', '宽松');
     expect(_story(tester, preview).fontSize, 14);
     expect(_story(tester, preview).height, 1.8);
     final prefs = await SharedPreferences.getInstance();

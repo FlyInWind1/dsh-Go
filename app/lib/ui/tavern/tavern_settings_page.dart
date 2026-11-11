@@ -223,6 +223,14 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           value: settings.showUsage,
           onChanged: (show) => unawaited(controller.setShowUsage(show)),
         ),
+        SettingsSwitchTile(
+          key: const ValueKey('tavern-card-theme'),
+          icon: AppIcons.theme,
+          title: l10n.tavernCardTheme,
+          subtitle: l10n.tavernCardThemeSubtitle,
+          value: settings.cardTheme,
+          onChanged: (use) => unawaited(controller.setCardTheme(use)),
+        ),
       ],
     ),
     SheetGroup(

@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
+import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_settings.dart';
 import '../common/app_sheet.dart';
@@ -271,7 +272,7 @@ class _Session extends ConsumerWidget {
                 PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
                 PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
               ],
-              selected: own ?? settings.layout,
+              selected: own ?? ref.watch(tavernCardThemeProvider(characterId))?.layout ?? settings.layout,
               onChanged: (value) => unawaited(layout.set(value)),
             ),
             if (own != null)

@@ -19745,6 +19745,12 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernCardTheme => '用卡自带的样式';
+
+  @override
+  String get tavernCardThemeSubtitle => '卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

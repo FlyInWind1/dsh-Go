@@ -21,6 +21,7 @@ import '../../state/voice_state.dart';
 import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
+import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
@@ -728,8 +729,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final character = characters?.where((c) => c.id == characterId).firstOrNull;
     final name = character?.name ?? l10n.tavernTitle;
     final preview = _tavern is TavernPreview;
+    // The card's own look (酒馆设置 can turn it off): a layout to start in,
+    // a picture, an accent and name colours for the story.
+    final cardTheme = ref.watch(tavernCardThemeProvider(characterId));
     final layout =
-        ref.watch(tavernChatLayoutProvider(widget.chatId)) ?? ref.watch(tavernSettingsProvider.select((s) => s.layout));
+        ref.watch(tavernChatLayoutProvider(widget.chatId)) ??
+        cardTheme?.layout ??
+        ref.watch(tavernSettingsProvider.select((s) => s.layout));
     final novel = layout == TavernLayout.novel;
     final showUsage = ref.watch(tavernSettingsProvider.select((s) => s.showUsage));
     final messages = _messages;
@@ -777,7 +783,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           }
         : const <String, String>{};
 
-    final scene = ref.watch(tavernChatBackgroundProvider(widget.chatId));
+    final cardPicture = cardTheme?.background;
+    final scene =
+        ref.watch(tavernChatBackgroundProvider(widget.chatId)) ??
+        (cardPicture == null ? null : ref.watch(tavernCardBackgroundProvider(cardPicture)).value);
     final beside = MediaQuery.sizeOf(context).width >= _stageBesideFrom;
     TavernStagePanel stage({double topInset = 0}) => TavernStagePanel(
       chatId: widget.chatId,
@@ -824,6 +833,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       body: _beside(
         beside ? stage(topInset: topInset) : null,
         TavernReading(
+          accent: cardTheme?.accent,
+          names: cardTheme?.names ?? const {},
           child: layout == TavernLayout.visualNovel
               ? ListenableBuilder(
                   listenable: _live,

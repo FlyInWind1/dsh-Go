@@ -20825,6 +20825,13 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernCardTheme => 'Use the card\'s own look';
+
+  @override
+  String get tavernCardThemeSubtitle =>
+      'The accent, name colours, layout and background a card sets; off, this page decides';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

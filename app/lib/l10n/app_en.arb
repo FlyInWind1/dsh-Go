@@ -5989,6 +5989,8 @@
   "tavernBranchNameCaption": "Only for you, to find it again; leave empty to remove it.",
   "tavernBranchSwitched": "Switched to this branch",
   "tavernBranchFailed": "Couldn't do that: {error}",
+  "tavernCardTheme": "Use the card's own look",
+  "tavernCardThemeSubtitle": "The accent, name colours, layout and background a card sets; off, this page decides",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

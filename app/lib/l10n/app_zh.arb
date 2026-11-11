@@ -12203,6 +12203,8 @@
       }
     }
   },
+  "tavernCardTheme": "用卡自带的样式",
+  "tavernCardThemeSubtitle": "卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

@@ -4,6 +4,7 @@
 // from in 酒馆设置; 素 leaves the text as the app draws it.
 
 import 'package:dsh_tavern/dsh_tavern.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart' show InlinePattern;
 
@@ -119,7 +120,22 @@ String tavernSpeaker(BuildContext context, TavernMessage message) =>
     ? context.l10n.tavernNarrator
     : message.speaker;
 
+/// The card's own name colours (extensions.dshgo.theme.names), over the
+/// story: [tavernNameColor] reads them first.
+class TavernNameColors extends InheritedWidget {
+  const TavernNameColors({super.key, required this.names, required super.child});
+
+  final Map<String, Color> names;
+
+  static Map<String, Color>? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TavernNameColors>()?.names;
+
+  @override
+  bool updateShouldNotify(TavernNameColors oldWidget) => !mapEquals(names, oldWidget.names);
+}
+
 Color tavernNameColor(BuildContext context, String speaker, {required String lead}) {
+  if (TavernNameColors.maybeOf(context)?[speaker] case final Color own) return own;
   final theme = Theme.of(context);
   if (speaker.isEmpty || speaker == lead) return theme.colorScheme.primary;
   // FNV-1a, then a last stir: names a few CJK characters long still spread

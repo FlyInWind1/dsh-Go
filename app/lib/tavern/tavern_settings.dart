@@ -50,6 +50,7 @@ class TavernSettings {
     this.palette = TavernPalette.ember,
     this.textSpeed = TavernTextSpeed.normal,
     this.showUsage = true,
+    this.cardTheme = true,
     this.loaded = false,
   });
 
@@ -65,6 +66,10 @@ class TavernSettings {
 
   /// A line of tokens under each reply, as the provider reported them.
   final bool showUsage;
+
+  /// The card's own accent, name colours, layout and background
+  /// (tavern_card_theme.dart); off, this page's settings everywhere.
+  final bool cardTheme;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -76,6 +81,7 @@ class TavernSettings {
     TavernPalette? palette,
     TavernTextSpeed? textSpeed,
     bool? showUsage,
+    bool? cardTheme,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
@@ -85,6 +91,7 @@ class TavernSettings {
     palette: palette ?? this.palette,
     textSpeed: textSpeed ?? this.textSpeed,
     showUsage: showUsage ?? this.showUsage,
+    cardTheme: cardTheme ?? this.cardTheme,
     loaded: true,
   );
 }
@@ -98,6 +105,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const paletteKey = 'tavern.palette';
   static const textSpeedKey = 'tavern.textSpeed';
   static const showUsageKey = 'tavern.showUsage';
+  static const cardThemeKey = 'tavern.cardTheme';
 
   @override
   TavernSettings build() {
@@ -119,6 +127,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         palette: TavernPalette.values.asNameMap()[prefs.getString(paletteKey)] ?? TavernPalette.ember,
         textSpeed: TavernTextSpeed.values.asNameMap()[prefs.getString(textSpeedKey)] ?? TavernTextSpeed.normal,
         showUsage: prefs.getBool(showUsageKey) ?? true,
+        cardTheme: prefs.getBool(cardThemeKey) ?? true,
         loaded: true,
       );
     } catch (_) {
@@ -165,6 +174,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setShowUsage(bool show) async {
     state = state.copyWith(showUsage: show);
     await _save((prefs) => prefs.setBool(showUsageKey, show));
+  }
+
+  Future<void> setCardTheme(bool use) async {
+    state = state.copyWith(cardTheme: use);
+    await _save((prefs) => prefs.setBool(cardThemeKey, use));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

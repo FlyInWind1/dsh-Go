@@ -60,6 +60,7 @@ class PreviewTavern implements Tavern, TavernPreview {
       creatorNotes: summary ? '' : c.creatorNotes,
       greetings: summary ? const [] : c.greetings,
       hasLorebook: c.data['character_book'] is Map,
+      theme: summary ? null : _copySetting(_dshgoOf(c.data)['theme']),
       chatCount: chats.length,
       lastChatAt: last,
       importedAt: c.importedAt,
@@ -1016,6 +1017,12 @@ void _mergeSettings(Map<String, Object?> into, Map<String, Object?> patch) {
     }
   }
 }
+
+/// A card's extensions.dshgo, or nothing.
+Map<Object?, Object?> _dshgoOf(Map<String, Object?> data) => switch (data['extensions']) {
+  {'dshgo': final Map<Object?, Object?> dshgo} => dshgo,
+  _ => const {},
+};
 
 Object? _copySetting(Object? value) => switch (value) {
   final Map<String, Object?> map => {for (final MapEntry(:key, :value) in map.entries) key: _copySetting(value)},

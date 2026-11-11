@@ -36026,6 +36026,18 @@ abstract class L10n {
   /// **'没能完成：{error}'**
   String tavernBranchFailed(String error);
 
+  /// No description provided for @tavernCardTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'用卡自带的样式'**
+  String get tavernCardTheme;
+
+  /// No description provided for @tavernCardThemeSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置'**
+  String get tavernCardThemeSubtitle;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
