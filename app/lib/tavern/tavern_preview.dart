@@ -509,7 +509,54 @@ class PreviewTavern implements Tavern, TavernPreview {
     String text, {
     String? chatId,
     int seed = 0,
-  }) async => throw UnsupportedError('The preview does not run world info.');
+  }) async {
+    // A stand-in for the engine's world-info stage: enabled entries, always-on
+    // or keyed by a case-blind substring (and, if selective, one secondary
+    // key too). No macros, regex, budget, recursion or timed effects.
+    final c = _characterFor(characterId);
+    final book = c.data['character_book'];
+    final entries = book is Map && book['entries'] is List ? book['entries'] as List : const <Object?>[];
+    final lower = text.toLowerCase();
+    bool said(String key) => key.isNotEmpty && lower.contains(key.toLowerCase());
+    List<String> strings(Object? v) => [
+      if (v is List)
+        for (final s in v)
+          if (s is String) s,
+    ];
+    final activated = <Map<String, Object?>>[];
+    for (final (i, e) in entries.indexed) {
+      if (e is! Map<String, Object?> || e['enabled'] == false) continue;
+      final secondary = strings(e['secondary_keys']);
+      final primary = e['constant'] == true ? null : strings(e['keys']).where(said).firstOrNull;
+      final matches = secondary.where(said).toList();
+      final selective = e['selective'] == true && secondary.isNotEmpty;
+      if (e['constant'] != true && (primary == null || (selective && matches.isEmpty))) continue;
+      activated.add({
+        'bookId': '$characterId:card',
+        'uid': '${e['id'] ?? i}',
+        'source': 'character',
+        'reason': e['constant'] == true ? 'constant' : 'keywords',
+        'content': e['content'] is String ? e['content'] : '',
+        'originalContent': e['content'] is String ? e['content'] : '',
+        'order': e['insertion_order'] is num ? e['insertion_order'] : 100,
+        'position': e['position'] == 'after_char' ? 1 : 0,
+        'primaryKey': primary,
+        'secondaryMatches': primary == null ? const <String>[] : matches,
+      });
+    }
+    activated.sort((a, b) => (b['order']! as num).compareTo(a['order']! as num));
+    return {
+      'scope': 'character-book',
+      'stage': 'world-info',
+      'seed': seed,
+      'chatId': chatId,
+      'contextNodeId': null,
+      'overflowed': false,
+      'scanRounds': 1,
+      'activated': activated,
+      'preparedEffects': const <Object?>[],
+    };
+  }
 
   @override
   Future<List<TavernTreeNode>> tree(String chatId) async {

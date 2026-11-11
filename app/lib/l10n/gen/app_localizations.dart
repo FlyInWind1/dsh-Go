@@ -35840,6 +35840,108 @@ abstract class L10n {
   /// **'没能恢复，现在的数据没动：{error}'**
   String tavernRestoreFailed(String error);
 
+  /// No description provided for @tavernLoreTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'测一下'**
+  String get tavernLoreTest;
+
+  /// No description provided for @tavernLoreTestTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'测一下世界书'**
+  String get tavernLoreTestTitle;
+
+  /// No description provided for @tavernLoreTestInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'说一句话'**
+  String get tavernLoreTestInput;
+
+  /// No description provided for @tavernLoreTestHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'比如你希望它带出某一条时会说的话'**
+  String get tavernLoreTestHint;
+
+  /// No description provided for @tavernLoreTestNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'只看这一句，加上常驻的条目；对话里前面说过的、粘性和冷却都不算。不会调用模型。'**
+  String get tavernLoreTestNote;
+
+  /// No description provided for @tavernLoreTestHits.
+  ///
+  /// In zh, this message translates to:
+  /// **'会带进提示词的（{count}）'**
+  String tavernLoreTestHits(int count);
+
+  /// No description provided for @tavernLoreTestNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这句话不会带出任何条目。'**
+  String get tavernLoreTestNone;
+
+  /// No description provided for @tavernLoreTestOverflow.
+  ///
+  /// In zh, this message translates to:
+  /// **'超出了世界书的预算，排在后面的条目没放进去。'**
+  String get tavernLoreTestOverflow;
+
+  /// No description provided for @tavernLoreTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能测：{error}'**
+  String tavernLoreTestFailed(String error);
+
+  /// No description provided for @tavernLoreReasonKeys.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词{keys}'**
+  String tavernLoreReasonKeys(String keys);
+
+  /// No description provided for @tavernLoreReasonSticky.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘性，还在生效'**
+  String get tavernLoreReasonSticky;
+
+  /// No description provided for @tavernLoreReasonDecorator.
+  ///
+  /// In zh, this message translates to:
+  /// **'装饰器'**
+  String get tavernLoreReasonDecorator;
+
+  /// No description provided for @tavernLoreAtDepth.
+  ///
+  /// In zh, this message translates to:
+  /// **'倒数第 {depth} 条消息处'**
+  String tavernLoreAtDepth(int depth);
+
+  /// No description provided for @tavernLoreNearNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者注释旁'**
+  String get tavernLoreNearNote;
+
+  /// No description provided for @tavernLoreNearExamples.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例对话旁'**
+  String get tavernLoreNearExamples;
+
+  /// No description provided for @tavernLoreOutlet.
+  ///
+  /// In zh, this message translates to:
+  /// **'出口'**
+  String get tavernLoreOutlet;
+
+  /// No description provided for @tavernLoreOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'顺序 {order}'**
+  String tavernLoreOrder(String order);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

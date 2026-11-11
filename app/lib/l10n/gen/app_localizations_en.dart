@@ -20714,6 +20714,68 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernLoreTest => 'Try it';
+
+  @override
+  String get tavernLoreTestTitle => 'Try the lorebook';
+
+  @override
+  String get tavernLoreTestInput => 'Say something';
+
+  @override
+  String get tavernLoreTestHint => 'A line you\'d expect to bring an entry in';
+
+  @override
+  String get tavernLoreTestNote =>
+      'Only this line, plus the always-on entries; earlier messages, sticky and cooldown don\'t count. No model is called.';
+
+  @override
+  String tavernLoreTestHits(int count) {
+    return 'Goes into the prompt ($count)';
+  }
+
+  @override
+  String get tavernLoreTestNone => 'This line brings in no entry.';
+
+  @override
+  String get tavernLoreTestOverflow => 'Over the lorebook budget; the later entries were left out.';
+
+  @override
+  String tavernLoreTestFailed(String error) {
+    return 'Couldn\'t try it: $error';
+  }
+
+  @override
+  String tavernLoreReasonKeys(String keys) {
+    return 'Keyword $keys';
+  }
+
+  @override
+  String get tavernLoreReasonSticky => 'Sticky, still on';
+
+  @override
+  String get tavernLoreReasonDecorator => 'Decorator';
+
+  @override
+  String tavernLoreAtDepth(int depth) {
+    return 'At depth $depth';
+  }
+
+  @override
+  String get tavernLoreNearNote => 'By the author\'s note';
+
+  @override
+  String get tavernLoreNearExamples => 'By the example dialogue';
+
+  @override
+  String get tavernLoreOutlet => 'Outlet';
+
+  @override
+  String tavernLoreOrder(String order) {
+    return 'Order $order';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

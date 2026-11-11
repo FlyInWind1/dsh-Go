@@ -19,6 +19,7 @@ import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_lorebook_test_page.dart';
 import 'tavern_widgets.dart';
 
 /// One entry of the book, at [index] in its entries array.
@@ -56,7 +57,7 @@ List<String> _strings(Object? v) => [
 ];
 
 /// What a list row calls an entry: its name, else its first key.
-String _title(Map<String, Object?> e) {
+String tavernBookEntryTitle(Map<String, Object?> e) {
   final comment = e['comment'] is String ? (e['comment'] as String).trim() : '';
   if (comment.isNotEmpty) return comment;
   final keys = _strings(e['keys']);
@@ -85,6 +86,13 @@ class TavernLorebookPage extends ConsumerWidget {
     return AppPage.list(
       title: book?.name ?? l10n.tavernLorebook,
       actions: [
+        if (book != null && book.entries.isNotEmpty)
+          GlassIconButton(
+            key: const ValueKey('tavern-lore-test'),
+            icon: AppIcons.play,
+            tooltip: l10n.tavernLoreTest,
+            onPressed: () => unawaited(Navigator.of(context).push(TavernLorebookTestPage.route(characterId))),
+          ),
         GlassIconButton(
           key: const ValueKey('tavern-lore-add'),
           icon: AppIcons.add,
@@ -156,7 +164,7 @@ class _EntryRow extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            _title(entry),
+                            tavernBookEntryTitle(entry),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyLarge,
@@ -315,7 +323,7 @@ class _TavernLorebookEntryPageState extends ConsumerState<TavernLorebookEntryPag
     final messenger = ScaffoldMessenger.maybeOf(context);
     final ok = await confirmTavernDelete(
       context,
-      title: l10n.tavernLorebookEntryDeleteTitle(_title(entry.entry)),
+      title: l10n.tavernLorebookEntryDeleteTitle(tavernBookEntryTitle(entry.entry)),
       message: l10n.tavernLorebookEntryDeleteMessage,
     );
     if (!ok || !mounted) return;

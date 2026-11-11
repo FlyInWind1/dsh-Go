@@ -19636,6 +19636,67 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernLoreTest => '测一下';
+
+  @override
+  String get tavernLoreTestTitle => '测一下世界书';
+
+  @override
+  String get tavernLoreTestInput => '说一句话';
+
+  @override
+  String get tavernLoreTestHint => '比如你希望它带出某一条时会说的话';
+
+  @override
+  String get tavernLoreTestNote => '只看这一句，加上常驻的条目；对话里前面说过的、粘性和冷却都不算。不会调用模型。';
+
+  @override
+  String tavernLoreTestHits(int count) {
+    return '会带进提示词的（$count）';
+  }
+
+  @override
+  String get tavernLoreTestNone => '这句话不会带出任何条目。';
+
+  @override
+  String get tavernLoreTestOverflow => '超出了世界书的预算，排在后面的条目没放进去。';
+
+  @override
+  String tavernLoreTestFailed(String error) {
+    return '没能测：$error';
+  }
+
+  @override
+  String tavernLoreReasonKeys(String keys) {
+    return '关键词$keys';
+  }
+
+  @override
+  String get tavernLoreReasonSticky => '粘性，还在生效';
+
+  @override
+  String get tavernLoreReasonDecorator => '装饰器';
+
+  @override
+  String tavernLoreAtDepth(int depth) {
+    return '倒数第 $depth 条消息处';
+  }
+
+  @override
+  String get tavernLoreNearNote => '作者注释旁';
+
+  @override
+  String get tavernLoreNearExamples => '示例对话旁';
+
+  @override
+  String get tavernLoreOutlet => '出口';
+
+  @override
+  String tavernLoreOrder(String order) {
+    return '顺序 $order';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
