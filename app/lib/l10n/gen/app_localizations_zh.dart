@@ -19790,6 +19790,12 @@ class L10nZh extends L10n {
   String get tavernCharacterNoDefinition => '这张卡没有写设定和说明。';
 
   @override
+  String get tavernNovelIndent => '小说排版段首空两格';
+
+  @override
+  String get tavernNovelIndentSubtitle => '像书里那样，每段开头空两个字';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

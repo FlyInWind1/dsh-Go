@@ -20871,6 +20871,12 @@ class L10nEn extends L10n {
   String get tavernCharacterNoDefinition => 'This card has no definition or notes.';
 
   @override
+  String get tavernNovelIndent => 'Indent paragraphs in 小说';
+
+  @override
+  String get tavernNovelIndentSubtitle => 'Each paragraph opens two characters in, as in a book';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

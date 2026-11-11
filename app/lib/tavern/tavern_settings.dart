@@ -51,6 +51,7 @@ class TavernSettings {
     this.textSpeed = TavernTextSpeed.normal,
     this.showUsage = true,
     this.cardTheme = true,
+    this.novelIndent = true,
     this.loaded = false,
   });
 
@@ -70,6 +71,9 @@ class TavernSettings {
   /// The card's own accent, name colours, layout and background
   /// (tavern_card_theme.dart); off, this page's settings everywhere.
   final bool cardTheme;
+
+  /// 小说: each paragraph opens with two ideographic spaces, as fiction is set.
+  final bool novelIndent;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -82,6 +86,7 @@ class TavernSettings {
     TavernTextSpeed? textSpeed,
     bool? showUsage,
     bool? cardTheme,
+    bool? novelIndent,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
@@ -92,6 +97,7 @@ class TavernSettings {
     textSpeed: textSpeed ?? this.textSpeed,
     showUsage: showUsage ?? this.showUsage,
     cardTheme: cardTheme ?? this.cardTheme,
+    novelIndent: novelIndent ?? this.novelIndent,
     loaded: true,
   );
 }
@@ -106,6 +112,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const textSpeedKey = 'tavern.textSpeed';
   static const showUsageKey = 'tavern.showUsage';
   static const cardThemeKey = 'tavern.cardTheme';
+  static const novelIndentKey = 'tavern.novelIndent';
 
   @override
   TavernSettings build() {
@@ -128,6 +135,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         textSpeed: TavernTextSpeed.values.asNameMap()[prefs.getString(textSpeedKey)] ?? TavernTextSpeed.normal,
         showUsage: prefs.getBool(showUsageKey) ?? true,
         cardTheme: prefs.getBool(cardThemeKey) ?? true,
+        novelIndent: prefs.getBool(novelIndentKey) ?? true,
         loaded: true,
       );
     } catch (_) {
@@ -179,6 +187,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setCardTheme(bool use) async {
     state = state.copyWith(cardTheme: use);
     await _save((prefs) => prefs.setBool(cardThemeKey, use));
+  }
+
+  Future<void> setNovelIndent(bool indent) async {
+    state = state.copyWith(novelIndent: indent);
+    await _save((prefs) => prefs.setBool(novelIndentKey, indent));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

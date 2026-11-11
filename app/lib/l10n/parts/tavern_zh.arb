@@ -800,5 +800,7 @@
   "tavernCharacterTabChats": "对话",
   "tavernCharacterTabCard": "设定",
   "tavernCharacterTabSetup": "配置",
-  "tavernCharacterNoDefinition": "这张卡没有写设定和说明。"
+  "tavernCharacterNoDefinition": "这张卡没有写设定和说明。",
+  "tavernNovelIndent": "小说排版段首空两格",
+  "tavernNovelIndentSubtitle": "像书里那样，每段开头空两个字"
 }

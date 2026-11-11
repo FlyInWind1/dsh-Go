@@ -800,5 +800,7 @@
   "tavernCharacterTabChats": "Chats",
   "tavernCharacterTabCard": "Card",
   "tavernCharacterTabSetup": "Setup",
-  "tavernCharacterNoDefinition": "This card has no definition or notes."
+  "tavernCharacterNoDefinition": "This card has no definition or notes.",
+  "tavernNovelIndent": "Indent paragraphs in 小说",
+  "tavernNovelIndentSubtitle": "Each paragraph opens two characters in, as in a book"
 }

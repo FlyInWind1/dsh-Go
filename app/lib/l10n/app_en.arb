@@ -6004,6 +6004,8 @@
   "tavernCharacterTabCard": "Card",
   "tavernCharacterTabSetup": "Setup",
   "tavernCharacterNoDefinition": "This card has no definition or notes.",
+  "tavernNovelIndent": "Indent paragraphs in 小说",
+  "tavernNovelIndentSubtitle": "Each paragraph opens two characters in, as in a book",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

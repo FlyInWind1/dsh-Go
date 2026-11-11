@@ -120,6 +120,36 @@ String tavernSpeaker(BuildContext context, TavernMessage message) =>
     ? context.l10n.tavernNarrator
     : message.speaker;
 
+/// Markdown structure a paragraph indent must not touch: headings, quotes,
+/// list items, tables, rules, HTML, images and footnotes.
+final _structure = RegExp(r'^(#{1,6}\s|>|[-+*]\s|\d+[.)]\s|\||<|!\[|\[\^|(-{3,}|\*{3,}|_{3,})\s*$)');
+
+/// What opens an indented paragraph: two ideographic spaces behind a zero
+/// width space, so the Markdown renderer, which trims a paragraph's leading
+/// whitespace (U+3000 is whitespace), keeps them.
+const tavernIndent = '​　　';
+
+/// [text] with each prose line opening on [tavernIndent], as Chinese fiction
+/// sets its paragraphs (小说). Blank lines, Markdown structure, code (fenced
+/// or indented) and lines already indented are left as they are.
+String tavernIndentParagraphs(String text) {
+  var fenced = false;
+  return [
+    for (final line in text.split('\n'))
+      () {
+        final trimmed = line.trimLeft();
+        if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+          fenced = !fenced;
+          return line;
+        }
+        if (fenced || trimmed.isEmpty || line.startsWith('    ') || line.startsWith('\t')) return line;
+        // trimLeft takes U+3000 too: look at the line as written.
+        if (line.startsWith('\u3000') || line.startsWith('\u200b') || _structure.hasMatch(trimmed)) return line;
+        return '$tavernIndent$trimmed';
+      }(),
+  ].join('\n');
+}
+
 /// The card's own name colours (extensions.dshgo.theme.names), over the
 /// story: [tavernNameColor] reads them first.
 class TavernNameColors extends InheritedWidget {

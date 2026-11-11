@@ -231,6 +231,14 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           value: settings.cardTheme,
           onChanged: (use) => unawaited(controller.setCardTheme(use)),
         ),
+        SettingsSwitchTile(
+          key: const ValueKey('tavern-novel-indent'),
+          icon: AppIcons.textSize,
+          title: l10n.tavernNovelIndent,
+          subtitle: l10n.tavernNovelIndentSubtitle,
+          value: settings.novelIndent,
+          onChanged: (indent) => unawaited(controller.setNovelIndent(indent)),
+        ),
       ],
     ),
     SheetGroup(

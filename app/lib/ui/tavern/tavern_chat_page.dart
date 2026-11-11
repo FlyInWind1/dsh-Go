@@ -744,6 +744,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         cardTheme?.layout ??
         ref.watch(tavernSettingsProvider.select((s) => s.layout));
     final novel = layout == TavernLayout.novel;
+    final indent = novel && ref.watch(tavernSettingsProvider.select((s) => s.novelIndent));
     final showUsage = ref.watch(tavernSettingsProvider.select((s) => s.showUsage));
     final messages = _messages;
     final (String status, StatusTone tone) = switch (()) {
@@ -761,7 +762,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         if (novel && i > 0 && m.at.difference(shown[i - 1].at) >= tavernChapterGap)
           TavernChapterBreak(key: ValueKey('tavern-chapter-${m.nodeId}'), at: m.at),
         if (m.nodeId == _streamNode)
-          _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream, live: _live, thinking: _thinking)
+          _StreamingReply(
+            key: ValueKey('stream-${m.nodeId}'),
+            stream: _stream,
+            live: _live,
+            thinking: _thinking,
+            indent: indent,
+          )
         else
           _MessageRow(
             chatId: widget.chatId,
@@ -772,12 +779,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             onMenu: () => unawaited(_menu(m, last: m.nodeId == lastCharacter)),
             onSibling: (delta) => unawaited(_sibling(m, delta)),
             novel: novel,
+            indent: indent,
             showUsage: showUsage,
             lead: name,
           ),
       ],
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
-        _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream, live: _live, thinking: _thinking),
+        _StreamingReply(
+          key: const ValueKey('stream-pending'),
+          stream: _stream,
+          live: _live,
+          thinking: _thinking,
+          indent: indent,
+        ),
     ];
 
     // Read here, not in the 视觉小说 builder below, which reruns on every
@@ -1067,6 +1081,7 @@ class _MessageRow extends StatelessWidget {
     required this.onMenu,
     required this.onSibling,
     this.novel = false,
+    this.indent = false,
     this.showUsage = false,
     this.lead = '',
   });
@@ -1080,6 +1095,9 @@ class _MessageRow extends StatelessWidget {
 
   /// 小说 layout: every message full width under its speaker's name.
   final bool novel;
+
+  /// 小说's paragraph indent (酒馆设置).
+  final bool indent;
 
   /// A line of the tokens the reply took, under it.
   final bool showUsage;
@@ -1189,7 +1207,7 @@ class _MessageRow extends StatelessWidget {
           if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           Opacity(
             opacity: user ? 0.78 : 1,
-            child: _Shown(chatId: chatId, message: message),
+            child: _Shown(chatId: chatId, message: message, indent: indent),
           ),
           ?_usage(),
           if (alternatives) ...[
@@ -1386,15 +1404,18 @@ final tavernShownTextProvider = FutureProvider.autoDispose.family<String, (Strin
 
 /// [message]'s text as [tavernShownTextProvider] shows it.
 class _Shown extends ConsumerWidget {
-  const _Shown({required this.chatId, required this.message});
+  const _Shown({required this.chatId, required this.message, this.indent = false});
 
   final String chatId;
   final TavernMessage message;
 
+  /// 小说's paragraph indent.
+  final bool indent;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final shown = ref.watch(tavernShownTextProvider((chatId, message.nodeId, message.text))).value;
-    return MarkdownBody(text: shown ?? message.text, selectable: false);
+    final shown = ref.watch(tavernShownTextProvider((chatId, message.nodeId, message.text))).value ?? message.text;
+    return MarkdownBody(text: indent ? tavernIndentParagraphs(shown) : shown, selectable: false);
   }
 }
 
@@ -1506,7 +1527,16 @@ const _Streamed _nothing = (text: '', reasoning: '');
 /// The reply being written, rebuilt alone as each piece arrives: its text
 /// as [live] shows it, through the display regex.
 class _StreamingReply extends StatelessWidget {
-  const _StreamingReply({super.key, required this.stream, required this.live, required this.thinking});
+  const _StreamingReply({
+    super.key,
+    required this.stream,
+    required this.live,
+    required this.thinking,
+    this.indent = false,
+  });
+
+  /// 小说's paragraph indent, as the reply will have once written.
+  final bool indent;
 
   final ValueListenable<_Streamed> stream;
   final TavernLiveDisplay live;
@@ -1533,7 +1563,7 @@ class _StreamingReply extends StatelessWidget {
           if (text.isEmpty && reasoning.isEmpty)
             const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
           else if (shown.isNotEmpty)
-            MarkdownBody(text: shown, streaming: true, selectable: false),
+            MarkdownBody(text: indent ? tavernIndentParagraphs(shown) : shown, streaming: true, selectable: false),
         ],
       );
     },

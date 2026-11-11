@@ -36116,6 +36116,18 @@ abstract class L10n {
   /// **'这张卡没有写设定和说明。'**
   String get tavernCharacterNoDefinition;
 
+  /// No description provided for @tavernNovelIndent.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说排版段首空两格'**
+  String get tavernNovelIndent;
+
+  /// No description provided for @tavernNovelIndentSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'像书里那样，每段开头空两个字'**
+  String get tavernNovelIndentSubtitle;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
