@@ -131,6 +131,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   late final _live = TavernLiveDisplay((text) => _tavern.displayText(widget.chatId, nodeId: _streamNode, text: text));
   String? _error;
 
+  /// [_error] is how a reply ended, not a failure: said without alarm.
+  bool _calm = false;
+
   /// The error's button: 「重试」 when trying again can help, 「设置」 when
   /// the key is missing or refused.
   ({String label, VoidCallback onPressed})? _action;
@@ -345,6 +348,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               case 'length':
                 _finish(
                   error: l10n.tavernCutShort,
+                  calm: true,
                   action: (
                     label: l10n.tavernContinueReply,
                     onPressed: () => _run(() => _tavern.continueReply(widget.chatId, message.nodeId)),
@@ -353,6 +357,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               case 'content_filter':
                 _finish(
                   error: l10n.tavernFiltered,
+                  calm: true,
                   action: (
                     label: l10n.tavernRegenerate,
                     onPressed: () => _run(() => _tavern.regenerate(widget.chatId, message.nodeId)),
@@ -426,12 +431,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (_streamNode == null) setState(() => _streamNode = nodeId);
   }
 
-  void _finish({String? error, ({String label, VoidCallback onPressed})? action}) {
+  void _finish({String? error, bool calm = false, ({String label, VoidCallback onPressed})? action}) {
     unawaited(_turn?.cancel());
     setState(() {
       _turn = null;
       _streamNode = null;
       _error = error;
+      _calm = calm;
       _action = action;
     });
     _stream.value = _nothing;
@@ -702,6 +708,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final l10n = context.l10n;
     setState(() {
       _turn = null;
+      _calm = false;
       _error = switch (failure) {
         (final kind, final detail)? => _failureText(kind, detail),
         null => null,
@@ -1155,6 +1162,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                 _KeyMissing(onAdd: _openKeySettings),
               _ErrorSlot(
                 error: _error,
+                calm: _calm,
                 action: _action,
                 onDismiss: () => setState(() {
                   _error = null;
@@ -1989,11 +1997,13 @@ class _KeyMissing extends StatelessWidget {
   }
 }
 
-/// The last turn's error over the composer, with 「重试」 when it can retry.
+/// The last turn's error over the composer, with 「重试」 when it can retry;
+/// or, [calm], how it ended (cut short, filtered) with the way on.
 class _ErrorSlot extends StatelessWidget {
-  const _ErrorSlot({required this.error, required this.action, required this.onDismiss});
+  const _ErrorSlot({required this.error, this.calm = false, required this.action, required this.onDismiss});
 
   final String? error;
+  final bool calm;
   final ({String label, VoidCallback onPressed})? action;
   final VoidCallback onDismiss;
 
@@ -2006,14 +2016,50 @@ class _ErrorSlot extends StatelessWidget {
         ? const SizedBox(width: double.infinity)
         : Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: ErrorBanner(
-              key: const ValueKey('tavern-error'),
-              message: error!,
-              onDismiss: onDismiss,
-              action: action,
-            ),
+            child: calm
+                ? _Notice(message: error!, action: action, onDismiss: onDismiss)
+                : ErrorBanner(
+                    key: const ValueKey('tavern-error'),
+                    message: error!,
+                    onDismiss: onDismiss,
+                    action: action,
+                  ),
           ),
   );
+}
+
+/// A word over the composer that is not an error: quiet glass, as
+/// [_KeyMissing], with its button and a way to put it away.
+class _Notice extends StatelessWidget {
+  const _Notice({required this.message, required this.action, required this.onDismiss});
+
+  final String message;
+  final ({String label, VoidCallback onPressed})? action;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final dsh = DshColors.of(context);
+    return GlassSurface(
+      key: const ValueKey('tavern-notice'),
+      tier: GlassTier.card,
+      borderRadius: AppShape.radiusLg,
+      padding: const EdgeInsets.fromLTRB(14, 6, 2, 6),
+      child: Row(
+        children: [
+          Icon(AppIcons.info, size: 18, color: dsh.textTertiary),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message, style: Theme.of(context).textTheme.bodySmall)),
+          if (action case final action?) TextButton(onPressed: action.onPressed, child: Text(action.label)),
+          IconButton(
+            onPressed: onDismiss,
+            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+            icon: Icon(AppIcons.close, size: 16, color: dsh.textTertiary),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// How long a pause in 小说 starts a new chapter.

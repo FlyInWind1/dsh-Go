@@ -74,15 +74,21 @@ Future<void> _sendOneLine(WidgetTester tester, PreviewTavern tavern) async {
 Finder _inBanner(String text) =>
     find.descendant(of: find.byKey(const ValueKey('tavern-error')), matching: find.textContaining(text));
 
-/// The banner's button, by its exact label (the message may say the same words).
+/// How a reply ended, said without alarm.
+Finder _inNotice(String text) =>
+    find.descendant(of: find.byKey(const ValueKey('tavern-notice')), matching: find.textContaining(text));
+
+/// The notice's button, by its exact label (the message may say the same words).
 Finder _button(String label) =>
-    find.descendant(of: find.byKey(const ValueKey('tavern-error')), matching: find.text(label));
+    find.descendant(of: find.byKey(const ValueKey('tavern-notice')), matching: find.text(label));
 
 void main() {
   testWidgets('a reply cut off at the reply limit says so, and 接着写 carries it on', (tester) async {
     final tavern = _Ending(finishReason: 'length');
     await _sendOneLine(tester, tavern);
-    expect(_inBanner('回复上限'), findsOneWidget);
+    expect(_inNotice('回复上限'), findsOneWidget);
+    // Not an error: no red banner.
+    expect(find.byKey(const ValueKey('tavern-error')), findsNothing);
     await tester.tap(_button('接着写'));
     await tester.pump();
     expect(tavern.continued, hasLength(1));
@@ -92,7 +98,7 @@ void main() {
   testWidgets('a reply the filter stopped says so, and 重新生成 tries again', (tester) async {
     final tavern = _Ending(finishReason: 'content_filter');
     await _sendOneLine(tester, tavern);
-    expect(_inBanner('内容过滤'), findsOneWidget);
+    expect(_inNotice('内容过滤'), findsOneWidget);
     await tester.tap(_button('重新生成'));
     await tester.pump();
     expect(tavern.regenerated, hasLength(1));
@@ -102,6 +108,16 @@ void main() {
   testWidgets('a reply that ended as usual says nothing', (tester) async {
     await _sendOneLine(tester, _Ending(finishReason: 'stop'));
     expect(find.byKey(const ValueKey('tavern-error')), findsNothing);
+    expect(find.byKey(const ValueKey('tavern-notice')), findsNothing);
+  });
+
+  testWidgets('the notice can be put away', (tester) async {
+    await _sendOneLine(tester, _Ending(finishReason: 'length'));
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-notice')), matching: find.byIcon(AppIcons.close)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-notice')), findsNothing);
   });
 
   testWidgets('too little balance says so', (tester) async {
