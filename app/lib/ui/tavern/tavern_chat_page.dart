@@ -363,6 +363,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     }
   }
 
+  /// 视觉小说: paging back through older pages hides the header and the box,
+  /// as reading back does in 小说; the newest page shows them again. Not
+  /// while a reply is written or something is being typed.
+  void _vnReadingBack(bool back) {
+    _immersive.value = back && !_running && !_focus.hasFocus;
+  }
+
   /// The reply's node, once known: the page places the reply by it.
   void _adopt(String nodeId) {
     if (_streamNode == null) setState(() => _streamNode = nodeId);
@@ -874,6 +881,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       null => null,
                     },
                     onPage: _cue,
+                    onReadingBack: _vnReadingBack,
                     revealRate: revealRate,
                     topInset: topInset,
                     onMenu: (m) => unawaited(_menu(m, last: m.nodeId == lastCharacter)),

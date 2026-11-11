@@ -130,6 +130,7 @@ class TavernVisualNovelView extends StatefulWidget {
     required this.footer,
     this.stage,
     this.onPage,
+    this.onReadingBack,
     this.revealRate,
   });
 
@@ -149,6 +150,9 @@ class TavernVisualNovelView extends StatefulWidget {
 
   /// A page came up: a new one, or one reached by stepping back and forth.
   final ValueChanged<TavernPage>? onPage;
+
+  /// Paging back to an older page (true), or to the newest again (false).
+  final ValueChanged<bool>? onReadingBack;
 
   /// How fast a page turned to is typed out, in characters a second; null
   /// shows each page whole.
@@ -306,6 +310,18 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
   /// it is, and whether it was still being written.
   (String, int, bool)? _told;
 
+  /// What [TavernVisualNovelView.onReadingBack] was last told.
+  bool? _toldBack;
+
+  void _tellBack(bool back) {
+    final onBack = widget.onReadingBack;
+    if (onBack == null || back == _toldBack) return;
+    _toldBack = back;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onBack(back);
+    });
+  }
+
   void _tell(TavernPage? page, int at) {
     final onPage = widget.onPage;
     if (page == null || onPage == null) return;
@@ -330,6 +346,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
     final speaker = page == null ? widget.name : (user ? context.l10n.tavernYou : tavernSpeaker(context, page.message));
     final typing = _typing?.at == at ? _typing : null;
     _tell(page, at);
+    _tellBack(pages.isNotEmpty && at < _last);
     _schedule(page, at);
     final stage = widget.stage;
     return Stack(

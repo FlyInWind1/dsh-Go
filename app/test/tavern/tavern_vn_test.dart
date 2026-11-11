@@ -105,6 +105,27 @@ void main() {
     expect(_typed(tester), isNull);
   });
 
+  testWidgets('paging back hides the header and the box; the newest page brings them back', (tester) async {
+    bool hidden(String key) => tester
+        .widget<IgnorePointer>(
+          find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(IgnorePointer)).first,
+        )
+        .ignoring;
+    await _open(tester);
+    expect(hidden('tavern-chrome-top'), isFalse);
+    expect(hidden('tavern-chrome-bottom'), isFalse);
+
+    await _back(tester);
+    expect(hidden('tavern-chrome-top'), isTrue);
+    expect(hidden('tavern-chrome-bottom'), isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('tavern-vn-skip')));
+    await tester.pumpAndSettle();
+    expect(find.text('2/2'), findsOneWidget);
+    expect(hidden('tavern-chrome-top'), isFalse);
+    expect(hidden('tavern-chrome-bottom'), isFalse);
+  });
+
   testWidgets('跳过 goes to the newest page, whole; on it there is nothing to skip', (tester) async {
     await _open(tester);
     expect(find.byKey(const ValueKey('tavern-vn-skip')), findsNothing);
