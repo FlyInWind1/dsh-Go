@@ -523,6 +523,8 @@ class _Parser {
   }
 
   void _pairScopes(List<_Call> calls) {
+    // Lists without closing calls need no pairing; avoid quadratic scans.
+    if (!calls.any((call) => call.closing)) return;
     final matched = <int>{};
     for (var i = 0; i < calls.length; i++) {
       final open = calls[i];
@@ -844,11 +846,15 @@ class _Evaluation {
       case 'charversion':
         return _cardField('character_version');
       case 'charfirstmessage':
-        final index = args.isEmpty ? 0 : _integerArgument(args[0]);
+        final rawIndex = args.isEmpty ? '0' : trimJsWhitespace(args[0]);
+        if (!_macroIntegerArgument.hasMatch(rawIndex)) throw ArgumentError.value(rawIndex);
+        // ST validates integer syntax, then uses Number without an int64 bound.
+        // Out-of-range indexes still resolve the lazy alternatives below.
+        final index = double.parse(rawIndex);
         if (index == 0) return _cardField('first_mes');
         if (!replaceCharacterCard) return '';
         final alternatives = _alternateGreetings ??= _resolveGreetings();
-        return index > 0 && index <= alternatives.length ? alternatives[index - 1] : '';
+        return index > 0 && index <= alternatives.length ? alternatives[index.toInt() - 1] : '';
       case 'model':
         return context.model;
       case 'original':
@@ -1108,8 +1114,9 @@ class _Evaluation {
 }
 
 int _integerArgument(String value) {
-  if (!_macroIntegerArgument.hasMatch(value.trim())) throw ArgumentError.value(value);
-  return int.parse(value.trim());
+  final trimmed = trimJsWhitespace(value);
+  if (!_macroIntegerArgument.hasMatch(trimmed)) throw ArgumentError.value(value);
+  return int.parse(trimmed);
 }
 
 String _trimScoped(String text) {
@@ -1159,7 +1166,7 @@ bool _truthy(Object? value) =>
     value != '' &&
     !(value is num && (value == 0 || value.isNaN));
 
-bool _falseBoolean(String value) => const {'false', 'off', '0'}.contains(value.trim().toLowerCase());
+bool _falseBoolean(String value) => const {'false', 'off', '0'}.contains(trimJsWhitespace(value).toLowerCase());
 
 bool _falseValue(Object? value) => !_truthy(value) || _falseBoolean(_normalize(value));
 

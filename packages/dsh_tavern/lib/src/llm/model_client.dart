@@ -466,19 +466,35 @@ Future<String> _errorBody(Stream<List<int>> bytes) async {
   return text.length > 4096 ? text.substring(0, 4096) : text;
 }
 
+bool _isContextLengthError(String body) {
+  bool matches(String value) {
+    final lowered = value.toLowerCase();
+    return lowered.contains('context_length_exceeded') ||
+        lowered.contains('maximum context length') ||
+        lowered.contains('context window') ||
+        lowered.contains('context too long');
+  }
+
+  // Keep existing raw/plain-text matches and also recognize JSON escapes in
+  // the two established error strings. Unrelated values are never re-encoded.
+  if (matches(body)) return true;
+  try {
+    final error = _object(_object(jsonDecode(body))['error']);
+    final code = error['code'];
+    final message = error['message'];
+    return (code is String && matches(code)) || (message is String && matches(message));
+  } on FormatException {
+    return false;
+  }
+}
+
 TavernModelException _apiError(int status, String body, String key) {
-  final lowered = body.toLowerCase();
   final kind = switch (status) {
     401 || 403 => TavernFailure.badKey,
     402 => TavernFailure.insufficientBalance,
     429 => TavernFailure.busy,
     >= 500 && < 600 => TavernFailure.server,
-    _
-        when lowered.contains('context_length_exceeded') ||
-            lowered.contains('maximum context length') ||
-            lowered.contains('context window') ||
-            lowered.contains('context too long') =>
-      TavernFailure.contextTooLong,
+    _ when _isContextLengthError(body) => TavernFailure.contextTooLong,
     400 || 422 => TavernFailure.invalidParameters,
     _ => TavernFailure.server,
   };
