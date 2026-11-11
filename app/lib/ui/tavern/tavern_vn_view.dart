@@ -508,16 +508,24 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
             ),
           ),
         ),
-        // The backlog is drawn for a dark stage (伙伴小屋's), whatever the
-        // app's brightness; it starts under the floating header.
+        // The backlog in the story's own look: the app's light or dark, the
+        // card's accent on her name (TavernReading above sets it); it starts
+        // under the floating header.
         Positioned.fill(
           top: widget.topInset,
           child: CompanionLogTransition(
             child: _log
-                ? Theme(
+                ? KeyedSubtree(
                     key: const ValueKey('tavern-vn-backlog'),
-                    data: buildDarkTheme(),
                     child: CompanionLog(
+                      scrim: [
+                        theme.colorScheme.surface.withValues(alpha: DshSurfaces.of(context).blurEnabled ? 0.86 : 0.96),
+                        theme.colorScheme.surfaceContainer.withValues(
+                          alpha: DshSurfaces.of(context).blurEnabled ? 0.92 : 0.98,
+                        ),
+                      ],
+                      herTone: theme.colorScheme.primary,
+                      youTone: dsh.textTertiary,
                       entries: [
                         for (final page in pages)
                           if (page.message.role == TavernRole.user)

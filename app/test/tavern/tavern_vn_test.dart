@@ -2,6 +2,7 @@ import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/tavern/tavern_settings.dart';
 import 'package:dsh_app/ui/chat/render/markdown_body.dart';
+import 'package:dsh_app/ui/companion/companion_log.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_settings_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_vn_view.dart';
@@ -124,6 +125,18 @@ void main() {
     expect(find.text('2/2'), findsOneWidget);
     expect(hidden('tavern-chrome-top'), isFalse);
     expect(hidden('tavern-chrome-bottom'), isFalse);
+  });
+
+  testWidgets("the backlog follows the story's look, not 伙伴小屋's night blue", (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const ValueKey('tavern-vn-log')));
+    await tester.pumpAndSettle();
+    final log = tester.widget<CompanionLog>(find.byType(CompanionLog));
+    final theme = Theme.of(tester.element(find.byType(CompanionLog)));
+    expect(theme.brightness, Brightness.light); // the app's, not a dark theme laid over it
+    expect(log.scrim, isNotNull);
+    expect(log.scrim!.first.withValues(alpha: 1), theme.colorScheme.surface.withValues(alpha: 1));
+    expect(log.herTone, theme.colorScheme.primary);
   });
 
   testWidgets('跳过 goes to the newest page, whole; on it there is nothing to skip', (tester) async {
