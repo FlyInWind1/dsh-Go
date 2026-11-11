@@ -19697,6 +19697,54 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernBranches => '分支';
+
+  @override
+  String get tavernBranchesNote => '每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去，或者给它起名。';
+
+  @override
+  String get tavernBranchesEmpty => '这段对话还没有消息。';
+
+  @override
+  String tavernBranchCount(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String tavernBranchUntil(String text) {
+    return '到「$text」';
+  }
+
+  @override
+  String get tavernBranchCurrent => '正在看';
+
+  @override
+  String get tavernBranchSwitch => '切到这条分支';
+
+  @override
+  String get tavernBranchSwitchSubtitle => '后面接着它上次走到的地方';
+
+  @override
+  String get tavernBranchName => '给这条分支起名';
+
+  @override
+  String get tavernBranchRename => '改名';
+
+  @override
+  String get tavernBranchNameHint => '比如：地下室那条线';
+
+  @override
+  String get tavernBranchNameCaption => '只给你看，方便找；留空就去掉名字。';
+
+  @override
+  String get tavernBranchSwitched => '切到了这条分支';
+
+  @override
+  String tavernBranchFailed(String error) {
+    return '没能完成：$error';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

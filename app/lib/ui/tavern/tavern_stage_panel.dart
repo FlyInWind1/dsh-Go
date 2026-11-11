@@ -24,6 +24,7 @@ import '../features/feature_kit.dart' show QuietSpinner;
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_branches_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
@@ -318,6 +319,13 @@ class _Session extends ConsumerWidget {
               tinted: false,
               title: l10n.tavernSearchChat,
               onTap: () => open(TavernSearchPage.route(chatId)),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-chat-branches'),
+              icon: AppIcons.fork,
+              tinted: false,
+              title: l10n.tavernBranches,
+              onTap: () => open(TavernBranchesPage.route(chatId)),
             ),
             SettingsTile(
               key: const ValueKey('tavern-chat-inspect'),

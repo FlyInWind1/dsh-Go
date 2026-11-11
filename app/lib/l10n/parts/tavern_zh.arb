@@ -768,5 +768,22 @@
   "tavernLoreNearExamples": "示例对话旁",
   "tavernLoreOutlet": "出口",
   "tavernLoreOrder": "顺序 {order}",
-  "@tavernLoreOrder": {"placeholders": {"order": {"type": "String"}}}
+  "@tavernLoreOrder": {"placeholders": {"order": {"type": "String"}}},
+  "tavernBranches": "分支",
+  "tavernBranchesNote": "每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去，或者给它起名。",
+  "tavernBranchesEmpty": "这段对话还没有消息。",
+  "tavernBranchCount": "{count} 条",
+  "@tavernBranchCount": {"placeholders": {"count": {"type": "int"}}},
+  "tavernBranchUntil": "到「{text}」",
+  "@tavernBranchUntil": {"placeholders": {"text": {"type": "String"}}},
+  "tavernBranchCurrent": "正在看",
+  "tavernBranchSwitch": "切到这条分支",
+  "tavernBranchSwitchSubtitle": "后面接着它上次走到的地方",
+  "tavernBranchName": "给这条分支起名",
+  "tavernBranchRename": "改名",
+  "tavernBranchNameHint": "比如：地下室那条线",
+  "tavernBranchNameCaption": "只给你看，方便找；留空就去掉名字。",
+  "tavernBranchSwitched": "切到了这条分支",
+  "tavernBranchFailed": "没能完成：{error}",
+  "@tavernBranchFailed": {"placeholders": {"error": {"type": "String"}}}
 }

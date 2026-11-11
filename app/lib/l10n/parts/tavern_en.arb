@@ -768,5 +768,22 @@
   "tavernLoreNearExamples": "By the example dialogue",
   "tavernLoreOutlet": "Outlet",
   "tavernLoreOrder": "Order {order}",
-  "@tavernLoreOrder": {"placeholders": {"order": {"type": "String"}}}
+  "@tavernLoreOrder": {"placeholders": {"order": {"type": "String"}}},
+  "tavernBranches": "Branches",
+  "tavernBranchesNote": "Each row is a stretch with no fork. An indented row is another way the story went from the end of the row above. Tap a row to switch to it or name it.",
+  "tavernBranchesEmpty": "No messages in this chat yet.",
+  "tavernBranchCount": "{count} messages",
+  "@tavernBranchCount": {"placeholders": {"count": {"type": "int"}}},
+  "tavernBranchUntil": "to “{text}”",
+  "@tavernBranchUntil": {"placeholders": {"text": {"type": "String"}}},
+  "tavernBranchCurrent": "Current",
+  "tavernBranchSwitch": "Switch to this branch",
+  "tavernBranchSwitchSubtitle": "Carries on where it last left off",
+  "tavernBranchName": "Name this branch",
+  "tavernBranchRename": "Rename",
+  "tavernBranchNameHint": "e.g. The cellar route",
+  "tavernBranchNameCaption": "Only for you, to find it again; leave empty to remove it.",
+  "tavernBranchSwitched": "Switched to this branch",
+  "tavernBranchFailed": "Couldn't do that: {error}",
+  "@tavernBranchFailed": {"placeholders": {"error": {"type": "String"}}}
 }

@@ -20776,6 +20776,55 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernBranches => 'Branches';
+
+  @override
+  String get tavernBranchesNote =>
+      'Each row is a stretch with no fork. An indented row is another way the story went from the end of the row above. Tap a row to switch to it or name it.';
+
+  @override
+  String get tavernBranchesEmpty => 'No messages in this chat yet.';
+
+  @override
+  String tavernBranchCount(int count) {
+    return '$count messages';
+  }
+
+  @override
+  String tavernBranchUntil(String text) {
+    return 'to “$text”';
+  }
+
+  @override
+  String get tavernBranchCurrent => 'Current';
+
+  @override
+  String get tavernBranchSwitch => 'Switch to this branch';
+
+  @override
+  String get tavernBranchSwitchSubtitle => 'Carries on where it last left off';
+
+  @override
+  String get tavernBranchName => 'Name this branch';
+
+  @override
+  String get tavernBranchRename => 'Rename';
+
+  @override
+  String get tavernBranchNameHint => 'e.g. The cellar route';
+
+  @override
+  String get tavernBranchNameCaption => 'Only for you, to find it again; leave empty to remove it.';
+
+  @override
+  String get tavernBranchSwitched => 'Switched to this branch';
+
+  @override
+  String tavernBranchFailed(String error) {
+    return 'Couldn\'t do that: $error';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

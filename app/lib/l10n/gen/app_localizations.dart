@@ -35942,6 +35942,90 @@ abstract class L10n {
   /// **'顺序 {order}'**
   String tavernLoreOrder(String order);
 
+  /// No description provided for @tavernBranches.
+  ///
+  /// In zh, this message translates to:
+  /// **'分支'**
+  String get tavernBranches;
+
+  /// No description provided for @tavernBranchesNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去，或者给它起名。'**
+  String get tavernBranchesNote;
+
+  /// No description provided for @tavernBranchesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段对话还没有消息。'**
+  String get tavernBranchesEmpty;
+
+  /// No description provided for @tavernBranchCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条'**
+  String tavernBranchCount(int count);
+
+  /// No description provided for @tavernBranchUntil.
+  ///
+  /// In zh, this message translates to:
+  /// **'到「{text}」'**
+  String tavernBranchUntil(String text);
+
+  /// No description provided for @tavernBranchCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在看'**
+  String get tavernBranchCurrent;
+
+  /// No description provided for @tavernBranchSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'切到这条分支'**
+  String get tavernBranchSwitch;
+
+  /// No description provided for @tavernBranchSwitchSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'后面接着它上次走到的地方'**
+  String get tavernBranchSwitchSubtitle;
+
+  /// No description provided for @tavernBranchName.
+  ///
+  /// In zh, this message translates to:
+  /// **'给这条分支起名'**
+  String get tavernBranchName;
+
+  /// No description provided for @tavernBranchRename.
+  ///
+  /// In zh, this message translates to:
+  /// **'改名'**
+  String get tavernBranchRename;
+
+  /// No description provided for @tavernBranchNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'比如：地下室那条线'**
+  String get tavernBranchNameHint;
+
+  /// No description provided for @tavernBranchNameCaption.
+  ///
+  /// In zh, this message translates to:
+  /// **'只给你看，方便找；留空就去掉名字。'**
+  String get tavernBranchNameCaption;
+
+  /// No description provided for @tavernBranchSwitched.
+  ///
+  /// In zh, this message translates to:
+  /// **'切到了这条分支'**
+  String get tavernBranchSwitched;
+
+  /// No description provided for @tavernBranchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能完成：{error}'**
+  String tavernBranchFailed(String error);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

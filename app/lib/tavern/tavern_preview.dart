@@ -400,7 +400,15 @@ class PreviewTavern implements Tavern, TavernPreview {
     final chat = _chats[chatId]!;
     final node = chat.nodes[nodeId]!;
     final siblings = chat.children(node.parent);
-    chat.chosen[node.parent] = siblings[index.clamp(0, siblings.length - 1)].id;
+    // As the engine: the chosen sibling's ancestors are all chosen too, so
+    // any node of the tree can be made current in one call.
+    var at = siblings[index.clamp(0, siblings.length - 1)];
+    for (;;) {
+      chat.chosen[at.parent] = at.id;
+      final parent = at.parent;
+      if (parent == null) break;
+      at = chat.nodes[parent]!;
+    }
     chat.changes.add(null);
   }
 

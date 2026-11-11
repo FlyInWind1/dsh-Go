@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
@@ -123,6 +125,11 @@ void main() {
       200,
       scrollable: find.descendant(of: find.byKey(const ValueKey('tavern-stage')), matching: find.byType(Scrollable)),
     );
+    // Clear of the sheet's bottom edge.
+    unawaited(
+      Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('tavern-chat-inspect'))), alignment: 0.5),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('tavern-chat-inspect')));
     await tester.pumpAndSettle();
 
