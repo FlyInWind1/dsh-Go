@@ -19586,6 +19586,56 @@ class L10nZh extends L10n {
   String get tavernStateVariablesNote => '卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。';
 
   @override
+  String get tavernData => '数据';
+
+  @override
+  String get tavernBackup => '备份整个酒馆';
+
+  @override
+  String get tavernBackupSubtitle => '角色卡、对话、预设、世界书、人设和设置，打成一个 zip';
+
+  @override
+  String get tavernBackingUp => '正在备份…';
+
+  @override
+  String tavernBackedUp(int count, String size) {
+    return '备份好了：$count 个文件，$size';
+  }
+
+  @override
+  String tavernBackupFailed(String error) {
+    return '没能备份：$error';
+  }
+
+  @override
+  String get tavernRestore => '从备份恢复';
+
+  @override
+  String get tavernRestoreSubtitle => '用一份备份替换现在的酒馆';
+
+  @override
+  String get tavernRestoreTitle => '用这份备份替换现在的酒馆？';
+
+  @override
+  String get tavernRestoreMessage => '现在的角色、对话、预设和设置都会换成备份里的。想留着现在的，先备份一份。备份不对或者坏了的话，现在的数据不会动。';
+
+  @override
+  String get tavernRestoreAction => '恢复';
+
+  @override
+  String get tavernRestoring => '正在恢复…';
+
+  @override
+  String tavernRestored(int count) {
+    return '恢复好了：$count 个文件';
+  }
+
+  @override
+  String tavernRestoreFailed(String error) {
+    return '没能恢复，现在的数据没动：$error';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

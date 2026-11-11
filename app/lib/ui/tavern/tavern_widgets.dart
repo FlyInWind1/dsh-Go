@@ -103,11 +103,21 @@ Future<bool> deleteTavernChat(BuildContext context, WidgetRef ref, String chatId
   return true;
 }
 
-/// Asks before something is deleted for good. True to go ahead.
-Future<bool> confirmTavernDelete(BuildContext context, {required String title, required String message}) =>
-    _confirmDelete(context, title: title, message: message);
+/// Asks before something is deleted (or replaced) for good. True to go ahead.
+/// [action] names the button; 删除 unless given.
+Future<bool> confirmTavernDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String? action,
+}) => _confirmDelete(context, title: title, message: message, action: action);
 
-Future<bool> _confirmDelete(BuildContext context, {required String title, required String message}) async {
+Future<bool> _confirmDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String? action,
+}) async {
   final l10n = context.l10n;
   final ok = await showAppDialog<bool>(
     context: context,
@@ -116,7 +126,7 @@ Future<bool> _confirmDelete(BuildContext context, {required String title, requir
       content: Text(message),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l10n.commonCancel)),
-        TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text(l10n.commonDelete)),
+        TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text(action ?? l10n.commonDelete)),
       ],
     ),
   );

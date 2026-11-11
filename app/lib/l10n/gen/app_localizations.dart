@@ -35756,6 +35756,90 @@ abstract class L10n {
   /// **'卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。'**
   String get tavernStateVariablesNote;
 
+  /// No description provided for @tavernData.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据'**
+  String get tavernData;
+
+  /// No description provided for @tavernBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份整个酒馆'**
+  String get tavernBackup;
+
+  /// No description provided for @tavernBackupSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色卡、对话、预设、世界书、人设和设置，打成一个 zip'**
+  String get tavernBackupSubtitle;
+
+  /// No description provided for @tavernBackingUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在备份…'**
+  String get tavernBackingUp;
+
+  /// No description provided for @tavernBackedUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份好了：{count} 个文件，{size}'**
+  String tavernBackedUp(int count, String size);
+
+  /// No description provided for @tavernBackupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能备份：{error}'**
+  String tavernBackupFailed(String error);
+
+  /// No description provided for @tavernRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'从备份恢复'**
+  String get tavernRestore;
+
+  /// No description provided for @tavernRestoreSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用一份备份替换现在的酒馆'**
+  String get tavernRestoreSubtitle;
+
+  /// No description provided for @tavernRestoreTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用这份备份替换现在的酒馆？'**
+  String get tavernRestoreTitle;
+
+  /// No description provided for @tavernRestoreMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在的角色、对话、预设和设置都会换成备份里的。想留着现在的，先备份一份。备份不对或者坏了的话，现在的数据不会动。'**
+  String get tavernRestoreMessage;
+
+  /// No description provided for @tavernRestoreAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复'**
+  String get tavernRestoreAction;
+
+  /// No description provided for @tavernRestoring.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在恢复…'**
+  String get tavernRestoring;
+
+  /// No description provided for @tavernRestored.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复好了：{count} 个文件'**
+  String tavernRestored(int count);
+
+  /// No description provided for @tavernRestoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能恢复，现在的数据没动：{error}'**
+  String tavernRestoreFailed(String error);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

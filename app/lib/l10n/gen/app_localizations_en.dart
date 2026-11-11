@@ -20663,6 +20663,57 @@ class L10nEn extends L10n {
       'What the card\'s and the chat\'s macros, such as {{setvar}}, saved, as of the current message. Read-only for now; once a card defines its state, it can be changed here.';
 
   @override
+  String get tavernData => 'Data';
+
+  @override
+  String get tavernBackup => 'Back up the whole tavern';
+
+  @override
+  String get tavernBackupSubtitle => 'Cards, chats, presets, lorebooks, personas and settings, in one zip';
+
+  @override
+  String get tavernBackingUp => 'Backing up…';
+
+  @override
+  String tavernBackedUp(int count, String size) {
+    return 'Backed up: $count files, $size';
+  }
+
+  @override
+  String tavernBackupFailed(String error) {
+    return 'Couldn\'t back up: $error';
+  }
+
+  @override
+  String get tavernRestore => 'Restore from a backup';
+
+  @override
+  String get tavernRestoreSubtitle => 'Replace this tavern with a backup';
+
+  @override
+  String get tavernRestoreTitle => 'Replace this tavern with this backup?';
+
+  @override
+  String get tavernRestoreMessage =>
+      'The cards, chats, presets and settings here are all replaced by the backup\'s. To keep what is here, back it up first. A wrong or damaged backup changes nothing.';
+
+  @override
+  String get tavernRestoreAction => 'Restore';
+
+  @override
+  String get tavernRestoring => 'Restoring…';
+
+  @override
+  String tavernRestored(int count) {
+    return 'Restored: $count files';
+  }
+
+  @override
+  String tavernRestoreFailed(String error) {
+    return 'Couldn\'t restore; nothing here changed: $error';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

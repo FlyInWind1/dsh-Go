@@ -12071,6 +12071,51 @@
   "tavernSendFailed": "没能发出去",
   "tavernStateVariables": "变量",
   "tavernStateVariablesNote": "卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。",
+  "tavernData": "数据",
+  "tavernBackup": "备份整个酒馆",
+  "tavernBackupSubtitle": "角色卡、对话、预设、世界书、人设和设置，打成一个 zip",
+  "tavernBackingUp": "正在备份…",
+  "tavernBackedUp": "备份好了：{count} 个文件，{size}",
+  "@tavernBackedUp": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernBackupFailed": "没能备份：{error}",
+  "@tavernBackupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernRestore": "从备份恢复",
+  "tavernRestoreSubtitle": "用一份备份替换现在的酒馆",
+  "tavernRestoreTitle": "用这份备份替换现在的酒馆？",
+  "tavernRestoreMessage": "现在的角色、对话、预设和设置都会换成备份里的。想留着现在的，先备份一份。备份不对或者坏了的话，现在的数据不会动。",
+  "tavernRestoreAction": "恢复",
+  "tavernRestoring": "正在恢复…",
+  "tavernRestored": "恢复好了：{count} 个文件",
+  "@tavernRestored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernRestoreFailed": "没能恢复，现在的数据没动：{error}",
+  "@tavernRestoreFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

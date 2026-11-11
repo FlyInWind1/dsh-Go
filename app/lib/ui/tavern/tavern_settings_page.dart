@@ -21,6 +21,7 @@ import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_backup.dart';
 import 'tavern_personas.dart';
 import 'tavern_quick_replies_page.dart';
 import 'tavern_reading.dart';
@@ -233,6 +234,27 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           title: l10n.modeStartup,
           value: Text(appModeShortLabel(l10n, startup)),
           onTap: () => unawaited(showModeSheet(context, current: AppMode.tavern)),
+        ),
+      ],
+    ),
+    // The whole tavern in one ZIP, and back (engine T24).
+    SheetGroup(
+      title: l10n.tavernData,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        SettingsTile(
+          key: const ValueKey('tavern-backup'),
+          icon: AppIcons.archive,
+          title: l10n.tavernBackup,
+          subtitle: l10n.tavernBackupSubtitle,
+          onTap: () => unawaited(backupTavern(context, ref)),
+        ),
+        SettingsTile(
+          key: const ValueKey('tavern-restore'),
+          icon: AppIcons.history,
+          title: l10n.tavernRestore,
+          subtitle: l10n.tavernRestoreSubtitle,
+          onTap: () => unawaited(restoreTavern(context, ref)),
         ),
       ],
     ),
