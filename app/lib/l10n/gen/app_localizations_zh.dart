@@ -19931,6 +19931,9 @@ class L10nZh extends L10n {
   String get tavernSessionUsageNone => '还没有模型报告过用量';
 
   @override
+  String get tavernComposerNoKey => '填好 Key 就能开始';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

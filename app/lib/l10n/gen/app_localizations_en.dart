@@ -21035,6 +21035,9 @@ class L10nEn extends L10n {
   String get tavernSessionUsageNone => 'The model hasn\'t reported any usage yet';
 
   @override
+  String get tavernComposerNoKey => 'Add a key to begin';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

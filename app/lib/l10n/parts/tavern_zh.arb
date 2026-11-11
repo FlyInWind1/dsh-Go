@@ -851,5 +851,6 @@
   "tavernSessionUsage": "本局用量",
   "tavernSessionUsageNote": "当前这条线上 {count} 条回复的合计；换掉的备选不算",
   "@tavernSessionUsageNote": {"placeholders": {"count": {"type": "int"}}},
-  "tavernSessionUsageNone": "还没有模型报告过用量"
+  "tavernSessionUsageNone": "还没有模型报告过用量",
+  "tavernComposerNoKey": "填好 Key 就能开始"
 }

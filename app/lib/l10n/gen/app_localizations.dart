@@ -36350,6 +36350,12 @@ abstract class L10n {
   /// **'还没有模型报告过用量'**
   String get tavernSessionUsageNone;
 
+  /// No description provided for @tavernComposerNoKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'填好 Key 就能开始'**
+  String get tavernComposerNoKey;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

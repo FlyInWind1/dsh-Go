@@ -411,6 +411,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   void _send() {
     if (_running) return;
+    // No key yet: the line would only fail. Keep it, and go and add one.
+    if (_tavern is! TavernPreview && !ref.read(settingsProvider).hasApiKey) {
+      _openKeySettings();
+      return;
+    }
     final text = _input.text;
     _input.clear();
     _run(() => _tavern.send(widget.chatId, text), draft: text);
@@ -1052,7 +1057,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   onSend: _send,
                   onStop: _stop,
                   voice: _voice,
-                  placeholder: l10n.tavernComposerHint(name),
+                  placeholder: !preview && !ref.watch(settingsProvider.select((s) => s.hasApiKey))
+                      ? l10n.tavernComposerNoKey
+                      : l10n.tavernComposerHint(name),
                   leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
                   tray: !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
                       ? _QuickReplyRow(

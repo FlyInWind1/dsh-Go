@@ -57,5 +57,25 @@ void main() {
   testWidgets('the preview needs no key', (tester) async {
     await _open(tester, key: false, preview: true);
     expect(find.byKey(const ValueKey('tavern-key-missing')), findsNothing);
+    expect(find.text('填好 Key 就能开始'), findsNothing);
+  });
+
+  testWidgets('without a key the box says to add one, and sending goes there, the line kept', (tester) async {
+    await _open(tester, key: false);
+    expect(find.text('填好 Key 就能开始'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '你好');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('发送'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ApiKeyPage), findsOneWidget);
+    Navigator.of(tester.element(find.byType(ApiKeyPage))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('你好'), findsOneWidget);
+  });
+
+  testWidgets('with a key the box invites a line as before', (tester) async {
+    await _open(tester, key: true);
+    expect(find.text('填好 Key 就能开始'), findsNothing);
+    expect(find.text('对林晚说…'), findsOneWidget);
   });
 }

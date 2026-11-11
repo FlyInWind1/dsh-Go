@@ -6043,6 +6043,7 @@
   "tavernSessionUsage": "This chat's usage",
   "tavernSessionUsageNote": "{count, plural, =1{1 reply on the current line} other{{count} replies on the current line}}, added up; replaced alternatives aren't counted",
   "tavernSessionUsageNone": "The model hasn't reported any usage yet",
+  "tavernComposerNoKey": "Add a key to begin",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

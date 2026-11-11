@@ -12350,6 +12350,7 @@
     }
   },
   "tavernSessionUsageNone": "还没有模型报告过用量",
+  "tavernComposerNoKey": "填好 Key 就能开始",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",
