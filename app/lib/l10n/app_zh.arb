@@ -12212,6 +12212,8 @@
   "tavernFavorite": "收藏",
   "tavernUnfavorite": "取消收藏",
   "tavernFavorited": "已收藏",
+  "tavernChatSearchHint": "搜对话：角色、标题、最后一句",
+  "tavernNoChatMatch": "没有符合的对话",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

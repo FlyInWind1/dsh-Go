@@ -52,12 +52,17 @@ class TavernHomePage extends ConsumerStatefulWidget {
 class _TavernHomePageState extends ConsumerState<TavernHomePage> {
   final _search = TextEditingController();
   String _query = '';
+
+  /// 对话's own search: who, the chat's title, its last line.
+  final _chatSearch = TextEditingController();
+  String _chatQuery = '';
   String? _tag;
   var _section = TavernSection.shelf;
 
   @override
   void dispose() {
     _search.dispose();
+    _chatSearch.dispose();
     super.dispose();
   }
 
@@ -289,14 +294,51 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
         ),
       ];
     }
+    final q = _chatQuery.trim().toLowerCase();
+    final shown = q.isEmpty
+        ? chats
+        : [
+            for (final chat in chats)
+              if ([
+                ?byId[chat.characterId]?.name,
+                chat.title,
+                plainPreview(chat.lastText ?? ''),
+              ].any((field) => field.toLowerCase().contains(q)))
+                chat,
+          ];
     return [
+      if (chats.length >= TavernHomePage.searchFrom)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SearchCapsule(
+              key: const ValueKey('tavern-chat-search'),
+              controller: _chatSearch,
+              hint: l10n.tavernChatSearchHint,
+              onChanged: (q) => setState(() => _chatQuery = q),
+              onClear: () => setState(() {
+                _chatSearch.clear();
+                _chatQuery = '';
+              }),
+            ),
+          ),
+        ),
+      if (shown.isEmpty)
+        SliverToBoxAdapter(
+          child: EmptyView(
+            key: const ValueKey('tavern-chats-no-match'),
+            icon: AppIcons.noResults,
+            title: l10n.tavernNoChatMatch,
+            compact: true,
+          ),
+        ),
       SliverPadding(
         key: const ValueKey('tavern-chats'),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         sliver: SliverList.separated(
-          itemCount: chats.length,
+          itemCount: shown.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
-          itemBuilder: (context, i) => _ChatRow(chat: chats[i], character: byId[chats[i].characterId]),
+          itemBuilder: (context, i) => _ChatRow(chat: shown[i], character: byId[shown[i].characterId]),
         ),
       ),
     ];

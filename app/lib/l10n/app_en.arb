@@ -5998,6 +5998,8 @@
   "tavernFavorite": "Favorite",
   "tavernUnfavorite": "Remove from favorites",
   "tavernFavorited": "Favorite",
+  "tavernChatSearchHint": "Search chats: who, title, last line",
+  "tavernNoChatMatch": "No matching chats",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

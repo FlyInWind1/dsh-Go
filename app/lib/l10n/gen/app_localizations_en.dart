@@ -20853,6 +20853,12 @@ class L10nEn extends L10n {
   String get tavernFavorited => 'Favorite';
 
   @override
+  String get tavernChatSearchHint => 'Search chats: who, title, last line';
+
+  @override
+  String get tavernNoChatMatch => 'No matching chats';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

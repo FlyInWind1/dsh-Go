@@ -36080,6 +36080,18 @@ abstract class L10n {
   /// **'已收藏'**
   String get tavernFavorited;
 
+  /// No description provided for @tavernChatSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜对话：角色、标题、最后一句'**
+  String get tavernChatSearchHint;
+
+  /// No description provided for @tavernNoChatMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有符合的对话'**
+  String get tavernNoChatMatch;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -794,5 +794,7 @@
   "tavernShelfOrderImported": "Recently imported",
   "tavernFavorite": "Favorite",
   "tavernUnfavorite": "Remove from favorites",
-  "tavernFavorited": "Favorite"
+  "tavernFavorited": "Favorite",
+  "tavernChatSearchHint": "Search chats: who, title, last line",
+  "tavernNoChatMatch": "No matching chats"
 }

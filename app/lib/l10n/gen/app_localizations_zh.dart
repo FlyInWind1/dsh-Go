@@ -19772,6 +19772,12 @@ class L10nZh extends L10n {
   String get tavernFavorited => '已收藏';
 
   @override
+  String get tavernChatSearchHint => '搜对话：角色、标题、最后一句';
+
+  @override
+  String get tavernNoChatMatch => '没有符合的对话';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
