@@ -19,6 +19,7 @@ import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_session_usage.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_state_hints.dart';
 import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
 import '../common/search_capsule.dart';
@@ -445,13 +446,10 @@ class _StateViewState extends ConsumerState<_StateView> {
   static String _pointer(String key) => '/${key.replaceAll('~', '~0').replaceAll('/', '~1')}';
 
   /// [value] on a line: text as written, a list of words as a list (a bag,
-  /// say), the rest as compact JSON.
-  static String _line(Object? value) => switch (value) {
-    final String text => text,
-    null => 'null',
-    final List<Object?> list when list.isNotEmpty && list.every((item) => item is String) => list.join('、'),
-    _ => jsonEncode(value),
-  };
+  /// say), the rest as compact JSON; one the card draws on a line, its parts
+  /// side by side.
+  static String _line(Object? value, [TavernStateShow? show]) =>
+      show == TavernStateShow.line ? tavernStateLine(value) : tavernStateText(value);
 
   /// What changed at or under [path] in this message: a number's difference,
   /// or that it changed.
@@ -603,7 +601,8 @@ class _StateViewState extends ConsumerState<_StateView> {
       (value is List<Object?> && value.isNotEmpty && !value.every((item) => item is String));
 
   /// The rows under [value] at [path], opened ones' children after them; with
-  /// [all], every row regardless, for 搜.
+  /// [all], every row regardless, for 搜. One the card's [schema] says how to
+  /// draw is drawn whole on its row, never opened.
   static void _walk(
     List<_StateRow> rows,
     String title,
@@ -611,19 +610,31 @@ class _StateViewState extends ConsumerState<_StateView> {
     String path,
     Object? value,
     int depth, {
+    required Object? schema,
     required bool Function(String path) open,
     required bool all,
   }) {
-    rows.add((title: title, trail: trail, path: path, value: value, depth: depth));
-    if (!_branch(value) || !(all || open(path))) return;
+    final show = tavernStateShow(schema, path, value);
+    rows.add((title: title, trail: trail, path: path, value: value, depth: depth, show: show));
+    if (show != null || !_branch(value) || !(all || open(path))) return;
     switch (value) {
       case final Map<String, Object?> map:
         for (final key in map.keys) {
-          _walk(rows, key, '$trail › $key', '$path${_pointer(key)}', map[key], depth + 1, open: open, all: all);
+          _walk(
+            rows,
+            key,
+            '$trail › $key',
+            '$path${_pointer(key)}',
+            map[key],
+            depth + 1,
+            schema: schema,
+            open: open,
+            all: all,
+          );
         }
       case final List<Object?> list:
         for (var i = 0; i < list.length; i++) {
-          _walk(rows, '[$i]', '$trail › [$i]', '$path/$i', list[i], depth + 1, open: open, all: all);
+          _walk(rows, '[$i]', '$trail › [$i]', '$path/$i', list[i], depth + 1, schema: schema, open: open, all: all);
         }
     }
   }
@@ -659,10 +670,12 @@ class _StateViewState extends ConsumerState<_StateView> {
             message: l10n.tavernStageStateNote,
           );
         }
+        // How the card asks its fields to be drawn; a card without state has none.
+        final schema = state.legacy ? null : state.schema;
         // Every row, for 搜 and to know whether there are enough to search.
         final every = <_StateRow>[];
         for (final (title, path, value) in top) {
-          _walk(every, title, title, path, value, 0, open: (_) => true, all: true);
+          _walk(every, title, title, path, value, 0, schema: schema, open: (_) => true, all: true);
         }
         final query = _query.trim().toLowerCase();
         final rows = <_StateRow>[];
@@ -675,6 +688,7 @@ class _StateViewState extends ConsumerState<_StateView> {
               path,
               value,
               0,
+              schema: schema,
               open: (path) => _expanded.contains(path) && !_hidden(state, path),
               all: false,
             );
@@ -682,10 +696,17 @@ class _StateViewState extends ConsumerState<_StateView> {
         } else {
           // Flat: each match by its whole path; a spoiler matches by name only.
           for (final row in every) {
-            final shown = _hidden(state, row.path) ? '' : _line(row.value);
+            final shown = _hidden(state, row.path) ? '' : _line(row.value, row.show);
             if (row.trail.toLowerCase().contains(query) ||
-                (!_branch(row.value) && shown.toLowerCase().contains(query))) {
-              rows.add((title: row.trail, trail: row.trail, path: row.path, value: row.value, depth: 0));
+                ((row.show != null || !_branch(row.value)) && shown.toLowerCase().contains(query))) {
+              rows.add((
+                title: row.trail,
+                trail: row.trail,
+                path: row.path,
+                value: row.value,
+                depth: 0,
+                show: row.show,
+              ));
             }
           }
         }
@@ -726,12 +747,67 @@ class _StateViewState extends ConsumerState<_StateView> {
                 for (final row in rows)
                   () {
                     final hidden = _hidden(state, row.path);
-                    final branch = _branch(row.value) && !hidden && query.isEmpty;
+                    final show = hidden ? null : row.show;
+                    final branch = show == null && _branch(row.value) && !hidden && query.isEmpty;
                     final open = branch && _expanded.contains(row.path);
                     final count = switch (row.value) {
                       final Map<String, Object?> map => map.length,
                       final List<Object?> list => list.length,
                       _ => 0,
+                    };
+                    // A bag or a list the card asks for goes under the name, the
+                    // row's right side saying how many.
+                    final below = switch (show) {
+                      TavernStateShow.inventory when count > 0 => _StateGoods(
+                        key: ValueKey('tavern-state-goods-${row.path}'),
+                        goods: tavernStateGoods(row.value),
+                      ),
+                      TavernStateShow.list when count > 0 => _StateEntries(
+                        key: ValueKey('tavern-state-list-${row.path}'),
+                        entries: tavernStateEntries(row.value),
+                      ),
+                      _ => null,
+                    };
+                    final quietValue = hidden ? quiet?.copyWith(fontStyle: FontStyle.italic) : quiet;
+                    final Widget value = switch (show) {
+                      _ when hidden => Text(
+                        l10n.tavernStateHidden,
+                        textAlign: TextAlign.end,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: quietValue,
+                      ),
+                      TavernStateShow.bar => Row(
+                        children: [
+                          Expanded(
+                            child: _StateBar(
+                              key: ValueKey('tavern-state-bar-${row.path}'),
+                              fraction: tavernStateFraction(
+                                row.value! as num,
+                                tavernStateRange(tavernStateSchemaAt(schema, row.path)!)!,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(_line(row.value), style: quiet),
+                        ],
+                      ),
+                      TavernStateShow.tags when count > 0 => _StateTags(
+                        key: ValueKey('tavern-state-tags-${row.path}'),
+                        tags: [for (final tag in row.value! as List<Object?>) tavernStateText(tag)],
+                      ),
+                      _ => Text(
+                        branch ||
+                                show == TavernStateShow.tags ||
+                                show == TavernStateShow.inventory ||
+                                show == TavernStateShow.list
+                            ? l10n.tavernStateItems(count)
+                            : _line(row.value, show),
+                        textAlign: TextAlign.end,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: quietValue,
+                      ),
                     };
                     return InkWell(
                       key: ValueKey(
@@ -753,49 +829,45 @@ class _StateViewState extends ConsumerState<_StateView> {
                           SettingsMetrics.inset,
                           10,
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: query.isEmpty ? 120 : 200),
-                              child: Text(
-                                row.title,
-                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            if (_mark(state, row.path, l10n) case final mark?) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                mark,
-                                key: ValueKey('tavern-state-change-${row.title}'),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
+                            Row(
+                              crossAxisAlignment: show == TavernStateShow.bar
+                                  ? CrossAxisAlignment.center
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: query.isEmpty ? 120 : 200),
+                                  child: Text(
+                                    row.title,
+                                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
                                 ),
-                              ),
-                            ],
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                hidden
-                                    ? l10n.tavernStateHidden
-                                    : branch
-                                    ? l10n.tavernStateItems(count)
-                                    : _line(row.value),
-                                textAlign: TextAlign.end,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: hidden ? quiet?.copyWith(fontStyle: FontStyle.italic) : quiet,
-                              ),
+                                if (_mark(state, row.path, l10n) case final mark?) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    mark,
+                                    key: ValueKey('tavern-state-change-${row.title}'),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(width: 12),
+                                Expanded(child: value),
+                                if (branch) ...[
+                                  const SizedBox(width: 4),
+                                  AnimatedRotation(
+                                    turns: open ? 0.25 : 0,
+                                    duration: AppMotion.of(context, AppMotion.standard),
+                                    child: Icon(AppIcons.disclosure, size: 18, color: dsh.textTertiary),
+                                  ),
+                                ],
+                              ],
                             ),
-                            if (branch) ...[
-                              const SizedBox(width: 4),
-                              AnimatedRotation(
-                                turns: open ? 0.25 : 0,
-                                duration: AppMotion.of(context, AppMotion.standard),
-                                child: Icon(AppIcons.disclosure, size: 18, color: dsh.textTertiary),
-                              ),
-                            ],
+                            if (below != null) ...[const SizedBox(height: 10), below],
                           ],
                         ),
                       ),
@@ -821,8 +893,147 @@ class _StateViewState extends ConsumerState<_StateView> {
 }
 
 /// One row of 状态: its name, its whole path to show, its pointer, its value,
-/// and how deep it sits.
-typedef _StateRow = ({String title, String trail, String path, Object? value, int depth});
+/// how deep it sits, and how the card asks it to be drawn.
+typedef _StateRow = ({String title, String trail, String path, Object? value, int depth, TavernStateShow? show});
+
+/// A field the card draws as a bar (a bond, say): filled [fraction] of the way
+/// between the schema's ends, easing to a new value.
+class _StateBar extends StatelessWidget {
+  const _StateBar({super.key, required this.fraction});
+
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = Theme.of(context).colorScheme.primary;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: fraction),
+      duration: AppMotion.of(context, AppMotion.standard),
+      curve: Curves.easeOutCubic,
+      builder: (context, at, _) => ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: SizedBox(
+          height: 6,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: tint.withValues(alpha: 0.14)),
+              FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: at,
+                child: ColoredBox(color: tint),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A field the card draws as tags: small capsules, from the right.
+class _StateTags extends StatelessWidget {
+  const _StateTags({super.key, required this.tags});
+
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final tag in tags)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              child: Text(tag, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A field the card draws as a bag: a cell for each thing, how many under it
+/// when there is more (or less) than one.
+class _StateGoods extends StatelessWidget {
+  const _StateGoods({super.key, required this.goods});
+
+  final List<TavernStateGood> goods;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ink = theme.colorScheme.onSurface;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final good in goods)
+          Container(
+            constraints: const BoxConstraints(minWidth: 64, maxWidth: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: ink.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: ink.withValues(alpha: 0.08)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(good.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
+                if (good.count case final count? when count != 1)
+                  Text(
+                    '×${tavernStateText(count)}',
+                    style: theme.textTheme.labelSmall?.copyWith(color: ink.withValues(alpha: 0.6)),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A field the card draws as a list (tasks, say): one line each.
+class _StateEntries extends StatelessWidget {
+  const _StateEntries({super.key, required this.entries});
+
+  final List<String> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+      height: 1.45,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('·  ', style: style),
+                Expanded(child: Text(entry, style: style)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
 
 /// 导演 (engine T18; docs/design/roleplay-agent.md §3): the director's latest
 /// word on this chat, followed live. Its beat for the next turn, three things
