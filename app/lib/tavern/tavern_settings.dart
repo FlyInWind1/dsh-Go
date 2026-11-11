@@ -52,6 +52,9 @@ class TavernSettings {
     this.showUsage = true,
     this.cardTheme = true,
     this.novelIndent = true,
+    this.islands = true,
+    this.islandNoScripts = false,
+    this.islandOffline = false,
     this.loaded = false,
   });
 
@@ -74,6 +77,15 @@ class TavernSettings {
 
   /// 小说: each paragraph opens with two ideographic spaces, as fiction is set.
   final bool novelIndent;
+
+  /// A message carrying HTML (an ```html block, <style>, <div>…) shows that
+  /// part in a sandboxed web view of its own, as tall as it is (岛屿).
+  final bool islands;
+
+  /// Protections the user may turn on (security-as-options): the card's own
+  /// scripts don't run in islands; islands load nothing from the network.
+  final bool islandNoScripts;
+  final bool islandOffline;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -87,6 +99,9 @@ class TavernSettings {
     bool? showUsage,
     bool? cardTheme,
     bool? novelIndent,
+    bool? islands,
+    bool? islandNoScripts,
+    bool? islandOffline,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
@@ -98,6 +113,9 @@ class TavernSettings {
     showUsage: showUsage ?? this.showUsage,
     cardTheme: cardTheme ?? this.cardTheme,
     novelIndent: novelIndent ?? this.novelIndent,
+    islands: islands ?? this.islands,
+    islandNoScripts: islandNoScripts ?? this.islandNoScripts,
+    islandOffline: islandOffline ?? this.islandOffline,
     loaded: true,
   );
 }
@@ -113,6 +131,9 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const showUsageKey = 'tavern.showUsage';
   static const cardThemeKey = 'tavern.cardTheme';
   static const novelIndentKey = 'tavern.novelIndent';
+  static const islandsKey = 'tavern.islands';
+  static const islandNoScriptsKey = 'tavern.islandNoScripts';
+  static const islandOfflineKey = 'tavern.islandOffline';
 
   @override
   TavernSettings build() {
@@ -136,6 +157,9 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         showUsage: prefs.getBool(showUsageKey) ?? true,
         cardTheme: prefs.getBool(cardThemeKey) ?? true,
         novelIndent: prefs.getBool(novelIndentKey) ?? true,
+        islands: prefs.getBool(islandsKey) ?? true,
+        islandNoScripts: prefs.getBool(islandNoScriptsKey) ?? false,
+        islandOffline: prefs.getBool(islandOfflineKey) ?? false,
         loaded: true,
       );
     } catch (_) {
@@ -192,6 +216,21 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setNovelIndent(bool indent) async {
     state = state.copyWith(novelIndent: indent);
     await _save((prefs) => prefs.setBool(novelIndentKey, indent));
+  }
+
+  Future<void> setIslands(bool on) async {
+    state = state.copyWith(islands: on);
+    await _save((prefs) => prefs.setBool(islandsKey, on));
+  }
+
+  Future<void> setIslandNoScripts(bool on) async {
+    state = state.copyWith(islandNoScripts: on);
+    await _save((prefs) => prefs.setBool(islandNoScriptsKey, on));
+  }
+
+  Future<void> setIslandOffline(bool on) async {
+    state = state.copyWith(islandOffline: on);
+    await _save((prefs) => prefs.setBool(islandOfflineKey, on));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

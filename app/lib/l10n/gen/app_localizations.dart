@@ -36290,6 +36290,48 @@ abstract class L10n {
   /// **'{name} 没能导入：{reason}'**
   String tavernImportFileFailed(String name, String reason);
 
+  /// No description provided for @tavernIslands.
+  ///
+  /// In zh, this message translates to:
+  /// **'消息里的网页'**
+  String get tavernIslands;
+
+  /// No description provided for @tavernIslandsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡在消息里写的 HTML 和样式（状态栏、面板），单独放进一个网页里显示；关掉就按文字显示'**
+  String get tavernIslandsSubtitle;
+
+  /// No description provided for @tavernSettingsSafety.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全'**
+  String get tavernSettingsSafety;
+
+  /// No description provided for @tavernIslandNoScripts.
+  ///
+  /// In zh, this message translates to:
+  /// **'网页里不运行卡的脚本'**
+  String get tavernIslandNoScripts;
+
+  /// No description provided for @tavernIslandNoScriptsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡自带的 JavaScript 不运行；要靠脚本动起来的状态栏会停住'**
+  String get tavernIslandNoScriptsSubtitle;
+
+  /// No description provided for @tavernIslandOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'网页不联网'**
+  String get tavernIslandOffline;
+
+  /// No description provided for @tavernIslandOfflineSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'只用卡里自带的图片和字体，不从网上加载任何东西'**
+  String get tavernIslandOfflineSubtitle;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

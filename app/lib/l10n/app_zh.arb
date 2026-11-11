@@ -12333,6 +12333,13 @@
       }
     }
   },
+  "tavernIslands": "消息里的网页",
+  "tavernIslandsSubtitle": "卡在消息里写的 HTML 和样式（状态栏、面板），单独放进一个网页里显示；关掉就按文字显示",
+  "tavernSettingsSafety": "安全",
+  "tavernIslandNoScripts": "网页里不运行卡的脚本",
+  "tavernIslandNoScriptsSubtitle": "卡自带的 JavaScript 不运行；要靠脚本动起来的状态栏会停住",
+  "tavernIslandOffline": "网页不联网",
+  "tavernIslandOfflineSubtitle": "只用卡里自带的图片和字体，不从网上加载任何东西",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

@@ -22,6 +22,7 @@ import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
+import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
@@ -49,6 +50,7 @@ import '../wallpaper/wallpaper_backdrop.dart';
 import 'tavern_character_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
+import 'tavern_island.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_live_display.dart';
 import 'tavern_message_edit_page.dart';
@@ -1497,7 +1499,25 @@ class _Shown extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shown = ref.watch(tavernShownTextProvider((chatId, message.nodeId, message.text))).value ?? message.text;
-    return MarkdownBody(text: indent ? tavernIndentParagraphs(shown) : shown, selectable: false);
+    Widget text(String markdown) =>
+        MarkdownBody(text: indent ? tavernIndentParagraphs(markdown) : markdown, selectable: false);
+    // HTML in it: those parts in islands of their own (酒馆设置 › 显示).
+    final parts = ref.watch(tavernSettingsProvider.select((s) => s.islands)) ? tavernParts(shown) : null;
+    if (parts == null || parts.every((p) => p is TavernTextPart)) return text(shown);
+    final island = ref.watch(tavernIslandBuilderProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final part in parts)
+          switch (part) {
+            TavernTextPart(:final markdown) => text(markdown),
+            TavernIslandPart(:final html) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: island(html),
+            ),
+          },
+      ],
+    );
   }
 }
 

@@ -19899,6 +19899,27 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernIslands => '消息里的网页';
+
+  @override
+  String get tavernIslandsSubtitle => '卡在消息里写的 HTML 和样式（状态栏、面板），单独放进一个网页里显示；关掉就按文字显示';
+
+  @override
+  String get tavernSettingsSafety => '安全';
+
+  @override
+  String get tavernIslandNoScripts => '网页里不运行卡的脚本';
+
+  @override
+  String get tavernIslandNoScriptsSubtitle => '卡自带的 JavaScript 不运行；要靠脚本动起来的状态栏会停住';
+
+  @override
+  String get tavernIslandOffline => '网页不联网';
+
+  @override
+  String get tavernIslandOfflineSubtitle => '只用卡里自带的图片和字体，不从网上加载任何东西';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

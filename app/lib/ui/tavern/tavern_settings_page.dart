@@ -1,5 +1,5 @@
 // 酒馆设置 (docs/design/roleplay-ui.md §1; grouped as the optimization doc's
-// §3.4 has it): 模型与连接, 生成, 显示, 数据, 你.
+// §3.4 has it): 模型与连接, 生成, 显示, 安全, 数据, 你.
 
 import 'dart:async';
 
@@ -267,6 +267,38 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
         value: settings.novelIndent,
         onChanged: (indent) => unawaited(controller.setNovelIndent(indent)),
       ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-islands'),
+        icon: AppIcons.code,
+        title: l10n.tavernIslands,
+        subtitle: l10n.tavernIslandsSubtitle,
+        value: settings.islands,
+        onChanged: (on) => unawaited(controller.setIslands(on)),
+      ),
+    ],
+  );
+  // Protections the user may choose; off unless they do.
+  final safety = SheetGroup(
+    key: const ValueKey('tavern-safety'),
+    title: l10n.tavernSettingsSafety,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-island-no-scripts'),
+        icon: AppIcons.code,
+        title: l10n.tavernIslandNoScripts,
+        subtitle: l10n.tavernIslandNoScriptsSubtitle,
+        value: settings.islandNoScripts,
+        onChanged: (on) => unawaited(controller.setIslandNoScripts(on)),
+      ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-island-offline'),
+        icon: AppIcons.link,
+        title: l10n.tavernIslandOffline,
+        subtitle: l10n.tavernIslandOfflineSubtitle,
+        value: settings.islandOffline,
+        onChanged: (on) => unawaited(controller.setIslandOffline(on)),
+      ),
     ],
   );
   final startupGroup = SheetGroup(
@@ -317,7 +349,7 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
       ),
     ],
   );
-  return [model, generating, display, data, you, startupGroup];
+  return [model, generating, display, safety, data, you, startupGroup];
 }
 
 /// What the room goes to, part by part.

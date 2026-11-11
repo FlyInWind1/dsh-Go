@@ -20994,6 +20994,30 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernIslands => 'Web pages in messages';
+
+  @override
+  String get tavernIslandsSubtitle =>
+      'HTML and styles a card writes in its messages (status bars, panels) show in a web page of their own; off, as text';
+
+  @override
+  String get tavernSettingsSafety => 'Safety';
+
+  @override
+  String get tavernIslandNoScripts => 'No card scripts in those pages';
+
+  @override
+  String get tavernIslandNoScriptsSubtitle =>
+      'The card\'s own JavaScript doesn\'t run; status bars that need it stay still';
+
+  @override
+  String get tavernIslandOffline => 'Keep those pages offline';
+
+  @override
+  String get tavernIslandOfflineSubtitle =>
+      'Only pictures and fonts inside the card; nothing is loaded from the internet';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

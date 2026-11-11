@@ -840,5 +840,12 @@
   "tavernImportUnknown": "Can't tell what {name} is",
   "@tavernImportUnknown": {"placeholders": {"name": {"type": "String"}}},
   "tavernImportFileFailed": "Couldn't import {name}: {reason}",
-  "@tavernImportFileFailed": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}}
+  "@tavernImportFileFailed": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}},
+  "tavernIslands": "Web pages in messages",
+  "tavernIslandsSubtitle": "HTML and styles a card writes in its messages (status bars, panels) show in a web page of their own; off, as text",
+  "tavernSettingsSafety": "Safety",
+  "tavernIslandNoScripts": "No card scripts in those pages",
+  "tavernIslandNoScriptsSubtitle": "The card's own JavaScript doesn't run; status bars that need it stay still",
+  "tavernIslandOffline": "Keep those pages offline",
+  "tavernIslandOfflineSubtitle": "Only pictures and fonts inside the card; nothing is loaded from the internet"
 }
