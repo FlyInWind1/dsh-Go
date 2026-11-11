@@ -20568,6 +20568,73 @@ class L10nEn extends L10n {
       'The messages after it stay, joined to the one before it. This can\'t be undone.';
 
   @override
+  String get tavernLorebookAdd => 'Add an entry';
+
+  @override
+  String get tavernLorebookStart =>
+      'This card has no lorebook of its own. Add an entry: when a chat mentions one of its keys, its text goes into the prompt.';
+
+  @override
+  String get tavernLorebookEntryNew => 'New entry';
+
+  @override
+  String get tavernLorebookEntryEdit => 'Edit entry';
+
+  @override
+  String get tavernLorebookFieldName => 'Entry name';
+
+  @override
+  String get tavernLorebookFieldNameHelp => 'Only for you, to find it by; not sent to the model.';
+
+  @override
+  String get tavernLorebookFieldKeys => 'Keys';
+
+  @override
+  String get tavernLorebookFieldKeysHelp =>
+      'When a chat mentions any of these, the text goes into the prompt. Separate with commas.';
+
+  @override
+  String get tavernLorebookFieldSecondary => 'Secondary keys';
+
+  @override
+  String get tavernLorebookFieldSecondaryHelp => 'If set, one of these must appear too.';
+
+  @override
+  String get tavernLorebookFieldContent => 'Text';
+
+  @override
+  String get tavernLorebookFieldConstantSubtitle => 'Always included, keys or not';
+
+  @override
+  String get tavernLorebookFieldEnabled => 'On';
+
+  @override
+  String get tavernLorebookFieldPosition => 'Goes';
+
+  @override
+  String get tavernLorebookBeforeChar => 'Before the character';
+
+  @override
+  String get tavernLorebookAfterChar => 'After the character';
+
+  @override
+  String get tavernLorebookFieldOrder => 'Order';
+
+  @override
+  String get tavernLorebookFieldOrderHelp => 'Higher numbers come first, and go in first.';
+
+  @override
+  String get tavernLorebookEntryDelete => 'Delete this entry';
+
+  @override
+  String tavernLorebookEntryDeleteTitle(String name) {
+    return 'Delete the entry “$name”?';
+  }
+
+  @override
+  String get tavernLorebookEntryDeleteMessage => 'It goes from the card for good.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -19494,6 +19494,71 @@ class L10nZh extends L10n {
   String get tavernDeleteOneMessage => '后面的消息都留着，接到它前面那条上。这样删除不能撤销。';
 
   @override
+  String get tavernLorebookAdd => '加一条';
+
+  @override
+  String get tavernLorebookStart => '这张卡还没有自己的世界书。加一条，对话里提到它的关键词时，内容就会带进提示词。';
+
+  @override
+  String get tavernLorebookEntryNew => '新条目';
+
+  @override
+  String get tavernLorebookEntryEdit => '编辑条目';
+
+  @override
+  String get tavernLorebookFieldName => '条目名';
+
+  @override
+  String get tavernLorebookFieldNameHelp => '只给你看，方便找；不发给模型。';
+
+  @override
+  String get tavernLorebookFieldKeys => '关键词';
+
+  @override
+  String get tavernLorebookFieldKeysHelp => '对话里出现其中任何一个，就把内容带进提示词。用逗号隔开。';
+
+  @override
+  String get tavernLorebookFieldSecondary => '次关键词';
+
+  @override
+  String get tavernLorebookFieldSecondaryHelp => '填了的话，还要同时出现其中一个才带进去。';
+
+  @override
+  String get tavernLorebookFieldContent => '内容';
+
+  @override
+  String get tavernLorebookFieldConstantSubtitle => '不管有没有提到关键词，每次都带上';
+
+  @override
+  String get tavernLorebookFieldEnabled => '启用';
+
+  @override
+  String get tavernLorebookFieldPosition => '放在';
+
+  @override
+  String get tavernLorebookBeforeChar => '角色设定前';
+
+  @override
+  String get tavernLorebookAfterChar => '角色设定后';
+
+  @override
+  String get tavernLorebookFieldOrder => '顺序';
+
+  @override
+  String get tavernLorebookFieldOrderHelp => '数字大的排在前面，也先带进去。';
+
+  @override
+  String get tavernLorebookEntryDelete => '删除这一条';
+
+  @override
+  String tavernLorebookEntryDeleteTitle(String name) {
+    return '删除条目「$name」？';
+  }
+
+  @override
+  String get tavernLorebookEntryDeleteMessage => '这一条会从卡里删掉，删除后就找不回来了。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

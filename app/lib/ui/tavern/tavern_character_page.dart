@@ -233,15 +233,15 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
           child: SheetGroup(
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              if (character.hasLorebook)
-                SettingsTile(
-                  key: const ValueKey('tavern-lorebook'),
-                  icon: AppIcons.lorebook,
-                  tinted: false,
-                  title: l10n.tavernLorebook,
-                  subtitle: l10n.tavernLorebookSubtitle,
-                  onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
-                ),
+              // Every card: one without a book starts one here (engine T16).
+              SettingsTile(
+                key: const ValueKey('tavern-lorebook'),
+                icon: AppIcons.lorebook,
+                tinted: false,
+                title: l10n.tavernLorebook,
+                subtitle: l10n.tavernLorebookSubtitle,
+                onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
+              ),
               TavernLorebookBindingTile(
                 key: const ValueKey('tavern-character-lorebooks'),
                 scope: (source: WorldInfoSource.character, id: character.id),

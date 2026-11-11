@@ -35576,6 +35576,132 @@ abstract class L10n {
   /// **'后面的消息都留着，接到它前面那条上。这样删除不能撤销。'**
   String get tavernDeleteOneMessage;
 
+  /// No description provided for @tavernLorebookAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'加一条'**
+  String get tavernLorebookAdd;
+
+  /// No description provided for @tavernLorebookStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡还没有自己的世界书。加一条，对话里提到它的关键词时，内容就会带进提示词。'**
+  String get tavernLorebookStart;
+
+  /// No description provided for @tavernLorebookEntryNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'新条目'**
+  String get tavernLorebookEntryNew;
+
+  /// No description provided for @tavernLorebookEntryEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑条目'**
+  String get tavernLorebookEntryEdit;
+
+  /// No description provided for @tavernLorebookFieldName.
+  ///
+  /// In zh, this message translates to:
+  /// **'条目名'**
+  String get tavernLorebookFieldName;
+
+  /// No description provided for @tavernLorebookFieldNameHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'只给你看，方便找；不发给模型。'**
+  String get tavernLorebookFieldNameHelp;
+
+  /// No description provided for @tavernLorebookFieldKeys.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词'**
+  String get tavernLorebookFieldKeys;
+
+  /// No description provided for @tavernLorebookFieldKeysHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话里出现其中任何一个，就把内容带进提示词。用逗号隔开。'**
+  String get tavernLorebookFieldKeysHelp;
+
+  /// No description provided for @tavernLorebookFieldSecondary.
+  ///
+  /// In zh, this message translates to:
+  /// **'次关键词'**
+  String get tavernLorebookFieldSecondary;
+
+  /// No description provided for @tavernLorebookFieldSecondaryHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'填了的话，还要同时出现其中一个才带进去。'**
+  String get tavernLorebookFieldSecondaryHelp;
+
+  /// No description provided for @tavernLorebookFieldContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容'**
+  String get tavernLorebookFieldContent;
+
+  /// No description provided for @tavernLorebookFieldConstantSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'不管有没有提到关键词，每次都带上'**
+  String get tavernLorebookFieldConstantSubtitle;
+
+  /// No description provided for @tavernLorebookFieldEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用'**
+  String get tavernLorebookFieldEnabled;
+
+  /// No description provided for @tavernLorebookFieldPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'放在'**
+  String get tavernLorebookFieldPosition;
+
+  /// No description provided for @tavernLorebookBeforeChar.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色设定前'**
+  String get tavernLorebookBeforeChar;
+
+  /// No description provided for @tavernLorebookAfterChar.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色设定后'**
+  String get tavernLorebookAfterChar;
+
+  /// No description provided for @tavernLorebookFieldOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'顺序'**
+  String get tavernLorebookFieldOrder;
+
+  /// No description provided for @tavernLorebookFieldOrderHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'数字大的排在前面，也先带进去。'**
+  String get tavernLorebookFieldOrderHelp;
+
+  /// No description provided for @tavernLorebookEntryDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除这一条'**
+  String get tavernLorebookEntryDelete;
+
+  /// No description provided for @tavernLorebookEntryDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除条目「{name}」？'**
+  String tavernLorebookEntryDeleteTitle(String name);
+
+  /// No description provided for @tavernLorebookEntryDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条会从卡里删掉，删除后就找不回来了。'**
+  String get tavernLorebookEntryDeleteMessage;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
