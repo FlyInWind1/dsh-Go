@@ -97,6 +97,29 @@ TavernDirectorSnapshot _view(
   stale: stale,
 );
 
+/// The chat open, the stage not.
+Future<String> _openChat(WidgetTester tester, PreviewTavern tavern) async {
+  SharedPreferences.setMockInitialValues({});
+  final chat = (await tester.runAsync(() => tavern.createChat('sample-innkeeper')))!;
+  tester.view.physicalSize = const Size(390, 844) * 2;
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [tavernProvider.overrideWith((ref) => tavern)],
+      child: MaterialApp(
+        theme: withTestFonts(buildLightTheme()),
+        locale: const Locale('zh', 'CN'),
+        supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: TavernChatPage(chatId: chat),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return chat;
+}
+
 Future<String> _openDirector(WidgetTester tester, PreviewTavern tavern) async {
   SharedPreferences.setMockInitialValues({});
   final chat = (await tester.runAsync(() => tavern.createChat('sample-innkeeper')))!;
@@ -128,9 +151,10 @@ void main() {
     final tavern = _Directed((chat) => _view(chat, success: _run('r0', beat: '让她提起楼上的客人')));
     final chat = await _openDirector(tester, tavern);
     expect(tester.widget<Text>(find.byKey(const ValueKey('tavern-director-beat'))).data, '让她提起楼上的客人');
-    expect(find.text('问她楼上那间房'), findsOneWidget);
-    expect(find.text('她会起疑'), findsOneWidget);
-    expect(find.text('提起那封信'), findsOneWidget);
+    final stage = find.byKey(const ValueKey('tavern-stage'));
+    expect(find.descendant(of: stage, matching: find.text('问她楼上那间房')), findsOneWidget);
+    expect(find.descendant(of: stage, matching: find.text('她会起疑')), findsOneWidget);
+    expect(find.descendant(of: stage, matching: find.text('提起那封信')), findsOneWidget);
 
     // The notes are a spoiler until asked for.
     expect(find.text('她其实认得你，只是不说。'), findsNothing);
@@ -144,6 +168,29 @@ void main() {
     expect(find.byKey(const ValueKey('tavern-stage-drawer')), findsNothing);
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '问她楼上那间房');
     expect((await tester.runAsync(() => tavern.path(chat)))!.length, before);
+  });
+
+  testWidgets("the director's suggestions lead the row over the box; a tap only fills it", (tester) async {
+    final tavern = _Directed((chat) => _view(chat, success: _run('r0', beat: '让她提起楼上的客人')));
+    final chat = await _openChat(tester, tavern);
+    double x(String key) => tester.getTopLeft(find.byKey(ValueKey(key))).dx;
+    // First in the row, in the director's order, before the dice and quick replies.
+    expect(x('tavern-directed-0'), lessThan(x('tavern-directed-1')));
+    expect(x('tavern-directed-1'), lessThan(x('tavern-directed-2')));
+    if (find.byKey(const ValueKey('tavern-dice')).evaluate().isNotEmpty) {
+      expect(x('tavern-directed-2'), lessThan(x('tavern-dice')));
+    }
+
+    final before = (await tester.runAsync(() => tavern.path(chat)))!.length;
+    await tester.tap(find.byKey(const ValueKey('tavern-directed-0')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '问她楼上那间房');
+    expect((await tester.runAsync(() => tavern.path(chat)))!.length, before);
+
+    // Thought for an earlier moment: gone from the row.
+    tavern.views.add(_view(chat, success: _run('r0', beat: '让她提起楼上的客人'), stale: true));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-directed-0')), findsNothing);
   });
 
   testWidgets('the switch turns the director on for this chat only', (tester) async {

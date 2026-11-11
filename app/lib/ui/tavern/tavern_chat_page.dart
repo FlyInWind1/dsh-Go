@@ -7,7 +7,7 @@
 import 'dart:async';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart' show ValueListenable, listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,6 +108,12 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   StreamSubscription<void>? _changes;
   StreamSubscription<TavernEvent>? _turn;
 
+  /// The director's three suggestions for now (engine T18), first in the row
+  /// over the composer; none when it has not run, or its last thought is
+  /// for an earlier moment.
+  StreamSubscription<TavernDirectorSnapshot>? _director;
+  List<String> _directed = const [];
+
   List<TavernMessage>? _messages;
 
   /// The reply being written: its node, and the text so far. Only the reply
@@ -163,6 +169,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   void initState() {
     super.initState();
     _changes = _tavern.pathChanges(widget.chatId).listen((_) => unawaited(_reload()));
+    _director = _tavern.watchDirector(widget.chatId).listen(
+      (view) {
+        final run = view.latestSuccess;
+        final next = [
+          if (run != null && !view.stale)
+            for (final suggestion in run.suggestions)
+              if (suggestion['text'] case final String text when text.trim().isNotEmpty) text.trim(),
+        ];
+        if (!listEquals(next, _directed)) setState(() => _directed = next);
+      },
+      // The row goes on without them.
+      onError: (Object _) {},
+    );
     unawaited(_reload());
     // A reply left running when the page was last closed (engine T24).
     _run(() => _tavern.resumeTurn(widget.chatId), rejoin: true);
@@ -182,6 +201,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   @override
   void dispose() {
     unawaited(_changes?.cancel());
+    unawaited(_director?.cancel());
     // A reply goes on without the page (engine T24) and is picked up when it
     // opens again; a line being written into this page's box has nowhere to go.
     if (_running && _drafting) _tavern.stop(widget.chatId);
@@ -507,6 +527,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   void _stop() => _tavern.stop(widget.chatId);
+
+  /// One of the director's suggestions, into the box to change and send (or
+  /// not); never sent for you.
+  void _suggest(String text) {
+    _input.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _scaffold.currentState?.closeEndDrawer();
+    _focus.requestFocus();
+  }
 
   /// A command picked from the row: in the box, ready for its words (or to send).
   void _pickSlash(TavernSlash c) {
@@ -1002,14 +1033,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       characterId: characterId,
       name: name,
       busy: _running,
-      onSuggest: (text) {
-        _input.value = TextEditingValue(
-          text: text,
-          selection: TextSelection.collapsed(offset: text.length),
-        );
-        _scaffold.currentState?.closeEndDrawer();
-        _focus.requestFocus();
-      },
+      onSuggest: _suggest,
     );
     return BotChatFrame(
       // The chat's picture, when it has one; the page's gradient otherwise.
@@ -1202,6 +1226,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       ? _SlashRow(onPick: _pickSlash)
                       : !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
                       ? _QuickReplyRow(
+                          directed: _directed,
+                          onDirected: _suggest,
                           replies: ref.watch(tavernQuickRepliesProvider),
                           onSend: _sendQuick,
                           onEdit: _editQuick,
@@ -1520,12 +1546,18 @@ class _SlashRow extends StatelessWidget {
 /// it in the box), then 掷骰.
 class _QuickReplyRow extends StatelessWidget {
   const _QuickReplyRow({
+    this.directed = const [],
+    this.onDirected,
     required this.replies,
     required this.onSend,
     required this.onEdit,
     required this.onDice,
     required this.onAll,
   });
+
+  /// The director's suggestions, first: a tap puts one in the box.
+  final List<String> directed;
+  final ValueChanged<String>? onDirected;
 
   final List<String> replies;
   final ValueChanged<String> onSend;
@@ -1550,34 +1582,40 @@ class _QuickReplyRow extends StatelessWidget {
         key: const ValueKey('tavern-quick-replies'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: replies.length + (replies.isEmpty ? 1 : 2),
+        itemCount: directed.length + replies.length + (replies.isEmpty ? 1 : 2),
         separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => i > replies.length
+        itemBuilder: (context, at) => at < directed.length
             ? CapsuleChoiceChip(
-                key: const ValueKey('tavern-qr-all'),
-                label: context.l10n.tavernQuickRepliesAll,
+                key: ValueKey('tavern-directed-$at'),
+                icon: AppIcons.askAi,
+                label: _label(directed[at]),
                 selected: false,
-                onSelected: onAll,
+                onSelected: () => onDirected?.call(directed[at]),
               )
-            : i == replies.length
-            ? CapsuleChoiceChip(
-                key: const ValueKey('tavern-dice'),
-                label: context.l10n.tavernDice,
-                selected: false,
-                onSelected: onDice,
-              )
-            : GestureDetector(
-                key: ValueKey('tavern-qr-$i'),
-                onLongPress: () => onEdit(replies[i]),
-                child: CapsuleChoiceChip(
-                  label: _label(replies[i]),
-                  selected: false,
-                  onSelected: () => onSend(replies[i]),
-                ),
-              ),
+            : _item(context, at - directed.length),
       ),
     ),
   );
+
+  Widget _item(BuildContext context, int i) => i > replies.length
+      ? CapsuleChoiceChip(
+          key: const ValueKey('tavern-qr-all'),
+          label: context.l10n.tavernQuickRepliesAll,
+          selected: false,
+          onSelected: onAll,
+        )
+      : i == replies.length
+      ? CapsuleChoiceChip(
+          key: const ValueKey('tavern-dice'),
+          label: context.l10n.tavernDice,
+          selected: false,
+          onSelected: onDice,
+        )
+      : GestureDetector(
+          key: ValueKey('tavern-qr-$i'),
+          onLongPress: () => onEdit(replies[i]),
+          child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
+        );
 }
 
 /// Swiping a reply sideways steps through its alternatives: left for the next
