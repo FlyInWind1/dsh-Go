@@ -159,6 +159,26 @@ void main() {
     expect(find.text('没有符合的角色'), findsOneWidget);
   });
 
+  testWidgets('tags show on a small shelf, without one every card has', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    // Two characters: no search yet, but the tags that split them.
+    expect(find.byKey(const ValueKey('tavern-search')), findsNothing);
+    final tags = find.byKey(const ValueKey('tavern-tags'));
+    expect(find.descendant(of: tags, matching: find.text('悬疑')), findsOneWidget);
+    expect(find.descendant(of: tags, matching: find.text('科幻')), findsOneWidget);
+    // Both are 示例: picking it would narrow nothing.
+    expect(find.descendant(of: tags, matching: find.text('示例')), findsNothing);
+
+    await tester.tap(find.descendant(of: tags, matching: find.text('科幻')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-character-sample-navigator')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tavern-character-sample-innkeeper')), findsNothing);
+    await tester.tap(find.descendant(of: tags, matching: find.text('全部')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-character-sample-innkeeper')), findsOneWidget);
+  });
+
   testWidgets('a chat to continue shows when it was last touched', (tester) async {
     final tavern = PreviewTavern(tick: const Duration(milliseconds: 1));
     await tavern.createChat('sample-navigator');

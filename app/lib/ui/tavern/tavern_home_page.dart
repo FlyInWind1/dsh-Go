@@ -188,7 +188,7 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
     final filtering = _tag != null || _query.trim().isNotEmpty;
     final shelf = ref.watch(tavernShelfProvider);
     final list = all == null ? null : tavernShelfSort(all.where(_matches).toList(), shelf);
-    final tags = _topTags(all ?? const []);
+    final tags = _topTags(all ?? const [], keep: _tag);
     return [
       // The engine could not open its folder or database: say so, and let
       // a retry open it afresh rather than spin forever.
@@ -242,26 +242,29 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
           ),
         )
       else ...[
-        if (searchable)
+        // Search waits for a full shelf; tags show as soon as one splits it.
+        if (searchable || tags.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SearchCapsule(
-                    key: const ValueKey('tavern-search'),
-                    controller: _search,
-                    hint: l10n.tavernSearchHint,
-                    onChanged: (q) => setState(() => _query = q),
-                    onClear: () => setState(() {
-                      _search.clear();
-                      _query = '';
-                    }),
-                  ),
+                  if (searchable)
+                    SearchCapsule(
+                      key: const ValueKey('tavern-search'),
+                      controller: _search,
+                      hint: l10n.tavernSearchHint,
+                      onChanged: (q) => setState(() => _query = q),
+                      onClear: () => setState(() {
+                        _search.clear();
+                        _query = '';
+                      }),
+                    ),
                   if (tags.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    if (searchable) const SizedBox(height: 8),
                     SingleChildScrollView(
+                      key: const ValueKey('tavern-tags'),
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
@@ -830,13 +833,19 @@ String plainPreview(String text) =>
     text.replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'[*_`#>]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
 
 /// The most used tags, most used first.
-List<String> _topTags(List<TavernCharacter> characters, {int limit = 8}) {
+/// The shelf's most used tags, leaving out any every character has: picking
+/// it would narrow nothing. [keep], the tag picked now, stays so it can be
+/// let go.
+List<String> _topTags(List<TavernCharacter> characters, {int limit = 8, String? keep}) {
   final counts = <String, int>{};
   for (final c in characters) {
-    for (final tag in c.tags) {
+    for (final tag in c.tags.toSet()) {
       counts[tag] = (counts[tag] ?? 0) + 1;
     }
   }
-  final tags = counts.keys.toList()..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-  return tags.take(limit).toList();
+  final tags = counts.keys.where((t) => counts[t]! < characters.length).toList()
+    ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+  final top = tags.take(limit).toList();
+  if (keep != null && !top.contains(keep)) top.add(keep);
+  return top;
 }
