@@ -796,5 +796,9 @@
   "tavernUnfavorite": "Remove from favorites",
   "tavernFavorited": "Favorite",
   "tavernChatSearchHint": "Search chats: who, title, last line",
-  "tavernNoChatMatch": "No matching chats"
+  "tavernNoChatMatch": "No matching chats",
+  "tavernCharacterTabChats": "Chats",
+  "tavernCharacterTabCard": "Card",
+  "tavernCharacterTabSetup": "Setup",
+  "tavernCharacterNoDefinition": "This card has no definition or notes."
 }

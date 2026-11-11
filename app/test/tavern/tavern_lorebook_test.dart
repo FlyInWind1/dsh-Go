@@ -31,6 +31,9 @@ Future<PreviewTavern> _open(WidgetTester tester, String characterId) async {
     ),
   );
   await tester.pumpAndSettle();
+  // On the 配置 tab.
+  await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-character-tabs')), matching: find.text('配置')));
+  await tester.pumpAndSettle();
   final row = find.byKey(const ValueKey('tavern-lorebook'));
   await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
   await _center(tester, row);

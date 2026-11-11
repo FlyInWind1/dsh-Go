@@ -20859,6 +20859,18 @@ class L10nEn extends L10n {
   String get tavernNoChatMatch => 'No matching chats';
 
   @override
+  String get tavernCharacterTabChats => 'Chats';
+
+  @override
+  String get tavernCharacterTabCard => 'Card';
+
+  @override
+  String get tavernCharacterTabSetup => 'Setup';
+
+  @override
+  String get tavernCharacterNoDefinition => 'This card has no definition or notes.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

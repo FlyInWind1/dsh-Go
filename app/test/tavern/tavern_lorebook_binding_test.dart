@@ -106,6 +106,10 @@ void main() {
   testWidgets('the character page binds lorebooks to every chat with the character', (tester) async {
     final (tavern, town, inn) = await _library(tester);
     await _open(tester, tavern, const TavernCharacterPage(characterId: 'sample-innkeeper'));
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-character-tabs')), matching: find.text('配置')),
+    );
+    await tester.pumpAndSettle();
     final row = find.byKey(const ValueKey('tavern-character-lorebooks'));
     await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
     await _center(tester, row);
@@ -146,6 +150,10 @@ void main() {
       await tavern.deleteLorebook(inn);
     });
     await _open(tester, tavern, const TavernCharacterPage(characterId: 'sample-innkeeper'));
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-character-tabs')), matching: find.text('配置')),
+    );
+    await tester.pumpAndSettle();
     final row = find.byKey(const ValueKey('tavern-character-lorebooks'));
     await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
     await _center(tester, row);
@@ -162,6 +170,10 @@ void main() {
   testWidgets('with an empty library the picker points to it', (tester) async {
     final tavern = PreviewTavern(tick: Duration.zero);
     await _open(tester, tavern, const TavernCharacterPage(characterId: 'sample-innkeeper'));
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-character-tabs')), matching: find.text('配置')),
+    );
+    await tester.pumpAndSettle();
     final row = find.byKey(const ValueKey('tavern-character-lorebooks'));
     await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
     await _center(tester, row);

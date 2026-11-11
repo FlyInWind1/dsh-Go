@@ -115,6 +115,11 @@ void main() {
     final shared = await _open(tester, tavern, const []);
 
     // To the middle of the screen, clear of the floating header.
+    await tester.scrollUntilVisible(
+      find.byKey(ValueKey('tavern-chat-$chat')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await Scrollable.ensureVisible(tester.element(find.byKey(ValueKey('tavern-chat-$chat'))), alignment: 0.5);
     await tester.pumpAndSettle();
     await tester.longPress(find.byKey(ValueKey('tavern-chat-$chat')));

@@ -36092,6 +36092,30 @@ abstract class L10n {
   /// **'没有符合的对话'**
   String get tavernNoChatMatch;
 
+  /// No description provided for @tavernCharacterTabChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话'**
+  String get tavernCharacterTabChats;
+
+  /// No description provided for @tavernCharacterTabCard.
+  ///
+  /// In zh, this message translates to:
+  /// **'设定'**
+  String get tavernCharacterTabCard;
+
+  /// No description provided for @tavernCharacterTabSetup.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置'**
+  String get tavernCharacterTabSetup;
+
+  /// No description provided for @tavernCharacterNoDefinition.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡没有写设定和说明。'**
+  String get tavernCharacterNoDefinition;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -103,6 +103,10 @@ void main() {
 
   testWidgets('the character page shows the verdict and opens the report', (tester) async {
     await _open(tester, _Reported(filed: _report()), const TavernCharacterPage(characterId: 'sample-innkeeper'));
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-character-tabs')), matching: find.text('配置')),
+    );
+    await tester.pumpAndSettle();
     final tile = find.byKey(const ValueKey('tavern-character-report'));
     await tester.scrollUntilVisible(tile, 300, scrollable: find.byType(Scrollable).first);
     await Scrollable.ensureVisible(tester.element(tile), alignment: 0.5);

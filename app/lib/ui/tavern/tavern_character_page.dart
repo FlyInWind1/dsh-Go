@@ -1,5 +1,7 @@
-// A character (docs/design/roleplay-ui.md §1): the picture, the greetings to
-// start from, the chats so far, and what the card says about itself.
+// A character (docs/design/roleplay-ui.md §1): the picture and the chat to
+// pick up again on top; under it three tabs (docs/design/roleplay-roadmap.md
+// P1): 对话 (the greetings to start from, the chats so far), 设定 (what the
+// card says about itself) and 配置 (its lorebooks, Live2D, import report).
 
 import 'dart:async';
 
@@ -39,10 +41,14 @@ class TavernCharacterPage extends ConsumerStatefulWidget {
   ConsumerState<TavernCharacterPage> createState() => _TavernCharacterPageState();
 }
 
+/// The character page's tabs.
+enum TavernCharacterTab { chats, card, setup }
+
 class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
   final _greetings = PageController(viewportFraction: 0.9);
   int _greeting = 0;
   bool _starting = false;
+  var _tab = TavernCharacterTab.chats;
 
   @override
   void dispose() {
@@ -152,54 +158,71 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
           ),
         ),
         SliverToBoxAdapter(
-          child: Column(
-            children: [
-              SizedBox(
-                height: 168,
-                child: PageView.builder(
-                  key: const ValueKey('tavern-greetings'),
-                  controller: _greetings,
-                  itemCount: greetings.length,
-                  onPageChanged: (i) => setState(() => _greeting = i),
-                  itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GlassSurface(
-                      tier: GlassTier.card,
-                      borderRadius: AppShape.radiusLg,
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                      child: Text(
-                        plainPreview(greetings[i]),
-                        maxLines: 6,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SegmentedPill<TavernCharacterTab>(
+              key: const ValueKey('tavern-character-tabs'),
+              expand: true,
+              segments: [
+                PillSegment(TavernCharacterTab.chats, l10n.tavernCharacterTabChats),
+                PillSegment(TavernCharacterTab.card, l10n.tavernCharacterTabCard),
+                PillSegment(TavernCharacterTab.setup, l10n.tavernCharacterTabSetup),
+              ],
+              selected: _tab,
+              onChanged: (tab) => setState(() => _tab = tab),
+            ),
+          ),
+        ),
+        if (_tab == TavernCharacterTab.chats)
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 168,
+                  child: PageView.builder(
+                    key: const ValueKey('tavern-greetings'),
+                    controller: _greetings,
+                    itemCount: greetings.length,
+                    onPageChanged: (i) => setState(() => _greeting = i),
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: GlassSurface(
+                        tier: GlassTier.card,
+                        borderRadius: AppShape.radiusLg,
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                        child: Text(
+                          plainPreview(greetings[i]),
+                          maxLines: 6,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                greetings.length > 1 ? l10n.tavernGreetingOf(_greeting + 1, greetings.length) : l10n.tavernGreeting,
-                style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
-              ),
-              const SizedBox(height: 16),
-              if (last == null)
-                FilledButton(
-                  key: const ValueKey('tavern-start'),
-                  onPressed: _starting ? null : _start,
-                  child: Text(l10n.tavernStart),
-                )
-              else
-                OutlinedButton(
-                  key: const ValueKey('tavern-start'),
-                  onPressed: _starting ? null : _start,
-                  child: Text(l10n.tavernStartNew),
+                const SizedBox(height: 8),
+                Text(
+                  greetings.length > 1 ? l10n.tavernGreetingOf(_greeting + 1, greetings.length) : l10n.tavernGreeting,
+                  style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
                 ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 16),
+                if (last == null)
+                  FilledButton(
+                    key: const ValueKey('tavern-start'),
+                    onPressed: _starting ? null : _start,
+                    child: Text(l10n.tavernStart),
+                  )
+                else
+                  OutlinedButton(
+                    key: const ValueKey('tavern-start'),
+                    onPressed: _starting ? null : _start,
+                    child: Text(l10n.tavernStartNew),
+                  ),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
-        ),
-        if (chats.isNotEmpty)
+        if (_tab == TavernCharacterTab.chats && chats.isNotEmpty)
           SliverToBoxAdapter(
             child: SheetGroup(
               title: l10n.tavernChats,
@@ -229,60 +252,71 @@ class _TavernCharacterPageState extends ConsumerState<TavernCharacterPage> {
               ],
             ),
           ),
-        SliverToBoxAdapter(
-          child: SheetGroup(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: [
-              // Every card: one without a book starts one here (engine T16).
-              SettingsTile(
-                key: const ValueKey('tavern-lorebook'),
-                icon: AppIcons.lorebook,
-                tinted: false,
-                title: l10n.tavernLorebook,
-                subtitle: l10n.tavernLorebookSubtitle,
-                onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
-              ),
-              TavernLorebookBindingTile(
-                key: const ValueKey('tavern-character-lorebooks'),
-                scope: (source: WorldInfoSource.character, id: character.id),
-                title: l10n.tavernLorebooksBound,
-                subtitle: l10n.tavernLorebooksBoundCharacter,
-                sheetTitle: l10n.tavernLorebookForCharacter(character.name),
-                note: l10n.tavernLorebookCharacterNote,
-              ),
-              TavernLive2dTile(character: character),
-              // What of the card runs here, and what is kept but not run.
-              SettingsTile(
-                key: const ValueKey('tavern-character-report'),
-                icon: AppIcons.info,
-                tinted: false,
-                title: l10n.tavernReport,
-                value: Text(switch (ref
-                    .watch(tavernImportReportProvider((TavernImportKind.character, character.id)))
-                    .value) {
-                  final report? => tavernVerdictText(l10n, report.verdict),
-                  null => '',
-                }),
-                onTap: () => Navigator.of(context).push(
-                  TavernImportReportPage.route(
-                    kind: TavernImportKind.character,
-                    assetId: character.id,
-                    name: character.name,
+        if (_tab == TavernCharacterTab.setup)
+          SliverToBoxAdapter(
+            child: SheetGroup(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                // Every card: one without a book starts one here (engine T16).
+                SettingsTile(
+                  key: const ValueKey('tavern-lorebook'),
+                  icon: AppIcons.lorebook,
+                  tinted: false,
+                  title: l10n.tavernLorebook,
+                  subtitle: l10n.tavernLorebookSubtitle,
+                  onTap: () => Navigator.of(context).push(TavernLorebookPage.route(character.id)),
+                ),
+                TavernLorebookBindingTile(
+                  key: const ValueKey('tavern-character-lorebooks'),
+                  scope: (source: WorldInfoSource.character, id: character.id),
+                  title: l10n.tavernLorebooksBound,
+                  subtitle: l10n.tavernLorebooksBoundCharacter,
+                  sheetTitle: l10n.tavernLorebookForCharacter(character.name),
+                  note: l10n.tavernLorebookCharacterNote,
+                ),
+                TavernLive2dTile(character: character),
+                // What of the card runs here, and what is kept but not run.
+                SettingsTile(
+                  key: const ValueKey('tavern-character-report'),
+                  icon: AppIcons.info,
+                  tinted: false,
+                  title: l10n.tavernReport,
+                  value: Text(switch (ref
+                      .watch(tavernImportReportProvider((TavernImportKind.character, character.id)))
+                      .value) {
+                    final report? => tavernVerdictText(l10n, report.verdict),
+                    null => '',
+                  }),
+                  onTap: () => Navigator.of(context).push(
+                    TavernImportReportPage.route(
+                      kind: TavernImportKind.character,
+                      assetId: character.id,
+                      name: character.name,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        if (full.description.isNotEmpty || full.creatorNotes.isNotEmpty)
+        if (_tab == TavernCharacterTab.card)
           SliverToBoxAdapter(
             child: Padding(
+              key: const ValueKey('tavern-character-card'),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (full.creatorNotes.isNotEmpty) _Section(title: l10n.tavernCreatorNotes, text: full.creatorNotes),
                   if (full.description.isNotEmpty) _Section(title: l10n.tavernDefinition, text: full.description),
+                  if (full.creatorNotes.isEmpty && full.description.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Text(
+                        l10n.tavernCharacterNoDefinition,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary),
+                      ),
+                    ),
                 ],
               ),
             ),

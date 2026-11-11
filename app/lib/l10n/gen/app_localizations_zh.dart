@@ -19778,6 +19778,18 @@ class L10nZh extends L10n {
   String get tavernNoChatMatch => '没有符合的对话';
 
   @override
+  String get tavernCharacterTabChats => '对话';
+
+  @override
+  String get tavernCharacterTabCard => '设定';
+
+  @override
+  String get tavernCharacterTabSetup => '配置';
+
+  @override
+  String get tavernCharacterNoDefinition => '这张卡没有写设定和说明。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

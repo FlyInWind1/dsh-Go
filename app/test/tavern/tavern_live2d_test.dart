@@ -246,7 +246,11 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    // Below the fold: built once scrolled to.
+    // On the 配置 tab, below the fold: built once scrolled to.
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-character-tabs')), matching: find.text('配置')),
+    );
+    await tester.pumpAndSettle();
     await tester.dragUntilVisible(
       find.byKey(const ValueKey('tavern-live2d')),
       find.byType(CustomScrollView),
