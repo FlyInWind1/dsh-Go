@@ -913,6 +913,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         TavernReading(
           accent: cardTheme?.accent,
           names: cardTheme?.names ?? const {},
+          bodyFont: switch (cardTheme?.bodyFont) {
+            final String path => ref.watch(tavernCardFontProvider(path)).value,
+            null => null,
+          },
+          nameFont: switch (cardTheme?.nameFont) {
+            final String path => ref.watch(tavernCardFontProvider(path)).value,
+            null => null,
+          },
           child: layout == TavernLayout.visualNovel
               ? ListenableBuilder(
                   listenable: _live,
@@ -1258,6 +1266,7 @@ class _MessageRow extends StatelessWidget {
                   ? DshColors.of(context).textTertiary
                   : tavernNameColor(context, tavernSpeaker(context, message), lead: lead),
               fontWeight: FontWeight.w600,
+              fontFamily: user ? null : tavernNameFont(context),
             ),
           ),
           const SizedBox(height: 4),

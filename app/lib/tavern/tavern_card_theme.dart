@@ -1,14 +1,17 @@
 // A card's own look (docs/design/roleplay-ui.md §10, extensions.dshgo.theme):
 // its accent, the layout it reads best in, its characters' name colours and
 // its background, read leniently from the raw JSON. It reaches only the story
-// (transcript, stage, picture); the app's shell keeps its own look. Fonts are
-// not drawn yet. 酒馆设置 › 显示 turns all of it off.
+// (transcript, stage, picture); the app's shell keeps its own look. Its fonts
+// are font files among its own assets, loaded once (tavernCardFontProvider).
+// 酒馆设置 › 显示 turns all of it off.
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../wallpaper/custom_wallpaper.dart';
@@ -16,7 +19,14 @@ import 'tavern_provider.dart';
 import 'tavern_settings.dart';
 
 class TavernCardTheme {
-  const TavernCardTheme({this.accent, this.layout, this.names = const {}, this.background});
+  const TavernCardTheme({
+    this.accent,
+    this.layout,
+    this.names = const {},
+    this.background,
+    this.bodyFont,
+    this.nameFont,
+  });
 
   final Color? accent;
 
@@ -30,7 +40,13 @@ class TavernCardTheme {
   /// background asset. Remote pictures are never fetched for it.
   final String? background;
 
-  bool get isEmpty => accent == null && layout == null && names.isEmpty && background == null;
+  /// Font files on this phone for the story's text and the speakers' names:
+  /// `fonts` names assets, as a string (the text's) or {body, names}.
+  final String? bodyFont;
+  final String? nameFont;
+
+  bool get isEmpty =>
+      accent == null && layout == null && names.isEmpty && background == null && bodyFont == null && nameFont == null;
 
   static TavernCardTheme of(TavernCharacter character) {
     final raw = character.theme;
@@ -46,6 +62,18 @@ class TavernCardTheme {
     } else {
       background = local.where((a) => a.asset.type == 'background').firstOrNull?.path;
     }
+    // A font the theme names: a local asset by name or URI, a font file.
+    String? font(Object? named) {
+      if (named is! String || named.trim().isEmpty) return null;
+      final want = named.trim();
+      return local
+          .where((a) => a.asset.name == want || a.asset.uri == want)
+          .where((a) => _fontFile.hasMatch(a.path) || a.asset.type == 'font')
+          .firstOrNull
+          ?.path;
+    }
+
+    final fonts = theme['fonts'];
     return TavernCardTheme(
       accent: tavernCssColor(theme['accent']),
       layout: switch (theme['layout']) {
@@ -61,8 +89,43 @@ class TavernCardTheme {
               if (tavernCssColor(value) case final Color color) key: color,
       },
       background: background,
+      bodyFont: switch (fonts) {
+        final String body => font(body),
+        final Map fonts => font(fonts['body'] ?? fonts['text'] ?? fonts['main']),
+        _ => null,
+      },
+      nameFont: switch (fonts) {
+        final Map fonts => font(fonts['names'] ?? fonts['name'] ?? fonts['title']),
+        _ => null,
+      },
     );
   }
+}
+
+final _fontFile = RegExp(r'\.(ttf|otf|ttc)$', caseSensitive: false);
+
+/// [path], a font file of a card's, loaded once as a font family; its name,
+/// or null when it can't be read or isn't TrueType / OpenType.
+final tavernCardFontProvider = FutureProvider.family<String?, String>((ref, path) async {
+  try {
+    final bytes = await File(path).readAsBytes();
+    if (!tavernLooksLikeFont(bytes)) return null;
+    final family = 'tavern-card-font-${path.hashCode.toUnsigned(32).toRadixString(16)}';
+    await (FontLoader(family)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
+    return family;
+  } on Object {
+    return null;
+  }
+}, retry: (_, _) => null);
+
+/// TrueType, OpenType or a collection of them, by the first four bytes.
+bool tavernLooksLikeFont(Uint8List bytes) {
+  if (bytes.length < 12) return false;
+  final tag = String.fromCharCodes(bytes.sublist(0, 4));
+  return tag == 'OTTO' ||
+      tag == 'true' ||
+      tag == 'ttcf' ||
+      (bytes[0] == 0 && bytes[1] == 1 && bytes[2] == 0 && bytes[3] == 0);
 }
 
 /// A CSS colour as cards write them: #rgb, #rgba, #rrggbb, #rrggbbaa,

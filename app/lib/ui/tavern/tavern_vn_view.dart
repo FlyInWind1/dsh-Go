@@ -459,6 +459,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: user ? dsh.textTertiary : tavernNameColor(context, speaker, lead: widget.name),
                           fontWeight: FontWeight.w600,
+                          fontFamily: user ? null : tavernNameFont(context),
                         ),
                       ),
                       const Spacer(),

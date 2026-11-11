@@ -153,16 +153,22 @@ String tavernIndentParagraphs(String text) {
 /// The card's own name colours (extensions.dshgo.theme.names), over the
 /// story: [tavernNameColor] reads them first.
 class TavernNameColors extends InheritedWidget {
-  const TavernNameColors({super.key, required this.names, required super.child});
+  const TavernNameColors({super.key, required this.names, this.font, required super.child});
 
   final Map<String, Color> names;
+
+  /// The card's font for names (a loaded family), when it has one.
+  final String? font;
 
   static Map<String, Color>? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<TavernNameColors>()?.names;
 
   @override
-  bool updateShouldNotify(TavernNameColors oldWidget) => !mapEquals(names, oldWidget.names);
+  bool updateShouldNotify(TavernNameColors oldWidget) => !mapEquals(names, oldWidget.names) || font != oldWidget.font;
 }
+
+/// The card's font for speakers' names, or null for the app's.
+String? tavernNameFont(BuildContext context) => context.dependOnInheritedWidgetOfExactType<TavernNameColors>()?.font;
 
 Color tavernNameColor(BuildContext context, String speaker, {required String lead}) {
   if (TavernNameColors.maybeOf(context)?[speaker] case final Color own) return own;

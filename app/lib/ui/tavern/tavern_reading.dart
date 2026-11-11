@@ -9,18 +9,19 @@ import '../../tavern/tavern_settings.dart';
 import '../chat/render/markdown_body.dart';
 import 'tavern_ink.dart';
 
-/// [theme] with the story's body text at [size] and [height]. The same
-/// object for the same inputs: text caches keyed on the theme keep hitting.
-ThemeData tavernReadingTheme(ThemeData theme, {required double size, required double height}) {
+/// [theme] with the story's body text at [size] and [height], in [font]
+/// (a card's) when there is one. The same object for the same inputs: text
+/// caches keyed on the theme keep hitting.
+ThemeData tavernReadingTheme(ThemeData theme, {required double size, required double height, String? font}) {
   final byTheme = _readingThemes[theme] ??= {};
-  return byTheme[(size, height)] ??= theme.copyWith(
+  return byTheme[(size, height, font)] ??= theme.copyWith(
     textTheme: theme.textTheme.copyWith(
-      bodyLarge: theme.textTheme.bodyLarge?.copyWith(fontSize: size, height: height),
+      bodyLarge: theme.textTheme.bodyLarge?.copyWith(fontSize: size, height: height, fontFamily: font),
     ),
   );
 }
 
-final _readingThemes = Expando<Map<(double, double), ThemeData>>('tavernReading');
+final _readingThemes = Expando<Map<(double, double, String?), ThemeData>>('tavernReading');
 
 /// [theme] with a card's [accent] as its primary colour; the same object for
 /// the same inputs, like [tavernReadingTheme].
@@ -36,13 +37,24 @@ final _accentThemes = Expando<Map<Color, ThemeData>>('tavernAccent');
 final _inkPatterns = [tavernInkPattern];
 
 /// [child] (the transcript) under the reading settings, and under a card's
-/// own [accent] and [names] colours when it has them.
+/// own [accent], [names] colours and fonts when it has them.
 class TavernReading extends ConsumerWidget {
-  const TavernReading({super.key, required this.child, this.accent, this.names = const {}});
+  const TavernReading({
+    super.key,
+    required this.child,
+    this.accent,
+    this.names = const {},
+    this.bodyFont,
+    this.nameFont,
+  });
 
   final Widget child;
   final Color? accent;
   final Map<String, Color> names;
+
+  /// Font families (loaded from the card) for the text and the names.
+  final String? bodyFont;
+  final String? nameFont;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,8 +65,8 @@ class TavernReading extends ConsumerWidget {
     final theme = accent == null ? Theme.of(context) : tavernAccentTheme(Theme.of(context), accent);
     final ink = TavernInk.of(palette, theme.brightness);
     final read = Theme(
-      data: tavernReadingTheme(theme, size: size, height: height),
-      child: names.isEmpty ? child : TavernNameColors(names: names, child: child),
+      data: tavernReadingTheme(theme, size: size, height: height, font: bodyFont),
+      child: names.isEmpty && nameFont == null ? child : TavernNameColors(names: names, font: nameFont, child: child),
     );
     return TavernInkScope(
       ink: ink,
