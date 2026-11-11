@@ -19018,7 +19018,7 @@ class L10nZh extends L10n {
   String get tavernImportFromLink => '从链接导入';
 
   @override
-  String get tavernImportFromLinkSubtitle => '卡文件的直链（.png、.json、.charx）';
+  String get tavernImportFromLinkSubtitle => 'Chub、RisuRealm 的角色页，或卡文件的直链';
 
   @override
   String get tavernLinkInvalid => '这不是一个网址';
@@ -19032,7 +19032,10 @@ class L10nZh extends L10n {
   }
 
   @override
-  String get tavernLinkIsPage => '这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。';
+  String get tavernLinkIsPage => '这是网页，不是卡文件。Chub 和 RisuRealm 的角色页可以直接贴；别的站打开网页找「下载」，拿到 .png 或 .json 的链接再试。';
+
+  @override
+  String get tavernLinkSiteMissing => '站上没有这个角色，可能删了或没公开';
 
   @override
   String get tavernQuickReplies => '快速回复';

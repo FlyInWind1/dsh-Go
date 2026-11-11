@@ -463,7 +463,7 @@
   "tavernImportFromFile": "从文件导入",
   "tavernImportFromFileSubtitle": "角色卡、预设、世界书、正则、快速回复或聊天记录，会自己认出来",
   "tavernImportFromLink": "从链接导入",
-  "tavernImportFromLinkSubtitle": "卡文件的直链（.png、.json、.charx）",
+  "tavernImportFromLinkSubtitle": "Chub、RisuRealm 的角色页，或卡文件的直链",
   "tavernLinkInvalid": "这不是一个网址",
   "tavernLinkFailed": "下载失败，检查网络或链接",
   "tavernLinkStatus": "下载失败（HTTP {status}）",
@@ -474,7 +474,8 @@
       }
     }
   },
-  "tavernLinkIsPage": "这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。",
+  "tavernLinkIsPage": "这是网页，不是卡文件。Chub 和 RisuRealm 的角色页可以直接贴；别的站打开网页找「下载」，拿到 .png 或 .json 的链接再试。",
+  "tavernLinkSiteMissing": "站上没有这个角色，可能删了或没公开",
   "tavernQuickReplies": "快速回复",
   "tavernQuickRepliesEmpty": "还没有快速回复",
   "tavernQuickRepliesNote": "对话里输入框上方会出现这些：点一下直接发出去，长按放进输入框再改。",

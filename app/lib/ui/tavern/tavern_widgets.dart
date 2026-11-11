@@ -15,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
+import '../../tavern/tavern_card_sites.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_provider.dart';
 import '../common/app_dialog.dart';
@@ -324,30 +325,61 @@ Future<TavernCharacter?> importTavernCardFromLink(BuildContext context, WidgetRe
     builder: (_) => _LinkDialog(initial: copied.startsWith(RegExp('https?://')) ? copied : ''),
   );
   if (link == null || link.trim().isEmpty) return null;
-  final uri = Uri.tryParse(link.trim());
+  // A site's address typed without its scheme, like chub.ai/characters/…, is https.
+  final typed = link.trim();
+  final uri = Uri.tryParse(
+    RegExp(r'^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(/\S*)?$').hasMatch(typed) ? 'https://$typed' : typed,
+  );
   if (uri == null || !(uri.isScheme('http') || uri.isScheme('https')) || uri.host.isEmpty) {
     messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkInvalid)));
     return null;
   }
-  final http.Response response;
+  final Uint8List bytes;
+  final String name;
+  // A character page on a site the App knows goes through its download.
+  if (tavernCardSiteOf(uri) case final page?) {
+    try {
+      (:bytes, fileName: name) = await downloadTavernSiteCard(client, page).timeout(const Duration(seconds: 60));
+    } on TavernCardSiteError catch (e) {
+      final status = e.status;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 404
+                ? l10n.tavernLinkSiteMissing
+                : status != null
+                ? l10n.tavernLinkStatus(status)
+                : l10n.tavernImportFailed,
+          ),
+        ),
+      );
+      return null;
+    } on Object {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkFailed)));
+      return null;
+    }
+  } else {
+    final http.Response response;
+    try {
+      response = await client.get(uri).timeout(const Duration(seconds: 60));
+    } on Object {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkFailed)));
+      return null;
+    }
+    if (response.statusCode != 200) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkStatus(response.statusCode))));
+      return null;
+    }
+    // A page rather than the card file itself.
+    if ((response.headers['content-type'] ?? '').contains('text/html')) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkIsPage)));
+      return null;
+    }
+    bytes = response.bodyBytes;
+    name = uri.pathSegments.where((s) => s.isNotEmpty).lastOrNull ?? 'card';
+  }
   try {
-    response = await client.get(uri).timeout(const Duration(seconds: 60));
-  } on Object {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkFailed)));
-    return null;
-  }
-  if (response.statusCode != 200) {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkStatus(response.statusCode))));
-    return null;
-  }
-  // A card site's page rather than the card file itself.
-  if ((response.headers['content-type'] ?? '').contains('text/html')) {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernLinkIsPage)));
-    return null;
-  }
-  final name = uri.pathSegments.where((s) => s.isNotEmpty).lastOrNull ?? 'card';
-  try {
-    final character = await tavern.importCard(response.bodyBytes, fileName: name);
+    final character = await tavern.importCard(bytes, fileName: name);
     messenger.showSnackBar(SnackBar(content: Text(l10n.tavernImported(character.name))));
     return character;
   } on TavernImportError catch (e) {
@@ -476,7 +508,7 @@ class _LinkDialogState extends State<_LinkDialog> {
         controller: _field,
         autofocus: true,
         keyboardType: TextInputType.url,
-        decoration: const InputDecoration(hintText: 'https://…/card.png'),
+        decoration: const InputDecoration(hintText: 'chub.ai/characters/…'),
         onSubmitted: (v) => Navigator.of(context).pop(v),
       ),
       actions: [

@@ -34733,7 +34733,7 @@ abstract class L10n {
   /// No description provided for @tavernImportFromLinkSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'卡文件的直链（.png、.json、.charx）'**
+  /// **'Chub、RisuRealm 的角色页，或卡文件的直链'**
   String get tavernImportFromLinkSubtitle;
 
   /// No description provided for @tavernLinkInvalid.
@@ -34757,8 +34757,14 @@ abstract class L10n {
   /// No description provided for @tavernLinkIsPage.
   ///
   /// In zh, this message translates to:
-  /// **'这是网页，不是卡文件。打开网页找「下载」拿到 .png 或 .json 的链接再试。'**
+  /// **'这是网页，不是卡文件。Chub 和 RisuRealm 的角色页可以直接贴；别的站打开网页找「下载」，拿到 .png 或 .json 的链接再试。'**
   String get tavernLinkIsPage;
+
+  /// No description provided for @tavernLinkSiteMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'站上没有这个角色，可能删了或没公开'**
+  String get tavernLinkSiteMissing;
 
   /// No description provided for @tavernQuickReplies.
   ///

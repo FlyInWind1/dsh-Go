@@ -20062,7 +20062,7 @@ class L10nEn extends L10n {
   String get tavernImportFromLink => 'From a link';
 
   @override
-  String get tavernImportFromLinkSubtitle => 'A direct link to the card file (.png, .json, .charx)';
+  String get tavernImportFromLinkSubtitle => 'A character page on Chub or RisuRealm, or a direct link to the card file';
 
   @override
   String get tavernLinkInvalid => 'That isn\'t a web address';
@@ -20077,7 +20077,10 @@ class L10nEn extends L10n {
 
   @override
   String get tavernLinkIsPage =>
-      'That\'s a web page, not a card file. Find the download link to the .png or .json and try that.';
+      'That\'s a web page, not a card file. Character pages on Chub and RisuRealm work as they are; elsewhere, find the download link to the .png or .json and try that.';
+
+  @override
+  String get tavernLinkSiteMissing => 'The site has no such character; it may be deleted or private';
 
   @override
   String get tavernQuickReplies => 'Quick replies';
