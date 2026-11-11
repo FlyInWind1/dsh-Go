@@ -12069,6 +12069,8 @@
   "tavernNarrate": "以旁白身份发",
   "tavernNarrateSubtitle": "作为叙述插进故事，不算你说的话",
   "tavernSendFailed": "没能发出去",
+  "tavernStateVariables": "变量",
+  "tavernStateVariablesNote": "卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

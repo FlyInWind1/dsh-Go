@@ -7,6 +7,7 @@
 // T18) and say what they will hold.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,9 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_settings.dart';
+import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
+import '../common/sheet_title_bar.dart';
 import '../features/feature_kit.dart' show QuietSpinner;
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
@@ -67,12 +70,21 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
   TavernStageTab _tab = TavernStageTab.session;
   late Future<TavernTurnInspection?> _record = _read();
 
+  /// The variables saved at the current message (engine T16), read again
+  /// whenever the latest message changes.
+  late Future<Map<String, Object?>> _variables = _readVariables();
+
   Future<TavernTurnInspection?> _read() => ref.read(tavernProvider).inspectTurn(widget.chatId);
+
+  Future<Map<String, Object?>> _readVariables() => ref.read(tavernProvider).readVariables(widget.chatId);
 
   @override
   void didUpdateWidget(TavernStagePanel old) {
     super.didUpdateWidget(old);
-    if (old.turn != widget.turn || old.chatId != widget.chatId) _record = _read();
+    if (old.turn != widget.turn || old.chatId != widget.chatId) {
+      _record = _read();
+      _variables = _readVariables();
+    }
   }
 
   @override
@@ -106,11 +118,21 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
             name: widget.name,
             busy: widget.busy,
           ),
-          TavernStageTab.state => _Waiting(
-            key: const ValueKey('tavern-stage-state'),
-            icon: AppIcons.chart,
-            title: l10n.tavernStageStateEmpty,
-            message: l10n.tavernStageStateNote,
+          // Until a card defines its state (engine T17), what its macros saved.
+          TavernStageTab.state => FutureBuilder<Map<String, Object?>>(
+            future: _variables,
+            builder: (context, snapshot) => switch (snapshot.data) {
+              final variables? when variables.isNotEmpty => _Variables(
+                key: const ValueKey('tavern-stage-variables'),
+                variables: variables,
+              ),
+              _ => _Waiting(
+                key: const ValueKey('tavern-stage-state'),
+                icon: AppIcons.chart,
+                title: l10n.tavernStageStateEmpty,
+                message: l10n.tavernStageStateNote,
+              ),
+            },
           ),
           TavernStageTab.director => _Waiting(
             key: const ValueKey('tavern-stage-director'),
@@ -352,6 +374,93 @@ Future<void> chooseTavernBackground(BuildContext context, WidgetRef ref, String 
 }
 
 /// A page whose contents the engine doesn't give yet: what will be here.
+/// The variables a chat's macros saved ({{setvar}} and the like), as of the
+/// current message, read-only; a tap shows one whole.
+class _Variables extends StatelessWidget {
+  const _Variables({super.key, required this.variables});
+
+  final Map<String, Object?> variables;
+
+  /// [value] on a line: text as written, the rest as compact JSON.
+  static String _line(Object? value) => switch (value) {
+    final String text => text,
+    null => 'null',
+    _ => jsonEncode(value),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final keys = variables.keys.toList()..sort();
+    return SettingsSection(
+      title: l10n.tavernStateVariables,
+      footer: Text(l10n.tavernStateVariablesNote),
+      margin: EdgeInsets.zero,
+      children: [
+        for (final key in keys)
+          InkWell(
+            key: ValueKey('tavern-variable-$key'),
+            onTap: () => unawaited(_open(context, key, variables[key])),
+            splashFactory: rowSplash(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: SettingsMetrics.inset, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: Text(key, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _line(variables[key]),
+                      textAlign: TextAlign.end,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _open(BuildContext context, String key, Object? value) => showAppSheet<void>(
+    context,
+    isScrollControlled: true,
+    builder: (sheet) => SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.7),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetTitleBar(key),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 16),
+                child: SelectableText(
+                  value is String ? value : const JsonEncoder.withIndent('  ').convert(value),
+                  key: const ValueKey('tavern-variable-whole'),
+                  style: Theme.of(sheet).textTheme.bodySmall?.copyWith(fontFamily: 'monospace', height: 1.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _Waiting extends StatelessWidget {
   const _Waiting({super.key, required this.icon, required this.title, required this.message});
 

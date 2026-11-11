@@ -35744,6 +35744,18 @@ abstract class L10n {
   /// **'没能发出去'**
   String get tavernSendFailed;
 
+  /// No description provided for @tavernStateVariables.
+  ///
+  /// In zh, this message translates to:
+  /// **'变量'**
+  String get tavernStateVariables;
+
+  /// No description provided for @tavernStateVariablesNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。'**
+  String get tavernStateVariablesNote;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

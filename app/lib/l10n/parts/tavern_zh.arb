@@ -726,5 +726,7 @@
   "tavernSendOnlySubtitle": "这句放进故事，她先不接话",
   "tavernNarrate": "以旁白身份发",
   "tavernNarrateSubtitle": "作为叙述插进故事，不算你说的话",
-  "tavernSendFailed": "没能发出去"
+  "tavernSendFailed": "没能发出去",
+  "tavernStateVariables": "变量",
+  "tavernStateVariablesNote": "卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。"
 }

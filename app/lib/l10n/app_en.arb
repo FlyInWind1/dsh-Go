@@ -5942,6 +5942,8 @@
   "tavernNarrate": "Send as narration",
   "tavernNarrateSubtitle": "It goes into the story as narration, not as your line",
   "tavernSendFailed": "Couldn't send",
+  "tavernStateVariables": "Variables",
+  "tavernStateVariablesNote": "What the card's and the chat's macros, such as {{setvar}}, saved, as of the current message. Read-only for now; once a card defines its state, it can be changed here.",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

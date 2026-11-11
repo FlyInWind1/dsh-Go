@@ -19580,6 +19580,12 @@ class L10nZh extends L10n {
   String get tavernSendFailed => '没能发出去';
 
   @override
+  String get tavernStateVariables => '变量';
+
+  @override
+  String get tavernStateVariablesNote => '卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。现在只能看；卡定义了状态以后，可以在这里直接改。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

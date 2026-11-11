@@ -20656,6 +20656,13 @@ class L10nEn extends L10n {
   String get tavernSendFailed => 'Couldn\'t send';
 
   @override
+  String get tavernStateVariables => 'Variables';
+
+  @override
+  String get tavernStateVariablesNote =>
+      'What the card\'s and the chat\'s macros, such as {{setvar}}, saved, as of the current message. Read-only for now; once a card defines its state, it can be changed here.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override
