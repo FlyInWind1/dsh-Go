@@ -754,8 +754,12 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final topInset = BotChatHeader.heightOf(context);
     final lastCharacter = messages?.lastWhere((m) => m.role == TavernRole.character, orElse: () => _none).nodeId;
 
+    final shown = messages ?? const <TavernMessage>[];
     final rows = <Widget>[
-      for (final m in messages ?? const <TavernMessage>[])
+      for (final (i, m) in shown.indexed) ...[
+        // 小说: a long pause in the story starts a chapter, marked with when.
+        if (novel && i > 0 && m.at.difference(shown[i - 1].at) >= tavernChapterGap)
+          TavernChapterBreak(key: ValueKey('tavern-chapter-${m.nodeId}'), at: m.at),
         if (m.nodeId == _streamNode)
           _StreamingReply(key: ValueKey('stream-${m.nodeId}'), stream: _stream, live: _live, thinking: _thinking)
         else
@@ -771,6 +775,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             showUsage: showUsage,
             lead: name,
           ),
+      ],
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
         _StreamingReply(key: const ValueKey('stream-pending'), stream: _stream, live: _live, thinking: _thinking),
     ];
@@ -1650,4 +1655,40 @@ class _ErrorSlot extends StatelessWidget {
             ),
           ),
   );
+}
+
+/// How long a pause in 小说 starts a new chapter.
+const tavernChapterGap = Duration(hours: 6);
+
+/// A chapter's start in 小说: a hairline each side of when it picks up.
+class TavernChapterBreak extends StatelessWidget {
+  const TavernChapterBreak({super.key, required this.at});
+
+  final DateTime at;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dsh = DshColors.of(context);
+    final now = DateTime.now();
+    final hm = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    final day = at.year == now.year ? context.l10n.monthDay(at) : '${at.year}/${at.month}/${at.day}';
+    final line = Expanded(child: Divider(color: dsh.textTertiary.withValues(alpha: 0.3), height: 1));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(
+        children: [
+          line,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              '$day $hm',
+              style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
+            ),
+          ),
+          line,
+        ],
+      ),
+    );
+  }
 }
