@@ -89,12 +89,16 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final kept = jsonDecode(prefs.getString('tavern.bookmarks.$chat')!) as List;
     expect((kept.single as Map)['preview'], startsWith('第80句话'));
+    // Marked in the story too, under the line.
+    final tag = find.byKey(ValueKey('tavern-bookmarked-${(kept.single as Map)['nodeId']}'));
+    expect(tag, findsOneWidget);
 
     await menu();
     expect(find.text('去掉书签'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('tavern-menu-bookmark')));
     await tester.pumpAndSettle();
     expect(prefs.getString('tavern.bookmarks.$chat'), isNull);
+    expect(tag, findsNothing);
   });
 
   testWidgets('a bookmark far back goes there: its line loaded, on screen, marked', (tester) async {

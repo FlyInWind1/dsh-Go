@@ -878,6 +878,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final lastCharacter = messages?.lastWhere((m) => m.role == TavernRole.character, orElse: () => _none).nodeId;
 
     final shown = messages ?? const <TavernMessage>[];
+    final marked = {for (final b in ref.watch(tavernBookmarksProvider(widget.chatId))) b.nodeId};
     final rows = <Widget>[
       for (final (i, m) in shown.indexed) ...[
         // 小说: a long pause in the story starts a chapter, marked with when.
@@ -904,6 +905,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             indent: indent,
             showUsage: showUsage,
             lead: name,
+            bookmarked: marked.contains(m.nodeId),
           ),
       ],
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
@@ -1229,10 +1231,14 @@ class _MessageRow extends StatelessWidget {
     this.indent = false,
     this.showUsage = false,
     this.lead = '',
+    this.bookmarked = false,
   });
 
   final String chatId;
   final TavernMessage message;
+
+  /// Marked (书签): says so under it, as hidden does.
+  final bool bookmarked;
   final bool last;
   final bool busy;
   final VoidCallback onMenu;
@@ -1273,15 +1279,22 @@ class _MessageRow extends StatelessWidget {
             child: drawn,
           )
         : drawn;
-    if (!message.hidden) return body;
-    // Hidden from the model: still here for you, faded, and says so.
+    if (!message.hidden && !bookmarked) return body;
+    // Hidden from the model: still here for you, faded, and says so. Marked:
+    // a bookmark under it.
     final end = !novel && message.role == TavernRole.user;
     return Column(
       crossAxisAlignment: end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        Opacity(opacity: 0.45, child: body),
+        if (message.hidden) Opacity(opacity: 0.45, child: body) else body,
         const SizedBox(height: 4),
-        _HiddenTag(key: ValueKey('tavern-hidden-${message.nodeId}')),
+        Wrap(
+          spacing: 12,
+          children: [
+            if (message.hidden) _HiddenTag(key: ValueKey('tavern-hidden-${message.nodeId}')),
+            if (bookmarked) _BookmarkTag(key: ValueKey('tavern-bookmarked-${message.nodeId}')),
+          ],
+        ),
       ],
     );
   }
@@ -1537,6 +1550,25 @@ class _HiddenTag extends StatelessWidget {
         Icon(AppIcons.hideSecret, size: 14, color: color),
         const SizedBox(width: 4),
         Text(context.l10n.tavernHiddenFromModel, style: theme.textTheme.labelSmall?.copyWith(color: color)),
+      ],
+    );
+  }
+}
+
+/// Under a marked message: a bookmark and 书签.
+class _BookmarkTag extends StatelessWidget {
+  const _BookmarkTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.primary.withValues(alpha: 0.8);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(AppIcons.bookmarkActive, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(context.l10n.tavernBookmarks, style: theme.textTheme.labelSmall?.copyWith(color: color)),
       ],
     );
   }
