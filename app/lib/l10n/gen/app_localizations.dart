@@ -36128,6 +36128,30 @@ abstract class L10n {
   /// **'像书里那样，每段开头空两个字'**
   String get tavernNovelIndentSubtitle;
 
+  /// No description provided for @tavernShelfSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择'**
+  String get tavernShelfSelect;
+
+  /// No description provided for @tavernShelfPicked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 个'**
+  String tavernShelfPicked(int count);
+
+  /// No description provided for @tavernShelfExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出选中的角色卡'**
+  String get tavernShelfExport;
+
+  /// No description provided for @tavernDeleteCharactersTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除这 {count} 个角色？'**
+  String tavernDeleteCharactersTitle(int count);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -802,5 +802,11 @@
   "tavernCharacterTabSetup": "配置",
   "tavernCharacterNoDefinition": "这张卡没有写设定和说明。",
   "tavernNovelIndent": "小说排版段首空两格",
-  "tavernNovelIndentSubtitle": "像书里那样，每段开头空两个字"
+  "tavernNovelIndentSubtitle": "像书里那样，每段开头空两个字",
+  "tavernShelfSelect": "选择",
+  "tavernShelfPicked": "已选 {count} 个",
+  "@tavernShelfPicked": {"placeholders": {"count": {"type": "int"}}},
+  "tavernShelfExport": "导出选中的角色卡",
+  "tavernDeleteCharactersTitle": "删除这 {count} 个角色？",
+  "@tavernDeleteCharactersTitle": {"placeholders": {"count": {"type": "int"}}}
 }

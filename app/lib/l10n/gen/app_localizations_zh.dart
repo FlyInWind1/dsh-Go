@@ -19796,6 +19796,22 @@ class L10nZh extends L10n {
   String get tavernNovelIndentSubtitle => '像书里那样，每段开头空两个字';
 
   @override
+  String get tavernShelfSelect => '选择';
+
+  @override
+  String tavernShelfPicked(int count) {
+    return '已选 $count 个';
+  }
+
+  @override
+  String get tavernShelfExport => '导出选中的角色卡';
+
+  @override
+  String tavernDeleteCharactersTitle(int count) {
+    return '删除这 $count 个角色？';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

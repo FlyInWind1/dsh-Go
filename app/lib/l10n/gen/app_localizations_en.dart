@@ -20877,6 +20877,22 @@ class L10nEn extends L10n {
   String get tavernNovelIndentSubtitle => 'Each paragraph opens two characters in, as in a book';
 
   @override
+  String get tavernShelfSelect => 'Select';
+
+  @override
+  String tavernShelfPicked(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get tavernShelfExport => 'Export the selected cards';
+
+  @override
+  String tavernDeleteCharactersTitle(int count) {
+    return 'Delete these $count characters?';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

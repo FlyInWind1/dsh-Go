@@ -802,5 +802,11 @@
   "tavernCharacterTabSetup": "Setup",
   "tavernCharacterNoDefinition": "This card has no definition or notes.",
   "tavernNovelIndent": "Indent paragraphs in 小说",
-  "tavernNovelIndentSubtitle": "Each paragraph opens two characters in, as in a book"
+  "tavernNovelIndentSubtitle": "Each paragraph opens two characters in, as in a book",
+  "tavernShelfSelect": "Select",
+  "tavernShelfPicked": "{count} selected",
+  "@tavernShelfPicked": {"placeholders": {"count": {"type": "int"}}},
+  "tavernShelfExport": "Export the selected cards",
+  "tavernDeleteCharactersTitle": "Delete these {count} characters?",
+  "@tavernDeleteCharactersTitle": {"placeholders": {"count": {"type": "int"}}}
 }

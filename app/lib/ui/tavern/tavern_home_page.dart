@@ -59,6 +59,31 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
   String? _tag;
   var _section = TavernSection.shelf;
 
+  /// The characters picked on the shelf; null when not picking.
+  Set<String>? _picked;
+
+  void _toggle(String id) => setState(() {
+    final picked = {...?_picked};
+    picked.contains(id) ? picked.remove(id) : picked.add(id);
+    _picked = picked;
+  });
+
+  Future<void> _deletePicked(List<TavernCharacter> all) async {
+    final picked = [
+      for (final c in all)
+        if (_picked?.contains(c.id) ?? false) c,
+    ];
+    if (await deleteTavernCharacters(context, ref, picked) && mounted) setState(() => _picked = null);
+  }
+
+  Future<void> _exportPicked(List<TavernCharacter> all) async {
+    final picked = [
+      for (final c in all)
+        if (_picked?.contains(c.id) ?? false) c,
+    ];
+    if (picked.isNotEmpty) await shareTavernCards(context, ref, picked);
+  }
+
   @override
   void dispose() {
     _search.dispose();
@@ -256,7 +281,14 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
             ),
           ),
         ],
-        _ShelfLabel(order: shelf.order),
+        _ShelfLabel(
+          order: shelf.order,
+          picked: _picked?.length,
+          onPick: () => setState(() => _picked = {}),
+          onDone: () => setState(() => _picked = null),
+          onExport: () => unawaited(_exportPicked(all)),
+          onDelete: () => unawaited(_deletePicked(all)),
+        ),
         if (list.isEmpty)
           SliverToBoxAdapter(
             child: EmptyView(icon: AppIcons.noResults, title: l10n.tavernNoMatch, compact: true),
@@ -271,7 +303,11 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
               childAspectRatio: 0.62,
             ),
             itemCount: list.length,
-            itemBuilder: (context, i) => _CharacterTile(character: list[i]),
+            itemBuilder: (context, i) => _CharacterTile(
+              character: list[i],
+              picked: _picked?.contains(list[i].id),
+              onPick: () => _toggle(list[i].id),
+            ),
           ),
         ),
       ],
@@ -495,9 +531,23 @@ class _SectionLabel extends StatelessWidget {
 
 /// 角色, and how they are ordered: a tap picks another order.
 class _ShelfLabel extends ConsumerWidget {
-  const _ShelfLabel({required this.order});
+  const _ShelfLabel({
+    required this.order,
+    required this.picked,
+    required this.onPick,
+    required this.onDone,
+    required this.onExport,
+    required this.onDelete,
+  });
 
   final TavernShelfOrder order;
+
+  /// How many are picked; null when not picking.
+  final int? picked;
+  final VoidCallback onPick;
+  final VoidCallback onDone;
+  final VoidCallback onExport;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -510,6 +560,44 @@ class _ShelfLabel extends ConsumerWidget {
       TavernShelfOrder.imported => l10n.tavernShelfOrderImported,
     };
     final shelf = ref.read(tavernShelfProvider.notifier);
+    final label = theme.textTheme.labelMedium?.copyWith(color: dsh.textTertiary);
+    final picked = this.picked;
+    // Picking: how many, and what to do with them.
+    if (picked != null) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 8, 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.tavernShelfPicked(picked),
+                  key: const ValueKey('tavern-shelf-picked'),
+                  style: theme.textTheme.titleSmall?.copyWith(color: dsh.textTertiary),
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('tavern-shelf-export'),
+                tooltip: l10n.tavernShelfExport,
+                icon: const Icon(AppIcons.share, size: 20),
+                onPressed: picked == 0 ? null : onExport,
+              ),
+              IconButton(
+                key: const ValueKey('tavern-shelf-delete'),
+                tooltip: l10n.commonDelete,
+                icon: Icon(AppIcons.delete, size: 20, color: picked == 0 ? null : dsh.danger),
+                onPressed: picked == 0 ? null : onDelete,
+              ),
+              TextButton(
+                key: const ValueKey('tavern-shelf-done'),
+                onPressed: onDone,
+                child: Text(l10n.commonCancel, style: label),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 8, 2),
@@ -517,6 +605,11 @@ class _ShelfLabel extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(l10n.tavernCharacters, style: theme.textTheme.titleSmall?.copyWith(color: dsh.textTertiary)),
+            ),
+            TextButton(
+              key: const ValueKey('tavern-shelf-select'),
+              onPressed: onPick,
+              child: Text(l10n.tavernShelfSelect, style: label),
             ),
             TextButton.icon(
               key: const ValueKey('tavern-shelf-sort'),
@@ -543,9 +636,13 @@ class _ShelfLabel extends ConsumerWidget {
 
 /// A card in the grid: the picture at 2:3, the name, the tags.
 class _CharacterTile extends ConsumerWidget {
-  const _CharacterTile({required this.character});
+  const _CharacterTile({required this.character, this.picked, this.onPick});
 
   final TavernCharacter character;
+
+  /// Picking: whether this one is picked; null when not picking.
+  final bool? picked;
+  final VoidCallback? onPick;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -555,25 +652,32 @@ class _CharacterTile extends ConsumerWidget {
     final favorite = ref.watch(tavernShelfProvider.select((s) => s.favorites.contains(character.id)));
     return Semantics(
       button: true,
+      selected: picked,
       label: favorite ? '${character.name}，${l10n.tavernFavorited}' : character.name,
       child: GestureDetector(
         key: ValueKey('tavern-character-${character.id}'),
-        onTap: () => Navigator.of(context).push(TavernCharacterPage.route(character.id)),
-        onLongPress: () => unawaited(
-          showTavernActions(context, [
-            (
-              favorite ? AppIcons.favoriteActive : AppIcons.favorite,
-              favorite ? l10n.tavernUnfavorite : l10n.tavernFavorite,
-              () => unawaited(ref.read(tavernShelfProvider.notifier).setFavorite(character.id, !favorite)),
-            ),
-            (
-              AppIcons.edit,
-              context.l10n.commonEdit,
-              () => unawaited(Navigator.of(context).push(TavernCharacterEditPage.route(character.id))),
-            ),
-            (AppIcons.delete, context.l10n.tavernDeleteCharacter, () => deleteTavernCharacter(context, ref, character)),
-          ]),
-        ),
+        onTap: picked != null ? onPick : () => Navigator.of(context).push(TavernCharacterPage.route(character.id)),
+        onLongPress: picked != null
+            ? null
+            : () => unawaited(
+                showTavernActions(context, [
+                  (
+                    favorite ? AppIcons.favoriteActive : AppIcons.favorite,
+                    favorite ? l10n.tavernUnfavorite : l10n.tavernFavorite,
+                    () => unawaited(ref.read(tavernShelfProvider.notifier).setFavorite(character.id, !favorite)),
+                  ),
+                  (
+                    AppIcons.edit,
+                    context.l10n.commonEdit,
+                    () => unawaited(Navigator.of(context).push(TavernCharacterEditPage.route(character.id))),
+                  ),
+                  (
+                    AppIcons.delete,
+                    context.l10n.tavernDeleteCharacter,
+                    () => deleteTavernCharacter(context, ref, character),
+                  ),
+                ]),
+              ),
         behavior: HitTestBehavior.opaque,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,6 +687,23 @@ class _CharacterTile extends ConsumerWidget {
                 fit: StackFit.expand,
                 children: [
                   TavernPortrait(name: character.name, path: character.avatarPath),
+                  if (picked case final picked?)
+                    Positioned(
+                      key: ValueKey('tavern-pick-${character.id}'),
+                      top: 6,
+                      left: 6,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: picked ? theme.colorScheme.primary : Colors.black.withValues(alpha: 0.32),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(AppIcons.done, size: 14, color: picked ? Colors.white : Colors.transparent),
+                        ),
+                      ),
+                    ),
                   if (favorite)
                     Positioned(
                       key: ValueKey('tavern-favorite-${character.id}'),

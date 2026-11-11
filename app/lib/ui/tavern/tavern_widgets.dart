@@ -77,20 +77,50 @@ Future<bool> deleteTavernCharacter(BuildContext context, WidgetRef ref, TavernCh
     message: l10n.tavernDeleteCharacterMessage,
   );
   if (!ok) return false;
+  await _deleteCharacters(ref, [character]);
+  return true;
+}
+
+/// Asks once, then deletes [characters] and their chats. True when they
+/// were deleted.
+Future<bool> deleteTavernCharacters(BuildContext context, WidgetRef ref, List<TavernCharacter> characters) async {
+  if (characters.isEmpty) return false;
+  if (characters.length == 1) return deleteTavernCharacter(context, ref, characters.single);
+  final l10n = context.l10n;
+  final ok = await _confirmDelete(
+    context,
+    title: l10n.tavernDeleteCharactersTitle(characters.length),
+    message: l10n.tavernDeleteCharacterMessage,
+  );
+  if (!ok) return false;
+  await _deleteCharacters(ref, characters);
+  return true;
+}
+
+/// Deletes [characters] from the tavern first, all of them, then lets their
+/// files go: a slow file never holds a character back.
+Future<void> _deleteCharacters(WidgetRef ref, List<TavernCharacter> characters) async {
   final tavern = ref.read(tavernProvider);
-  // Its chats go with it, and so do their pictures.
-  // Never held up by it: without the list, the pictures just stay.
-  final chats = await tavern
-      .watchChats(characterId: character.id)
-      .first
-      .timeout(const Duration(seconds: 3))
-      .catchError((_) => <TavernChatSummary>[]);
-  await tavern.deleteCharacter(character.id);
+  final live2d = ref.read(tavernLive2dRootProvider);
+  final chats = <TavernChatSummary>[];
+  for (final character in characters) {
+    // Its chats go with it, and so do their pictures.
+    // Never held up by it: without the list, the pictures just stay.
+    chats.addAll(
+      await tavern
+          .watchChats(characterId: character.id)
+          .first
+          .timeout(const Duration(seconds: 3))
+          .catchError((_) => <TavernChatSummary>[]),
+    );
+    await tavern.deleteCharacter(character.id);
+  }
   for (final chat in chats) {
     await forgetTavernBackground(chat.id);
   }
-  await forgetTavernLive2d(ref.read(tavernLive2dRootProvider), character.id);
-  return true;
+  for (final character in characters) {
+    await forgetTavernLive2d(live2d, character.id);
+  }
 }
 
 /// Asks, then deletes one chat. True when it was deleted.
@@ -316,6 +346,47 @@ final tavernCardSinkProvider = Provider<Future<void> Function(String name, Uint8
     );
   },
 );
+
+/// Hands several card files to the share sheet at once, as
+/// [tavernCardSinkProvider] does one. Tests swap it.
+final tavernCardsSinkProvider = Provider<Future<void> Function(List<(String name, Uint8List bytes)> files)>(
+  (ref) => (files) async {
+    final dir = Directory('${(await getTemporaryDirectory()).path}/tavern_export');
+    await dir.create(recursive: true);
+    final shared = <XFile>[];
+    for (final (name, bytes) in files) {
+      final file = File('${dir.path}/$name');
+      await file.writeAsBytes(bytes, flush: true);
+      shared.add(XFile(file.path, mimeType: 'image/png', name: name));
+    }
+    await SharePlus.instance.share(
+      ShareParams(files: shared, fileNameOverrides: [for (final (name, _) in files) name]),
+    );
+  },
+);
+
+/// Exports [characters] as PNG cards and shares them together; two of one
+/// name get a number.
+Future<void> shareTavernCards(BuildContext context, WidgetRef ref, List<TavernCharacter> characters) async {
+  final l10n = context.l10n;
+  final messenger = ScaffoldMessenger.of(context);
+  final sink = ref.read(tavernCardsSinkProvider);
+  try {
+    final tavern = ref.read(tavernProvider);
+    final used = <String>{};
+    final files = <(String, Uint8List)>[];
+    for (final character in characters) {
+      var name = tavernCardFileName(character.name, TavernCardFormat.png);
+      for (var n = 2; !used.add(name); n++) {
+        name = tavernCardFileName('${character.name} $n', TavernCardFormat.png);
+      }
+      files.add((name, await tavern.exportCard(character.id)));
+    }
+    await sink(files);
+  } on Object {
+    messenger.showSnackBar(SnackBar(content: Text(l10n.tavernExportFailed)));
+  }
+}
 
 /// A file name from a character's name: no path or reserved characters.
 @visibleForTesting
