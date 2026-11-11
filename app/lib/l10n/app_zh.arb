@@ -12248,6 +12248,33 @@
       }
     }
   },
+  "tavernSettingsConnection": "模型与连接",
+  "tavernDefaultPreset": "默认预设",
+  "tavernDefaultPresetPick": "新对话用的预设",
+  "tavernGenerationInPreset": "改「{name}」的参数",
+  "@tavernGenerationInPreset": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGenerationPresetNote": "新对话用「{name}」：上下文、回复长度和温度在这份预设里改。自带预设的对话以它自己的为准。",
+  "@tavernGenerationPresetNote": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStorage": "存储占用",
+  "tavernStorageCounting": "正在计算…",
+  "tavernStorageCharacters": "角色卡",
+  "tavernStorageChats": "对话、预设和人设",
+  "tavernStorageLive2d": "Live2D 形象",
+  "tavernStorageOther": "背景图、世界书、正则和设置",
+  "tavernStorageNote": "这些都只存在这台设备上；换手机或卸载前，先「备份整个酒馆」。",
+  "tavernDefaultPresetEmpty": "在 资源库 › 预设 里导入以后，就能换成别的。",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

@@ -20904,6 +20904,50 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernSettingsConnection => 'Model & connection';
+
+  @override
+  String get tavernDefaultPreset => 'Default preset';
+
+  @override
+  String get tavernDefaultPresetPick => 'The preset new chats use';
+
+  @override
+  String tavernGenerationInPreset(String name) {
+    return 'Change $name\'s settings';
+  }
+
+  @override
+  String tavernGenerationPresetNote(String name) {
+    return 'New chats use $name: change context, reply length and temperature in that preset. A chat with a preset of its own keeps to it.';
+  }
+
+  @override
+  String get tavernStorage => 'Storage';
+
+  @override
+  String get tavernStorageCounting => 'Counting…';
+
+  @override
+  String get tavernStorageCharacters => 'Character cards';
+
+  @override
+  String get tavernStorageChats => 'Chats, presets and personas';
+
+  @override
+  String get tavernStorageLive2d => 'Live2D figures';
+
+  @override
+  String get tavernStorageOther => 'Backgrounds, lorebooks, regex and settings';
+
+  @override
+  String get tavernStorageNote =>
+      'All of it lives on this device only; before you change phones or uninstall, back up the whole tavern.';
+
+  @override
+  String get tavernDefaultPresetEmpty => 'Import presets in Library › Presets to pick another.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

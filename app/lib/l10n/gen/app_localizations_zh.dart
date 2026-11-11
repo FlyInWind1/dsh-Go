@@ -19823,6 +19823,49 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernSettingsConnection => '模型与连接';
+
+  @override
+  String get tavernDefaultPreset => '默认预设';
+
+  @override
+  String get tavernDefaultPresetPick => '新对话用的预设';
+
+  @override
+  String tavernGenerationInPreset(String name) {
+    return '改「$name」的参数';
+  }
+
+  @override
+  String tavernGenerationPresetNote(String name) {
+    return '新对话用「$name」：上下文、回复长度和温度在这份预设里改。自带预设的对话以它自己的为准。';
+  }
+
+  @override
+  String get tavernStorage => '存储占用';
+
+  @override
+  String get tavernStorageCounting => '正在计算…';
+
+  @override
+  String get tavernStorageCharacters => '角色卡';
+
+  @override
+  String get tavernStorageChats => '对话、预设和人设';
+
+  @override
+  String get tavernStorageLive2d => 'Live2D 形象';
+
+  @override
+  String get tavernStorageOther => '背景图、世界书、正则和设置';
+
+  @override
+  String get tavernStorageNote => '这些都只存在这台设备上；换手机或卸载前，先「备份整个酒馆」。';
+
+  @override
+  String get tavernDefaultPresetEmpty => '在 资源库 › 预设 里导入以后，就能换成别的。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

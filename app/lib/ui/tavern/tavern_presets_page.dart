@@ -147,6 +147,77 @@ Future<void> showTavernPresetPicker(BuildContext context, String chatId) => show
   ),
 );
 
+/// The sheet where new chats' preset is picked (酒馆设置 › 生成): SillyTavern's
+/// own or one from the library.
+Future<void> showTavernDefaultPresetPicker(BuildContext context) => showAppSheet<void>(
+  context,
+  builder: (sheet) => Consumer(
+    builder: (inner, ref, _) {
+      final l10n = inner.l10n;
+      final presets = ref.watch(tavernPresetsProvider).value ?? const <TavernPresetSummary>[];
+      final current = ref.watch(tavernPresetSelectionProvider(null)).value?.defaultPresetId;
+      final tavern = ref.read(tavernProvider);
+      final container = ProviderScope.containerOf(inner, listen: false);
+      Future<void> pick(String? id) async {
+        Navigator.of(sheet).pop();
+        if (id == current) return;
+        await tavern.setDefaultPreset(id);
+        container.invalidate(tavernPresetSelectionProvider);
+      }
+
+      Widget tick(bool on) =>
+          on ? Icon(AppIcons.selected, size: 18, color: Theme.of(inner).colorScheme.primary) : const SizedBox.shrink();
+      return SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetTitleBar(l10n.tavernDefaultPresetPick),
+            Flexible(
+              child: SingleChildScrollView(
+                child: SheetGroup(
+                  margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
+                  children: [
+                    SettingsTile(
+                      key: const ValueKey('tavern-default-preset-st'),
+                      icon: AppIcons.article,
+                      tinted: false,
+                      title: l10n.tavernPresetStDefault,
+                      subtitle: l10n.tavernPresetStDefaultNote,
+                      value: tick(current == null),
+                      chevron: false,
+                      onTap: () => unawaited(pick(null)),
+                    ),
+                    for (final preset in presets)
+                      SettingsTile(
+                        key: ValueKey('tavern-default-preset-${preset.id}'),
+                        icon: AppIcons.article,
+                        tinted: false,
+                        title: preset.name,
+                        value: tick(current == preset.id),
+                        chevron: false,
+                        onTap: () => unawaited(pick(preset.id)),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (presets.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 16),
+                child: Text(
+                  l10n.tavernDefaultPresetEmpty,
+                  style: Theme.of(inner).textTheme.bodySmall?.copyWith(color: DshColors.of(inner).textTertiary),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  ),
+);
+
 class TavernPresetsPage extends ConsumerWidget {
   const TavernPresetsPage({super.key});
 

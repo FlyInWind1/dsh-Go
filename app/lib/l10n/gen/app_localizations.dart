@@ -36170,6 +36170,84 @@ abstract class L10n {
   /// **'让{name}接着说'**
   String tavernSpeakNext(String name);
 
+  /// No description provided for @tavernSettingsConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型与连接'**
+  String get tavernSettingsConnection;
+
+  /// No description provided for @tavernDefaultPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认预设'**
+  String get tavernDefaultPreset;
+
+  /// No description provided for @tavernDefaultPresetPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'新对话用的预设'**
+  String get tavernDefaultPresetPick;
+
+  /// No description provided for @tavernGenerationInPreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'改「{name}」的参数'**
+  String tavernGenerationInPreset(String name);
+
+  /// No description provided for @tavernGenerationPresetNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'新对话用「{name}」：上下文、回复长度和温度在这份预设里改。自带预设的对话以它自己的为准。'**
+  String tavernGenerationPresetNote(String name);
+
+  /// No description provided for @tavernStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储占用'**
+  String get tavernStorage;
+
+  /// No description provided for @tavernStorageCounting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在计算…'**
+  String get tavernStorageCounting;
+
+  /// No description provided for @tavernStorageCharacters.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色卡'**
+  String get tavernStorageCharacters;
+
+  /// No description provided for @tavernStorageChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话、预设和人设'**
+  String get tavernStorageChats;
+
+  /// No description provided for @tavernStorageLive2d.
+  ///
+  /// In zh, this message translates to:
+  /// **'Live2D 形象'**
+  String get tavernStorageLive2d;
+
+  /// No description provided for @tavernStorageOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景图、世界书、正则和设置'**
+  String get tavernStorageOther;
+
+  /// No description provided for @tavernStorageNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'这些都只存在这台设备上；换手机或卸载前，先「备份整个酒馆」。'**
+  String get tavernStorageNote;
+
+  /// No description provided for @tavernDefaultPresetEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 资源库 › 预设 里导入以后，就能换成别的。'**
+  String get tavernDefaultPresetEmpty;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

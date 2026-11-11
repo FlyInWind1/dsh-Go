@@ -1,20 +1,24 @@
-// 酒馆设置 (docs/design/roleplay-ui.md §1): the model, thinking, and the key
-// the calls use.
+// 酒馆设置 (docs/design/roleplay-ui.md §1; grouped as the optimization doc's
+// §3.4 has it): 模型与连接, 生成, 显示, 数据, 你.
 
 import 'dart:async';
 
+import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
+import '../../state/attachments.dart' show formatBytes;
 import '../../state/settings_state.dart';
 import '../../tavern/tavern_generation.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_storage.dart';
 import '../chat/render/markdown_body.dart';
 import '../common/app_sheet.dart';
+import '../common/sheet_title_bar.dart';
 import '../modes/mode_switch.dart';
 import '../onboarding/api_key_page.dart';
 import '../settings/settings_widgets.dart';
@@ -23,6 +27,8 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_backup.dart';
 import 'tavern_personas.dart';
+import 'tavern_preset_page.dart';
+import 'tavern_presets_page.dart';
 import 'tavern_quick_replies_page.dart';
 import 'tavern_reading.dart';
 
@@ -46,68 +52,89 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
   final defaultPersona = ref.watch(tavernPersonaSelectionProvider(null)).value?.persona;
   final generation = ref.watch(tavernGenerationProvider).value ?? TavernGeneration.standard;
   final generate = ref.read(tavernGenerationProvider.notifier);
-  return [
-    SheetGroup(
-      title: l10n.tavernSettingsYou,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
+  // A preset from the library, once it is the default, is what new chats
+  // use: the numbers below would change ST's own, which then goes unused.
+  final presets = ref.watch(tavernPresetsProvider).value ?? const <TavernPresetSummary>[];
+  final defaultPreset = ref.watch(tavernPresetSelectionProvider(null)).value?.defaultPresetId;
+  final defaultName = tavernPresetName(context, presets, defaultPreset);
+  final storage = ref.watch(tavernStorageProvider);
+  final you = SheetGroup(
+    title: l10n.tavernSettingsYou,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsTile(
+        key: const ValueKey('tavern-personas'),
+        icon: AppIcons.profile,
+        title: l10n.tavernDefaultPersona,
+        value: Text(defaultPersona?.name ?? l10n.tavernPersonaNotSet),
+        onTap: () => unawaited(Navigator.of(context).push(TavernPersonasPage.route())),
+      ),
+      SettingsTile(
+        key: const ValueKey('tavern-quick-replies'),
+        icon: AppIcons.reply,
+        title: l10n.tavernQuickReplies,
+        value: Text(switch (ref.watch(tavernQuickRepliesProvider).length) {
+          0 => l10n.tavernPersonaNotSet,
+          final n => l10n.tavernQuickReplyCount(n),
+        }),
+        onTap: () => unawaited(Navigator.of(context).push(TavernQuickRepliesPage.route())),
+      ),
+    ],
+  );
+  final model = SheetGroup(
+    key: const ValueKey('tavern-connection'),
+    title: l10n.tavernSettingsConnection,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsSegmentTile<String>(
+        key: const ValueKey('tavern-model'),
+        icon: AppIcons.model,
+        title: l10n.tavernSettingsModel,
+        segments: [
+          PillSegment(tavernModels[0], l10n.tavernModelFlash),
+          PillSegment(tavernModels[1], l10n.tavernModelPro),
+        ],
+        selected: settings.model,
+        onChanged: (model) => unawaited(controller.setModel(model)),
+      ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-thinking'),
+        icon: AppIcons.generating,
+        title: l10n.tavernThinking,
+        subtitle: l10n.tavernThinkingSubtitle,
+        value: settings.thinking,
+        onChanged: (on) => unawaited(controller.setThinking(on)),
+      ),
+      SettingsTile(
+        key: const ValueKey('tavern-key'),
+        icon: hasKey ? AppIcons.apiKey : AppIcons.noApiKey,
+        title: l10n.tavernApiKey,
+        value: Text(hasKey ? l10n.tavernApiKeySet : l10n.tavernApiKeyMissing),
+        onTap: () =>
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ApiKeyPage(onboarding: false))),
+      ),
+    ],
+  );
+  final generating = SheetGroup(
+    key: const ValueKey('tavern-generation'),
+    title: l10n.tavernSettingsGeneration,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsTile(
+        key: const ValueKey('tavern-default-preset'),
+        icon: AppIcons.article,
+        title: l10n.tavernDefaultPreset,
+        value: Text(defaultName),
+        onTap: () => unawaited(showTavernDefaultPresetPicker(context)),
+      ),
+      if (defaultPreset != null)
         SettingsTile(
-          key: const ValueKey('tavern-personas'),
-          icon: AppIcons.profile,
-          title: l10n.tavernDefaultPersona,
-          value: Text(defaultPersona?.name ?? l10n.tavernPersonaNotSet),
-          onTap: () => unawaited(Navigator.of(context).push(TavernPersonasPage.route())),
-        ),
-        SettingsTile(
-          key: const ValueKey('tavern-quick-replies'),
-          icon: AppIcons.reply,
-          title: l10n.tavernQuickReplies,
-          value: Text(switch (ref.watch(tavernQuickRepliesProvider).length) {
-            0 => l10n.tavernPersonaNotSet,
-            final n => l10n.tavernQuickReplyCount(n),
-          }),
-          onTap: () => unawaited(Navigator.of(context).push(TavernQuickRepliesPage.route())),
-        ),
-      ],
-    ),
-    SheetGroup(
-      title: l10n.tavernSettingsModel,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        SettingsSegmentTile<String>(
-          key: const ValueKey('tavern-model'),
-          icon: AppIcons.model,
-          title: l10n.tavernSettingsModel,
-          segments: [
-            PillSegment(tavernModels[0], l10n.tavernModelFlash),
-            PillSegment(tavernModels[1], l10n.tavernModelPro),
-          ],
-          selected: settings.model,
-          onChanged: (model) => unawaited(controller.setModel(model)),
-        ),
-        SettingsSwitchTile(
-          key: const ValueKey('tavern-thinking'),
-          icon: AppIcons.generating,
-          title: l10n.tavernThinking,
-          subtitle: l10n.tavernThinkingSubtitle,
-          value: settings.thinking,
-          onChanged: (on) => unawaited(controller.setThinking(on)),
-        ),
-        SettingsTile(
-          key: const ValueKey('tavern-key'),
-          icon: hasKey ? AppIcons.apiKey : AppIcons.noApiKey,
-          title: l10n.tavernApiKey,
-          value: Text(hasKey ? l10n.tavernApiKeySet : l10n.tavernApiKeyMissing),
-          onTap: () =>
-              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ApiKeyPage(onboarding: false))),
-        ),
-      ],
-    ),
-    SheetGroup(
-      key: const ValueKey('tavern-generation'),
-      title: l10n.tavernSettingsGeneration,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
+          key: const ValueKey('tavern-default-preset-edit'),
+          icon: AppIcons.edit,
+          title: l10n.tavernGenerationInPreset(defaultName),
+          onTap: () => unawaited(Navigator.of(context).push(TavernPresetPage.route(defaultPreset))),
+        )
+      else ...[
         SettingsSegmentTile<int>(
           key: const ValueKey('tavern-max-context'),
           icon: AppIcons.tavernContext,
@@ -132,147 +159,206 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           selected: generation.temperature,
           onChanged: (t) => unawaited(generate.setTemperature(t)),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
-          child: Text(
-            l10n.tavernGenerationNote,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary),
-          ),
-        ),
       ],
-    ),
-    SheetGroup(
-      title: l10n.tavernSettingsDisplay,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        SettingsSegmentTile<TavernLayout>(
-          key: const ValueKey('tavern-layout'),
-          icon: AppIcons.article,
-          title: l10n.tavernLayout,
-          segments: [
-            PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
-            PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
-            PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
-          ],
-          selected: settings.layout,
-          onChanged: (layout) => unawaited(controller.setLayout(layout)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
+        child: Text(
+          defaultPreset == null ? l10n.tavernGenerationNote : l10n.tavernGenerationPresetNote(defaultName),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary),
         ),
-        // How 视觉小说 types out each page.
-        SettingsSegmentTile<TavernTextSpeed>(
-          key: const ValueKey('tavern-text-speed'),
-          icon: AppIcons.textSpeed,
-          title: l10n.tavernTextSpeed,
-          segments: [
-            PillSegment(TavernTextSpeed.slow, l10n.tavernTextSlow),
-            PillSegment(TavernTextSpeed.normal, l10n.tavernTextNormal),
-            PillSegment(TavernTextSpeed.fast, l10n.tavernTextFast),
-            PillSegment(TavernTextSpeed.instant, l10n.tavernTextInstant),
-          ],
-          selected: settings.textSpeed,
-          onChanged: (speed) => unawaited(controller.setTextSpeed(speed)),
-        ),
-        SettingsSegmentTile<double>(
-          key: const ValueKey('tavern-text-size'),
-          icon: AppIcons.selectText,
-          title: l10n.tavernTextSize,
-          segments: [
-            for (final (i, size) in tavernTextSizes.indexed)
-              PillSegment(
-                size,
-                [l10n.tavernTextSmall, l10n.tavernTextMedium, l10n.tavernTextLarge, l10n.tavernTextHuge][i],
-              ),
-          ],
-          selected: settings.textSize,
-          onChanged: (size) => unawaited(controller.setTextSize(size)),
-        ),
-        SettingsSegmentTile<double>(
-          key: const ValueKey('tavern-line-height'),
-          icon: AppIcons.compact,
-          title: l10n.tavernLineHeight,
-          segments: [
-            for (final (i, height) in tavernLineHeights.indexed)
-              PillSegment(height, [l10n.tavernLineTight, l10n.tavernLineNormal, l10n.tavernLineLoose][i]),
-          ],
-          selected: settings.lineHeight,
-          onChanged: (height) => unawaited(controller.setLineHeight(height)),
-        ),
-        SettingsSegmentTile<TavernPalette>(
-          key: const ValueKey('tavern-palette'),
-          icon: AppIcons.theme,
-          title: l10n.tavernPalette,
-          segments: [
-            PillSegment(TavernPalette.plain, l10n.tavernPalettePlain),
-            PillSegment(TavernPalette.ember, l10n.tavernPaletteEmber),
-            PillSegment(TavernPalette.ocean, l10n.tavernPaletteOcean),
-            PillSegment(TavernPalette.rose, l10n.tavernPaletteRose),
-          ],
-          selected: settings.palette,
-          onChanged: (palette) => unawaited(controller.setPalette(palette)),
-        ),
-        // What a reply will look like.
-        Padding(
-          key: const ValueKey('tavern-reading-preview'),
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-          child: TavernReading(child: MarkdownBody(text: l10n.tavernReadingSample, selectable: false)),
-        ),
-        SettingsSwitchTile(
-          key: const ValueKey('tavern-show-usage'),
-          icon: AppIcons.chart,
-          title: l10n.tavernShowUsage,
-          subtitle: l10n.tavernShowUsageSubtitle,
-          value: settings.showUsage,
-          onChanged: (show) => unawaited(controller.setShowUsage(show)),
-        ),
-        SettingsSwitchTile(
-          key: const ValueKey('tavern-card-theme'),
-          icon: AppIcons.theme,
-          title: l10n.tavernCardTheme,
-          subtitle: l10n.tavernCardThemeSubtitle,
-          value: settings.cardTheme,
-          onChanged: (use) => unawaited(controller.setCardTheme(use)),
-        ),
-        SettingsSwitchTile(
-          key: const ValueKey('tavern-novel-indent'),
-          icon: AppIcons.textSize,
-          title: l10n.tavernNovelIndent,
-          subtitle: l10n.tavernNovelIndentSubtitle,
-          value: settings.novelIndent,
-          onChanged: (indent) => unawaited(controller.setNovelIndent(indent)),
-        ),
-      ],
-    ),
-    SheetGroup(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        SettingsTile(
-          key: const ValueKey('tavern-startup'),
-          icon: AppIcons.modes,
-          title: l10n.modeStartup,
-          value: Text(appModeShortLabel(l10n, startup)),
-          onTap: () => unawaited(showModeSheet(context, current: AppMode.tavern)),
-        ),
-      ],
-    ),
-    // The whole tavern in one ZIP, and back (engine T24).
-    SheetGroup(
-      title: l10n.tavernData,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        SettingsTile(
-          key: const ValueKey('tavern-backup'),
-          icon: AppIcons.archive,
-          title: l10n.tavernBackup,
-          subtitle: l10n.tavernBackupSubtitle,
-          onTap: () => unawaited(backupTavern(context, ref)),
-        ),
-        SettingsTile(
-          key: const ValueKey('tavern-restore'),
-          icon: AppIcons.history,
-          title: l10n.tavernRestore,
-          subtitle: l10n.tavernRestoreSubtitle,
-          onTap: () => unawaited(restoreTavern(context, ref)),
-        ),
-      ],
-    ),
-  ];
+      ),
+    ],
+  );
+  final display = SheetGroup(
+    title: l10n.tavernSettingsDisplay,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsSegmentTile<TavernLayout>(
+        key: const ValueKey('tavern-layout'),
+        icon: AppIcons.article,
+        title: l10n.tavernLayout,
+        segments: [
+          PillSegment(TavernLayout.bubble, l10n.tavernLayoutBubble),
+          PillSegment(TavernLayout.novel, l10n.tavernLayoutNovel),
+          PillSegment(TavernLayout.visualNovel, l10n.tavernLayoutVisualNovel),
+        ],
+        selected: settings.layout,
+        onChanged: (layout) => unawaited(controller.setLayout(layout)),
+      ),
+      // How 视觉小说 types out each page.
+      SettingsSegmentTile<TavernTextSpeed>(
+        key: const ValueKey('tavern-text-speed'),
+        icon: AppIcons.textSpeed,
+        title: l10n.tavernTextSpeed,
+        segments: [
+          PillSegment(TavernTextSpeed.slow, l10n.tavernTextSlow),
+          PillSegment(TavernTextSpeed.normal, l10n.tavernTextNormal),
+          PillSegment(TavernTextSpeed.fast, l10n.tavernTextFast),
+          PillSegment(TavernTextSpeed.instant, l10n.tavernTextInstant),
+        ],
+        selected: settings.textSpeed,
+        onChanged: (speed) => unawaited(controller.setTextSpeed(speed)),
+      ),
+      SettingsSegmentTile<double>(
+        key: const ValueKey('tavern-text-size'),
+        icon: AppIcons.selectText,
+        title: l10n.tavernTextSize,
+        segments: [
+          for (final (i, size) in tavernTextSizes.indexed)
+            PillSegment(
+              size,
+              [l10n.tavernTextSmall, l10n.tavernTextMedium, l10n.tavernTextLarge, l10n.tavernTextHuge][i],
+            ),
+        ],
+        selected: settings.textSize,
+        onChanged: (size) => unawaited(controller.setTextSize(size)),
+      ),
+      SettingsSegmentTile<double>(
+        key: const ValueKey('tavern-line-height'),
+        icon: AppIcons.compact,
+        title: l10n.tavernLineHeight,
+        segments: [
+          for (final (i, height) in tavernLineHeights.indexed)
+            PillSegment(height, [l10n.tavernLineTight, l10n.tavernLineNormal, l10n.tavernLineLoose][i]),
+        ],
+        selected: settings.lineHeight,
+        onChanged: (height) => unawaited(controller.setLineHeight(height)),
+      ),
+      SettingsSegmentTile<TavernPalette>(
+        key: const ValueKey('tavern-palette'),
+        icon: AppIcons.theme,
+        title: l10n.tavernPalette,
+        segments: [
+          PillSegment(TavernPalette.plain, l10n.tavernPalettePlain),
+          PillSegment(TavernPalette.ember, l10n.tavernPaletteEmber),
+          PillSegment(TavernPalette.ocean, l10n.tavernPaletteOcean),
+          PillSegment(TavernPalette.rose, l10n.tavernPaletteRose),
+        ],
+        selected: settings.palette,
+        onChanged: (palette) => unawaited(controller.setPalette(palette)),
+      ),
+      // What a reply will look like.
+      Padding(
+        key: const ValueKey('tavern-reading-preview'),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+        child: TavernReading(child: MarkdownBody(text: l10n.tavernReadingSample, selectable: false)),
+      ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-show-usage'),
+        icon: AppIcons.chart,
+        title: l10n.tavernShowUsage,
+        subtitle: l10n.tavernShowUsageSubtitle,
+        value: settings.showUsage,
+        onChanged: (show) => unawaited(controller.setShowUsage(show)),
+      ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-card-theme'),
+        icon: AppIcons.theme,
+        title: l10n.tavernCardTheme,
+        subtitle: l10n.tavernCardThemeSubtitle,
+        value: settings.cardTheme,
+        onChanged: (use) => unawaited(controller.setCardTheme(use)),
+      ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-novel-indent'),
+        icon: AppIcons.textSize,
+        title: l10n.tavernNovelIndent,
+        subtitle: l10n.tavernNovelIndentSubtitle,
+        value: settings.novelIndent,
+        onChanged: (indent) => unawaited(controller.setNovelIndent(indent)),
+      ),
+    ],
+  );
+  final startupGroup = SheetGroup(
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsTile(
+        key: const ValueKey('tavern-startup'),
+        icon: AppIcons.modes,
+        title: l10n.modeStartup,
+        value: Text(appModeShortLabel(l10n, startup)),
+        onTap: () => unawaited(showModeSheet(context, current: AppMode.tavern)),
+      ),
+    ],
+  );
+  // The whole tavern in one ZIP, and back (engine T24); and how much room it takes.
+  final data = SheetGroup(
+    key: const ValueKey('tavern-data'),
+    title: l10n.tavernData,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    children: [
+      SettingsTile(
+        key: const ValueKey('tavern-backup'),
+        icon: AppIcons.archive,
+        title: l10n.tavernBackup,
+        subtitle: l10n.tavernBackupSubtitle,
+        onTap: () => unawaited(backupTavern(context, ref)),
+      ),
+      SettingsTile(
+        key: const ValueKey('tavern-restore'),
+        icon: AppIcons.history,
+        title: l10n.tavernRestore,
+        subtitle: l10n.tavernRestoreSubtitle,
+        onTap: () => unawaited(restoreTavern(context, ref)),
+      ),
+      SettingsTile(
+        key: const ValueKey('tavern-storage'),
+        icon: AppIcons.phoneStorage,
+        title: l10n.tavernStorage,
+        value: Text(switch (storage) {
+          AsyncData(:final value) => formatBytes(value.total),
+          AsyncError() => '—',
+          _ => l10n.tavernStorageCounting,
+        }),
+        onTap: switch (storage) {
+          AsyncData(:final value) => () => unawaited(_showStorage(context, value)),
+          _ => null,
+        },
+      ),
+    ],
+  );
+  return [model, generating, display, data, you, startupGroup];
 }
+
+/// What the room goes to, part by part.
+Future<void> _showStorage(BuildContext context, TavernStorage storage) => showAppSheet<void>(
+  context,
+  builder: (sheet) {
+    final l10n = sheet.l10n;
+    Widget row(String key, IconData icon, String title, int bytes) => SettingsTile(
+      key: ValueKey('tavern-storage-$key'),
+      icon: icon,
+      tinted: false,
+      title: title,
+      value: Text(formatBytes(bytes)),
+      chevron: false,
+    );
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetTitleBar('${l10n.tavernStorage} · ${formatBytes(storage.total)}'),
+          SheetGroup(
+            margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 8),
+            children: [
+              row('characters', AppIcons.profile, l10n.tavernStorageCharacters, storage.characters),
+              row('chats', AppIcons.chat, l10n.tavernStorageChats, storage.chats),
+              row('live2d', AppIcons.pet, l10n.tavernStorageLive2d, storage.live2d),
+              row('other', AppIcons.folder, l10n.tavernStorageOther, storage.other),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 4, SheetTitleBar.inset + 12, 16),
+            child: Text(
+              l10n.tavernStorageNote,
+              style: Theme.of(sheet).textTheme.bodySmall
+                  ?.copyWith(color: DshColors.of(sheet).textTertiary, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  },
+);
