@@ -18,9 +18,19 @@ Map<String, String> tavernSprites(Iterable<TavernCharacterAsset>? assets) => {
 
 /// The picture for a page of hers: a sprite named in its words (the first
 /// one), else one for the feeling the words show, else her neutral one;
-/// null when the card has none of these (the card face then).
-String? tavernSpriteFor(Map<String, String> sprites, String text) {
+/// null when the card has none of these (the card face then). A [marker]
+/// ([表情:x], tavern_markers.dart) comes first: a sprite of that name, else
+/// one for the feeling it names.
+String? tavernSpriteFor(Map<String, String> sprites, String text, {String? marker}) {
   if (sprites.isEmpty) return null;
+  if (marker != null) {
+    if (sprites[marker.toLowerCase()] case final path?) return path;
+    if (tavernEmotionIn(marker) case final feeling?) {
+      for (final name in _names[feeling]!) {
+        if (sprites[name] case final path?) return path;
+      }
+    }
+  }
   final lower = text.toLowerCase();
   int? first;
   String? named;

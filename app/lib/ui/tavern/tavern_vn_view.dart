@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../l10n/l10n.dart';
+import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_sprites.dart';
 import '../chat/render/markdown_body.dart';
 import '../companion/companion_log.dart';
@@ -22,10 +23,16 @@ import 'tavern_widgets.dart';
 
 /// One page of the story: a paragraph of a message, or part of a long one.
 class TavernPage {
-  const TavernPage(this.message, this.text, {this.streaming = false});
+  const TavernPage(this.message, this.text, {this.streaming = false, this.marker});
   final TavernMessage message;
+
+  /// What the box shows, expression markers taken out.
   final String text;
   final bool streaming;
+
+  /// The expression marker in force on this page ([表情:x]): the last one
+  /// before it in its message, else the message's first.
+  final String? marker;
 }
 
 /// The path cut into pages, the reply being written included; each message
@@ -37,9 +44,26 @@ List<TavernPage> tavernPages(
   String Function(TavernMessage message)? shown,
 }) => [
   for (final m in messages)
-    for (final paragraph in _paragraphs(m.nodeId == streamNode ? streamText : (shown?.call(m) ?? m.text)))
-      for (final page in tavernParagraphPages(paragraph)) TavernPage(m, page, streaming: m.nodeId == streamNode),
+    ..._messagePages(
+      m,
+      m.nodeId == streamNode ? streamText : (shown?.call(m) ?? m.text),
+      streaming: m.nodeId == streamNode,
+    ),
 ];
+
+/// [m]'s pages from [text]: each paragraph's, markers taken out, each page
+/// carrying the marker in force.
+List<TavernPage> _messagePages(TavernMessage m, String text, {required bool streaming}) {
+  final first = tavernMarkerIn(text);
+  String? current;
+  return [
+    for (final paragraph in _paragraphs(text))
+      if ((current = tavernMarkerIn(paragraph) ?? current, tavernStripMarkers(paragraph).trim()) case (_, final words)
+          when words.isNotEmpty)
+        for (final page in tavernParagraphPages(words))
+          TavernPage(m, page, streaming: streaming, marker: current ?? first),
+  ];
+}
 
 Iterable<String> _paragraphs(String text) =>
     text.split(RegExp(r'\n\s*\n')).map((p) => p.trim()).where((p) => p.isNotEmpty);
@@ -175,7 +199,9 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
     if (widget.sprites.isEmpty) return null;
     for (var i = at; i >= 0 && i < widget.pages.length; i--) {
       final page = widget.pages[i];
-      if (page.message.role == TavernRole.character) return tavernSpriteFor(widget.sprites, page.text);
+      if (page.message.role == TavernRole.character) {
+        return tavernSpriteFor(widget.sprites, page.text, marker: page.marker);
+      }
     }
     return tavernSpriteFor(widget.sprites, '');
   }

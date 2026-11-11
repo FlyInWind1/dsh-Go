@@ -10,6 +10,8 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
 
+import 'tavern_markers.dart';
+
 /// One line of the story: who said it and what.
 class TavernStoryLine {
   const TavernStoryLine({required this.you, required this.speaker, required this.text, required this.at});
@@ -74,9 +76,9 @@ class TavernStory {
 String _two(int n) => n.toString().padLeft(2, '0');
 
 /// What a message reads as in a book: markup a card's frontend draws (HTML
-/// tags) taken out, its lines, blank ones dropped.
+/// tags) and expression markers taken out, its lines, blank ones dropped.
 List<String> tavernStoryParagraphs(String text) => [
-  for (final line in text.replaceAll(RegExp(r'<[^<>\n]+>'), '').split('\n'))
+  for (final line in tavernStripMarkers(text).replaceAll(RegExp(r'<[^<>\n]+>'), '').split('\n'))
     if (line.trim().isNotEmpty) line.trim(),
 ];
 

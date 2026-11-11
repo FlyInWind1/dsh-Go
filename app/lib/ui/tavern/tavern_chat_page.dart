@@ -23,6 +23,7 @@ import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
+import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
@@ -750,7 +751,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _stage.command('mood', {'mood': 'thinking'});
       return;
     }
-    for (final (type, args) in tavernStageCues(you: page.message.role == TavernRole.user, text: page.text)) {
+    for (final (type, args) in tavernStageCues(
+      you: page.message.role == TavernRole.user,
+      text: page.text,
+      marker: page.marker,
+    )) {
       _stage.command(type, args);
     }
   }
@@ -1498,7 +1503,10 @@ class _Shown extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final shown = ref.watch(tavernShownTextProvider((chatId, message.nodeId, message.text))).value ?? message.text;
+    // Expression markers ([表情:x]) pick her picture; they are not words.
+    final shown = tavernStripMarkers(
+      ref.watch(tavernShownTextProvider((chatId, message.nodeId, message.text))).value ?? message.text,
+    );
     Widget text(String markdown) =>
         MarkdownBody(text: indent ? tavernIndentParagraphs(markdown) : markdown, selectable: false);
     // HTML in it: those parts in islands of their own (酒馆设置 › 显示).
@@ -1665,7 +1673,11 @@ class _StreamingReply extends StatelessWidget {
           if (text.isEmpty && reasoning.isEmpty)
             const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
           else if (shown.isNotEmpty)
-            MarkdownBody(text: indent ? tavernIndentParagraphs(shown) : shown, streaming: true, selectable: false),
+            MarkdownBody(
+              text: indent ? tavernIndentParagraphs(tavernStripMarkers(shown)) : tavernStripMarkers(shown),
+              streaming: true,
+              selectable: false,
+            ),
         ],
       );
     },

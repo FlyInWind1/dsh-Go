@@ -151,7 +151,7 @@ Future<void> _copy(Directory from, Directory to) async {
 /// What the stage does for one page of the story ([type], [args] for
 /// `stage.command`): listening while you speak; for hers, her mouth moving
 /// about as long as reading it aloud takes, and a feeling the words make plain.
-List<(String, Map<String, Object?>)> tavernStageCues({required bool you, required String text}) {
+List<(String, Map<String, Object?>)> tavernStageCues({required bool you, required String text, String? marker}) {
   if (you) {
     return const [
       ('mood', {'mood': 'listening'}),
@@ -160,7 +160,14 @@ List<(String, Map<String, Object?>)> tavernStageCues({required bool you, require
   return [
     const ('mood', {'mood': 'idle'}),
     ('say', {'chars': text.runes.length}),
-    if (tavernEmotionIn(text) case final emotion?) ('emotion', {'name': emotion}),
+    // A marker ([表情:x]) first: one of the stage's feelings by name, or the
+    // feeling its word names; else what the words show.
+    if ((marker == null
+                ? null
+                : (_emotionWords.containsKey(marker.toLowerCase()) ? marker.toLowerCase() : tavernEmotionIn(marker))) ??
+            tavernEmotionIn(text)
+        case final emotion?)
+      ('emotion', {'name': emotion}),
   ];
 }
 
