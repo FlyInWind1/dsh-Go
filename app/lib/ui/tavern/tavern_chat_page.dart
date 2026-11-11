@@ -26,6 +26,7 @@ import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
+import '../../tavern/tavern_pinned.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
@@ -243,6 +244,21 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       _messages = messages;
       _hasOlder = messages.length >= window;
     });
+    unawaited(_readPinned());
+  }
+
+  /// The state the card pins, for the header's line (engine T17); none when
+  /// it pins nothing or the state cannot be read.
+  String? _pinned;
+
+  Future<void> _readPinned() async {
+    String? line;
+    try {
+      line = tavernPinnedLine(await _tavern.readState(widget.chatId));
+    } on Object {
+      line = null;
+    }
+    if (mounted && line != _pinned) setState(() => _pinned = line);
   }
 
   /// The transcript's scroll (newest at 0: it runs reversed).
@@ -960,6 +976,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final (String status, StatusTone tone) = switch (()) {
       _ when _running => (l10n.tavernReplying, StatusTone.busy),
       _ when preview => (l10n.tavernPreviewStatus, StatusTone.warn),
+      // What the card pins (好感 8 · 地点 旅店) in place of 「就绪」.
+      _ when _pinned != null => (_pinned!, StatusTone.ok),
       _ => (l10n.tavernReady, StatusTone.ok),
     };
     final topInset = BotChatHeader.heightOf(context);
@@ -1034,6 +1052,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       name: name,
       busy: _running,
       onSuggest: _suggest,
+      onStateChanged: () => unawaited(_readPinned()),
     );
     return BotChatFrame(
       // The chat's picture, when it has one; the page's gradient otherwise.

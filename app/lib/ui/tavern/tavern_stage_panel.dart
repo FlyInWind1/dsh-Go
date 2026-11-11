@@ -51,6 +51,7 @@ class TavernStagePanel extends ConsumerStatefulWidget {
     this.name = '',
     this.busy = false,
     this.onSuggest,
+    this.onStateChanged,
   });
 
   final String chatId;
@@ -70,6 +71,10 @@ class TavernStagePanel extends ConsumerStatefulWidget {
 
   /// One of the director's suggestions, picked: into the chat's box.
   final ValueChanged<String>? onSuggest;
+
+  /// The state was changed by hand here: what reads it (the header's pinned
+  /// line) reads it again.
+  final VoidCallback? onStateChanged;
 
   @override
   ConsumerState<TavernStagePanel> createState() => _TavernStagePanelState();
@@ -131,6 +136,7 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
             key: const ValueKey('tavern-stage-state-view'),
             chatId: widget.chatId,
             turn: widget.turn,
+            onChanged: widget.onStateChanged,
           ),
           TavernStageTab.director => _DirectorView(
             key: const ValueKey('tavern-stage-director-view'),
@@ -409,7 +415,10 @@ Future<void> chooseTavernBackground(BuildContext context, WidgetRef ref, String 
 /// model is folded like a spoiler, and a tap shows one whole and lets it be
 /// changed (docs/design/roleplay-ui.md §8).
 class _StateView extends ConsumerStatefulWidget {
-  const _StateView({super.key, required this.chatId, required this.turn});
+  const _StateView({super.key, required this.chatId, required this.turn, this.onChanged});
+
+  /// An edit went in.
+  final VoidCallback? onChanged;
 
   final String chatId;
 
@@ -549,6 +558,7 @@ class _StateViewState extends ConsumerState<_StateView> {
       setState(() {
         _state = Future.value(result.snapshot);
       });
+      if (result.changed) widget.onChanged?.call();
       final reason = [for (final issue in result.issues) '${issue['message'] ?? issue['code'] ?? ''}']
           .where((line) => line.isNotEmpty)
           .join('；');
