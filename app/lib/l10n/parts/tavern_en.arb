@@ -719,5 +719,12 @@
   "tavernLorebookEntryDelete": "Delete this entry",
   "tavernLorebookEntryDeleteTitle": "Delete the entry “{name}”?",
   "@tavernLorebookEntryDeleteTitle": {"placeholders": {"name": {"type": "String"}}},
-  "tavernLorebookEntryDeleteMessage": "It goes from the card for good."
+  "tavernLorebookEntryDeleteMessage": "It goes from the card for good.",
+  "tavernNarrator": "Narrator",
+  "tavernSendOptions": "Other ways to send",
+  "tavernSendOnly": "Send without a reply",
+  "tavernSendOnlySubtitle": "It goes into the story; no one answers yet",
+  "tavernNarrate": "Send as narration",
+  "tavernNarrateSubtitle": "It goes into the story as narration, not as your line",
+  "tavernSendFailed": "Couldn't send"
 }

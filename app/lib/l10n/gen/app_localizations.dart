@@ -35702,6 +35702,48 @@ abstract class L10n {
   /// **'这一条会从卡里删掉，删除后就找不回来了。'**
   String get tavernLorebookEntryDeleteMessage;
 
+  /// No description provided for @tavernNarrator.
+  ///
+  /// In zh, this message translates to:
+  /// **'旁白'**
+  String get tavernNarrator;
+
+  /// No description provided for @tavernSendOptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'换种方式发'**
+  String get tavernSendOptions;
+
+  /// No description provided for @tavernSendOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只发，不回复'**
+  String get tavernSendOnly;
+
+  /// No description provided for @tavernSendOnlySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这句放进故事，她先不接话'**
+  String get tavernSendOnlySubtitle;
+
+  /// No description provided for @tavernNarrate.
+  ///
+  /// In zh, this message translates to:
+  /// **'以旁白身份发'**
+  String get tavernNarrate;
+
+  /// No description provided for @tavernNarrateSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'作为叙述插进故事，不算你说的话'**
+  String get tavernNarrateSubtitle;
+
+  /// No description provided for @tavernSendFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能发出去'**
+  String get tavernSendFailed;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

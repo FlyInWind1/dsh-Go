@@ -3,9 +3,11 @@
 // colour of its own; the narration stays the page's text. A few sets to pick
 // from in 酒馆设置; 素 leaves the text as the app draws it.
 
+import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart' show InlinePattern;
 
+import '../../l10n/l10n.dart';
 import '../../tavern/tavern_settings.dart';
 
 /// The colours for one set and brightness; null leaves that part as it is.
@@ -110,6 +112,13 @@ const _nameColorsDark = [0xFF6FD3C2, 0xFFC0A3F2, 0xFFF29BC0, 0xFFF0B868, 0xFFA6D
 /// the chat's own character ([lead]) in the accent; anyone else (a guest, a
 /// narrator by name, the others of a group) in a colour of their own, the same
 /// every time.
+/// Who a message is from, as the story names them: narration the engine
+/// files under ST's default "System" (or no name) reads as 旁白.
+String tavernSpeaker(BuildContext context, TavernMessage message) =>
+    message.role == TavernRole.narrator && (message.speaker.isEmpty || message.speaker == 'System')
+    ? context.l10n.tavernNarrator
+    : message.speaker;
+
 Color tavernNameColor(BuildContext context, String speaker, {required String lead}) {
   final theme = Theme.of(context);
   if (speaker.isEmpty || speaker == lead) return theme.colorScheme.primary;

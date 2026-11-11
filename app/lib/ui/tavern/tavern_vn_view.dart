@@ -327,7 +327,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
     final at = (_page ?? _last).clamp(0, pages.isEmpty ? 0 : _last);
     final page = pages.isEmpty ? null : pages[at];
     final user = page?.message.role == TavernRole.user;
-    final speaker = page == null ? widget.name : (user ? context.l10n.tavernYou : page.message.speaker);
+    final speaker = page == null ? widget.name : (user ? context.l10n.tavernYou : tavernSpeaker(context, page.message));
     final typing = _typing?.at == at ? _typing : null;
     _tell(page, at);
     _schedule(page, at);

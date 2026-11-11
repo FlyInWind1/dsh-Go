@@ -20635,6 +20635,27 @@ class L10nEn extends L10n {
   String get tavernLorebookEntryDeleteMessage => 'It goes from the card for good.';
 
   @override
+  String get tavernNarrator => 'Narrator';
+
+  @override
+  String get tavernSendOptions => 'Other ways to send';
+
+  @override
+  String get tavernSendOnly => 'Send without a reply';
+
+  @override
+  String get tavernSendOnlySubtitle => 'It goes into the story; no one answers yet';
+
+  @override
+  String get tavernNarrate => 'Send as narration';
+
+  @override
+  String get tavernNarrateSubtitle => 'It goes into the story as narration, not as your line';
+
+  @override
+  String get tavernSendFailed => 'Couldn\'t send';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

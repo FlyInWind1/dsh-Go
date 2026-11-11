@@ -405,6 +405,56 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   void _stop() => _tavern.stop(widget.chatId);
 
+  /// The line in the box, sent another way (engine T16): into the story
+  /// with no reply, or as narration.
+  Future<void> _sendOptions() async {
+    final l10n = context.l10n;
+    final narrate = await showAppSheet<bool>(
+      context,
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: SheetGroup(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          children: [
+            SettingsTile(
+              key: const ValueKey('tavern-send-only'),
+              icon: AppIcons.send,
+              tinted: false,
+              title: l10n.tavernSendOnly,
+              subtitle: l10n.tavernSendOnlySubtitle,
+              onTap: () => Navigator.of(sheet).pop(false),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-narrate'),
+              icon: AppIcons.quote,
+              tinted: false,
+              title: l10n.tavernNarrate,
+              subtitle: l10n.tavernNarrateSubtitle,
+              onTap: () => Navigator.of(sheet).pop(true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (narrate == null || !mounted || _running) return;
+    final text = _input.text;
+    final messenger = ScaffoldMessenger.of(context);
+    _input.clear();
+    try {
+      if (narrate) {
+        await _tavern.narrate(widget.chatId, text);
+      } else {
+        await _tavern.sendOnly(widget.chatId, text);
+      }
+    } on Object {
+      // Back in the box, to try again.
+      if (_input.text.isEmpty) _input.text = text;
+      messenger.showBriefNotice(l10n.tavernSendFailed);
+      return;
+    }
+    unawaited(_reload());
+  }
+
   /// A quick reply sends as it is; on failure it waits in the box.
   void _sendQuick(String text) {
     if (_running) return;
@@ -908,7 +958,16 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   accessory: ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _input,
                     builder: (context, value, _) {
-                      if (value.text.isNotEmpty || _running || messages == null) return const SizedBox.shrink();
+                      if (_running || messages == null) return const SizedBox.shrink();
+                      // With a line written: other ways to send it.
+                      if (value.text.isNotEmpty) {
+                        return _ComposerKey(
+                          key: const ValueKey('tavern-send-as'),
+                          icon: AppIcons.more,
+                          label: l10n.tavernSendOptions,
+                          onPressed: () => unawaited(_sendOptions()),
+                        );
+                      }
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1058,6 +1117,16 @@ class _MessageRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Narration says so: it is no one's line.
+          if (message.role == TavernRole.narrator)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                tavernSpeaker(context, message),
+                key: ValueKey('tavern-narrator-${message.nodeId}'),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
+              ),
+            ),
           if (message.reasoning case final reasoning? when reasoning.isNotEmpty) ThinkingPill(reasoning: reasoning),
           _Shown(chatId: chatId, message: message),
           ?_usage(),
@@ -1084,9 +1153,11 @@ class _MessageRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            user ? context.l10n.tavernYou : message.speaker,
+            user ? context.l10n.tavernYou : tavernSpeaker(context, message),
             style: theme.textTheme.labelMedium?.copyWith(
-              color: user ? DshColors.of(context).textTertiary : tavernNameColor(context, message.speaker, lead: lead),
+              color: user
+                  ? DshColors.of(context).textTertiary
+                  : tavernNameColor(context, tavernSpeaker(context, message), lead: lead),
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -19559,6 +19559,27 @@ class L10nZh extends L10n {
   String get tavernLorebookEntryDeleteMessage => '这一条会从卡里删掉，删除后就找不回来了。';
 
   @override
+  String get tavernNarrator => '旁白';
+
+  @override
+  String get tavernSendOptions => '换种方式发';
+
+  @override
+  String get tavernSendOnly => '只发，不回复';
+
+  @override
+  String get tavernSendOnlySubtitle => '这句放进故事，她先不接话';
+
+  @override
+  String get tavernNarrate => '以旁白身份发';
+
+  @override
+  String get tavernNarrateSubtitle => '作为叙述插进故事，不算你说的话';
+
+  @override
+  String get tavernSendFailed => '没能发出去';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

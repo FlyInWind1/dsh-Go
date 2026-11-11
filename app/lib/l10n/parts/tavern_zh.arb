@@ -719,5 +719,12 @@
   "tavernLorebookEntryDelete": "删除这一条",
   "tavernLorebookEntryDeleteTitle": "删除条目「{name}」？",
   "@tavernLorebookEntryDeleteTitle": {"placeholders": {"name": {"type": "String"}}},
-  "tavernLorebookEntryDeleteMessage": "这一条会从卡里删掉，删除后就找不回来了。"
+  "tavernLorebookEntryDeleteMessage": "这一条会从卡里删掉，删除后就找不回来了。",
+  "tavernNarrator": "旁白",
+  "tavernSendOptions": "换种方式发",
+  "tavernSendOnly": "只发，不回复",
+  "tavernSendOnlySubtitle": "这句放进故事，她先不接话",
+  "tavernNarrate": "以旁白身份发",
+  "tavernNarrateSubtitle": "作为叙述插进故事，不算你说的话",
+  "tavernSendFailed": "没能发出去"
 }
