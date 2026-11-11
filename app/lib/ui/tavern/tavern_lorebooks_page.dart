@@ -23,6 +23,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_presets_page.dart' show tavernTextOf;
+import 'tavern_report_page.dart';
 import 'tavern_widgets.dart';
 
 /// The standalone lorebooks, and which of them every chat uses.
@@ -145,6 +146,19 @@ class TavernLorebooksPage extends ConsumerWidget {
                           global ? AppIcons.remove : AppIcons.selected,
                           global ? l10n.tavernLorebookUnbindGlobal : l10n.tavernLorebookBindGlobal,
                           () => unawaited(_setGlobal(ref, library.global, book.id, !global)),
+                        ),
+                        (
+                          AppIcons.info,
+                          l10n.tavernReport,
+                          () => unawaited(
+                            Navigator.of(context).push(
+                              TavernImportReportPage.route(
+                                kind: TavernImportKind.lorebook,
+                                assetId: book.id,
+                                name: book.name,
+                              ),
+                            ),
+                          ),
                         ),
                         (AppIcons.share, l10n.tavernLorebookExport, () => unawaited(_export(ref, book))),
                         (

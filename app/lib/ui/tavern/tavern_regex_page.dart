@@ -23,6 +23,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_presets_page.dart' show tavernTextOf;
+import 'tavern_report_page.dart';
 import 'tavern_widgets.dart';
 
 /// The global regex scripts.
@@ -124,6 +125,19 @@ class TavernRegexPage extends ConsumerWidget {
                           script.enabled ? AppIcons.remove : AppIcons.selected,
                           script.enabled ? l10n.tavernRegexDisable : l10n.tavernRegexEnable,
                           () => unawaited(_toggle(ref, script)),
+                        ),
+                        (
+                          AppIcons.info,
+                          l10n.tavernReport,
+                          () => unawaited(
+                            Navigator.of(context).push(
+                              TavernImportReportPage.route(
+                                kind: TavernImportKind.regex,
+                                assetId: script.id,
+                                name: name,
+                              ),
+                            ),
+                          ),
                         ),
                         (AppIcons.share, l10n.tavernRegexExport, () => unawaited(_export(ref, script, name))),
                         (AppIcons.delete, l10n.tavernRegexDelete, () => unawaited(_delete(context, ref, script, name))),
