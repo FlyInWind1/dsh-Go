@@ -19970,6 +19970,20 @@ class L10nZh extends L10n {
   String get tavernBookmarkGone => '那一条已经不在了，书签去掉了';
 
   @override
+  String get tavernUsageStats => '用量统计';
+
+  @override
+  String get tavernUsageStatsSubtitle => '每段对话用了多少 token';
+
+  @override
+  String get tavernUsageAllNote => '所有对话当前线上的回复合计；换掉的备选不算';
+
+  @override
+  String tavernUsageChatReplies(int count, String completion) {
+    return '$count 条回复 · 回复 $completion';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

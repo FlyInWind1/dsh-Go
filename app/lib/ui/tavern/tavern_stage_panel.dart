@@ -37,6 +37,7 @@ import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
 import 'tavern_search_page.dart';
 import 'tavern_storybook_page.dart';
+import 'tavern_widgets.dart';
 
 enum TavernStageTab { session, state, director, turn }
 
@@ -559,14 +560,14 @@ class _ThisTurn extends StatelessWidget {
           Row(
             key: const ValueKey('tavern-stage-usage'),
             children: [
-              _Figure(label: l10n.tavernStageTokensIn, value: '${usage.promptTokens}'),
+              TavernFigure(label: l10n.tavernStageTokensIn, value: '${usage.promptTokens}'),
               const SizedBox(width: 8),
-              _Figure(
+              TavernFigure(
                 label: l10n.tavernStageCache,
                 value: usage.promptTokens == 0 ? '—' : '${(100 * usage.cacheHitTokens / usage.promptTokens).round()}%',
               ),
               const SizedBox(width: 8),
-              _Figure(label: l10n.tavernStageTokensOut, value: '${usage.completionTokens}'),
+              TavernFigure(label: l10n.tavernStageTokensOut, value: '${usage.completionTokens}'),
             ],
           ),
         const SizedBox(height: 12),
@@ -633,17 +634,17 @@ class _SessionUsageView extends StatelessWidget {
           else ...[
             Row(
               children: [
-                _Figure(
+                TavernFigure(
                   label: l10n.tavernStageTokensIn,
                   value: tavernTokenCount(usage.prompt, zh: zh),
                 ),
                 const SizedBox(width: 8),
-                _Figure(
+                TavernFigure(
                   label: l10n.tavernStageCache,
                   value: usage.prompt == 0 ? '—' : '${(100 * usage.cacheHit / usage.prompt).round()}%',
                 ),
                 const SizedBox(width: 8),
-                _Figure(
+                TavernFigure(
                   label: l10n.tavernStageTokensOut,
                   value: tavernTokenCount(usage.completion, zh: zh),
                 ),
@@ -655,37 +656,6 @@ class _SessionUsageView extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _Figure extends StatelessWidget {
-  const _Figure({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Expanded(
-      child: GlassSurface(
-        tier: GlassTier.card,
-        borderRadius: AppShape.radiusMd,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        child: Column(
-          children: [
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
-            ),
-            const SizedBox(height: 4),
-            Text(value, style: AppType.tabular(theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600))),
-          ],
-        ),
       ),
     );
   }

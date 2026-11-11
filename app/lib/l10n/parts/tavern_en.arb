@@ -864,5 +864,10 @@
   "tavernBookmarkRemoved": "Bookmark removed",
   "tavernBookmarksEmpty": "No bookmarks yet",
   "tavernBookmarksEmptyMessage": "Long-press a message and choose Bookmark",
-  "tavernBookmarkGone": "That line is gone; its bookmark was removed"
+  "tavernBookmarkGone": "That line is gone; its bookmark was removed",
+  "tavernUsageStats": "Usage",
+  "tavernUsageStatsSubtitle": "How many tokens each chat has taken",
+  "tavernUsageAllNote": "Replies on every chat's current line, added up; replaced alternatives aren't counted",
+  "tavernUsageChatReplies": "{count} replies · {completion} out",
+  "@tavernUsageChatReplies": {"placeholders": {"count": {"type": "int"}, "completion": {"type": "String"}}}
 }

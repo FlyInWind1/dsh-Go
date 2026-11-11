@@ -36428,6 +36428,30 @@ abstract class L10n {
   /// **'那一条已经不在了，书签去掉了'**
   String get tavernBookmarkGone;
 
+  /// No description provided for @tavernUsageStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'用量统计'**
+  String get tavernUsageStats;
+
+  /// No description provided for @tavernUsageStatsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'每段对话用了多少 token'**
+  String get tavernUsageStatsSubtitle;
+
+  /// No description provided for @tavernUsageAllNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有对话当前线上的回复合计；换掉的备选不算'**
+  String get tavernUsageAllNote;
+
+  /// No description provided for @tavernUsageChatReplies.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条回复 · 回复 {completion}'**
+  String tavernUsageChatReplies(int count, String completion);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

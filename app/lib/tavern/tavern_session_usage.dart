@@ -3,6 +3,9 @@
 // added up. Alternatives swiped away are not on the line and not counted.
 
 import 'package:dsh_tavern/dsh_tavern.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'tavern_provider.dart';
 
 class TavernSessionUsage {
   const TavernSessionUsage({this.replies = 0, this.prompt = 0, this.cacheHit = 0, this.completion = 0});
@@ -46,3 +49,24 @@ String tavernTokenCount(int tokens, {required bool zh}) {
   final k = tokens / 1000;
   return k >= 1000 ? '${(k / 1000).toStringAsFixed(1)}M' : '${k >= 100 ? k.round() : k.toStringAsFixed(1)}k';
 }
+
+/// One chat and what its current line took.
+class TavernChatUsage {
+  const TavernChatUsage(this.chat, this.usage);
+
+  final TavernChatSummary chat;
+  final TavernSessionUsage usage;
+
+  int get total => usage.prompt + usage.completion;
+}
+
+/// 用量统计: every chat's current line added up, the ones that took the most
+/// first; chats with nothing reported left out. Read afresh each time.
+final tavernAllUsageProvider = FutureProvider.autoDispose<List<TavernChatUsage>>((ref) async {
+  final tavern = ref.watch(tavernProvider);
+  final chats = await tavern.watchChats().first;
+  final all = [for (final chat in chats) TavernChatUsage(chat, await tavernSessionUsage(tavern, chat.id))]
+    ..removeWhere((c) => c.usage.replies == 0);
+  all.sort((a, b) => b.total.compareTo(a.total));
+  return all;
+}, retry: (_, _) => null);

@@ -12363,6 +12363,20 @@
   "tavernBookmarksEmpty": "还没有书签",
   "tavernBookmarksEmptyMessage": "长按一条消息，选「加书签」",
   "tavernBookmarkGone": "那一条已经不在了，书签去掉了",
+  "tavernUsageStats": "用量统计",
+  "tavernUsageStatsSubtitle": "每段对话用了多少 token",
+  "tavernUsageAllNote": "所有对话当前线上的回复合计；换掉的备选不算",
+  "tavernUsageChatReplies": "{count} 条回复 · 回复 {completion}",
+  "@tavernUsageChatReplies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "completion": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

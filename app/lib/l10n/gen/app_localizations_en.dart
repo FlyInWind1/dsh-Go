@@ -21074,6 +21074,21 @@ class L10nEn extends L10n {
   String get tavernBookmarkGone => 'That line is gone; its bookmark was removed';
 
   @override
+  String get tavernUsageStats => 'Usage';
+
+  @override
+  String get tavernUsageStatsSubtitle => 'How many tokens each chat has taken';
+
+  @override
+  String get tavernUsageAllNote =>
+      'Replies on every chat\'s current line, added up; replaced alternatives aren\'t counted';
+
+  @override
+  String tavernUsageChatReplies(int count, String completion) {
+    return '$count replies · $completion out';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

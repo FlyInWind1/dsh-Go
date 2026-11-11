@@ -490,3 +490,35 @@ class _LinkDialogState extends State<_LinkDialog> {
     );
   }
 }
+
+/// A figure at a glance: a small label over a number (舞台 › 本回合, 用量).
+class TavernFigure extends StatelessWidget {
+  const TavernFigure({super.key, required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: GlassSurface(
+        tier: GlassTier.card,
+        borderRadius: AppShape.radiusMd,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Column(
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
+            ),
+            const SizedBox(height: 4),
+            Text(value, style: AppType.tabular(theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600))),
+          ],
+        ),
+      ),
+    );
+  }
+}
