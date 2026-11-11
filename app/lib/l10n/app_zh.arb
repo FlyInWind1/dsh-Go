@@ -12379,6 +12379,30 @@
     }
   },
   "tavernSlashNoReply": "还没有可以这样做的回复",
+  "tavernRegexTest": "试一下",
+  "tavernRegexTestFind": "查找",
+  "tavernRegexTestReplace": "替换为",
+  "tavernRegexTestInput": "一段文字",
+  "tavernRegexTestHint": "粘一段回复进来试试",
+  "tavernRegexTestNote": "只用这一条规则在本机试，不发给模型；不管它平时作用在哪、开没开，这里都照样跑。",
+  "tavernRegexTestMacros": "{{char}} 这类宏这里不展开，照字面算。",
+  "tavernRegexTestNone": "没有匹配，原样不变",
+  "tavernRegexTestResult": "替换后（{count} 处）",
+  "@tavernRegexTestResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernRegexTestFailed": "没能试：{reason}",
+  "@tavernRegexTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

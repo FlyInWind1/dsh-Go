@@ -23,6 +23,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_presets_page.dart' show tavernTextOf;
+import 'tavern_regex_test_page.dart';
 import 'tavern_report_page.dart';
 import 'tavern_widgets.dart';
 
@@ -125,6 +126,11 @@ class TavernRegexPage extends ConsumerWidget {
                           script.enabled ? AppIcons.remove : AppIcons.selected,
                           script.enabled ? l10n.tavernRegexDisable : l10n.tavernRegexEnable,
                           () => unawaited(_toggle(ref, script)),
+                        ),
+                        (
+                          AppIcons.play,
+                          l10n.tavernRegexTest,
+                          () => unawaited(Navigator.of(context).push(TavernRegexTestPage.route(script))),
                         ),
                         (
                           AppIcons.info,

@@ -19990,6 +19990,40 @@ class L10nZh extends L10n {
   String get tavernSlashNoReply => '还没有可以这样做的回复';
 
   @override
+  String get tavernRegexTest => '试一下';
+
+  @override
+  String get tavernRegexTestFind => '查找';
+
+  @override
+  String get tavernRegexTestReplace => '替换为';
+
+  @override
+  String get tavernRegexTestInput => '一段文字';
+
+  @override
+  String get tavernRegexTestHint => '粘一段回复进来试试';
+
+  @override
+  String get tavernRegexTestNote => '只用这一条规则在本机试，不发给模型；不管它平时作用在哪、开没开，这里都照样跑。';
+
+  @override
+  String get tavernRegexTestMacros => '{{char}} 这类宏这里不展开，照字面算。';
+
+  @override
+  String get tavernRegexTestNone => '没有匹配，原样不变';
+
+  @override
+  String tavernRegexTestResult(int count) {
+    return '替换后（$count 处）';
+  }
+
+  @override
+  String tavernRegexTestFailed(String reason) {
+    return '没能试：$reason';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

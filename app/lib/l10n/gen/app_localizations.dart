@@ -36464,6 +36464,66 @@ abstract class L10n {
   /// **'还没有可以这样做的回复'**
   String get tavernSlashNoReply;
 
+  /// No description provided for @tavernRegexTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'试一下'**
+  String get tavernRegexTest;
+
+  /// No description provided for @tavernRegexTestFind.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找'**
+  String get tavernRegexTestFind;
+
+  /// No description provided for @tavernRegexTestReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换为'**
+  String get tavernRegexTestReplace;
+
+  /// No description provided for @tavernRegexTestInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'一段文字'**
+  String get tavernRegexTestInput;
+
+  /// No description provided for @tavernRegexTestHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘一段回复进来试试'**
+  String get tavernRegexTestHint;
+
+  /// No description provided for @tavernRegexTestNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'只用这一条规则在本机试，不发给模型；不管它平时作用在哪、开没开，这里都照样跑。'**
+  String get tavernRegexTestNote;
+
+  /// No description provided for @tavernRegexTestMacros.
+  ///
+  /// In zh, this message translates to:
+  /// **'{{char}} 这类宏这里不展开，照字面算。'**
+  String get tavernRegexTestMacros;
+
+  /// No description provided for @tavernRegexTestNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配，原样不变'**
+  String get tavernRegexTestNone;
+
+  /// No description provided for @tavernRegexTestResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换后（{count} 处）'**
+  String tavernRegexTestResult(int count);
+
+  /// No description provided for @tavernRegexTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能试：{reason}'**
+  String tavernRegexTestFailed(String reason);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

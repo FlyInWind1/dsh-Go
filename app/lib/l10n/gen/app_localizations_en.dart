@@ -21095,6 +21095,41 @@ class L10nEn extends L10n {
   String get tavernSlashNoReply => 'There\'s no reply to do that to yet';
 
   @override
+  String get tavernRegexTest => 'Try it';
+
+  @override
+  String get tavernRegexTestFind => 'Find';
+
+  @override
+  String get tavernRegexTestReplace => 'Replace with';
+
+  @override
+  String get tavernRegexTestInput => 'Some text';
+
+  @override
+  String get tavernRegexTestHint => 'Paste a reply to try it on';
+
+  @override
+  String get tavernRegexTestNote =>
+      'Only this rule, on this device, with no model call; it runs here whatever it applies to and whether or not it is on.';
+
+  @override
+  String get tavernRegexTestMacros => 'Macros like {{char}} are not filled in here; they are taken as written.';
+
+  @override
+  String get tavernRegexTestNone => 'No match; the text stays as it is';
+
+  @override
+  String tavernRegexTestResult(int count) {
+    return 'After ($count replaced)';
+  }
+
+  @override
+  String tavernRegexTestFailed(String reason) {
+    return 'Could not try it: $reason';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override
