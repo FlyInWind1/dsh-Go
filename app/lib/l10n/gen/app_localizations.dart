@@ -36038,6 +36038,48 @@ abstract class L10n {
   /// **'卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置'**
   String get tavernCardThemeSubtitle;
 
+  /// No description provided for @tavernShelfSort.
+  ///
+  /// In zh, this message translates to:
+  /// **'排序'**
+  String get tavernShelfSort;
+
+  /// No description provided for @tavernShelfOrderRecent.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近聊过'**
+  String get tavernShelfOrderRecent;
+
+  /// No description provided for @tavernShelfOrderName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名字'**
+  String get tavernShelfOrderName;
+
+  /// No description provided for @tavernShelfOrderImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近导入'**
+  String get tavernShelfOrderImported;
+
+  /// No description provided for @tavernFavorite.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get tavernFavorite;
+
+  /// No description provided for @tavernUnfavorite.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get tavernUnfavorite;
+
+  /// No description provided for @tavernFavorited.
+  ///
+  /// In zh, this message translates to:
+  /// **'已收藏'**
+  String get tavernFavorited;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

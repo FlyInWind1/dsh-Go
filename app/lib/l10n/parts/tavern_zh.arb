@@ -787,5 +787,12 @@
   "tavernBranchFailed": "没能完成：{error}",
   "@tavernBranchFailed": {"placeholders": {"error": {"type": "String"}}},
   "tavernCardTheme": "用卡自带的样式",
-  "tavernCardThemeSubtitle": "卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置"
+  "tavernCardThemeSubtitle": "卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置",
+  "tavernShelfSort": "排序",
+  "tavernShelfOrderRecent": "最近聊过",
+  "tavernShelfOrderName": "名字",
+  "tavernShelfOrderImported": "最近导入",
+  "tavernFavorite": "收藏",
+  "tavernUnfavorite": "取消收藏",
+  "tavernFavorited": "已收藏"
 }

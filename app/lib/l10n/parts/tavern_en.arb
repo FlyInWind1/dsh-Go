@@ -787,5 +787,12 @@
   "tavernBranchFailed": "Couldn't do that: {error}",
   "@tavernBranchFailed": {"placeholders": {"error": {"type": "String"}}},
   "tavernCardTheme": "Use the card's own look",
-  "tavernCardThemeSubtitle": "The accent, name colours, layout and background a card sets; off, this page decides"
+  "tavernCardThemeSubtitle": "The accent, name colours, layout and background a card sets; off, this page decides",
+  "tavernShelfSort": "Sort",
+  "tavernShelfOrderRecent": "Recently played",
+  "tavernShelfOrderName": "Name",
+  "tavernShelfOrderImported": "Recently imported",
+  "tavernFavorite": "Favorite",
+  "tavernUnfavorite": "Remove from favorites",
+  "tavernFavorited": "Favorite"
 }

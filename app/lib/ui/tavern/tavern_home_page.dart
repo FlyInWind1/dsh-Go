@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_mode_state.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_shelf.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../bots/bot_format.dart' show shortTime;
 import '../common/app_sheet.dart';
@@ -143,7 +144,8 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
     final all = characters.value;
     final searchable = (all?.length ?? 0) >= TavernHomePage.searchFrom;
     final filtering = _tag != null || _query.trim().isNotEmpty;
-    final list = all?.where(_matches).toList();
+    final shelf = ref.watch(tavernShelfProvider);
+    final list = all == null ? null : tavernShelfSort(all.where(_matches).toList(), shelf);
     final tags = _topTags(all ?? const []);
     return [
       // The engine could not open its folder or database: say so, and let
@@ -249,7 +251,7 @@ class _TavernHomePageState extends ConsumerState<TavernHomePage> {
             ),
           ),
         ],
-        _SectionLabel(l10n.tavernCharacters),
+        _ShelfLabel(order: shelf.order),
         if (list.isEmpty)
           SliverToBoxAdapter(
             child: EmptyView(icon: AppIcons.noResults, title: l10n.tavernNoMatch, compact: true),
@@ -449,6 +451,54 @@ class _SectionLabel extends StatelessWidget {
   );
 }
 
+/// 角色, and how they are ordered: a tap picks another order.
+class _ShelfLabel extends ConsumerWidget {
+  const _ShelfLabel({required this.order});
+
+  final TavernShelfOrder order;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final dsh = DshColors.of(context);
+    String name(TavernShelfOrder o) => switch (o) {
+      TavernShelfOrder.recent => l10n.tavernShelfOrderRecent,
+      TavernShelfOrder.name => l10n.tavernShelfOrderName,
+      TavernShelfOrder.imported => l10n.tavernShelfOrderImported,
+    };
+    final shelf = ref.read(tavernShelfProvider.notifier);
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 8, 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(l10n.tavernCharacters, style: theme.textTheme.titleSmall?.copyWith(color: dsh.textTertiary)),
+            ),
+            TextButton.icon(
+              key: const ValueKey('tavern-shelf-sort'),
+              onPressed: () => unawaited(
+                showTavernActions(context, [
+                  for (final o in TavernShelfOrder.values)
+                    (o == order ? AppIcons.radioOn : AppIcons.radioOff, name(o), () => unawaited(shelf.setOrder(o))),
+                ]),
+              ),
+              iconAlignment: IconAlignment.end,
+              icon: Icon(AppIcons.dropdown, size: 16, color: dsh.textTertiary),
+              label: Text(
+                name(order),
+                semanticsLabel: '${l10n.tavernShelfSort}：${name(order)}',
+                style: theme.textTheme.labelMedium?.copyWith(color: dsh.textTertiary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// A card in the grid: the picture at 2:3, the name, the tags.
 class _CharacterTile extends ConsumerWidget {
   const _CharacterTile({required this.character});
@@ -459,14 +509,21 @@ class _CharacterTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
+    final l10n = context.l10n;
+    final favorite = ref.watch(tavernShelfProvider.select((s) => s.favorites.contains(character.id)));
     return Semantics(
       button: true,
-      label: character.name,
+      label: favorite ? '${character.name}，${l10n.tavernFavorited}' : character.name,
       child: GestureDetector(
         key: ValueKey('tavern-character-${character.id}'),
         onTap: () => Navigator.of(context).push(TavernCharacterPage.route(character.id)),
         onLongPress: () => unawaited(
           showTavernActions(context, [
+            (
+              favorite ? AppIcons.favoriteActive : AppIcons.favorite,
+              favorite ? l10n.tavernUnfavorite : l10n.tavernFavorite,
+              () => unawaited(ref.read(tavernShelfProvider.notifier).setFavorite(character.id, !favorite)),
+            ),
             (
               AppIcons.edit,
               context.l10n.commonEdit,
@@ -480,9 +537,24 @@ class _CharacterTile extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: TavernPortrait(name: character.name, path: character.avatarPath),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  TavernPortrait(name: character.name, path: character.avatarPath),
+                  if (favorite)
+                    Positioned(
+                      key: ValueKey('tavern-favorite-${character.id}'),
+                      top: 6,
+                      right: 6,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.32), shape: BoxShape.circle),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: Icon(AppIcons.favoriteActive, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 8),

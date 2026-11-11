@@ -20832,6 +20832,27 @@ class L10nEn extends L10n {
       'The accent, name colours, layout and background a card sets; off, this page decides';
 
   @override
+  String get tavernShelfSort => 'Sort';
+
+  @override
+  String get tavernShelfOrderRecent => 'Recently played';
+
+  @override
+  String get tavernShelfOrderName => 'Name';
+
+  @override
+  String get tavernShelfOrderImported => 'Recently imported';
+
+  @override
+  String get tavernFavorite => 'Favorite';
+
+  @override
+  String get tavernUnfavorite => 'Remove from favorites';
+
+  @override
+  String get tavernFavorited => 'Favorite';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

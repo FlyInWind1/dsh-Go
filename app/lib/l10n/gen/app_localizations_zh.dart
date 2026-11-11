@@ -19751,6 +19751,27 @@ class L10nZh extends L10n {
   String get tavernCardThemeSubtitle => '卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置';
 
   @override
+  String get tavernShelfSort => '排序';
+
+  @override
+  String get tavernShelfOrderRecent => '最近聊过';
+
+  @override
+  String get tavernShelfOrderName => '名字';
+
+  @override
+  String get tavernShelfOrderImported => '最近导入';
+
+  @override
+  String get tavernFavorite => '收藏';
+
+  @override
+  String get tavernUnfavorite => '取消收藏';
+
+  @override
+  String get tavernFavorited => '已收藏';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
