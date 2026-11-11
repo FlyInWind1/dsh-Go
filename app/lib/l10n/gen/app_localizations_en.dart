@@ -21089,6 +21089,9 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernSlashNoReply => 'There\'s no reply to do that to yet';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

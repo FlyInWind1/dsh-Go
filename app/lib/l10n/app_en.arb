@@ -6060,6 +6060,7 @@
   "tavernUsageStatsSubtitle": "How many tokens each chat has taken",
   "tavernUsageAllNote": "Replies on every chat's current line, added up; replaced alternatives aren't counted",
   "tavernUsageChatReplies": "{count} replies · {completion} out",
+  "tavernSlashNoReply": "There's no reply to do that to yet",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

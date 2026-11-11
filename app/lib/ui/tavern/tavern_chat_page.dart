@@ -29,6 +29,7 @@ import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_slash.dart';
 import '../../tavern/tavern_sprites.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
@@ -456,9 +457,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   void _send() {
     if (_running) return;
+    // A slash command (/sys, /send: no model, so no key needed).
+    final slash = tavernSlashOf(_input.text);
+    if (slash case (command: TavernSlash.narrate || TavernSlash.sendOnly, :final rest)) {
+      unawaited(_sendAside(rest, narrate: slash.command == TavernSlash.narrate));
+      return;
+    }
     // No key yet: the line would only fail. Keep it, and go and add one.
     if (_tavern is! TavernPreview && !ref.read(settingsProvider).hasApiKey) {
       _openKeySettings();
+      return;
+    }
+    if (slash != null) {
+      _slash(slash.command);
       return;
     }
     final text = _input.text;
@@ -466,7 +477,40 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _run(() => _tavern.send(widget.chatId, text), draft: text);
   }
 
+  /// /continue, /regen, /imp: as the message menu and 帮我写 do them, on the
+  /// latest reply.
+  void _slash(TavernSlash command) {
+    if (command == TavernSlash.impersonate) {
+      _impersonate();
+      return;
+    }
+    final last = _messages?.where((m) => m.role == TavernRole.character).lastOrNull;
+    if (last == null) {
+      ScaffoldMessenger.maybeOf(context)?.showBriefNotice(context.l10n.tavernSlashNoReply);
+      return;
+    }
+    _input.clear();
+    switch (command) {
+      case TavernSlash.continueReply:
+        _run(() => _tavern.continueReply(widget.chatId, last.nodeId));
+      case TavernSlash.regenerate:
+        _run(() => _tavern.regenerate(widget.chatId, last.nodeId));
+      case TavernSlash.narrate || TavernSlash.sendOnly || TavernSlash.impersonate:
+        break;
+    }
+  }
+
   void _stop() => _tavern.stop(widget.chatId);
+
+  /// A command picked from the row: in the box, ready for its words (or to send).
+  void _pickSlash(TavernSlash c) {
+    final text = c.takesText ? '/${c.word} ' : '/${c.word}';
+    _input.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _focus.requestFocus();
+  }
 
   /// The line in the box, sent another way (engine T16): into the story
   /// with no reply, or as narration.
@@ -500,7 +544,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       ),
     );
     if (narrate == null || !mounted || _running) return;
-    final text = _input.text;
+    await _sendAside(_input.text, narrate: narrate);
+  }
+
+  /// [text] into the story with no reply: as narration, or as yours. On a
+  /// failure it goes back in the box.
+  Future<void> _sendAside(String text, {required bool narrate}) async {
+    final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     _input.clear();
     try {
@@ -1112,7 +1162,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                 }),
               ),
               ListenableBuilder(
-                listenable: Listenable.merge([_readingBack, _focus]),
+                listenable: Listenable.merge([_readingBack, _focus, _input]),
                 builder: (context, _) => Composer(
                   hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
                   // Nothing written: the character speaks next (engine send with no line).
@@ -1129,7 +1179,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       ? l10n.tavernComposerNoKey
                       : l10n.tavernComposerHint(name),
                   leading: TavernPersonaKey(chatId: widget.chatId, enabled: !_running),
-                  tray: !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
+                  tray: !_running && messages != null && _input.text.trimLeft().startsWith('/')
+                      // Typing a command: the commands there are.
+                      ? _SlashRow(onPick: _pickSlash)
+                      : !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
                       ? _QuickReplyRow(
                           replies: ref.watch(tavernQuickRepliesProvider),
                           onSend: _sendQuick,
@@ -1399,6 +1452,47 @@ class _UsageLine extends StatelessWidget {
             ? l10n.tavernUsageLineCached(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens)
             : l10n.tavernUsageLine(usage.promptTokens, usage.completionTokens),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
+      ),
+    );
+  }
+}
+
+/// While the box starts with a slash: the commands, each filling the box.
+class _SlashRow extends StatelessWidget {
+  const _SlashRow({required this.onPick});
+
+  final ValueChanged<TavernSlash> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    String label(TavernSlash c) => switch (c) {
+      TavernSlash.narrate => l10n.tavernNarrate,
+      TavernSlash.sendOnly => l10n.tavernSendOnly,
+      TavernSlash.continueReply => l10n.tavernContinueReply,
+      TavernSlash.regenerate => l10n.tavernRegenerate,
+      TavernSlash.impersonate => l10n.tavernWriteForMe,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 36,
+        child: ListView.separated(
+          key: const ValueKey('tavern-slash-row'),
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          itemCount: TavernSlash.values.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            final c = TavernSlash.values[i];
+            return CapsuleChoiceChip(
+              key: ValueKey('tavern-slash-${c.word}'),
+              label: '/${c.word} ${label(c)}',
+              selected: false,
+              onSelected: () => onPick(c),
+            );
+          },
+        ),
       ),
     );
   }

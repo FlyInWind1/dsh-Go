@@ -36452,6 +36452,12 @@ abstract class L10n {
   /// **'{count} 条回复 · 回复 {completion}'**
   String tavernUsageChatReplies(int count, String completion);
 
+  /// No description provided for @tavernSlashNoReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有可以这样做的回复'**
+  String get tavernSlashNoReply;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

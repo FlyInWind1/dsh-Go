@@ -869,5 +869,6 @@
   "tavernUsageStatsSubtitle": "How many tokens each chat has taken",
   "tavernUsageAllNote": "Replies on every chat's current line, added up; replaced alternatives aren't counted",
   "tavernUsageChatReplies": "{count} replies · {completion} out",
-  "@tavernUsageChatReplies": {"placeholders": {"count": {"type": "int"}, "completion": {"type": "String"}}}
+  "@tavernUsageChatReplies": {"placeholders": {"count": {"type": "int"}, "completion": {"type": "String"}}},
+  "tavernSlashNoReply": "There's no reply to do that to yet"
 }

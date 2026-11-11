@@ -19984,6 +19984,9 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernSlashNoReply => '还没有可以这样做的回复';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override
