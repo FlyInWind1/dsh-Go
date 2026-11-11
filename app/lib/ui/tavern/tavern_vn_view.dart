@@ -1,17 +1,18 @@
 // 视觉小说 layout (docs/design/roleplay-ui.md §4): the character's picture on
 // the stage, one paragraph at a time in a glass box at the bottom; tap the box
 // for the next one, typed out at 酒馆设置's speed (a tap while it types shows
-// it whole). 自动 turns the pages on their own; 跳过 goes to the newest. Built
-// natively for now; the canvas (R2) adds backgrounds and expression sprites
-// from the card's assets.
+// it whole). 自动 turns the pages on their own; 跳过 goes to the newest. A card
+// with expression pictures shows the one each page's words call for.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../l10n/l10n.dart';
+import '../../tavern/tavern_sprites.dart';
 import '../chat/render/markdown_body.dart';
 import '../companion/companion_log.dart';
 import '../theme/app_icons.dart';
@@ -129,6 +130,7 @@ class TavernVisualNovelView extends StatefulWidget {
     required this.onMenu,
     required this.footer,
     this.stage,
+    this.sprites = const {},
     this.onPage,
     this.onReadingBack,
     this.revealRate,
@@ -148,6 +150,10 @@ class TavernVisualNovelView extends StatefulWidget {
   /// The character's Live2D stage, in place of the card's picture.
   final Widget? stage;
 
+  /// The card's expression pictures by name ([tavernSprites]): her page shows
+  /// the one its words call for, yours keeps her last.
+  final Map<String, String> sprites;
+
   /// A page came up: a new one, or one reached by stepping back and forth.
   final ValueChanged<TavernPage>? onPage;
 
@@ -163,6 +169,23 @@ class TavernVisualNovelView extends StatefulWidget {
 }
 
 class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with SingleTickerProviderStateMixin {
+  /// The sprite for page [at]: by her words on it, or on her page before
+  /// yours; her neutral one before she has said anything.
+  String? _spriteAt(int at) {
+    if (widget.sprites.isEmpty) return null;
+    for (var i = at; i >= 0 && i < widget.pages.length; i--) {
+      final page = widget.pages[i];
+      if (page.message.role == TavernRole.character) return tavernSpriteFor(widget.sprites, page.text);
+    }
+    return tavernSpriteFor(widget.sprites, '');
+  }
+
+  Widget _face() => AspectRatio(
+    key: const ValueKey('tavern-vn-face'),
+    aspectRatio: 2 / 3,
+    child: TavernPortrait(name: widget.name, path: widget.avatarPath, radius: AppShape.xl, initialSize: 96),
+  );
+
   /// The page shown; null follows the newest.
   int? _page;
 
@@ -349,6 +372,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
     _tellBack(pages.isNotEmpty && at < _last);
     _schedule(page, at);
     final stage = widget.stage;
+    final sprite = stage == null ? _spriteAt(at) : null;
     return Stack(
       children: [
         Positioned.fill(
@@ -372,25 +396,32 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
             bottom: 170,
             child: stage,
           )
-        // Else the card's picture, dimmed a little while you speak.
+        // Else her expression picture, standing on the box, or the card's
+        // picture; dimmed a little while you speak.
         else
           Positioned(
-            left: 40,
-            right: 40,
+            left: sprite != null ? 16 : 40,
+            right: sprite != null ? 16 : 40,
             top: widget.topInset + 8,
-            bottom: 190,
+            bottom: sprite != null ? 170 : 190,
             child: Center(
               child: AnimatedOpacity(
                 opacity: user ? 0.55 : 1,
                 duration: AppMotion.of(context, AppMotion.standard),
-                child: AspectRatio(
-                  aspectRatio: 2 / 3,
-                  child: TavernPortrait(
-                    name: widget.name,
-                    path: widget.avatarPath,
-                    radius: AppShape.xl,
-                    initialSize: 96,
-                  ),
+                child: AnimatedSwitcher(
+                  duration: AppMotion.of(context, AppMotion.standard),
+                  child: sprite != null
+                      // Sprites are cut out: as large as the stage allows, whole, no frame.
+                      ? SizedBox.expand(
+                          key: ValueKey(sprite),
+                          child: Image.file(
+                            File(sprite),
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomCenter,
+                            errorBuilder: (_, _, _) => Center(child: _face()),
+                          ),
+                        )
+                      : _face(),
                 ),
               ),
             ),

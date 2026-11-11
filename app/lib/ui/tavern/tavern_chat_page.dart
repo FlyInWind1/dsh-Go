@@ -25,6 +25,7 @@ import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_sprites.dart';
 import '../bots/bot_chat_kit.dart';
 import '../chat/composer.dart';
 import '../chat/render/markdown_body.dart';
@@ -940,6 +941,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     ],
                     name: name,
                     avatarPath: character?.avatarPath,
+                    sprites: tavernSprites(character?.assets),
                     stage: switch (live2d) {
                       final store? => CompanionStage(
                         key: ValueKey(store.root.path),
