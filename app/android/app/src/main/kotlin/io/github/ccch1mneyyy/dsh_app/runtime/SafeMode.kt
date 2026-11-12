@@ -197,18 +197,18 @@ object SafeMode {
         },
     ): List<Hazard> {
         val out = ArrayList<Hazard>()
-        readIfFile(guestFile(rootfs, MOVABLE[0]))?.let { text ->
+        readIfFile(rootfs, MOVABLE[0])?.let { text ->
             if (!isTrivialPatch(text)) {
                 out += Hazard(MOVABLE[0], "homePatch", patchDetail)
             }
         }
-        readIfFile(guestFile(rootfs, MOVABLE[1]))?.let { text ->
+        readIfFile(rootfs, MOVABLE[1])?.let { text ->
             val names = launchOnlyNames(text, home = true)
             if (names.isNotEmpty()) {
                 out += Hazard(MOVABLE[1], "homeEnv", envDetail(names))
             }
         }
-        readIfFile(guestFile(rootfs, MOVABLE[2]))?.let { text ->
+        readIfFile(rootfs, MOVABLE[2])?.let { text ->
             val names = launchOnlyNames(text, home = false)
             if (names.isNotEmpty()) {
                 out += Hazard(MOVABLE[2], "cwdEnv", envDetail(names))
@@ -225,7 +225,7 @@ object SafeMode {
         for (path in guestPaths.distinct()) {
             if (path !in MOVABLE) continue
             val file = guestFile(rootfs, path)
-            if (!file.isFile) continue
+            if (readableFile(rootfs, path) == null) continue
             var target = File(file.parentFile, "${file.name}.off-$stamp")
             var n = 1
             while (target.exists()) target = File(file.parentFile, "${file.name}.off-$stamp-${n++}")
@@ -467,8 +467,17 @@ object SafeMode {
 
     fun guestFile(rootfs: File, guestPath: String): File = File(rootfs, guestPath.removePrefix("/"))
 
-    private fun readIfFile(file: File): String? = try {
-        if (file.isFile) file.readText() else null
+    private fun readIfFile(rootfs: File, guestPath: String): String? = try {
+        readableFile(rootfs, guestPath)?.readText()
+    } catch (_: Exception) {
+        null
+    }
+
+    // Preflight precedes the safe launch's tawc materialization. Resolve bytes for reading;
+    // moveAside must still rename the original guest name, never its shared store object.
+    private fun readableFile(rootfs: File, guestPath: String): File? = try {
+        guestFile(rootfs, guestPath).takeIf { it.isFile }
+            ?: io.github.ccch1mneyyy.dsh_app.files.GuestFiles.resolve(rootfs, guestPath, phoneRoot = PhoneStorage.GUEST_PATH)
     } catch (_: Exception) {
         null
     }
