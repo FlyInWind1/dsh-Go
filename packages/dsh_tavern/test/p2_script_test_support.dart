@@ -27,11 +27,11 @@ const scriptOwner = TavernVariableTarget(scope: TavernVariableScope.script);
 // Real model encoder/decoder, card files and SQLite. Only HTTP responses,
 // clock/random and the App host are supplied by the tests.
 class ScriptFixture {
-  ScriptFixture(this.root, this.allowModel);
+  ScriptFixture(this.root, this.allowModel, {this.cleanupMarker = 'P2_SCRIPT_CLEANUP'});
 
-  static Future<ScriptFixture> open({bool allowModel = false}) async {
+  static Future<ScriptFixture> open({bool allowModel = false, String cleanupMarker = 'P2_SCRIPT_CLEANUP'}) async {
     final directory = await Directory.systemTemp.createTemp('dsh-p2-script-');
-    final h = ScriptFixture(directory, allowModel);
+    final h = ScriptFixture(directory, allowModel, cleanupMarker: cleanupMarker);
     addTearDown(h.dispose);
     h.config = TavernModelConfig(
       apiKey: () async {
@@ -71,6 +71,7 @@ class ScriptFixture {
 
   final Directory root;
   final bool allowModel;
+  final String cleanupMarker;
   late TavernModelConfig config;
   late TavernModelClient model;
   TavernEngine? _engine;
@@ -220,7 +221,7 @@ class ScriptFixture {
     }
     expect(await root.exists(), isFalse);
     expect(peers.every((peer) => peer.closed), isTrue);
-    stdout.writeln('P2_SCRIPT_CLEANUP');
+    stdout.writeln(cleanupMarker);
   }
 }
 

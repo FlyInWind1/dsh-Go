@@ -906,6 +906,7 @@ extension _ScriptVariableVersions on _ScriptCoordinator {
     if (_closed) {
       return;
     }
+    generationStoreCommitted(chatIds);
     for (final entry in _variableVersions.values) {
       final target = entry.target;
       if (target.scope == TavernVariableScope.chat && chatIds.contains(target.chatId)) {

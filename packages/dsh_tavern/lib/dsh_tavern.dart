@@ -23,7 +23,8 @@ export 'src/io/preset_codec.dart';
 export 'src/prompt/character_fields.dart';
 export 'src/prompt/deepseek_processing.dart';
 export 'src/prompt/preset.dart';
-export 'src/prompt/prompt_assembler.dart';
+export 'src/prompt/prompt_assembler.dart'
+    hide genericChatRequestBody, convertExplicitPromptMessages, explicitPromptRequestBody;
 export 'src/prompt/prompt_types.dart';
 export 'src/regex/regex_engine.dart';
 export 'src/regex/regex_worker.dart';

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'api.dart' show TavernFailure, TavernRole;
+import 'api.dart' show TavernFailure, TavernRole, TavernUsage;
+import 'regex/regex_engine.dart';
+import 'regex_library.dart' show TavernDisplayResult, TavernRegexDiagnostic;
 import 'state.dart';
 
 typedef TavernJsonObject = Map<String, Object?>;
@@ -643,8 +645,8 @@ abstract interface class TavernScriptHost {
   Future<void> refresh(TavernScriptRefreshRequest request);
 }
 
-/// B1's persisted data and awaited lifecycle surface. Capabilities never claim
-/// the later background-generation, injection or STscript implementations.
+/// Persisted data, awaited native lifecycle and independent B2 background
+/// generation. App callback execution and STscript remain separate capabilities.
 abstract interface class TavernScriptBridge {
   TavernScriptCapabilities get capabilities;
   void attachHost(TavernScriptHost? host);
@@ -707,6 +709,551 @@ abstract interface class TavernScriptBridge {
     List<TavernVariableChange> changes, {
     String? expectedVersion,
   });
+  Future<TavernScriptGeneration> generate(String contextId, TavernScriptGenerateRequest request);
+  Future<TavernScriptGeneration> generateRaw(String contextId, TavernScriptRawRequest request);
+  bool stopGenerationById(String generationId);
+  Future<List<TavernScriptRegex>> getTavernRegexes(String contextId, TavernScriptRegexQuery query);
+  Future<TavernDisplayResult> formatAsTavernRegexedString(
+    String contextId,
+    String text, {
+    required int source,
+    required RegexPhase destination,
+    num? depth,
+    String? characterId,
+  });
+  Future<TavernScriptInjectionLease> injectPrompts(
+    String contextId,
+    List<TavernScriptInjection> prompts, {
+    bool once = false,
+  });
+  Future<void> uninjectPrompts(String contextId, List<String> ids);
+  Future<void> releaseInjectionLease(String leaseId);
+  Future<List<TavernScriptInjectionView>> listInjections(String contextId);
+}
+
+enum TavernScriptPromptRole { system, user, assistant }
+
+enum TavernScriptPromptPlaceholder {
+  worldInfoBefore,
+  personaDescription,
+  charDescription,
+  charPersonality,
+  scenario,
+  worldInfoAfter,
+  dialogueExamples,
+  chatHistory,
+  userInput,
+}
+
+sealed class TavernScriptPromptPart {
+  const TavernScriptPromptPart();
+  const factory TavernScriptPromptPart.literal({required TavernScriptPromptRole role, required String content}) =
+      TavernScriptPromptLiteral;
+  const factory TavernScriptPromptPart.placeholder(TavernScriptPromptPlaceholder kind) =
+      TavernScriptPromptPlaceholderPart;
+  factory TavernScriptPromptPart.fromJson(TavernJsonObject json) {
+    final value = _scriptDtoObject(json, const {'kind', 'role', 'content', 'placeholder'});
+    if (value['kind'] == 'literal') {
+      _scriptDtoKeys(value, const {'kind', 'role', 'content'});
+      return TavernScriptPromptPart.literal(
+        role: _scriptEnum(TavernScriptPromptRole.values, value['role'], 'role'),
+        content: _scriptRequiredString(value, 'content'),
+      );
+    }
+    if (value['kind'] == 'placeholder') {
+      _scriptDtoKeys(value, const {'kind', 'placeholder'});
+      return TavernScriptPromptPart.placeholder(
+        _scriptEnum(TavernScriptPromptPlaceholder.values, value['placeholder'], 'placeholder'),
+      );
+    }
+    throw _scriptDtoError('kind', 'Expected literal or placeholder.');
+  }
+}
+
+final class TavernScriptPromptLiteral extends TavernScriptPromptPart {
+  const TavernScriptPromptLiteral({required this.role, required this.content});
+  final TavernScriptPromptRole role;
+  final String content;
+}
+
+final class TavernScriptPromptPlaceholderPart extends TavernScriptPromptPart {
+  const TavernScriptPromptPlaceholderPart(this.kind);
+  final TavernScriptPromptPlaceholder kind;
+}
+
+class TavernScriptPromptOverrides {
+  TavernScriptPromptOverrides({TavernJsonObject fields = const {}})
+    : _fields = _scriptDtoObject(fields, const {
+        'worldInfoBefore',
+        'personaDescription',
+        'charDescription',
+        'charPersonality',
+        'scenario',
+        'worldInfoAfter',
+        'dialogueExamples',
+        'chatHistory',
+        'authorNote',
+        'withDepthEntries',
+      }) {
+    for (final entry in _fields.entries) {
+      if (entry.key == 'withDepthEntries') {
+        if (entry.value is! bool) throw _scriptDtoError('overrides.${entry.key}', 'Expected a boolean.');
+      } else if (entry.key == 'chatHistory') {
+        if (entry.value is! List<Object?>) throw _scriptDtoError('overrides.chatHistory', 'Expected a list.');
+        for (final (index, item) in (entry.value! as List<Object?>).indexed) {
+          if (item is! Map<String, Object?>) {
+            throw _scriptDtoError('overrides.chatHistory[$index]', 'Expected an object.');
+          }
+          _scriptDtoKeys(item, const {'role', 'content'}, prefix: 'overrides.chatHistory[$index].');
+          _scriptEnum(TavernScriptPromptRole.values, item['role'], 'overrides.chatHistory[$index].role');
+          if (item['content'] is! String) {
+            throw _scriptDtoError('overrides.chatHistory[$index].content', 'Expected a string.');
+          }
+        }
+      } else if (entry.value is! String) {
+        throw _scriptDtoError('overrides.${entry.key}', 'Expected a string.');
+      }
+    }
+  }
+  final TavernJsonObject _fields;
+  TavernJsonObject get fields => _scriptObject(_fields);
+}
+
+class TavernScriptGenerateRequest {
+  TavernScriptGenerateRequest({
+    this.generationId,
+    this.presetId,
+    this.speakerCharacterId,
+    this.userInput = '',
+    this.stream = false,
+    this.includeReasoning = false,
+    this.silent = false,
+    this.maxChatHistory,
+    TavernScriptPromptOverrides? overrides,
+    List<TavernScriptInjection> injects = const [],
+    TavernJsonObject samplingOverrides = const {},
+  }) : overrides = overrides ?? TavernScriptPromptOverrides(),
+       injects = List.unmodifiable(injects),
+       _samplingOverrides = _scriptObject(samplingOverrides) {
+    for (final entry in {
+      'generationId': generationId,
+      'presetId': presetId,
+      'speakerCharacterId': speakerCharacterId,
+    }.entries) {
+      if (entry.value == '') throw _scriptDtoError(entry.key, 'Identity must be nonempty.');
+    }
+    if (maxChatHistory != null && maxChatHistory! < 0) {
+      throw _scriptDtoError('maxChatHistory', 'Expected a nonnegative integer.', code: TavernScriptErrorCode.range);
+    }
+    final ids = <String>{};
+    for (final item in this.injects) {
+      if (!ids.add(item.id)) {
+        throw _scriptDtoError('injects', 'Duplicate injection id.', code: TavernScriptErrorCode.duplicateId);
+      }
+    }
+    _scriptDtoKeys(_samplingOverrides, const {
+      'temperature',
+      'top_p',
+      'presence_penalty',
+      'frequency_penalty',
+      'max_tokens',
+      'seed',
+    }, prefix: 'samplingOverrides.');
+    for (final entry in _samplingOverrides.entries) {
+      final value = entry.value;
+      final valid = entry.key == 'max_tokens'
+          ? value is int && value > 0
+          : entry.key == 'seed'
+          ? value is int && value >= 0
+          : value is num && value.isFinite;
+      if (!valid) throw _scriptDtoError('samplingOverrides.${entry.key}', 'Invalid sampling value.');
+    }
+  }
+  final String? generationId, presetId, speakerCharacterId;
+  final String userInput;
+  final bool stream, includeReasoning, silent;
+  final int? maxChatHistory;
+  final TavernScriptPromptOverrides overrides;
+  final List<TavernScriptInjection> injects;
+  final TavernJsonObject _samplingOverrides;
+  TavernJsonObject get samplingOverrides => _scriptObject(_samplingOverrides);
+
+  factory TavernScriptGenerateRequest.fromJson(TavernJsonObject json) {
+    final value = _scriptDtoObject(json, _scriptRequestKeys);
+    return TavernScriptGenerateRequest(
+      generationId: _scriptOptionalString(value, 'generationId'),
+      presetId: _scriptOptionalString(value, 'presetId'),
+      speakerCharacterId: _scriptOptionalString(value, 'speakerCharacterId'),
+      userInput: _scriptDefaultString(value, 'userInput', ''),
+      stream: _scriptDefaultBool(value, 'stream'),
+      includeReasoning: _scriptDefaultBool(value, 'includeReasoning'),
+      silent: _scriptDefaultBool(value, 'silent'),
+      maxChatHistory: _scriptOptionalInt(value, 'maxChatHistory'),
+      overrides: _scriptRequestOverrides(value),
+      injects: _scriptRequestInjections(value),
+      samplingOverrides: _scriptDefaultObject(value, 'samplingOverrides'),
+    );
+  }
+}
+
+class TavernScriptRawRequest extends TavernScriptGenerateRequest {
+  TavernScriptRawRequest({
+    required List<TavernScriptPromptPart> orderedPrompts,
+    super.generationId,
+    super.presetId,
+    super.speakerCharacterId,
+    super.userInput,
+    super.stream,
+    super.includeReasoning,
+    super.silent,
+    super.maxChatHistory,
+    super.overrides,
+    super.injects,
+    super.samplingOverrides,
+  }) : orderedPrompts = List.unmodifiable(orderedPrompts);
+  final List<TavernScriptPromptPart> orderedPrompts;
+  factory TavernScriptRawRequest.fromJson(TavernJsonObject json) {
+    final value = _scriptDtoObject(json, {..._scriptRequestKeys, 'orderedPrompts'});
+    final ordered = value['orderedPrompts'];
+    if (ordered is! List<Object?>) throw _scriptDtoError('orderedPrompts', 'Expected a list.');
+    return TavernScriptRawRequest(
+      orderedPrompts: [
+        for (final item in ordered)
+          if (item is Map<String, Object?>)
+            TavernScriptPromptPart.fromJson(item)
+          else
+            throw _scriptDtoError('orderedPrompts', 'Expected prompt objects.'),
+      ],
+      generationId: _scriptOptionalString(value, 'generationId'),
+      presetId: _scriptOptionalString(value, 'presetId'),
+      speakerCharacterId: _scriptOptionalString(value, 'speakerCharacterId'),
+      userInput: _scriptDefaultString(value, 'userInput', ''),
+      stream: _scriptDefaultBool(value, 'stream'),
+      includeReasoning: _scriptDefaultBool(value, 'includeReasoning'),
+      silent: _scriptDefaultBool(value, 'silent'),
+      maxChatHistory: _scriptOptionalInt(value, 'maxChatHistory'),
+      overrides: _scriptRequestOverrides(value),
+      injects: _scriptRequestInjections(value),
+      samplingOverrides: _scriptDefaultObject(value, 'samplingOverrides'),
+    );
+  }
+}
+
+enum TavernScriptGenerationEventKind { snapshot, started, textDelta, reasoningDelta, finished, failed }
+
+enum TavernScriptGenerationStatus { preparing, accepted, running, completed, failed, cancelled }
+
+abstract interface class TavernScriptGeneration {
+  String get id;
+  Stream<TavernScriptGenerationEvent> get events;
+  Future<TavernScriptGenerationResult> get result;
+}
+
+class TavernScriptGenerationOrigin {
+  const TavernScriptGenerationOrigin({
+    required this.contextId,
+    required this.instanceId,
+    required this.provider,
+    required this.model,
+    this.chatId,
+    this.nodeAnchor,
+    this.emptyChatAnchor = false,
+  });
+  final String contextId, instanceId, provider, model;
+  final String? chatId;
+  final TavernScriptMessageRef? nodeAnchor;
+  final bool emptyChatAnchor;
+}
+
+class TavernScriptGenerationEvent {
+  const TavernScriptGenerationEvent({
+    required this.id,
+    required this.seq,
+    required this.kind,
+    required this.status,
+    this.text = '',
+    this.reasoning,
+    this.usage,
+    this.delta,
+    this.finishReason,
+    this.error,
+    this.isSnapshot = false,
+    this.lastSeq,
+  });
+  final String id;
+  final int seq;
+  final TavernScriptGenerationEventKind kind;
+  final TavernScriptGenerationStatus status;
+  final String text;
+  final String? reasoning, delta, finishReason;
+  final TavernUsage? usage;
+  final TavernScriptException? error;
+  final bool isSnapshot;
+  final int? lastSeq;
+}
+
+class TavernScriptGenerationResult {
+  TavernScriptGenerationResult({
+    required this.id,
+    required this.text,
+    required this.origin,
+    this.reasoning,
+    this.usage,
+    this.finishReason,
+    List<TavernScriptIssue> hookIssues = const [],
+  }) : hookIssues = List.unmodifiable(hookIssues);
+  final String id, text;
+  final String? reasoning, finishReason;
+  final TavernUsage? usage;
+  final TavernScriptGenerationOrigin origin;
+  final List<TavernScriptIssue> hookIssues;
+}
+
+enum TavernScriptInjectionPosition { inChat, scanOnly, beforeMain, afterMain }
+
+enum TavernScriptInjectionSource { persistent, transient }
+
+class TavernScriptInjection {
+  TavernScriptInjection({
+    required this.id,
+    required this.content,
+    this.role = TavernScriptPromptRole.system,
+    this.position = TavernScriptInjectionPosition.inChat,
+    this.depth = 4,
+    this.scan,
+    this.filter,
+  }) {
+    if (id.isEmpty) throw _scriptDtoError('id', 'Injection id must be nonempty.');
+    if (depth < 0 || depth > 10000) {
+      throw _scriptDtoError('depth', 'Depth must be between 0 and 10000.', code: TavernScriptErrorCode.range);
+    }
+  }
+  final String id, content;
+  final TavernScriptPromptRole role;
+  final TavernScriptInjectionPosition position;
+  final int depth;
+  final bool? scan;
+  final TavernScriptCallbackRef? filter;
+  factory TavernScriptInjection.fromJson(TavernJsonObject json) {
+    final value = _scriptDtoObject(json, const {'id', 'content', 'role', 'position', 'depth', 'scan', 'filter'});
+    TavernScriptCallbackRef? filter;
+    if (value['filter'] != null) {
+      final raw = value['filter'];
+      if (raw is! Map<String, Object?>) throw _scriptDtoError('filter', 'Expected a callback reference.');
+      _scriptDtoKeys(raw, const {'contextId', 'instanceId', 'callbackId'}, prefix: 'filter.');
+      filter = TavernScriptCallbackRef(
+        contextId: _scriptRequiredString(raw, 'contextId'),
+        instanceId: _scriptRequiredString(raw, 'instanceId'),
+        callbackId: _scriptRequiredString(raw, 'callbackId'),
+      );
+    }
+    final scan = value['scan'];
+    if (scan != null && scan is! bool) throw _scriptDtoError('scan', 'Expected a boolean or null.');
+    return TavernScriptInjection(
+      id: _scriptRequiredString(value, 'id'),
+      content: _scriptRequiredString(value, 'content'),
+      role: value.containsKey('role')
+          ? _scriptEnum(TavernScriptPromptRole.values, value['role'], 'role')
+          : TavernScriptPromptRole.system,
+      position: value.containsKey('position')
+          ? _scriptEnum(TavernScriptInjectionPosition.values, value['position'], 'position')
+          : TavernScriptInjectionPosition.inChat,
+      depth: value.containsKey('depth') ? _scriptRequiredInt(value, 'depth') : 4,
+      scan: scan as bool?,
+      filter: filter,
+    );
+  }
+}
+
+class TavernScriptInjectionRegistration {
+  const TavernScriptInjectionRegistration({required this.id, required this.registrationVersion});
+  final String id, registrationVersion;
+}
+
+class TavernScriptInjectionLease {
+  TavernScriptInjectionLease({
+    required this.leaseId,
+    required this.chatId,
+    required this.ownerContextId,
+    required this.ownerInstanceId,
+    required List<TavernScriptInjectionRegistration> registrations,
+  }) : registrations = List.unmodifiable(registrations);
+  final String leaseId, chatId, ownerContextId, ownerInstanceId;
+  final List<TavernScriptInjectionRegistration> registrations;
+}
+
+class TavernScriptInjectionView {
+  TavernScriptInjectionView({
+    required this.source,
+    required TavernJsonObject sourceRef,
+    required Object? raw,
+    this.injection,
+    this.filterStatus = 'none',
+    List<TavernScriptIssue> issues = const [],
+    this.ownerContextId,
+    this.ownerInstanceId,
+    this.registrationVersion,
+    this.once = false,
+    this.claimed = false,
+    this.leaseId,
+  }) : _sourceRef = _scriptObject(sourceRef),
+       _raw = _scriptCopy(raw),
+       issues = List.unmodifiable(issues);
+  final TavernScriptInjectionSource source;
+  final TavernJsonObject _sourceRef;
+  final Object? _raw;
+  TavernJsonObject get sourceRef => _scriptObject(_sourceRef);
+  Object? get raw => _scriptCopy(_raw);
+  final TavernScriptInjection? injection;
+  final String filterStatus;
+  final List<TavernScriptIssue> issues;
+  final String? ownerContextId, ownerInstanceId, registrationVersion, leaseId;
+  final bool once, claimed;
+}
+
+enum TavernScriptRegexSource { global, preset, character }
+
+class TavernScriptRegexQuery {
+  TavernScriptRegexQuery({
+    Set<TavernScriptRegexSource> sources = const {
+      TavernScriptRegexSource.global,
+      TavernScriptRegexSource.preset,
+      TavernScriptRegexSource.character,
+    },
+    this.effectiveOnly = false,
+    this.characterId,
+    this.presetId,
+  }) : sources = Set.unmodifiable(sources) {
+    if (characterId == '' || presetId == '') throw _scriptDtoError('query', 'Identity must be nonempty.');
+  }
+  final Set<TavernScriptRegexSource> sources;
+  final bool effectiveOnly;
+  final String? characterId, presetId;
+  factory TavernScriptRegexQuery.fromJson(TavernJsonObject json) {
+    final value = _scriptDtoObject(json, const {'sources', 'effectiveOnly', 'characterId', 'presetId'});
+    final raw = value['sources'];
+    if (value.containsKey('sources') && raw is! List<Object?>) throw _scriptDtoError('sources', 'Expected a list.');
+    return TavernScriptRegexQuery(
+      sources: raw == null
+          ? TavernScriptRegexSource.values.toSet()
+          : {for (final item in raw as List<Object?>) _scriptEnum(TavernScriptRegexSource.values, item, 'sources')},
+      effectiveOnly: _scriptDefaultBool(value, 'effectiveOnly'),
+      characterId: _scriptOptionalString(value, 'characterId'),
+      presetId: _scriptOptionalString(value, 'presetId'),
+    );
+  }
+}
+
+class TavernScriptRegex {
+  TavernScriptRegex({
+    required this.source,
+    required TavernJsonObject sourceRef,
+    required TavernJsonObject raw,
+    this.engineId,
+    required this.stId,
+    required this.execution,
+    required this.enabled,
+    required this.effective,
+    List<TavernRegexDiagnostic> diagnostics = const [],
+  }) : _sourceRef = _scriptObject(sourceRef),
+       _raw = _scriptObject(raw),
+       diagnostics = List.unmodifiable(diagnostics);
+  final TavernScriptRegexSource source;
+  final TavernJsonObject _sourceRef, _raw;
+  TavernJsonObject get sourceRef => _scriptObject(_sourceRef);
+  TavernJsonObject get raw => _scriptObject(_raw);
+  final String? engineId;
+  final String stId;
+  final RegexScript execution;
+  final bool enabled, effective;
+  final List<TavernRegexDiagnostic> diagnostics;
+}
+
+const _scriptRequestKeys = <String>{
+  'generationId',
+  'presetId',
+  'speakerCharacterId',
+  'userInput',
+  'stream',
+  'includeReasoning',
+  'silent',
+  'maxChatHistory',
+  'overrides',
+  'injects',
+  'samplingOverrides',
+};
+
+TavernScriptException _scriptDtoError(
+  String path,
+  String message, {
+  TavernScriptErrorCode code = TavernScriptErrorCode.invalidArgument,
+}) => TavernScriptException(code: code, operation: 'capture', message: message, fieldPath: path);
+void _scriptDtoKeys(TavernJsonObject value, Set<String> allowed, {String prefix = ''}) {
+  for (final key in value.keys) {
+    if (!allowed.contains(key)) {
+      throw _scriptDtoError('$prefix$key', 'Unsupported option.', code: TavernScriptErrorCode.unsupportedOption);
+    }
+  }
+}
+
+TavernJsonObject _scriptDtoObject(TavernJsonObject value, Set<String> allowed) {
+  final captured = _scriptObject(value);
+  _scriptDtoKeys(captured, allowed);
+  return captured;
+}
+
+T _scriptEnum<T extends Enum>(List<T> values, Object? value, String path) {
+  for (final item in values) {
+    if (item.name == value) return item;
+  }
+  throw _scriptDtoError(path, 'Unknown value.');
+}
+
+String _scriptRequiredString(TavernJsonObject value, String key) {
+  final raw = value[key];
+  if (raw is! String) throw _scriptDtoError(key, 'Expected a string.');
+  return raw;
+}
+
+String _scriptDefaultString(TavernJsonObject value, String key, String fallback) =>
+    value.containsKey(key) ? _scriptRequiredString(value, key) : fallback;
+String? _scriptOptionalString(TavernJsonObject value, String key) =>
+    value[key] == null ? null : _scriptRequiredString(value, key);
+int _scriptRequiredInt(TavernJsonObject value, String key) {
+  final raw = value[key];
+  if (raw is! int) throw _scriptDtoError(key, 'Expected an integer.');
+  return raw;
+}
+
+int? _scriptOptionalInt(TavernJsonObject value, String key) =>
+    value[key] == null ? null : _scriptRequiredInt(value, key);
+bool _scriptDefaultBool(TavernJsonObject value, String key) {
+  if (!value.containsKey(key)) return false;
+  final raw = value[key];
+  if (raw is! bool) throw _scriptDtoError(key, 'Expected a boolean.');
+  return raw;
+}
+
+TavernJsonObject _scriptDefaultObject(TavernJsonObject value, String key) {
+  if (!value.containsKey(key)) return {};
+  final raw = value[key];
+  if (raw is! Map<String, Object?>) throw _scriptDtoError(key, 'Expected an object.');
+  return raw;
+}
+
+TavernScriptPromptOverrides _scriptRequestOverrides(TavernJsonObject value) =>
+    TavernScriptPromptOverrides(fields: _scriptDefaultObject(value, 'overrides'));
+List<TavernScriptInjection> _scriptRequestInjections(TavernJsonObject value) {
+  if (!value.containsKey('injects')) return [];
+  final raw = value['injects'];
+  if (raw is! List<Object?>) throw _scriptDtoError('injects', 'Expected a list.');
+  return [
+    for (final item in raw)
+      if (item is Map<String, Object?>)
+        TavernScriptInjection.fromJson(item)
+      else
+        throw _scriptDtoError('injects', 'Expected injection objects.'),
+  ];
 }
 
 Object? _scriptCopy(Object? value, [Set<Object>? seen]) {

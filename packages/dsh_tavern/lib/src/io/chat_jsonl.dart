@@ -23,6 +23,20 @@ final class ChatJsonlImportResult {
   final List<String> notices;
 }
 
+/// A physical metadata carrier, not a node-selection or generation identity.
+enum ChatJsonlMetadataCarrier { root, sources, files }
+
+final class ChatJsonlMetadataSource {
+  const ChatJsonlMetadataSource._(this.carrier, this.sourceFile, this.fileIndex);
+
+  final ChatJsonlMetadataCarrier carrier;
+  final String? sourceFile;
+  final int? fileIndex;
+
+  /// Includes the actual files-array slot; no delimiter can alias a raw key.
+  String get identity => jsonEncode([carrier.name, sourceFile, fileIndex]);
+}
+
 /// Imports only the supplied same-character batch. Filenames are labels, not
 /// paths to read. Every document is validated before the single DB transaction.
 final class ChatJsonlCodec {
@@ -156,6 +170,29 @@ final class ChatJsonlCodec {
     }
     _projectRuntimeState(metadata, state);
     return metadata;
+  }
+
+  /// Resolves once with the same null/current and effective-state rules as
+  /// [metadataForNode]. An empty path or an unmapped label resolves to root.
+  ChatJsonlMetadataSource metadataSourceForNode(ChatStore store, String chatId, {String? nodeId}) {
+    final chat = store.chat(chatId);
+    final id = nodeId ?? chat.currentLeafId;
+    return id == null
+        ? _metadataSource(chat.metadata, null)
+        : metadataSourceTargetForState(chat, _effectiveState(store, chatId, store.node(chatId, id)));
+  }
+
+  ChatJsonlMetadataSource metadataSourceTargetForState(StoredChat chat, Map<String, Object?> state) =>
+      _metadataSource(chat.metadata, state[_sourceKey]);
+
+  /// Reads only this captured carrier, without consulting a leaf or applying
+  /// state projections. A missing/rekeyed files slot or missing source returns
+  /// null; it never silently switches to a fallback carrier. Malformed/null
+  /// chat_metadata keeps the ordinary reader's empty-map projection.
+  Map<String, Object?>? readMetadataSource(Map<String, Object?> root, ChatJsonlMetadataSource source) {
+    if (source.carrier == ChatJsonlMetadataCarrier.root) return _clone(root);
+    final header = _metadataSourceHeader(root, source);
+    return header == null ? null : _map(header['chat_metadata']);
   }
 
   List<StChatDocument> exportChat(ChatStore store, String chatId, {String? fileName}) =>
@@ -1414,21 +1451,44 @@ List<Map<String, Object?>> _sourceFiles(Map<String, Object?> metadata) {
 }
 
 Map<String, Object?>? _sourceFor(Map<String, Object?> metadata, Object? key) {
-  if (key is! String) {
-    return null;
-  }
+  final source = _metadataSource(metadata, key);
+  final header = _metadataSourceHeader(metadata, source);
+  return header == null ? null : _clone(header);
+}
+
+ChatJsonlMetadataSource _metadataSource(Map<String, Object?> metadata, Object? key) {
+  if (key is! String) return const ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.root, null, null);
   final own = _view(_view(metadata['dshgo'])[_namespace]);
   final source = _view(own['sources'])[key];
   if (source is Map<String, Object?>) {
-    return _clone(source);
+    return ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.sources, key, null);
   }
   final files = own['files'];
   if (files is List<Object?>) {
-    for (final entry in files.whereType<Map<String, Object?>>()) {
-      if (entry['key'] == key && entry['header'] is Map<String, Object?>) {
-        return _map(entry['header']);
+    for (var index = 0; index < files.length; index++) {
+      final entry = files[index];
+      if (entry is Map<String, Object?> && entry['key'] == key && entry['header'] is Map<String, Object?>) {
+        return ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.files, key, index);
       }
     }
+  }
+  return const ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.root, null, null);
+}
+
+Map<String, Object?>? _metadataSourceHeader(Map<String, Object?> metadata, ChatJsonlMetadataSource source) {
+  final own = _view(_view(metadata['dshgo'])[_namespace]);
+  if (source.carrier == ChatJsonlMetadataCarrier.sources) {
+    final header = _view(own['sources'])[source.sourceFile];
+    return header is Map<String, Object?> ? header : null;
+  }
+  if (source.carrier == ChatJsonlMetadataCarrier.files) {
+    final files = own['files'];
+    final index = source.fileIndex;
+    if (files is! List<Object?> || index == null || index < 0 || index >= files.length) return null;
+    final entry = files[index];
+    if (entry is! Map<String, Object?> || entry['key'] != source.sourceFile) return null;
+    final header = entry['header'];
+    return header is Map<String, Object?> ? header : null;
   }
   return null;
 }

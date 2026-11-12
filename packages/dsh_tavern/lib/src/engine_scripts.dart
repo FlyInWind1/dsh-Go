@@ -11,6 +11,7 @@ class _ScriptContextState {
   bool refreshAgain = false;
   final pending = <String, _ScriptCancellation>{};
   final callbacks = <_ScriptCancellation>{};
+  final hostCallbacks = <_ScriptCancellation>{};
 }
 
 class _ScriptChatCapture {
@@ -64,6 +65,11 @@ class _ScriptCoordinator implements TavernScriptBridge {
   final _deliveries = <Future<void>>{};
   final _nativeDirty = <String>{};
   final _variableVersions = <String, _ScriptVariableVersion>{};
+  final _generations = <String, _ScriptGenerationRecord>{};
+  final _generationDrains = <Future<void>>{};
+  final _generationChatObservations = <String, _ScriptChatObservation>{};
+  int _nextGenerationObservation = 0;
+  late final _ScriptInjectionRegistry injectionRegistry = _ScriptInjectionRegistry(this);
   int _nextVariableIdentity = 0;
   TavernScriptHost? _host;
   int _hostVersion = 0;
@@ -117,7 +123,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
 
   @override
   TavernScriptCapabilities get capabilities => TavernScriptCapabilities(
-    adapterVersion: 'p2-b1',
+    adapterVersion: 'p2-b2',
     hostAttached: _host != null,
     methods: const {
       'openContext',
@@ -135,8 +141,31 @@ class _ScriptCoordinator implements TavernScriptBridge {
       'replaceVariables',
       'updateVariablesWith',
       'mutateVariables',
+      'generate',
+      'generateRaw',
+      'stopGenerationById',
+      'getTavernRegexes',
+      'formatAsTavernRegexedString',
+      'injectPrompts',
+      'uninjectPrompts',
+      'releaseInjectionLease',
+      'listInjections',
     },
     scopes: TavernVariableScope.values.toSet(),
+    generationOptions: const {
+      'generationId',
+      'presetId',
+      'speakerCharacterId',
+      'userInput',
+      'stream',
+      'includeReasoning',
+      'silent',
+      'maxChatHistory',
+      'overrides',
+      'injects',
+      'samplingOverrides',
+      'orderedPrompts',
+    },
   );
 
   _ScriptContextState _context(String id) {
@@ -211,6 +240,9 @@ class _ScriptCoordinator implements TavernScriptBridge {
     _hostVersion++;
     for (final context in contexts.values) {
       for (final token in context.pending.values) {
+        token.cancel('hostUnavailable');
+      }
+      for (final token in context.hostCallbacks) {
         token.cancel('hostUnavailable');
       }
     }
@@ -298,6 +330,13 @@ class _ScriptCoordinator implements TavernScriptBridge {
     for (final token in context.callbacks) {
       token.cancel();
     }
+    for (final token in context.hostCallbacks) {
+      token.cancel();
+    }
+    for (final record in _generations.values.toList()) {
+      if (identical(record.context, context)) record.cancellation.cancel();
+    }
+    injectionRegistry.closeOwner(context.value.id, context.value.instanceId);
     context.view = null;
   });
 
@@ -385,6 +424,56 @@ class _ScriptCoordinator implements TavernScriptBridge {
     List<TavernVariableChange> changes, {
     String? expectedVersion,
   }) => _mutateVariables(contextId, target, changes, expectedVersion: expectedVersion);
+
+  @override
+  Future<TavernScriptGeneration> generate(String contextId, TavernScriptGenerateRequest request) =>
+      _bridgeOperation(() => _startGeneration(contextId, request, raw: false));
+  @override
+  Future<TavernScriptGeneration> generateRaw(String contextId, TavernScriptRawRequest request) =>
+      _bridgeOperation(() => _startGeneration(contextId, request, raw: true));
+  @override
+  bool stopGenerationById(String generationId) {
+    final record = _generations[generationId];
+    if (record == null || record.terminal != null) return false;
+    record.cancellation.cancel();
+    return true;
+  }
+
+  @override
+  Future<List<TavernScriptRegex>> getTavernRegexes(String contextId, TavernScriptRegexQuery query) =>
+      _bridgeOperation(() => queryTavernRegexes(contextId, query));
+  @override
+  Future<TavernDisplayResult> formatAsTavernRegexedString(
+    String contextId,
+    String text, {
+    required int source,
+    required RegexPhase destination,
+    num? depth,
+    String? characterId,
+  }) => _bridgeOperation(
+    () => formatScriptText(
+      contextId,
+      text,
+      source: source,
+      destination: destination,
+      depth: depth,
+      characterId: characterId,
+    ),
+  );
+  @override
+  Future<TavernScriptInjectionLease> injectPrompts(
+    String contextId,
+    List<TavernScriptInjection> prompts, {
+    bool once = false,
+  }) => _bridgeOperation(() => injectionRegistry.register(contextId, prompts, once: once));
+  @override
+  Future<void> uninjectPrompts(String contextId, List<String> ids) =>
+      _bridgeOperation(() => injectionRegistry.uninject(contextId, ids));
+  @override
+  Future<void> releaseInjectionLease(String leaseId) => _bridgeOperation(() => injectionRegistry.release(leaseId));
+  @override
+  Future<List<TavernScriptInjectionView>> listInjections(String contextId) =>
+      _bridgeOperation(() => injectionRegistry.list(contextId));
 
   Future<T> _structureWrite<T>(_ScriptChatCapture capture, FutureOr<T> Function() action) {
     _context(capture.context.value.id);
@@ -659,6 +748,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
     List<Object?> args = const [],
     TavernScriptDelta? delta,
     String? eventId,
+    String? namespace,
     ({int? messageId, int? swipeId, String? pathRevision})? location,
   }) {
     context.seq++;
@@ -687,7 +777,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
       contextId: context.value.id,
       chatId: context.value.chatId,
       seq: context.seq,
-      namespace: kind == TavernScriptDispatchKind.lifecycle ? 'tavern' : null,
+      namespace: namespace ?? (kind == TavernScriptDispatchKind.lifecycle ? 'tavern' : null),
       name: name,
       generationId: generationId,
       nodeRef: ref,
@@ -766,11 +856,19 @@ class _ScriptCoordinator implements TavernScriptBridge {
       }
       unawaited(cancellation.whenCancelled.then((_) => token.cancel()));
     }
+    var knownCommitted = committed;
+    final knownIssues = <TavernScriptIssue>[];
+    void rememberIssues(List<TavernScriptIssue> reported) {
+      knownIssues.addAll(reported);
+      if (reported.any((issue) => issue.committed)) knownCommitted = true;
+    }
+
     List<TavernScriptIssue> failure(String code, String message, {bool cancelled = false}) => [
+      ...knownIssues,
       TavernScriptIssue(
         code: code,
         message: message,
-        committed: committed,
+        committed: knownCommitted,
         contextId: context.value.id,
         eventId: request.eventId,
         generationId: request.generationId,
@@ -788,28 +886,35 @@ class _ScriptCoordinator implements TavernScriptBridge {
           Future<TavernScriptDispatchAck>.sync(() => host!.dispatch(request, token)),
           token.whenCancelled.then<TavernScriptDispatchAck?>((_) => null),
         ]);
-        if (ack == null || context.closed || hostVersion != _hostVersion) {
+        // Reported prior effects survive a failed/cancelled acknowledgement;
+        // they do not turn an invalid identity or ended owner into success.
+        if (ack != null) rememberIssues(ack.issues);
+        if (ack == null || token.isCancelled || context.closed || hostVersion != _hostVersion) {
           issues = failure(token.reason, 'Host delivery ended before acknowledgement.', cancelled: token.isCancelled);
         } else if (ack.eventId != request.eventId) {
           issues = failure('hookFailure', 'Host acknowledged a different event identity.');
         } else {
-          issues = [
-            ...ack.issues,
-            if (ack.status != TavernScriptAckStatus.completed)
-              ...failure(
-                ack.status == TavernScriptAckStatus.cancelled ? 'cancelled' : 'hookFailure',
-                'Host handler did not complete.',
-                cancelled: ack.status == TavernScriptAckStatus.cancelled,
-              ),
-          ];
+          issues = ack.status == TavernScriptAckStatus.completed
+              ? knownIssues
+              : failure(
+                  ack.status == TavernScriptAckStatus.cancelled ? 'cancelled' : 'hookFailure',
+                  'Host handler did not complete.',
+                  cancelled: ack.status == TavernScriptAckStatus.cancelled,
+                );
         }
       }
     } catch (error) {
-      issues = failure('hookFailure', 'Host callback failed (${error.runtimeType}).');
+      if (error is TavernScriptException) {
+        if (error.committed) knownCommitted = true;
+        rememberIssues(error.issues);
+      }
+      issues = token.isCancelled || context.closed || hostVersion != _hostVersion
+          ? failure(token.reason, 'Host delivery ended before acknowledgement.', cancelled: token.isCancelled)
+          : failure('hookFailure', 'Host callback failed (${error.runtimeType}).');
     } finally {
       context.pending.remove(request.eventId);
     }
-    _observe(request, issues.isEmpty ? 'acknowledged' : 'failed', committed, issues: issues);
+    _observe(request, issues.isEmpty ? 'acknowledged' : 'failed', knownCommitted, issues: issues);
     return issues;
   }
 
@@ -1179,11 +1284,34 @@ class _ScriptCoordinator implements TavernScriptBridge {
         }
       }
       await drainWrites(turn.chat.id, turn.cancellation);
+      final metadata = engine._chatCodec.metadataForNode(engine._store, turn.chat.id, nodeId: turn.nodeId);
+      final persistentSource = engine._chatCodec.metadataSourceForNode(
+        engine._store,
+        turn.chat.id,
+        nodeId: turn.nodeId,
+      );
+      final candidates = injectionRegistry.capture(
+        chatId: turn.chat.id,
+        metadata: metadata,
+        persistentSource: persistentSource,
+      );
+      turn.scriptInjectionUses = await injectionRegistry.filter(
+        candidates,
+        generationId: turn.generationId,
+        cancellation: turn.cancellation,
+      );
+      turn.hookIssues.addAll(turn.scriptInjectionUses!.hookIssues);
+      await drainWrites(turn.chat.id, turn.cancellation);
     } catch (error) {
       if (error is TavernScriptException) {
         turn.hookIssues.addAll(error.issues);
       }
       turn.cancellation.check();
+      if (error is TavernScriptException &&
+          error.operation == 'injectionFilter' &&
+          error.code == TavernScriptErrorCode.cancelled) {
+        throw const TavernModelException(TavernFailure.cancelled, 'injection_filter_cancelled');
+      }
       rethrow;
     } finally {
       turn.scriptWritesAllowed = false;
@@ -1304,6 +1432,12 @@ class _ScriptCoordinator implements TavernScriptBridge {
 
   void close() {
     _closed = true;
+    final generationResults = [
+      for (final record in _generations.values) record.result.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    ];
+    for (final record in _generations.values.toList()) {
+      record.cancellation.cancel();
+    }
     for (final context in contexts.values) {
       context.closed = true;
       for (final token in context.pending.values) {
@@ -1312,13 +1446,20 @@ class _ScriptCoordinator implements TavernScriptBridge {
       for (final token in context.callbacks) {
         token.cancel();
       }
+      for (final token in context.hostCallbacks) {
+        token.cancel('hostUnavailable');
+      }
+      injectionRegistry.closeOwner(context.value.id, context.value.instanceId);
     }
     _host = null;
     // Cancellation resolves our races even when a host ignores its token.
     // Keep the observation stream open until those outcomes are published;
     // a paused observer must still never hold engine.close().
     unawaited(() async {
-      await Future.wait<void>([..._deliveries, for (final context in contexts.values) context.lifecycle]);
+      await Future.wait<void>([...generationResults, for (final context in contexts.values) context.lifecycle]);
+      while (_deliveries.isNotEmpty) {
+        await Future.wait<void>(List.of(_deliveries));
+      }
       unawaited(_events.close());
     }());
   }

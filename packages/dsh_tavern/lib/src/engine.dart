@@ -57,6 +57,12 @@ part 'engine_group.dart';
 part 'engine_scripts.dart';
 part 'engine_script_variables.dart';
 part 'engine_scripts_messages.dart';
+part 'engine_script_generation_types.dart';
+part 'engine_script_generation.dart';
+part 'engine_script_generation_commit.dart';
+part 'engine_script_prompt.dart';
+part 'engine_script_injections.dart';
+part 'engine_script_regex.dart';
 
 /// App convenience factory. [directory] is the actual tavern data directory,
 /// normally `<app support>/tavern`. No extra path component is appended.
@@ -2471,6 +2477,7 @@ class TavernEngine implements Tavern {
   Future<void> _commitSettingsDocument(
     Map<String, Object?> document, {
     ({Map<String, Object?> runtime, int through})? globals,
+    void Function()? onCommitted,
   }) async {
     final file = File('${directory.path}/settings.json');
     await file.parent.create(recursive: true);
@@ -2480,6 +2487,7 @@ class TavernEngine implements Tavern {
     if (globals != null) {
       _adoptGlobals(globals.runtime, globals.through);
     }
+    onCommitted?.call();
     _scripts.documentCommitted(document);
     if (globals != null) {
       _scripts.resourcesChanged();
@@ -3376,6 +3384,9 @@ class TavernEngine implements Tavern {
         data,
         userMessageCount: history.where((node) => node.message.role == TavernRole.user).length,
       );
+      final scriptInjections = turn.scriptInjectionUses == null
+          ? null
+          : _scripts.injectionRegistry.prepareInjections(turn.scriptInjectionUses!, environment);
       final scanInjections = <String>[];
       for (final item in initialInjections) {
         if (item.scan) {
@@ -3383,6 +3394,7 @@ class TavernEngine implements Tavern {
           if (content.isNotEmpty) scanInjections.add(content);
         }
       }
+      scanInjections.addAll(scriptInjections?.scanTexts ?? const []);
       var world = await _worldInfoEngine.evaluate(
         WorldInfoInput(
           books: directorBooks,
@@ -3435,6 +3447,7 @@ class TavernEngine implements Tavern {
       });
       final injections = [
         ..._finishInjections(initialInjections, world, deepseek: turn.config.deepseek),
+        ...?scriptInjections?.prompts,
         ..._stateTurnInjections(turn),
         ..._cardEventTurnInjections(turn),
         ..._secretTurnInjections(this, turn, hostData),
@@ -3596,6 +3609,15 @@ class TavernEngine implements Tavern {
         _liveVariables[chatId] = (leaf: reply.nodeId, values: _runtimeCopy(local));
       }
       final requestBody = _copy(assembly.body);
+      turn.cancellation.check();
+      try {
+        if (turn.scriptInjectionUses case final uses?) {
+          _scripts.injectionRegistry.claim(uses, generationId: turn.generationId);
+        }
+      } on TavernScriptException catch (error) {
+        turn.hookIssues.addAll(error.issues);
+        rethrow;
+      }
       turn.emit(TavernTurnStarted(_buffered(turn)));
       _scripts.publishSent(
         turn.sent ?? turn.groupRound?.sent,
@@ -4309,11 +4331,15 @@ class TavernEngine implements Tavern {
     await _directors.close();
     // Unblock guarded work before waiting for operations that may own it.
     await Future.wait([_regexWorker.close(), _keywordWorker.close()]);
-    while (_turns.isNotEmpty || _groups.rounds.isNotEmpty || _operations.isNotEmpty) {
+    while (_turns.isNotEmpty ||
+        _groups.rounds.isNotEmpty ||
+        _operations.isNotEmpty ||
+        _scripts._generationDrains.isNotEmpty) {
       await Future.wait<void>([
         ..._operations,
         for (final turn in _turns.values) turn.done.future,
         for (final group in _groups.rounds.values) group.done.future,
+        ..._scripts._generationDrains,
       ]);
     }
     await _fileQueue;
@@ -4413,6 +4439,9 @@ class _NativeGlobals extends MapBase<String, Object?> {
   final Map<String, Object?> _values;
   final List<_GlobalWrite> _pending = [];
   int revision = 0;
+  // Internal runtime identity is deliberately independent of public JSON CAS
+  // and journal serials: adoption can change Inf/null or settle pending intent.
+  int observation = 0;
 
   @override
   Object? operator [](Object? key) => _values[key];
@@ -4422,6 +4451,7 @@ class _NativeGlobals extends MapBase<String, Object?> {
     // Same-value assignments are still intent: an earlier queued replace may
     // change this key before this native operation reaches its own save.
     _pending.add(_GlobalWrite(++revision, key, true, _runtimeValue(value)));
+    observation++;
     _values[key] = _runtimeValue(value);
   }
 
@@ -4432,6 +4462,7 @@ class _NativeGlobals extends MapBase<String, Object?> {
     }
     // An absent key must likewise retain its explicit delete intent.
     _pending.add(_GlobalWrite(++revision, key, false, null));
+    observation++;
     return _values.remove(key);
   }
 
@@ -4462,6 +4493,7 @@ class _NativeGlobals extends MapBase<String, Object?> {
   }
 
   void commit(Map<String, Object?> runtime, int through) {
+    observation++;
     _base = _runtimeCopy(runtime);
     _pending.removeWhere((write) => write.revision <= through);
     _values
@@ -4477,6 +4509,10 @@ class _NativeGlobals extends MapBase<String, Object?> {
   // Only the caller's synchronous edit/output-regex segment uses this. It
   // cannot span an await or undo a successful file commit; serials never reset.
   void rollback(({int revision, Map<String, Object?> values}) checkpoint) {
+    if (_pending.any((write) => write.revision > checkpoint.revision) ||
+        _scriptRuntimeFingerprint(_values) != _scriptRuntimeFingerprint(checkpoint.values)) {
+      observation++;
+    }
     _pending.removeWhere((write) => write.revision > checkpoint.revision);
     _values
       ..clear()
@@ -4543,6 +4579,7 @@ class _Turn {
   bool modelCommitted = false;
   bool scriptWritesAllowed = false;
   bool nativePreparationStarted = false;
+  _ScriptInjectionUseSet? scriptInjectionUses;
   final hookIssues = <TavernScriptIssue>[];
   final done = Completer<void>();
   bool finished = false;
@@ -4675,15 +4712,23 @@ class _MacroEnvironment {
     this.groupNames,
     this.groupNotMuted,
     ChatPreset? preset,
+    Map<String, Object?>? regexPresetSettings,
+    this.macroHistory,
+    this.onCharacterDependency,
+    this.prepareCharacterFieldsOnDemand = false,
   }) {
     final raw = _map(settings['preset']);
     _presetSettings = (preset ?? (raw.isEmpty ? ChatPreset.stDefault() : ChatPreset(raw))).settings;
+    _regexPresetSettings = regexPresetSettings ?? _presetSettings;
   }
   final Map<String, Object?> card;
   final Map<String, Object?> settings;
   final Map<String, Object?> local;
   final Map<String, Object?> global;
   final List<StoredNode> history;
+  final List<MacroMessage>? macroHistory;
+  final void Function(String)? onCharacterDependency;
+  final bool prepareCharacterFieldsOnDemand;
   final TavernModelConfig config;
   final DateTime now;
   final double Function() random;
@@ -4697,6 +4742,7 @@ class _MacroEnvironment {
   final String generationType;
   final outlets = <String, String>{};
   late final Map<String, Object?> _presetSettings;
+  late final Map<String, Object?> _regexPresetSettings;
   late final RegexEngine regex = RegexEngine(
     globalScripts: [
       ...RegexEngine.readScripts(settings['globalRegexScripts'] ?? settings['regex']),
@@ -4704,7 +4750,7 @@ class _MacroEnvironment {
     ],
     presetScripts: settings['presetRegexEnabled'] == false
         ? const []
-        : RegexEngine.readScripts(_map(_presetSettings['extensions'])['regex_scripts']),
+        : RegexEngine.readScripts(_map(_regexPresetSettings['extensions'])['regex_scripts']),
     characterScripts:
         settings['characterRegexEnabled'] == false || _strings(settings['disabledCharacterRegex']).contains(characterId)
         ? const []
@@ -4733,7 +4779,7 @@ class _MacroEnvironment {
     groupNotMuted: groupNotMuted?.join(', '),
     userName: userName,
     persona: persona,
-    history: _MacroHistory(history),
+    history: macroHistory ?? _MacroHistory(history),
     model: config.model,
     input: input,
     maxContext: maxContext,
@@ -4757,6 +4803,7 @@ class _MacroEnvironment {
     systemPromptOverride: settings['systemPromptOverride'] as String?,
     scenarioOverride: settings['scenarioOverride'] as String?,
     mesExamplesOverride: settings['mesExamplesOverride'] as String?,
+    onCharacterDependency: onCharacterDependency,
   );
 
   String _expand(
@@ -4774,6 +4821,7 @@ class _MacroEnvironment {
             postProcess: postProcess,
             replaceCharacterCard: replaceCard,
             characterOverride: characterOverride,
+            prepareCharacterFieldsOnDemand: prepareCharacterFieldsOnDemand,
           )
         : const MacroEngine().expand(
             text,
@@ -5048,12 +5096,13 @@ List<StoredNode> _preparePromptHistory(
   List<StoredNode> history,
   _MacroEnvironment environment, {
   required bool continuing,
+  int depthOffset = 0,
 }) {
   final visible = history.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
   final transformed = <StoredNode>[];
   for (var index = 0; index < visible.length; index++) {
     final node = visible[index];
-    final depth = visible.length - index - (continuing ? 2 : 1);
+    final depth = visible.length - index - (continuing ? 2 : 1) + depthOffset;
     final text = environment.regex.apply(
       node.message.text,
       placement: node.message.role == TavernRole.user ? RegexPlacement.userInput : RegexPlacement.aiOutput,
@@ -5077,7 +5126,7 @@ List<StoredNode> _preparePromptHistory(
         continue;
       }
     }
-    final depth = transformed.length - index - (continuing ? 2 : 1);
+    final depth = transformed.length - index - (continuing ? 2 : 1) + depthOffset;
     final reasoning = environment.regex.apply(
       node.message.reasoning ?? '',
       placement: RegexPlacement.reasoning,

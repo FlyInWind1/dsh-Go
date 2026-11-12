@@ -210,6 +210,7 @@ class ChatStore {
   /// adoption, before asynchronous change notifications. The observer may read
   /// registered targets; it must not throw, await, write SQL or call a host.
   /// Rollbacks and nested savepoint releases never invoke it.
+  /// Pure streaming-body checkpoints skip it, but still publish [changes].
   void Function(Set<String> chatIds, bool presetsChanged)? committedObserver;
 
   Stream<String> get changes => _changes.stream;
@@ -283,11 +284,11 @@ class ChatStore {
     if (_streamingWriters == 0) _setSynchronous(2);
   }
 
-  T _withDurability<T>(int level, T Function() operation, {void Function()? onCommitted}) {
+  T _withDurability<T>(int level, T Function() operation, {void Function()? onCommitted, bool bodyOnly = false}) {
     _outsideTransaction();
     _setSynchronous(level);
     try {
-      return _transaction(operation, onCommitted: onCommitted);
+      return _transaction(operation, onCommitted: onCommitted, bodyOnly: bodyOnly);
     } finally {
       if (_streamingWriters == 0) {
         _setSynchronous(2);
@@ -360,7 +361,7 @@ class ChatStore {
     return _withDurability(2, operation, onCommitted: onCommitted);
   }
 
-  T _transaction<T>(T Function() operation, {void Function()? onCommitted}) {
+  T _transaction<T>(T Function() operation, {void Function()? onCommitted, bool bodyOnly = false}) {
     _ensureOpen();
     _checkTransactionState();
     if (operation is Future<dynamic> Function()) {
@@ -426,7 +427,12 @@ class ChatStore {
       final presetsChanged = _presetsChanged;
       _changedChats.clear();
       _presetsChanged = false;
-      committedObserver?.call(Set<String>.unmodifiable(changed), presetsChanged);
+      // Only writeStreamingBody opts out, in its isolated transaction. It
+      // cannot change a registered variable/preparation carrier; ordinary
+      // commits still observe after onCommitted has adopted their runtime.
+      if (!bodyOnly) {
+        committedObserver?.call(Set<String>.unmodifiable(changed), presetsChanged);
+      }
       for (final chatId in changed) {
         _changes.add(chatId);
       }
@@ -1351,7 +1357,7 @@ ORDER BY n.seq
       }
       _db.execute('UPDATE nodes SET stream_text = ?, stream_reasoning = ? WHERE id = ?', [text, reasoning, nodeId]);
       _changedChats.add(chatId);
-    });
+    }, bodyOnly: true);
   }
 
   TavernMessage updateMessage(

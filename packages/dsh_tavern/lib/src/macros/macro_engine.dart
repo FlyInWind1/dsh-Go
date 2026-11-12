@@ -85,11 +85,15 @@ class MacroContext {
     num? chatIdHash,
     this.onChatIdHash,
     this.pickRerollSeed,
+    this.onCharacterDependency,
   }) : localVariables = localVariables ?? <String, Object?>{},
        globalVariables = globalVariables ?? <String, Object?>{},
        charName = charName ?? _cardName(card),
        group = group ?? charName ?? _cardName(card),
        groupNotMuted = groupNotMuted ?? group ?? charName ?? _cardName(card),
+       _charNameFromCard = charName == null,
+       _groupFromCard = group == null && charName == null,
+       _groupNotMutedFromCard = groupNotMuted == null && group == null && charName == null,
        notChar = notChar ?? userName,
        maxPrompt = maxPrompt ?? maxContext - maxResponse,
        now = now ?? DateTime.now(),
@@ -103,6 +107,9 @@ class MacroContext {
   final String charName;
   final String group;
   final String groupNotMuted;
+  final bool _charNameFromCard;
+  final bool _groupFromCard;
+  final bool _groupNotMutedFromCard;
   final String notChar;
   final Map<String, Object?> card;
   final bool replaceCharacterCard;
@@ -144,6 +151,33 @@ class MacroContext {
   /// whether to persist the value and provide it to later contexts.
   final void Function(num)? onChatIdHash;
   final Object? pickRerollSeed;
+
+  /// Observes a character source actually consumed by a macro: `name` or a
+  /// card-field key (`charDepthPrompt` names the nested depth prompt). Supplied
+  /// names, group lists, per-call constants and selected settings overrides do
+  /// not read that source. Legacy eager field preparation alone is not a use;
+  /// macros executed inside a prepared field still report their own reads.
+  /// An observer failure escapes compatibility fallback as its original error.
+  /// Omit this hook to retain ordinary native macro behavior.
+  final void Function(String)? onCharacterDependency;
+
+  void _observeCharacterDependency(String field) {
+    final observer = onCharacterDependency;
+    if (observer == null) return;
+    try {
+      observer(field);
+    } catch (error, stack) {
+      throw _MacroDependencyFailure(error, stack);
+    }
+  }
+}
+
+// Keep a caller's dependency failure distinguishable from an ordinary invalid
+// macro or post-process failure while it crosses compatibility catch blocks.
+class _MacroDependencyFailure implements Exception {
+  const _MacroDependencyFailure(this.error, this.stack);
+  final Object error;
+  final StackTrace stack;
 }
 
 /// Synchronous AST-based new-macro expansion, with lazy conditional branches.
@@ -166,14 +200,20 @@ class MacroEngine {
     Object? Function(Object?)? postProcess,
     bool? replaceCharacterCard,
     String? characterOverride,
-  }) => _Evaluation(
-    context,
-    text,
-    overrides,
-    postProcess: postProcess,
-    replaceCharacterCard: replaceCharacterCard,
-    characterOverride: characterOverride,
-  ).evaluate(text);
+  }) {
+    try {
+      return _Evaluation(
+        context,
+        text,
+        overrides,
+        postProcess: postProcess,
+        replaceCharacterCard: replaceCharacterCard,
+        characterOverride: characterOverride,
+      ).evaluate(text);
+    } on _MacroDependencyFailure catch (failure) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+  }
 
   /// ST utils.js getStringHash (cyrb53), including UTF-16 code-unit iteration.
   static int stringHash(String text, [int seed = 0]) {
@@ -715,6 +755,8 @@ class _Evaluation {
     try {
       // MacroCstWalker coerces a hook's nullish result to the empty string.
       return _jsString(callback(result) ?? '');
+    } on _MacroDependencyFailure {
+      rethrow;
     } catch (_) {
       // ST catches postProcess separately from the macro handler. A failed
       // callback keeps the successful, unprocessed result and its effects.
@@ -822,10 +864,19 @@ class _Evaluation {
       case 'user':
         return context.userName;
       case 'char':
+        if (characterOverride == null && context._charNameFromCard) {
+          context._observeCharacterDependency('name');
+        }
         return characterOverride ?? context.charName;
       case 'group':
+        if (characterOverride == null && context._groupFromCard) {
+          context._observeCharacterDependency('name');
+        }
         return characterOverride ?? context.group;
       case 'groupnotmuted':
+        if (characterOverride == null && context._groupNotMutedFromCard) {
+          context._observeCharacterDependency('name');
+        }
         return characterOverride ?? context.groupNotMuted;
       case 'notchar':
         return context.notChar;
@@ -977,17 +1028,10 @@ class _Evaluation {
   String _cardField(String key) {
     if (!replaceCharacterCard) return '';
     return _cardFields.putIfAbsent(key, () {
-      final card = context.card;
-      if (key == 'character_version') return _stringField(card, key);
       if (key == 'persona') return _baseCardValue(context.persona);
-      if (key == 'charDepthPrompt') {
-        final extensions = card['extensions'];
-        final depth = extensions is Map<String, Object?> ? extensions['depth_prompt'] : null;
-        return _baseCardValue(depth is Map<String, Object?> ? depth['prompt'] : null);
-      }
       if (key == 'system_prompt') {
         if (!context.preferCharacterPrompt) return '';
-        return _baseCardValue(_truthy(context.systemPromptOverride) ? context.systemPromptOverride : card[key]);
+        if (_truthy(context.systemPromptOverride)) return _baseCardValue(context.systemPromptOverride);
       }
       if (key == 'post_history_instructions' && !context.preferCharacterJailbreak) return '';
       if (key == 'scenario' && _truthy(context.scenarioOverride)) {
@@ -996,11 +1040,20 @@ class _Evaluation {
       if (key == 'mes_example' && _truthy(context.mesExamplesOverride)) {
         return _baseCardValue(context.mesExamplesOverride);
       }
+      context._observeCharacterDependency(key);
+      final card = context.card;
+      if (key == 'character_version') return _stringField(card, key);
+      if (key == 'charDepthPrompt') {
+        final extensions = card['extensions'];
+        final depth = extensions is Map<String, Object?> ? extensions['depth_prompt'] : null;
+        return _baseCardValue(depth is Map<String, Object?> ? depth['prompt'] : null);
+      }
       return _baseCardValue(card[key]);
     });
   }
 
   List<String> _resolveGreetings() {
+    context._observeCharacterDependency('alternate_greetings');
     final raw = context.card['alternate_greetings'];
     return raw is List<Object?> ? raw.map(_baseCardValue).toList() : [];
   }

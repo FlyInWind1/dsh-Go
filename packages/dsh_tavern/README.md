@@ -1080,7 +1080,7 @@ App 的 `DeferredTavern` 要转发所有新群方法，Preview 由 owner 按完�
 
 # P2 B1：脚本数据桥与持久回复屏障
 
-`Tavern.scripts` 提供原生的 `TavernScriptBridge`。本增量实现 context/snapshot、消息与 swipe family、五个变量 scope、实际提交版本、可等待的主生命周期和 App host 接口。它不内置 JavaScript 引擎，不解析 MVU，不实现后继后台生成、注入、STscript 或 UI 命令。`capabilities.adapterVersion` 为 `p2-b1`，只列实际实现的方法；没有 host 时持久数据操作仍可使用，`hostAttached=false` 不伪造宿主成功 Ack。
+`Tavern.scripts` 提供原生的 `TavernScriptBridge`。本节记录 B1 引入的 context/snapshot、消息与 swipe family、五个变量 scope、实际提交版本、可等待的主生命周期和 App host 接口。B1 当时的 `capabilities.adapterVersion` 是 `p2-b1`；本包在下节继续接入 B2，当前能力版本为 `p2-b2`。它不内置 JavaScript 引擎、不解析 MVU，也不实现 STscript 或 UI 命令；没有 host 时持久数据操作仍可使用，`hostAttached=false` 不伪造宿主成功 Ack。
 
 这些调用/事件边界遵循已交付 P2 API 和项目勘误，尤其派生通知、swipe 改长及主生命周期重入是项目协议，不声称它们都已由固定 helper 原件或实际 MVU 构建证明。当前作者只做源码实施与静态自读；本层 Dart 编译、analyze、测试、App 和 MVU 的实际结论以对应正式回件为准。
 
@@ -1162,3 +1162,63 @@ STOPPED/ENDED 的 args[0] 使用实际 Done/Failed 的 status、generationType�
 cache、lifecycle 和 refresh 的取消/失败通过 watchEvents 可观察；watchEvents 不承担 Ack，也不重新运行 JS。close 先取消回调 race，再排空实际 IO；不等待任意无响应 JS Promise或暂停的观察者。B1 没有新增 schema：继续使用 7 与现有备份/JSONL 的真实数据载体。
 
 App 的 DeferredTavern 需新增 scripts 转发或稳定代理；同步 getter 不能返回 Future，也不能返回一个假成功 bridge。Preview 由 owner 按实际能力模拟并设置 simulated=true，未实现的方法不放 capabilities。`TavernTurnDone` / `TavernTurnFailed` 新增不可变 hookIssues，构造器不再 const，既有 const 调用须移除；群消息仍透传 speakerCharacterId。这次没有读取/修改 App，没有执行固定 MVU 构建。
+
+# P2 B2：后台生成、注入与显式正则
+
+本层在同一个 `TavernScriptBridge` 增加九个入口：`generate`、`generateRaw`、`stopGenerationById`、`getTavernRegexes`、`formatAsTavernRegexedString`、`injectPrompts`、`uninjectPrompts`、`releaseInjectionLease`、`listInjections`。`capabilities.adapterVersion` 为 `p2-b2`，保留 B1 的十五方法和五 scope；`generationOptions` 只列已接入的十二个请求字段。本段陈述源码合同；编译、analyze、运行及 fixed helper/App/MVU 的实际结论仍以对应正式回件为准。
+
+## 请求、热 handle 与观察
+
+```dart
+final generation = await tavern.scripts.generateRaw(context.id, TavernScriptRawRequest(
+  generationId: 'background-example',
+  orderedPrompts: const [
+    TavernScriptPromptPart.literal(role: TavernScriptPromptRole.system, content: 'Keep the reply brief.'),
+    TavernScriptPromptPart.literal(role: TavernScriptPromptRole.user, content: 'Hello'),
+  ],
+  stream: true,
+));
+final observation = generation.events.listen((event) {
+  // Render event.text. isSnapshot restores this observer without re-running JS.
+});
+final result = await generation.result;
+await observation.cancel();
+```
+
+完整 `generate` 要求 chat context；`generateRaw` 按请求的实际来源检查依赖。literal 保持给定文字，即使含宏原字也不求值；placeholder 为固定九项。raw 不隐式补卡、history、input 或普通 preset 控制段。null-preset raw 不发默认采样值；显式 preset 只提供参数/预算，不把其 prompts、regex 或脚本挂到 raw。`max_tokens` override 只改 wire；null-preset 的宏 4095/300、WI 3795 是项目参考，不是 provider 窗口保证。显式 preset 的 raw 最终 messages 超预算时报 contextTooLong，不暗裁显式文字。普通 generate 沿既有 assembler 的预算/保留路线。
+
+请求对象在构造及调用入口脱离捕获。`TavernScriptGenerateRequest.fromJson`、`TavernScriptRawRequest.fromJson`、`TavernScriptInjection.fromJson` 和 `TavernScriptRegexQuery.fromJson` 是实际白名单适配边界：未知选项报 unsupportedOption，不能把 tools/images/json_schema/custom_api 等藏进 JSON。非 nullable 字段的显式 null 不等于省略。prompt part 的 JSON 形状为 `{"kind":"literal","role":"user","content":"..."}` 或 `{"kind":"placeholder","placeholder":"chatHistory"}`。采样 override 仅 temperature、top_p、presence_penalty、frequency_penalty、正整数 max_tokens、非负整数 seed；DeepSeek 路线不支持 seed override。
+
+handle 只有 `id/events/result`，建立后即热执行；无人订阅也推进准备，进入模型阶段时只订阅一次生产 `TavernModelClient`。每个活跃观察订阅先获得独立的 snapshot（isSnapshot=true、lastSeq 水位），随后接新事件；终态晚订阅只获得完整 finished/failed 恢复事件，然后关闭。恢复不重新派 host STARTED/TOKEN/ENDED，也不重读 key。logical terminal 后可以重用 public ID；旧 handle、旧取消及迟到 callback 仍属于原 record。result 失败即有内部错误观察，调用者稍后 await 仍取得原结构化异常。
+
+`stream` 最终控制请求 stream；`includeReasoning` 只控制公开 reasoning 投影，不开关 config.thinking。结果是生产 ModelClient 解码的正文/推理，不自动执行 output/writeBack 宏或追加聊天节点；格式化使用显式 formatter。模型意外返回工具片段或 tool_calls 终态时为 unsupportedCapability，保留已收到的失败累计视图，不执行工具或开启下一轮。一次逻辑 ModelClient 执行仍可按原 transport 规则进行有限 retry，同编码重发不重跑准备。
+
+## 准备接受、真实提交与取消
+
+后台准备在脱离的 runtime local/global 上执行，记录已经计算的根 SET/REMOVE，包括同值 SET 和删除 absent 键；不会以 JSON diff 猜宏效果。body/config 冻结后同步检查实际写目标、选路与参与注入版本，再原子领取 once；随后先 global 文件、后 chat SQL，最后才由原 ModelClient 调用一次 apiKey。冲突不重跑宏、filter、WI 或 RNG。
+
+global 沿唯一 settings 队列结算 native pending 前缀；在 writer 位置再次 CAS，成功 rename 或明确无文件采用后才更新 runtime，并保留之后到达的 pending 后缀。内部 runtime/pending/adoption 身份独立于 B1 committed JSON version：包括 Inf→null 且 public JSON 不变的采用、pending 前缀确认，都能使旧后台捕获失效。原生非有限数仍在 RAM 保留，JSON 边界投影为 null。
+
+local/WI/hash 只窄合并到捕获的当前叶子、空单聊或空群 initial_state，不覆盖 messageVariables、DSH/story/director、原消息正文或 inspection；空 chat 不制造隐藏节点。实际 COMMIT 观察 selection 与各字段身份，A→B→A 不能冒充未变，无关 message data 不充当 local 版本。提交使用独立非取消短 chat 门；存在同目标未结算 native snapshot 时 busy，保留那条主回合继续运行。准备 handler 建立 baseline 前，以及已提交模型的安全 RECEIVED 阶段，不以父 turn.done 作为后台完成条件。
+
+文件与 SQL 不承诺合成事务。失败/取消异常的 `issues` 至少含 `generationPreparation`，其 `details` 记录 preparationAccepted、persistedTargets、claimedInjectionVersions、skippedTargets、实际 failedTarget/phase、budgetSource 和 preparationIssue；没有虚构的 exception.details。只有确实采用或领取的效果才计入 committed。取消在 IO 之前阻止启动；已开始的文件/事务排空并记录结果，之后尚未开始的载体列为 skipped，不能把成功 global 写回滚成“全失败”。filter 自己通过普通 bridge 完成的写不会随后台 clone 放弃而回滚；这份准备收据不保证任意宿主私下行为从未发生。
+
+准备存储工作先登记 ownership，STARTED 同步重入 backup/close 也不能越过它；纯 HTTP 阶段另有实际 drain，备份不等其模型结果。逻辑取消/终态与真实订阅 cancel/onDone、ModelClient finally/client.close 分开处理，engine.close 等待自有清理；任意 key/filter/host Promise 用可取消 race 解除逻辑等待，迟到结果不能开启新 IO。暂停某一观察者不阻塞其他观察者或关闭。
+
+## 三来源注入与 native 主回合
+
+persistent 来源是 chat metadata.script_injects，继续 JSONL/reopen；transient 是按 chat/rawId/version/owner 保存的运行 registry；request injects 只属于该请求。三者原始身份、排序键和内部 assembler ID 分开，同名跨来源不去重。注入批内重复 rawId 整批拒绝；跨调用替换产生新 version，旧 lease 只能清理仍匹配原 owner/version 的项。closeContext 清理自己的 transient 版本并取消自己的后台请求。
+
+持久候选同步保存 raw 与实际 metadata 载体：native 的非当前 regenerate/continue 使用目标 node，后台调用使用捕获时的 current leaf。载体按既有 codec 的 sources[key]、首个有效 files/header、root 顺序解析一次；后续 COMMIT 观察与 claim 固定该实际载体和 rawId，不再改读当前页。目标真实 A→B→A 仍推进内部版本，单纯切页或另一 source 的修改不冒充该注入变化；若准备还实际写 history/WI/local，其原选路检查仍独立生效。raw literal 的 generation anchor 可为 null，但持久来源身份不因此丢失。内部 token 不是 helper lease/owner；原 SQL→claim 次序和一次 filter 保持。
+
+filter 只调用一次，并供 scan/prompt 共用同一结果和已准备文字；不持文件/SQL 锁等 host。callback 必须属于原 live context/instance，requestId 和 host 身份核对失败不是 false。持久 closure 属于尚未接入的 STscript 能力；实际需要它时报 unsupportedCapability，并在 list 中保留 raw/诊断。
+
+全部实际参与的 transient/persistent 注册都在接受点核精确版本；任一个变化则整批 revisionConflict。once 仅在完整准备后同步全领取；filter=false 不领取。scanOnly、展开为空、后续预算裁掉等已参与来源仍可领取；claim 后缺 key、HTTP 错误或取消不退还。claimed 记录以诊断状态保留，之后不再候选，不写入备份或 JSONL。raw inChat 在完整显式序列上定位，再做 provider 转换；非空 beforeMain/afterMain 缺 main 时明确失败。
+
+native 单聊与每个群演员共用这张 registry。AFTER_COMMANDS 及直接写 flush 后，在原 preparing 的 scriptWritesAllowed 区捕获/过滤，再 drain direct writes，之后才建立原 native 回滚 baseline。body 冻结后、原 key 调用前，与后台共享同一个 claim。filter/claim 问题只一次进入真实 TurnFailed.hookIssues/ENDED 观察，原 user/reply SQL、变量保存、失败回滚和输出 regex 路线保留；不会调用后台生成来模拟主回合。
+
+## Host 通知与显式正则
+
+后台的 iframe STARTED、stream=true 时的正文 INCREMENTALLY/FULLY、ENDED 均独立发布，不等 Ack 才读 key、推进模型或完成 result。GENERATION_REQUESTED 仍由 App 在 Dart 调用前执行。事件 context.seq 与 handle event.seq 是不同序列。终态只冻结已知 hookIssues；迟到 Ack/失败仍通过 watchEvents 归属原 event/record，不修改旧 result。silent 只供 App 决定全局停止按钮的目标，显式 stopGenerationById 仍可停止它；Tavern.stop(chatId) 保持主回合/群范围。
+
+正则查询按 inline global、managed global、所选 context/显式 preset、明确 character 的真实来源投影，保留 raw、ST id、实际 managed engineId 和来源身份；同名规则不合并。formatter 的 source 是 RegexPlacement 整数，destination 仅 prompt/display；depth=null 完全不筛。两个 phase 都用脱离的 local/global/hash 和私有稳定 seed RNG，clock 仅捕获一次，不消耗主引擎随机序列、不写库。display 保留 worker 保护；prompt 在原同步执行循环取得 warnings/replacement count，不先预跑或伪装成 display。上述 raw、once、WI 时钟和 formatter 隔离是项目政策，未冒称 fixed helper 4.12 actual 对拍结论。

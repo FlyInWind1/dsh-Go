@@ -56,7 +56,20 @@ void main() {
     expect(snapshot.messages, hasLength(70));
     expect(snapshot.pathRevision, all.pathRevision);
     expect(snapshot.capabilities.scopes, TavernVariableScope.values.toSet());
-    expect(snapshot.capabilities.generationOptions, isEmpty);
+    expect(snapshot.capabilities.generationOptions, {
+      'generationId',
+      'presetId',
+      'speakerCharacterId',
+      'userInput',
+      'stream',
+      'includeReasoning',
+      'silent',
+      'maxChatHistory',
+      'overrides',
+      'injects',
+      'samplingOverrides',
+      'orderedPrompts',
+    });
     expect(snapshot.capabilities.slashCommands, isEmpty);
     await h.bridge.closeContext(context.id);
     await expectLater(() => h.bridge.snapshot(context.id), throwsA(scriptError(TavernScriptErrorCode.closedContext)));
