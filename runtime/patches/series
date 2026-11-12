@@ -139,3 +139,4 @@ session-format-error.diff
 session-queue-steer-deletion.diff
 webserver-resource-abort.diff
 rrule-negative-position-range.diff
+rrule-weekly-first-period.diff
