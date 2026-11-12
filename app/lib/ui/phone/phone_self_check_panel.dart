@@ -160,8 +160,9 @@ class _PhoneSelfCheckPanelState extends State<PhoneSelfCheckPanel> {
                         ],
                         onChanged: _controller.canStart
                             ? (value) {
-                                if (value != null && phoneSelfCheckProfiles.contains(value))
+                                if (value != null && phoneSelfCheckProfiles.contains(value)) {
                                   setState(() => _nextProfile = value);
+                                }
                               }
                             : null,
                       ),

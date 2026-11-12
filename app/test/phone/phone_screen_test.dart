@@ -2,6 +2,7 @@
 // (未就绪 / safe mode / remote host), permission rows with fixes, the test read,
 // a running task, the recent log and live status events.
 
+import 'package:dsh_app/l10n/l10n.dart';
 import 'package:dsh_app/state/compose_inbox.dart';
 import 'package:dsh_app/state/hosts_state.dart';
 import 'package:dsh_app/state/phone_state.dart';
@@ -21,7 +22,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/english_preview.dart';
 import 'harness.dart';
 import 'support.dart';
 

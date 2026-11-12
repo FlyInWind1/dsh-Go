@@ -505,7 +505,15 @@ void main() {
   testWidgets('unobserved channel failure stays visible outside technical details', (tester) async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       _phone,
-      (_) async => _reply('done', steps: [_step('channel', 'unknown', false, reason: 'channelUnavailable')]),
+      (_) async => _reply(
+        'done',
+        steps: [
+          for (final stage in phoneSelfCheckStages)
+            stage == 'channel'
+                ? _step(stage, 'unknown', false, reason: 'channelUnavailable')
+                : _step(stage, 'not_run', false),
+        ],
+      ),
     );
     await tester.pumpWidget(
       goldenApp(
@@ -898,8 +906,9 @@ void main() {
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_phone, (call) async {
       calls.add(call);
-      if (call.method == 'retryPhoneSelfCheckCleanup')
+      if (call.method == 'retryPhoneSelfCheckCleanup') {
         return _reply('cleaning', profile: 'target_c2', handle: 'original');
+      }
       return ++reads == 1
           ? _reply('cleanup_pending', profile: 'target_c2', handle: 'original')
           : _reply('done', profile: 'target_c1', handle: 'original');

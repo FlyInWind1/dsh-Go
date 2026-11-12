@@ -91,7 +91,9 @@ Future<void> openPhoneFold(WidgetTester tester, String key) async {
   final arrow = find.descendant(of: fold, matching: find.byType(RowExpandArrow)).first;
   if (tester.widget<RowExpandArrow>(arrow).open) return;
   final header = find.descendant(of: fold, matching: find.byType(ListPageRow)).first;
-  await tester.ensureVisible(header);
+  await Scrollable.ensureVisible(tester.element(header), alignment: 0.5);
+  await tester.pumpAndSettle();
+  expect(header.hitTestable(), findsOneWidget);
   await tester.tap(header);
   await tester.pumpAndSettle();
 }

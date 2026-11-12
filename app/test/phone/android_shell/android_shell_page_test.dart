@@ -51,7 +51,9 @@ Future<ShellNative> _pump(WidgetTester tester, {ShellNative? native, bool phoneE
 
 Future<void> _tap(WidgetTester tester, String key) async {
   final finder = find.byKey(ValueKey(key));
-  await tester.ensureVisible(finder);
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pumpAndSettle();
+  expect(finder.hitTestable(), findsOneWidget);
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
