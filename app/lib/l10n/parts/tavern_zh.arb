@@ -1014,6 +1014,8 @@
   "tavernRollSuccess": "成功",
   "tavernRollFailure": "失败",
   "tavernGameHere": "这里有一个小游戏，现在还不能在这里玩",
+  "tavernCanvasReplied": "{name}回复了",
+  "@tavernCanvasReplied": {"placeholders": {"name": {"type": "String"}}},
   "tavernRegexEdit": "编辑规则",
   "tavernRegexFieldName": "名字",
   "tavernRegexFieldFindHelp": "SillyTavern 的写法：/规则/标志，比如 /(早安|晚安)/gi",

@@ -170,6 +170,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         success: context.l10n.tavernRollSuccess,
         failure: context.l10n.tavernRollFailure,
         game: context.l10n.tavernGameHere,
+        replied: context.l10n.tavernCanvasReplied('{name}'),
       ),
       noScripts: noScripts,
       offline: offline,

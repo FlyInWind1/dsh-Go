@@ -38294,6 +38294,12 @@ abstract class L10n {
   /// **'这里有一个小游戏，现在还不能在这里玩'**
   String get tavernGameHere;
 
+  /// No description provided for @tavernCanvasReplied.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}回复了'**
+  String tavernCanvasReplied(String name);
+
   /// No description provided for @tavernRegexEdit.
   ///
   /// In zh, this message translates to:

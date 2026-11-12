@@ -20967,6 +20967,11 @@ class L10nZh extends L10n {
   String get tavernGameHere => '这里有一个小游戏，现在还不能在这里玩';
 
   @override
+  String tavernCanvasReplied(String name) {
+    return '$name回复了';
+  }
+
+  @override
   String get tavernRegexEdit => '编辑规则';
 
   @override

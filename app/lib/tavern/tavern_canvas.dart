@@ -56,9 +56,13 @@ final class TavernCanvasLabels {
     this.success = 'Success',
     this.failure = 'Failure',
     this.game = "A mini-game goes here; it can't be played here yet",
+    this.replied = '{name} replied',
   });
 
   final String letter, letterFrom, taken, clue, phone, phoneFrom, roll, rollCheck, success, failure, game;
+
+  /// Said to a screen reader when a reply that was being written is in.
+  final String replied;
 
   Map<String, String> toJson() => {
     'letter': letter,
@@ -72,6 +76,7 @@ final class TavernCanvasLabels {
     'success': success,
     'failure': failure,
     'game': game,
+    'replied': replied,
   };
 }
 
@@ -273,11 +278,12 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
 .mes_text a{color:var(--dsh-accent);}
 .mes_text img,.mes_text video,.mes_text svg{max-width:100%;height:auto;}
 .mes_text pre{white-space:pre-wrap;}
-.mes[data-streaming] .mes_text>:last-child::after,.mes[data-streaming] .mes_text:empty::after{content:"\\25CF";color:var(--dsh-muted);margin-left:3px;font-size:.6em;vertical-align:middle;}
+.mes[data-streaming] .mes_text>:last-child::after,.mes[data-streaming] .mes_text:empty::after{content:"\\25CF" / "";color:var(--dsh-muted);margin-left:3px;font-size:.6em;vertical-align:middle;}
+#dsh-live{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 </style>
 ${themeCss.trim().isEmpty ? '' : '<style id="st-theme-css">${themeCss.replaceAll(RegExp('</style', caseSensitive: false), r'<\/style')}</style>'}
 </head>
-<body><div id="chat"></div>
+<body><div id="chat"></div><div id="dsh-live" aria-live="polite" aria-atomic="true"></div>
 $preload
 <script nonce="$nonce">
 (function(){
@@ -323,13 +329,22 @@ $preload
     var name=document.createElement('div');name.className='ch_name';
     var nameText=document.createElement('span');nameText.className='name_text';
     nameText.textContent=e.user?(userLabel||e.name||''):(e.name||'');
+    // To a screen reader, one article each, in order, named by who speaks.
+    m.setAttribute('role','article');
+    m.setAttribute('aria-label',nameText.textContent);
     name.appendChild(nameText);
     var text=document.createElement('div');text.className='mes_text';
     text.innerHTML=e.html||'';
     block.appendChild(name);block.appendChild(text);m.appendChild(block);
     return m;
   }
-  var stream=null;
+  var stream=null,writing=false;
+  // What a screen reader is told without moving there (#dsh-live): emptied
+  // first, so the same words twice are said twice.
+  function say(text){
+    var live=document.getElementById('dsh-live');if(!live)return;
+    live.textContent='';setTimeout(function(){live.textContent=text;},60);
+  }
   // dsh.call(method, params): a Promise of what the engine answers (the
   // result, or an Error carrying code/committed/fieldPath).
   var calls={},callSeq=0;
@@ -357,6 +372,7 @@ $preload
     render:function(list){
       var stay=nearBottom()||!chat.firstChild;
       if(stream){stream.remove();stream=null;}
+      var replied=writing;writing=false;
       // A message drawn as it was is kept, not drawn again: its HTML (and
       // anything a card put in it) stays as it is.
       var kept={},fresh=[];
@@ -381,13 +397,18 @@ $preload
         if(loaded&&scripted.some(function(m){return floorOf(m.dataset.node)<0;}))reload();
         var go=function(){runIn(scripted);};dsh.scripts.ready().then(go,go);
       }
+      // A reply that was being written is in: said once, by who (a screen
+      // reader goes to it from there), not read out as it was written.
+      var last=chat.lastElementChild;
+      if(replied&&last&&fresh.indexOf(last)>=0&&last.getAttribute('is_user')!=='true')say(fill(L.replied,'name',last.getAttribute('aria-label')||''));
       if(stay)toBottom();
     },
     stream:function(name,html){
       var stay=nearBottom();
       if(html===null){if(stream){stream.remove();stream=null;}return;}
-      if(!stream){stream=mes({mesid:chat.children.length,node:'',name:name,html:'',user:false,system:false});stream.dataset.streaming='1';chat.appendChild(stream);}
-      else if(stream.getAttribute('ch_name')!==(name||'')){stream.setAttribute('ch_name',name||'');stream.querySelector('.name_text').textContent=name||'';}
+      writing=true;
+      if(!stream){stream=mes({mesid:chat.children.length,node:'',name:name,html:'',user:false,system:false});stream.dataset.streaming='1';stream.setAttribute('aria-busy','true');chat.appendChild(stream);}
+      else if(stream.getAttribute('ch_name')!==(name||'')){stream.setAttribute('ch_name',name||'');stream.setAttribute('aria-label',name||'');stream.querySelector('.name_text').textContent=name||'';}
       stream.querySelector('.mes_text').innerHTML=html;
       if(stay)toBottom();
     }
@@ -761,42 +782,57 @@ $preload
     '[part~=head] [part~=title]{flex:1;color:var(--dsh-accent);}'+
     '[part~=meta]{font-weight:400;font-size:.8em;color:var(--dsh-muted);}'+
     '[part~=body]{margin-top:8px;}';
-  function define(tag,css,html){
+  // To a screen reader each is a group (a note for the plain ones) named by
+  // what its head says; the head itself is hidden from it, so nothing is
+  // said twice. A card's own role or label stays.
+  function define(tag,css,html,a11y){
     if(customElements.get(tag))return;
     customElements.define(tag,class extends HTMLElement{
       connectedCallback(){
         if(this.shadowRoot)return;
         var root=this.attachShadow({mode:'open'});
         root.innerHTML='<style>'+base+css+'</style>'+html(this);
+        var a=a11y(this);
+        if(!this.hasAttribute('role'))this.setAttribute('role',a[0]);
+        if(a[1]&&!this.hasAttribute('aria-label'))this.setAttribute('aria-label',a[1]);
       }
     });
   }
+  function named(parts){return parts.filter(function(x){return x;}).join(' ');}
   function attr(el,names){for(var i=0;i<names.length;i++){var v=el.getAttribute(names[i]);if(v&&v.trim())return v.trim();}return null;}
+  function letter(el){var from=attr(el,['from','sender','author']);return {title:from?fill(L.letterFrom,'from',from):L.letter,date:attr(el,['date','time'])};}
   define('dsh-letter','[part~=card]{background:var(--dsh-letter-paper,rgba(232,211,166,.24));line-height:1.75;}',function(el){
-    var from=attr(el,['from','sender','author']);var date=attr(el,['date','time']);
-    return '<div part="card paper"><div part="head"><span part="title">'+esc(from?fill(L.letterFrom,'from',from):L.letter)+'</span>'+(date?'<span part="meta">'+esc(date)+'</span>':'')+'</div><div part="body"><slot></slot></div></div>';
-  });
+    var x=letter(el);
+    return '<div part="card paper"><div part="head" aria-hidden="true"><span part="title">'+esc(x.title)+'</span>'+(x.date?'<span part="meta">'+esc(x.date)+'</span>':'')+'</div><div part="body"><slot></slot></div></div>';
+  },function(el){var x=letter(el);return ['group',named([x.title,x.date])];});
   define('dsh-item','[part~=card]{display:flex;gap:12px;align-items:flex-start;padding:10px 14px 10px 12px;}[part~=icon]{width:34px;height:34px;border-radius:10px;background:var(--dsh-item-icon,rgba(127,127,127,.14));display:flex;align-items:center;justify-content:center;flex:none;}[part~=name]{font-weight:600;}[part~=taken]{margin-left:8px;font-size:.75em;padding:1px 7px;border-radius:6px;background:var(--dsh-item-taken,rgba(60,160,90,.18));}[part~=body]{margin-top:2px;font-size:.88em;color:var(--dsh-muted);}',function(el){
     var name=attr(el,['name','title']);var taken=el.hasAttribute('take')||el.hasAttribute('taken');
-    return '<div part="card item"><div part="icon">✦</div><div><div><span part="name">'+esc(name||'')+'</span>'+(taken?'<span part="taken">'+esc(L.taken)+'</span>':'')+'</div><div part="body"><slot></slot></div></div></div>';
+    return '<div part="card item"><div part="icon" aria-hidden="true">✦</div><div><div aria-hidden="true"><span part="name">'+esc(name||'')+'</span>'+(taken?'<span part="taken">'+esc(L.taken)+'</span>':'')+'</div><div part="body"><slot></slot></div></div></div>';
+  },function(el){
+    var taken=el.hasAttribute('take')||el.hasAttribute('taken');
+    return ['group',named([attr(el,['name','title']),taken?L.taken:null])];
   });
   define('dsh-clue',':host{transform:rotate(-.7deg);}[part~=card]{background:var(--dsh-clue-note,rgba(245,215,110,.28));}',function(el){
     var title=attr(el,['title','name']);
-    return '<div part="card note"><div part="head"><span part="title">'+esc(title||L.clue)+'</span></div><div part="body"><slot></slot></div></div>';
-  });
+    return '<div part="card note"><div part="head" aria-hidden="true"><span part="title">'+esc(title||L.clue)+'</span></div><div part="body"><slot></slot></div></div>';
+  },function(el){return ['group',attr(el,['title','name'])||L.clue];});
   define('dsh-phone','[part~=card]{max-width:360px;}[part~=bubble]{margin-top:8px;padding:8px 12px;border-radius:4px 14px 14px 14px;background:var(--dsh-phone-bubble,rgba(127,127,127,.14));}',function(el){
-    var from=attr(el,['from','sender','name']);var time=attr(el,['time','date']);
-    return '<div part="card phone"><div part="head"><span part="title">'+esc(from?fill(L.phoneFrom,'from',from):L.phone)+'</span>'+(time?'<span part="meta">'+esc(time)+'</span>':'')+'</div><div part="bubble"><slot></slot></div></div>';
-  });
-  define('dsh-roll','[part~=head]{align-items:center;}[part~=score]{font-variant-numeric:tabular-nums;}[part~=result]{font-weight:700;}.ok{color:var(--dsh-success,#2f8a4c);}.bad{color:var(--dsh-danger,#c0392b);}[part~=body]{margin-top:4px;font-size:.8em;color:var(--dsh-muted);}',function(el){
+    var x=phone(el);
+    return '<div part="card phone"><div part="head" aria-hidden="true"><span part="title">'+esc(x.title)+'</span>'+(x.time?'<span part="meta">'+esc(x.time)+'</span>':'')+'</div><div part="bubble"><slot></slot></div></div>';
+  },function(el){var x=phone(el);return ['group',named([x.title,x.time])];});
+  function phone(el){var from=attr(el,['from','sender','name']);return {title:from?fill(L.phoneFrom,'from',from):L.phone,time:attr(el,['time','date'])};}
+  function roll(el){
     var skill=attr(el,['skill','check','name','title']);var value=attr(el,['value','roll','score']);var target=attr(el,['target','dc','difficulty','against']);var result=attr(el,['result','outcome']);
     var r=(result||'').toLowerCase();var ok=/^(success|pass|passed|succeeded|成功|大成功|通过)\$/.test(r);var bad=/^(fail|failure|failed|失败|大失败)\$/.test(r);
-    var label=ok?L.success:(bad?L.failure:result);
-    var score=[value,target].filter(function(x){return x;}).join(' / ');
-    return '<div part="card roll"><div part="head"><span part="title">'+esc(skill?fill(L.rollCheck,'skill',skill):L.roll)+'</span>'+(score?'<span part="score">'+esc(score)+'</span>':'')+(label?'<span part="result" class="'+(ok?'ok':bad?'bad':'')+'">'+esc(label)+'</span>':'')+'</div><div part="body"><slot></slot></div></div>';
-  });
-  define('dsh-notice',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<slot></slot>';});
-  define('dsh-game',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '▷ '+esc(L.game);});
+    return {title:skill?fill(L.rollCheck,'skill',skill):L.roll,score:[value,target].filter(function(x){return x;}).join(' / '),
+      label:ok?L.success:(bad?L.failure:result),ok:ok,bad:bad};
+  }
+  define('dsh-roll','[part~=head]{align-items:center;}[part~=score]{font-variant-numeric:tabular-nums;}[part~=result]{font-weight:700;}.ok{color:var(--dsh-success,#2f8a4c);}.bad{color:var(--dsh-danger,#c0392b);}[part~=body]{margin-top:4px;font-size:.8em;color:var(--dsh-muted);}',function(el){
+    var x=roll(el);
+    return '<div part="card roll"><div part="head" aria-hidden="true"><span part="title">'+esc(x.title)+'</span>'+(x.score?'<span part="score">'+esc(x.score)+'</span>':'')+(x.label?'<span part="result" class="'+(x.ok?'ok':x.bad?'bad':'')+'">'+esc(x.label)+'</span>':'')+'</div><div part="body"><slot></slot></div></div>';
+  },function(el){var x=roll(el);return ['group',named([x.title,x.score,x.label])];});
+  define('dsh-notice',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<slot></slot>';},function(){return ['note',null];});
+  define('dsh-game',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<span aria-hidden="true">▷ </span>'+esc(L.game);},function(){return ['note',null];});
   post({type:'ready'});
 })();
 </script></body></html>''';

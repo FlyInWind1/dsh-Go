@@ -195,6 +195,19 @@ void main() {
     }
     expect(open, contains('"letterFrom":"{from}的信"'));
     expect(open, contains('"taken":"获得"'));
+    // To a screen reader (roleplay-ui §12; the tree itself was read in
+    // Edge): each message an article named by who speaks; a component a
+    // group named by its head, the head not said twice; the reply being
+    // written busy, and only its arrival said, in a live region.
+    expect(open, contains("m.setAttribute('role','article');"));
+    expect(open, contains("m.setAttribute('aria-label',nameText.textContent);"));
+    expect(open, contains('<div id="dsh-live" aria-live="polite" aria-atomic="true"></div>'));
+    expect(open, contains("stream.setAttribute('aria-busy','true')"));
+    expect(open, contains("say(fill(L.replied,'name',last.getAttribute('aria-label')||''))"));
+    expect(open, contains('"replied":"{name} replied"'));
+    expect(open, contains("if(!this.hasAttribute('role'))this.setAttribute('role',a[0]);"));
+    expect('<div part="head" aria-hidden="true">'.allMatches(open).length, 4);
+    expect(open, contains(r'content:"\25CF" / "";'));
     expect(page(noScripts: true), contains("script-src 'nonce-n0nce'"));
     expect(page(offline: true), contains("default-src 'none'"));
     // Offline with scripts on: no nonce beside 'unsafe-inline', or a card's

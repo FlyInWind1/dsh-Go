@@ -22127,6 +22127,11 @@ class L10nEn extends L10n {
   String get tavernGameHere => 'A mini-game goes here; it can\'t be played here yet';
 
   @override
+  String tavernCanvasReplied(String name) {
+    return '$name replied';
+  }
+
+  @override
   String get tavernRegexEdit => 'Edit rule';
 
   @override
