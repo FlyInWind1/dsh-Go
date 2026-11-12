@@ -284,19 +284,20 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   // dsh.call(method, params): a Promise of what the engine answers (the
   // result, or an Error carrying code/committed/fieldPath).
   var calls={},callSeq=0;
+  function call(method,params){
+    var p=new Promise(function(ok,no){
+      var id=++callSeq;calls[id]={ok:ok,no:no};
+      post({type:'call',id:id,method:method,params:params===undefined?{}:params});
+    });
+    // Kept until answered: an event's answer waits for the writes its
+    // handlers started.
+    inflight.push(p);
+    var gone=function(){var at=inflight.indexOf(p);if(at>=0)inflight.splice(at,1);};
+    p.then(gone,gone);
+    return p;
+  }
   window.dsh={
-    call:function(method,params){
-      var p=new Promise(function(ok,no){
-        var id=++callSeq;calls[id]={ok:ok,no:no};
-        post({type:'call',id:id,method:method,params:params===undefined?{}:params});
-      });
-      // Kept until answered: an event's answer waits for the writes its
-      // handlers started.
-      inflight.push(p);
-      var gone=function(){var at=inflight.indexOf(p);if(at>=0)inflight.splice(at,1);};
-      p.then(gone,gone);
-      return p;
-    },
+    call:function(method,params){return track(call(method,params));},
     answer:function(r){
       var c=r&&calls[r.id];if(!c)return;delete calls[r.id];
       if(r.ok){c.ok(r.result);return;}
@@ -365,7 +366,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   function replaceVariables(variables,o){
     var e=kept(slot(o)),mine=++e.seq;
     e.pending=clone(variables)||{};
-    return dsh.call('replaceVariables',{target:e.target,value:variables}).then(function(r){
+    return call('replaceVariables',{target:e.target,value:variables}).then(function(r){
       e.value=r.value;e.version=r.version;
       if(e.seq===mine)e.pending=undefined;
       return clone(r.value);
@@ -405,7 +406,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   }
   dsh.scripts={
     ready:function(){
-      if(!loading)loading=dsh.call('snapshot').then(function(s){
+      if(!loading)loading=call('snapshot').then(function(s){
         msgs=s.messages||[];
         for(var k in vars)if(k.indexOf('message:')===0&&vars[k].pending===undefined)delete vars[k];
         (s.variables||[]).forEach(function(v){
@@ -427,10 +428,10 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       apply(d);
     },
     getVariables:getVariables,
-    replaceVariables:replaceVariables
+    replaceVariables:watched(replaceVariables)
   };
   if(!window.getVariables)window.getVariables=getVariables;
-  if(!window.replaceVariables)window.replaceVariables=replaceVariables;
+  if(!window.replaceVariables)window.replaceVariables=dsh.scripts.replaceVariables;
   // The rest of 酒馆助手's variable writes, as its public page describes them
   // (read, change, replace): each a Promise of what the engine kept, failed
   // if the engine refused. The page leaves merge depth open; here objects
@@ -464,7 +465,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   }
   [['updateVariablesWith',updateVariablesWith],['insertOrAssignVariables',insertOrAssignVariables],
    ['insertVariables',insertVariables],['deleteVariable',deleteVariable]].forEach(function(f){
-    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+    var w=watched(f[1]);dsh.scripts[f[0]]=w;if(!window[f[0]])window[f[0]]=w;
   });
   // getChatMessages(range, option) as 酒馆助手's public page gives it:
   // synchronous, from this page's copy; floors numbered along the whole
@@ -524,22 +525,22 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       if(!m||typeof m.message_id!=='number')throw new TypeError('each message names its message_id');
       return {messageId:m.message_id,fields:renamed(m)};
     });
-    return caughtUp(dsh.call('setChatMessages',{patches:patches,options:refreshOf(o)}));
+    return caughtUp(call('setChatMessages',{patches:patches,options:refreshOf(o)}));
   });}
   function createChatMessages(list,o){return attempt(function(){
     var at=o&&o.insert_before;
-    return caughtUp(dsh.call('createChatMessages',{messages:[].concat(list||[]).map(renamed),
+    return caughtUp(call('createChatMessages',{messages:[].concat(list||[]).map(renamed),
       insertBefore:at===undefined||at==='end'?null:at,options:refreshOf(o)}));
   });}
   function deleteChatMessages(ids,o){return attempt(function(){
-    return caughtUp(dsh.call('deleteChatMessages',{messageIds:[].concat(ids||[]),options:refreshOf(o)}));
+    return caughtUp(call('deleteChatMessages',{messageIds:[].concat(ids||[]),options:refreshOf(o)}));
   });}
   function rotateChatMessages(begin,middle,end,o){return attempt(function(){
-    return caughtUp(dsh.call('rotateChatMessages',{begin:begin,middle:middle,end:end,options:refreshOf(o)}));
+    return caughtUp(call('rotateChatMessages',{begin:begin,middle:middle,end:end,options:refreshOf(o)}));
   });}
   [['setChatMessages',setChatMessages],['createChatMessages',createChatMessages],
    ['deleteChatMessages',deleteChatMessages],['rotateChatMessages',rotateChatMessages]].forEach(function(f){
-    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+    var w=watched(f[1]);dsh.scripts[f[0]]=w;if(!window[f[0]])window[f[0]]=w;
   });
   // Events (酒馆助手's eventOn and kin). The engine's events come with its
   // own names (MESSAGE_RECEIVED…); tavern_events gives them, and a name in
@@ -573,14 +574,36 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
     // Its handlers read what the engine had: after the snapshot, if one
     // is on its way.
     var first=loaded||!loading?Promise.resolve():loading.then(null,function(){});
-    first.then(function(){return fire(evName(d.name||''),d.args||[]);}).then(function(results){
-      return settle().then(function(){
-        var bad=results.filter(Boolean);
-        post({type:'ack',eventId:d.eventId,status:bad.length?'failed':'completed',
-          issues:bad.map(function(e){return {code:'hookFailure',message:String(e&&e.message||e)};})});
+    var w={entries:[]};
+    first.then(function(){watching.push(w);return fire(evName(d.name||''),d.args||[]);}).then(function(results){
+      var at=watching.indexOf(w);if(at>=0)watching.splice(at,1);
+      return settle().then(function(){return Promise.all(w.entries.map(function(e){return e.done;}));}).then(function(){
+        var issues=results.filter(Boolean).map(function(e){return {code:'hookFailure',message:String(e&&e.message||e)};});
+        // A write its handlers started and nobody waited for: its failure
+        // is the event's.
+        w.entries.forEach(function(e){
+          if(e.failed&&!e.seen)issues.push({code:e.failed.code||'hookFailure',
+            message:'A write nobody waited for failed: '+String(e.failed.message||e.failed)});
+        });
+        post({type:'ack',eventId:d.eventId,status:issues.length?'failed':'completed',issues:issues});
       });
     });
   }
+  // What scripts are handed is a Promise that notes whether anyone looked at
+  // it (then, catch, finally, await — await goes through then for a
+  // subclass); a failure nobody looked at, during an event, fails the event.
+  var watching=[];
+  class Watched extends Promise{then(a,b){if(this.w)this.w.seen=true;return super.then(a,b);}}
+  function track(p){
+    if(!p||typeof p.then!=='function')return p;
+    var entry={seen:false,failed:null,done:null};
+    var out=new Watched(function(ok,no){p.then(ok,no);});
+    out.w=entry;
+    entry.done=Promise.prototype.then.call(out,null,function(e){entry.failed=e||new Error('failed');});
+    watching.forEach(function(w){w.entries.push(entry);});
+    return out;
+  }
+  function watched(f){return function(){return track(f.apply(this,arguments));};}
   var names=['MESSAGE_SENT','MESSAGE_RECEIVED','MESSAGE_EDITED','MESSAGE_UPDATED','MESSAGE_SWIPED','MESSAGE_DELETED',
     'GENERATION_STARTED','GENERATION_AFTER_COMMANDS','GENERATION_STOPPED','GENERATION_ENDED','CHAT_CHANGED'];
   var events={};names.forEach(function(n){events[n]=n;});
