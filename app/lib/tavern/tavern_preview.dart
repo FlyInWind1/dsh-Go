@@ -35,6 +35,10 @@ class PreviewTavern implements Tavern, TavernPreview {
 
   String _id(String prefix) => '$prefix-${++_seq}';
 
+  /// Card scripts (P2 B1) are not simulated here: the bridge says so.
+  @override
+  late final TavernScriptBridge scripts = _PreviewScripts();
+
   // Library -------------------------------------------------------------------
 
   /// The list as the engine gives it (T23): the long fields left out, which
@@ -1806,3 +1810,119 @@ const _samples = [
     greetings: ['「舰桥欢迎你，舰长。航线已经算好，还有三十七个小时抵达。要听个笑话打发时间吗？」'],
   ),
 ];
+
+/// The preview's [Tavern.scripts]: it simulates none of the bridge, and says
+/// so (simulated, no methods, no scopes); every call is refused as such,
+/// and no events come.
+class _PreviewScripts implements TavernScriptBridge {
+  TavernScriptHost? _host;
+
+  Future<T> _no<T>(String operation) => Future.error(
+    TavernScriptException(
+      code: TavernScriptErrorCode.unsupportedCapability,
+      operation: operation,
+      message: 'The preview does not simulate card scripts.',
+    ),
+  );
+
+  @override
+  TavernScriptCapabilities get capabilities => TavernScriptCapabilities(
+    adapterVersion: 'preview',
+    methods: const {},
+    scopes: const {},
+    hostAttached: _host != null,
+    simulated: true,
+  );
+
+  @override
+  void attachHost(TavernScriptHost? host) => _host = host;
+
+  @override
+  Future<TavernScriptContext> openContext(TavernScriptContextSpec spec) => _no('openContext');
+
+  @override
+  Future<TavernScriptSnapshot> snapshot(String contextId) => _no('snapshot');
+
+  @override
+  Future<void> closeContext(String contextId) => _no('closeContext');
+
+  @override
+  Future<void> activateChat(String contextId) => _no('activateChat');
+
+  @override
+  Stream<TavernScriptEvent> watchEvents({String? chatId}) => const Stream.empty();
+
+  @override
+  Future<TavernScriptMessagePage> getChatMessages(
+    String contextId,
+    TavernMessageRange range, {
+    TavernScriptRole? role,
+    TavernHiddenFilter hidden = TavernHiddenFilter.all,
+    bool includeSwipes = false,
+  }) => _no('getChatMessages');
+
+  @override
+  Future<TavernScriptMutation> setChatMessages(
+    String contextId,
+    List<TavernScriptMessagePatch> patches, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _no('setChatMessages');
+
+  @override
+  Future<TavernScriptMutation> createChatMessages(
+    String contextId,
+    List<TavernScriptMessageDraft> messages, {
+    int? insertBefore,
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _no('createChatMessages');
+
+  @override
+  Future<TavernScriptMutation> deleteChatMessages(
+    String contextId,
+    List<int> messageIds, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _no('deleteChatMessages');
+
+  @override
+  Future<TavernScriptMutation> rotateChatMessages(
+    String contextId,
+    int begin,
+    int middle,
+    int end, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _no('rotateChatMessages');
+
+  @override
+  Future<TavernScriptMutation> selectSwipe(
+    String contextId,
+    TavernScriptMessageRef message,
+    int swipeId, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _no('selectSwipe');
+
+  @override
+  Future<TavernVariableSnapshot> getVariables(String contextId, TavernVariableTarget target) => _no('getVariables');
+
+  @override
+  Future<TavernVariableSnapshot> replaceVariables(
+    String contextId,
+    TavernVariableTarget target,
+    TavernJsonObject value, {
+    String? expectedVersion,
+  }) => _no('replaceVariables');
+
+  @override
+  Future<TavernVariableSnapshot> updateVariablesWith(
+    String contextId,
+    TavernVariableTarget target,
+    FutureOr<TavernJsonObject> Function(TavernJsonObject value) updater,
+  ) => _no('updateVariablesWith');
+
+  @override
+  Future<TavernVariableMutation> mutateVariables(
+    String contextId,
+    TavernVariableTarget target,
+    List<TavernVariableChange> changes, {
+    String? expectedVersion,
+  }) => _no('mutateVariables');
+}

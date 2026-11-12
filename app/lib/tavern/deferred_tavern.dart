@@ -487,6 +487,11 @@ class DeferredTavern implements Tavern {
   Future<List<TavernDirectorEvent>> readDirectorEvents(String chatId, {int limit = 50, String? beforeEventId}) async =>
       (await _ready).readDirectorEvents(chatId, limit: limit, beforeEventId: beforeEventId);
 
+  /// One bridge for as long as this tavern lives (P2 B1): calls go straight
+  /// to the engine's once it is open, and wait for it before.
+  @override
+  late final TavernScriptBridge scripts = _DeferredScripts(this);
+
   /// Nothing to close when it never opened.
   @override
   Future<void> close() async {
@@ -497,5 +502,186 @@ class DeferredTavern implements Tavern {
       return;
     }
     await tavern.close();
+  }
+}
+
+/// [DeferredTavern.scripts]. Once the engine is open each call goes straight
+/// to its bridge, so the bridge copies what it is given at the call, as its
+/// contract asks; before that, lists and the one raw JSON object are copied
+/// here and the call waits for the engine. The latest host reaches the
+/// engine when it opens. Until then nothing is claimed: no methods, no
+/// scopes.
+class _DeferredScripts implements TavernScriptBridge {
+  _DeferredScripts(this._tavern) {
+    unawaited(
+      _tavern._ready.then((t) {
+        if (_pending) t.scripts.attachHost(_host);
+        _pending = false;
+      }, onError: (Object _) {}),
+    );
+  }
+
+  final DeferredTavern _tavern;
+  TavernScriptHost? _host;
+
+  /// A host was set while the engine was still opening: it gets it on open.
+  bool _pending = false;
+
+  Future<T> _call<T>(Future<T> Function(TavernScriptBridge b) call) {
+    final open = _tavern._open;
+    return open != null ? call(open.scripts) : _tavern._ready.then((t) => call(t.scripts));
+  }
+
+  @override
+  TavernScriptCapabilities get capabilities =>
+      _tavern._open?.scripts.capabilities ??
+      TavernScriptCapabilities(adapterVersion: '', methods: const {}, scopes: const {}, hostAttached: _host != null);
+
+  @override
+  void attachHost(TavernScriptHost? host) {
+    _host = host;
+    final open = _tavern._open;
+    _pending = open == null;
+    open?.scripts.attachHost(host);
+  }
+
+  @override
+  Future<TavernScriptContext> openContext(TavernScriptContextSpec spec) => _call((b) => b.openContext(spec));
+
+  @override
+  Future<TavernScriptSnapshot> snapshot(String contextId) => _call((b) => b.snapshot(contextId));
+
+  @override
+  Future<void> closeContext(String contextId) => _call((b) => b.closeContext(contextId));
+
+  @override
+  Future<void> activateChat(String contextId) => _call((b) => b.activateChat(contextId));
+
+  @override
+  Stream<TavernScriptEvent> watchEvents({String? chatId}) =>
+      _tavern._stream((t) => t.scripts.watchEvents(chatId: chatId));
+
+  @override
+  Future<TavernScriptMessagePage> getChatMessages(
+    String contextId,
+    TavernMessageRange range, {
+    TavernScriptRole? role,
+    TavernHiddenFilter hidden = TavernHiddenFilter.all,
+    bool includeSwipes = false,
+  }) => _call((b) => b.getChatMessages(contextId, range, role: role, hidden: hidden, includeSwipes: includeSwipes));
+
+  @override
+  Future<TavernScriptMutation> setChatMessages(
+    String contextId,
+    List<TavernScriptMessagePatch> patches, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) {
+    final held = List.of(patches);
+    return _call((b) => b.setChatMessages(contextId, held, options: options));
+  }
+
+  @override
+  Future<TavernScriptMutation> createChatMessages(
+    String contextId,
+    List<TavernScriptMessageDraft> messages, {
+    int? insertBefore,
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) {
+    final held = List.of(messages);
+    return _call((b) => b.createChatMessages(contextId, held, insertBefore: insertBefore, options: options));
+  }
+
+  @override
+  Future<TavernScriptMutation> deleteChatMessages(
+    String contextId,
+    List<int> messageIds, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) {
+    final held = List.of(messageIds);
+    return _call((b) => b.deleteChatMessages(contextId, held, options: options));
+  }
+
+  @override
+  Future<TavernScriptMutation> rotateChatMessages(
+    String contextId,
+    int begin,
+    int middle,
+    int end, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _call((b) => b.rotateChatMessages(contextId, begin, middle, end, options: options));
+
+  @override
+  Future<TavernScriptMutation> selectSwipe(
+    String contextId,
+    TavernScriptMessageRef message,
+    int swipeId, {
+    TavernScriptWriteOptions options = const TavernScriptWriteOptions(),
+  }) => _call((b) => b.selectSwipe(contextId, message, swipeId, options: options));
+
+  @override
+  Future<TavernVariableSnapshot> getVariables(String contextId, TavernVariableTarget target) =>
+      _call((b) => b.getVariables(contextId, target));
+
+  @override
+  Future<TavernVariableSnapshot> replaceVariables(
+    String contextId,
+    TavernVariableTarget target,
+    TavernJsonObject value, {
+    String? expectedVersion,
+  }) {
+    if (_tavern._open case final open?) {
+      return open.scripts.replaceVariables(contextId, target, value, expectedVersion: expectedVersion);
+    }
+    final TavernJsonObject held;
+    try {
+      held = _held(value, 'replaceVariables') as TavernJsonObject;
+    } on TavernScriptException catch (e) {
+      return Future.error(e);
+    }
+    return _call((b) => b.replaceVariables(contextId, target, held, expectedVersion: expectedVersion));
+  }
+
+  @override
+  Future<TavernVariableSnapshot> updateVariablesWith(
+    String contextId,
+    TavernVariableTarget target,
+    FutureOr<TavernJsonObject> Function(TavernJsonObject value) updater,
+  ) => _call((b) => b.updateVariablesWith(contextId, target, updater));
+
+  @override
+  Future<TavernVariableMutation> mutateVariables(
+    String contextId,
+    TavernVariableTarget target,
+    List<TavernVariableChange> changes, {
+    String? expectedVersion,
+  }) {
+    final held = List.of(changes);
+    return _call((b) => b.mutateVariables(contextId, target, held, expectedVersion: expectedVersion));
+  }
+}
+
+/// [value] as it is now: maps and lists copied all the way down, the rest
+/// kept for the engine to judge. A cycle is not JSON.
+Object? _held(Object? value, String operation, [Set<Object>? seen]) {
+  if (value is! Map && value is! List) return value;
+  final active = seen ?? Set<Object>.identity();
+  if (!active.add(value!)) {
+    throw TavernScriptException(
+      code: TavernScriptErrorCode.invalidJson,
+      operation: operation,
+      message: 'The value contains a cycle.',
+    );
+  }
+  try {
+    return switch (value) {
+      Map<String, Object?>() => <String, Object?>{
+        for (final MapEntry(:key, value: v) in value.entries) key: _held(v, operation, active),
+      },
+      Map() => {for (final MapEntry(:key, value: v) in value.entries) key: _held(v, operation, active)},
+      List() => [for (final v in value) _held(v, operation, active)],
+      _ => value,
+    };
+  } finally {
+    active.remove(value);
   }
 }
