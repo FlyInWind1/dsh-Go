@@ -18,6 +18,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_canvas_calls.dart';
+import '../../tavern/tavern_card_scripts.dart';
 import '../../tavern/tavern_settings.dart';
 import '../../tavern/tavern_st_theme.dart';
 import '../common/brief_notice.dart';
@@ -126,12 +127,18 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     // Card scripts get their libraries first; the page waits for them (and
     // goes without, should they not load) — not when scripts do not run.
     final List<String> libraries;
+    // So with the card's own scripts (none for a group, or when they do not run).
+    final List<TavernCardScript> cardScripts;
+    final character = widget.calls?.characterId();
     if (noScripts) {
       libraries = const [];
+      cardScripts = const [];
     } else {
       final loaded = ref.read(tavernCanvasLibrariesProvider);
-      if (loaded.isLoading) return;
+      final scripts = character == null ? null : ref.read(tavernCardScriptsProvider(character));
+      if (loaded.isLoading || (scripts?.isLoading ?? false)) return;
       libraries = loaded.value ?? const [];
+      cardScripts = scripts?.value ?? const [];
     }
     final key = (
       noScripts,
@@ -142,6 +149,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       theme.colorScheme.primary,
       reading,
       themeCss,
+      Object.hashAll(cardScripts),
     );
     if (key == _loaded) return;
     _loaded = key;
@@ -176,6 +184,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       offline: offline,
       libraries: libraries,
       themeCss: themeCss,
+      cardScripts: [for (final s in cardScripts) s.toJson()],
     );
     final controller = _controller ??= WebViewController();
     final textZoom = MediaQuery.textScalerOf(context).scale(100).round().clamp(50, 300);
@@ -321,6 +330,11 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       (_, _) => _open(),
     );
     ref.listen(tavernStThemeProvider, (_, _) => _open());
+    if (widget.calls?.characterId() case final character?) {
+      ref.listen(tavernCardScriptsProvider(character), (_, next) {
+        if (!next.isLoading) _open();
+      });
+    }
     ref.listen(tavernCanvasLibrariesProvider, (_, next) {
       if (!next.isLoading) _open();
     });

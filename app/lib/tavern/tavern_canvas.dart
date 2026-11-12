@@ -211,7 +211,9 @@ const tavernToastMax = 300;
 /// the `DshTavern` channel. [noScripts] and [offline] are 酒馆设置 › 安全's
 /// choices, as for islands. [libraries] are put in first, for card scripts.
 /// [themeCss] (an ST theme's custom CSS) comes after our styles, so it wins
-/// where both say something, as it does in ST.
+/// where both say something, as it does in ST. [cardScripts] ({id, name,
+/// content}, tavern_card_scripts.dart) are the card's own scripts, each run
+/// in a hidden frame once the story is drawn; not when scripts do not run.
 String tavernCanvasDocument({
   required Color text,
   required Color accent,
@@ -228,7 +230,10 @@ String tavernCanvasDocument({
   bool offline = false,
   List<String> libraries = const [],
   String themeCss = '',
+  List<Map<String, Object?>> cardScripts = const [],
 }) {
+  // The card's scripts go in as JSON; a closing tag in one cannot end ours.
+  final cardScriptsJson = noScripts ? '[]' : jsonEncode(cardScripts).replaceAll('</', r'<\/');
   // The libraries card scripts expect on the page (jQuery, lodash), ours and
   // so under the page's nonce; not there when card scripts do not run.
   final preload = noScripts
@@ -401,6 +406,11 @@ $preload
       // reader goes to it from there), not read out as it was written.
       var last=chat.lastElementChild;
       if(replied&&last&&fresh.indexOf(last)>=0&&last.getAttribute('is_user')!=='true')say(fill(L.replied,'name',last.getAttribute('aria-label')||''));
+      // The card's own scripts start once the story is drawn, its snapshot in.
+      if(runScripts&&!scriptsStarted&&cardScripts.length){
+        scriptsStarted=true;
+        var start=function(){runCardScripts();};dsh.scripts.ready().then(start,start);
+      }
       if(stay)toBottom();
     },
     stream:function(name,html){
@@ -617,7 +627,10 @@ $preload
     if(id<0)throw new Error('getCurrentMessageId: not called from a message on this page');
     return id;
   }
-  function getIframeName(){return 'TH-message--'+getCurrentMessageId()+'--0';}
+  function getIframeName(){
+    var s=callerScript();
+    return s?'TH-script--'+s.name+'--'+s.id:'TH-message--'+getCurrentMessageId()+'--0';
+  }
   function getMessageId(name){
     var r=/^TH-message--(\\d+)--\\d+\$/.exec(String(name));
     if(!r)throw new Error('Not a message interface name: '+name);
@@ -997,6 +1010,48 @@ $preload
   },function(el){var x=roll(el);return ['group',named([x.title,x.score,x.label])];});
   define('dsh-notice',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<slot></slot>';},function(){return ['note',null];});
   define('dsh-game',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<span aria-hidden="true">▷ </span>'+esc(L.game);},function(){return ['note',null];});
+  // A card's own scripts (its 角色脚本库, docs/design/roleplay-compat.md §8.3):
+  // each in a hidden frame of its own, as a module, with this page's helpers
+  // on its global — this page's \$ too, which is how a script reaches the
+  // story — and named dsh-script-<n>.js, so what it defines knows which
+  // script it is (getScriptId, getScriptName, getIframeName).
+  var cardScripts=$cardScriptsJson,scriptsStarted=false;
+  var shared=['getVariables','replaceVariables','updateVariablesWith','insertOrAssignVariables','insertVariables',
+    'deleteVariable','getChatMessages','setChatMessages','createChatMessages','deleteChatMessages','rotateChatMessages',
+    'eventOn','eventOnce','eventRemoveListener','eventEmit','tavern_events','iframe_events','getLastMessageId',
+    'getCurrentMessageId','getIframeName','getMessageId','toastr','injectPrompts','uninjectPrompts','generate',
+    'generateRaw','stopGenerationById','stopAllGeneration','getScriptId','getScriptName','getButtonEvent',
+    '\$','jQuery','_','dsh'];
+  function callerScript(){
+    var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
+    var stack=String(new Error().stack||'');Error.stackTraceLimit=limit;
+    var k=/dsh-script-(\\d+)\\.js/.exec(stack);
+    return k&&cardScripts[+k[1]]||null;
+  }
+  function getScriptId(){var s=callerScript();if(!s)throw new Error('getScriptId: not called from a card script');return s.id;}
+  function getScriptName(){var s=callerScript();if(!s)throw new Error('getScriptName: not called from a card script');return s.name;}
+  // The event a script's button sends when pressed; the buttons themselves
+  // are the app's (above the composer).
+  function getButtonEvent(name){var s=callerScript();return 'dsh_button__'+(s?s.id:'')+'__'+String(name);}
+  [['getScriptId',getScriptId],['getScriptName',getScriptName],['getButtonEvent',getButtonEvent]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
+  function runCardScripts(){
+    cardScripts.forEach(function(s,n){
+      var frame=document.createElement('iframe');
+      frame.style.display='none';frame.setAttribute('aria-hidden','true');frame.dataset.script=s.id;
+      frame.onload=function(){
+        var w=frame.contentWindow;if(!w)return;
+        shared.forEach(function(k){if(window[k]!==undefined)w[k]=window[k];});
+        var el=w.document.createElement('script');el.type='module';
+        el.textContent=s.content+'\\n//# sourceURL=dsh-script-'+n+'.js';
+        w.document.head.appendChild(el);
+      };
+      // Head and body come of themselves; no closing tags in our script.
+      frame.srcdoc='<!doctype html><meta charset="utf-8">';
+      document.body.appendChild(frame);
+    });
+  }
   post({type:'ready'});
 })();
 </script></body></html>''';

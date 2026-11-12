@@ -218,6 +218,36 @@ void main() {
     expect(open, contains("['custom_api','tools','tool_choice','json_schema','image']"));
     expect(open, contains('if(!window.iframe_events)window.iframe_events=iframe_events;'));
     expect(open, contains('if(!window.injectPrompts)window.injectPrompts=injectPrompts;'));
+    // A card's own scripts go in as JSON, a closing tag in one not ending
+    // ours; each runs in a hidden frame named for it (checked in Edge). None
+    // when scripts do not run.
+    expect(open, contains('var cardScripts=[],'));
+    String withScripts({bool noScripts = false}) => tavernCanvasDocument(
+      text: const Color(0xff112233),
+      accent: const Color(0xff445566),
+      muted: const Color(0xff778899),
+      quote: const Color(0xffaa5500),
+      emphasis: const Color(0xff556677),
+      userTint: const Color(0x22445566),
+      fontSize: 15,
+      lineHeight: 1.65,
+      nonce: 'n0nce',
+      noScripts: noScripts,
+      cardScripts: const [
+        {'id': 's1', 'name': '状态栏', 'content': "x = '</script>';", 'buttons': <String>[]},
+      ],
+    );
+    expect(
+      withScripts(),
+      contains(
+        r'var cardScripts=[{"id":"s1","name":"状态栏","content":"x = '
+        "'"
+        r'<\/script>',
+      ),
+    );
+    expect(withScripts(), isNot(contains("x = '</script>'")));
+    expect(withScripts(noScripts: true), contains('var cardScripts=[],'));
+    expect(open, contains(r"el.textContent=s.content+'\n//# sourceURL=dsh-script-'+n+'.js';"));
     expect(page(noScripts: true), contains("script-src 'nonce-n0nce'"));
     expect(page(offline: true), contains("default-src 'none'"));
     // Offline with scripts on: no nonce beside 'unsafe-inline', or a card's
