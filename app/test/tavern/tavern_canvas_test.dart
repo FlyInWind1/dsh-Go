@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dsh_app/tavern/tavern_canvas.dart';
+import 'package:dsh_app/tavern/tavern_canvas_calls.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/tavern/tavern_settings.dart';
@@ -23,7 +24,7 @@ class _Canvas {
   List<TavernCanvasEntry> entries = const [];
   ValueListenable<(String, String)?>? streaming;
   void Function(String nodeId)? onMenu;
-  Future<Map<String, Object?>> Function(Object? request)? onCall;
+  TavernCanvasCalls? calls;
   var builds = 0;
 }
 
@@ -56,17 +57,12 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
     ProviderScope(
       overrides: [
         tavernProvider.overrideWith((ref) => tavern),
-        tavernCanvasBuilderProvider.overrideWithValue(({
-          required entries,
-          required streaming,
-          required onMenu,
-          onCall,
-        }) {
+        tavernCanvasBuilderProvider.overrideWithValue(({required entries, required streaming, required onMenu, calls}) {
           canvas
             ..entries = entries
             ..streaming = streaming
             ..onMenu = onMenu
-            ..onCall = onCall
+            ..calls = calls
             ..builds += 1;
           return const SizedBox.expand(key: ValueKey('fake-canvas'));
         }),
@@ -179,7 +175,7 @@ void main() {
     // The page's dsh.call is answered: here the preview, which says it
     // simulates no card scripts.
     final reply = (await tester.runAsync(
-      () => canvas.onCall!({
+      () => canvas.calls!.handle({
         'id': 1,
         'method': 'getVariables',
         'params': {

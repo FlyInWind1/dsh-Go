@@ -159,8 +159,12 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// chat's own script context, opened on its first call.
   TavernCanvasCalls? _calls;
   String? _canvasCharacter;
-  TavernCanvasCalls get _canvasCalls =>
-      _calls ??= TavernCanvasCalls(_tavern.scripts, chatId: widget.chatId, characterId: () => _canvasCharacter);
+  TavernCanvasCalls get _canvasCalls => _calls ??= TavernCanvasCalls(
+    _tavern.scripts,
+    chatId: widget.chatId,
+    characterId: () => _canvasCharacter,
+    pages: ref.read(tavernScriptPagesProvider),
+  );
 
   /// The chat's character (or a group's title), and the names of all.
   String _canvasSpeaker = '';
@@ -1443,7 +1447,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     final m = messages?.where((m) => m.nodeId == node).firstOrNull;
                     if (m != null) unawaited(_menu(m, last: m.nodeId == lastCharacter));
                   },
-                  onCall: _canvasCalls.handle,
+                  calls: _canvasCalls,
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: (n) {

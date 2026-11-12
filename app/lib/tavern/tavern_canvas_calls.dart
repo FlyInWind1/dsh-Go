@@ -2,14 +2,23 @@
 // `await dsh.call('getVariables', {target: {scope: 'chat'}})`. Each goes
 // through [TavernScriptWire] within this chat's own script context, which is
 // opened on the first call that needs one and closed with the page; a call
-// may still name another context it opened itself.
+// may still name another context it opened itself. With [pages], the engine's
+// deliveries for that context come back through [deliver] (the page's own
+// copy of variables and messages stays current).
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 
+import 'tavern_script_host.dart';
 import 'tavern_script_wire.dart';
 
 class TavernCanvasCalls {
-  TavernCanvasCalls(this._bridge, {required this.chatId, required this.characterId, this.instanceId = 'canvas'});
+  TavernCanvasCalls(
+    this._bridge, {
+    required this.chatId,
+    required this.characterId,
+    this.instanceId = 'canvas',
+    this.pages,
+  });
 
   final TavernScriptBridge _bridge;
   final String chatId;
@@ -21,14 +30,35 @@ class TavernCanvasCalls {
   /// Who the page is to the engine: its running instance, not a saved key.
   final String instanceId;
 
+  /// The app's host, for the engine's deliveries to this page.
+  final TavernScriptPages? pages;
+
+  /// Puts a delivery into the page; null while there is no page to take it
+  /// (it reloads a snapshot when it comes).
+  TavernScriptPage? deliver;
+
   late final _wire = TavernScriptWire(_bridge);
   Future<String>? _context;
+  String? _registered;
 
   static const _own = {'capabilities', 'openContext'};
 
-  Future<String> _open() async => (await _bridge.openContext(
-    TavernScriptContextSpec(instanceId: instanceId, chatId: chatId, characterId: characterId()),
-  )).id;
+  Future<String> _open() async {
+    // The host first: deliveries for the context start as it opens.
+    pages?.attach(_bridge);
+    final id = (await _bridge.openContext(
+      TavernScriptContextSpec(instanceId: instanceId, chatId: chatId, characterId: characterId()),
+    )).id;
+    _registered = id;
+    pages?.add(id, (delivery) => deliver?.call(delivery) ?? Future<void>.value());
+    return id;
+  }
+
+  void _forget() {
+    if (_registered case final id?) pages?.remove(id);
+    _registered = null;
+    _context = null;
+  }
 
   /// The reply to [request], always JSON; never throws.
   Future<Map<String, Object?>> handle(Object? request) async {
@@ -56,14 +86,14 @@ class TavernCanvasCalls {
       'params': {...params, 'contextId': context},
     });
     // The engine let it go (reopened, closed): the next call opens anew.
-    if (reply['error'] case {'code': 'closedContext' || 'noContext'}) _context = null;
+    if (reply['error'] case {'code': 'closedContext' || 'noContext'}) _forget();
     return reply;
   }
 
   /// The page is gone: its context goes with it.
   Future<void> close() async {
     final context = _context;
-    _context = null;
+    _forget();
     if (context == null) return;
     try {
       await _bridge.closeContext(await context);

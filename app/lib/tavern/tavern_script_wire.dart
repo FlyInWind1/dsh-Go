@@ -77,8 +77,8 @@ class TavernScriptWire {
           'engineEpoch': s.engineEpoch,
           'lastSeq': s.lastSeq,
           'pathRevision': s.pathRevision,
-          'messages': [for (final m in s.messages) _message(m)],
-          'variables': [for (final v in s.variableSnapshots) _snapshot(v)],
+          'messages': [for (final m in s.messages) tavernScriptMessageJson(m)],
+          'variables': [for (final v in s.variableSnapshots) tavernScriptVariablesJson(v)],
           'presetId': s.presetId,
           'personaId': s.personaId,
           'memberCharacterIds': s.memberCharacterIds,
@@ -101,12 +101,14 @@ class TavernScriptWire {
         return {
           'pathRevision': page.pathRevision,
           'totalPathLength': page.totalPathLength,
-          'messages': [for (final m in page.messages) _message(m)],
+          'messages': [for (final m in page.messages) tavernScriptMessageJson(m)],
         };
       case 'getVariables':
-        return _snapshot(await bridge.getVariables(p.string('contextId'), _target(p.object('target'), p.method)));
+        return tavernScriptVariablesJson(
+          await bridge.getVariables(p.string('contextId'), _target(p.object('target'), p.method)),
+        );
       case 'replaceVariables':
-        return _snapshot(
+        return tavernScriptVariablesJson(
           await bridge.replaceVariables(
             p.string('contextId'),
             _target(p.object('target'), p.method),
@@ -119,7 +121,7 @@ class TavernScriptWire {
           for (final (i, c) in p.list('changes').indexed) _change(c, i, p.method),
         ], expectedVersion: p.stringOrNull('expectedVersion'));
         return {
-          'snapshot': _snapshot(mutation.snapshot),
+          'snapshot': tavernScriptVariablesJson(mutation.snapshot),
           'results': [
             for (final r in mutation.results)
               {'kind': r.kind.name, 'path': r.pathTokens, 'existed': r.existed, 'changed': r.changed},
@@ -262,7 +264,7 @@ TavernVariableChange _change(Object? json, int at, String method) {
 Map<String, Object?>? _ownerJson(TavernScriptOwner? o) =>
     o == null ? null : {'kind': o.kind.name, 'scriptId': o.scriptId, 'assetId': o.assetId};
 
-Map<String, Object?> _refJson(TavernScriptMessageRef r) => {'chatId': r.chatId, 'nodeId': r.nodeId};
+Map<String, Object?> tavernScriptRefJson(TavernScriptMessageRef r) => {'chatId': r.chatId, 'nodeId': r.nodeId};
 
 Map<String, Object?> _context(TavernScriptContext c) => {
   'id': c.id,
@@ -279,11 +281,11 @@ Map<String, Object?> _targetJson(TavernVariableTarget t) => {
   'characterId': t.characterId,
   'chatId': t.chatId,
   'messageId': t.messageId,
-  'messageRef': t.messageRef == null ? null : _refJson(t.messageRef!),
+  'messageRef': t.messageRef == null ? null : tavernScriptRefJson(t.messageRef!),
   'scriptOwner': _ownerJson(t.scriptOwner),
 };
 
-Map<String, Object?> _snapshot(TavernVariableSnapshot s) => {
+Map<String, Object?> tavernScriptVariablesJson(TavernVariableSnapshot s) => {
   'target': _targetJson(s.resolvedTarget),
   'version': s.version,
   'value': s.value,
@@ -292,9 +294,9 @@ Map<String, Object?> _snapshot(TavernVariableSnapshot s) => {
 Map<String, Object?>? _issue(TavernScriptShapeIssue? i) =>
     i == null ? null : {'fieldPath': i.fieldPath, 'actualKind': i.actualKind, 'message': i.message};
 
-Map<String, Object?> _message(TavernScriptMessage m) => {
+Map<String, Object?> tavernScriptMessageJson(TavernScriptMessage m) => {
   'messageId': m.messageId,
-  'ref': _refJson(m.ref),
+  'ref': tavernScriptRefJson(m.ref),
   'name': m.name,
   'role': m.role.name,
   'nativeRole': m.nativeRole.name,
@@ -310,7 +312,7 @@ Map<String, Object?> _message(TavernScriptMessage m) => {
   'swipes': [
     for (final s in m.swipes)
       {
-        'ref': _refJson(s.ref),
+        'ref': tavernScriptRefJson(s.ref),
         'swipeId': s.swipeId,
         'text': s.text,
         'hasData': s.hasData,

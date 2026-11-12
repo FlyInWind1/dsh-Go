@@ -365,17 +365,58 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       return clone(r.value);
     },function(x){if(e.seq===mine)e.pending=undefined;throw x;});
   }
+  // The engine's deliveries (cache): held until the snapshot is in, then
+  // only those after its lastSeq; variables update in place (a write still
+  // in flight stays on top), a message rewritten in place is replaced, and
+  // anything else about the path — a message gone or moved, a revision this
+  // copy did not come from — is read afresh as a new snapshot.
+  var loaded=false,lastSeq=0,pathRev=null,held=[];
+  function sameRef(a,b){return !!a&&!!b&&a.chatId===b.chatId&&a.nodeId===b.nodeId;}
+  function setVar(v){
+    var t=v.target||{};
+    if(t.scope!=='message'){var e=vars[t.scope]||(vars[t.scope]={seq:0});e.target=t;e.version=v.version;e.value=v.value;return;}
+    var latest=vars.message;
+    if(latest&&latest.target&&sameRef(latest.target.messageRef,t.messageRef)){latest.version=v.version;latest.value=v.value;}
+    for(var i=0;i<msgs.length;i++)if(sameRef(msgs[i].ref,t.messageRef)){
+      msgs[i].data=v.value;var at=vars['message:'+i];if(at){at.version=v.version;at.value=v.value;}
+    }
+  }
+  function reload(){loaded=false;loading=null;dsh.scripts.ready().catch(function(){});}
+  function apply(d){
+    if(typeof d.seq!=='number'||d.seq<=lastSeq)return;
+    lastSeq=d.seq;
+    var x=d.delta;if(!x)return;
+    (x.variables||[]).forEach(setVar);
+    if(x.baseRevision===x.newRevision)return;
+    var moved=(x.removedRefs||[]).length||Object.keys(x.indexChanges||{}).length||x.baseRevision!==pathRev;
+    var up=x.upsertMessages||[];
+    for(var u=0;!moved&&u<up.length;u++){
+      var found=-1;for(var i=0;i<msgs.length;i++)if(sameRef(msgs[i].ref,up[u].ref))found=i;
+      if(found<0)moved=true;else msgs[found]=up[u];
+    }
+    if(moved){reload();return;}
+    pathRev=x.newRevision;
+  }
   dsh.scripts={
     ready:function(){
       if(!loading)loading=dsh.call('snapshot').then(function(s){
         msgs=s.messages||[];
+        for(var k in vars)if(k.indexOf('message:')===0&&vars[k].pending===undefined)delete vars[k];
         (s.variables||[]).forEach(function(v){
           var e=vars[v.target.scope]||(vars[v.target.scope]={seq:0});
           e.target=v.target;e.version=v.version;e.value=v.value;
         });
+        lastSeq=s.lastSeq||0;pathRev=s.pathRevision||null;loaded=true;
+        var waiting=held;held=[];waiting.forEach(apply);
         return true;
       },function(x){loading=null;throw x;});
       return loading;
+    },
+    deliver:function(d){
+      if(!d||d.kind!=='cache')return;
+      // Not asked for yet: a snapshot taken later covers what was dropped.
+      if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}
+      apply(d);
     },
     getVariables:getVariables,
     replaceVariables:replaceVariables
