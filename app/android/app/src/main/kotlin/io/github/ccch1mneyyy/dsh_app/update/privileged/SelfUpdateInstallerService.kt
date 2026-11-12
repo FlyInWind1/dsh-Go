@@ -181,6 +181,7 @@ class SelfUpdateInstallerService(private val context: Context) : ISelfUpdateInst
     }
 
     private fun runInstall(apk: ParcelFileDescriptor, size: Long, sha: String, version: Long, userId: Int, timedOut: AtomicBoolean): SelfUpdateReceipt {
+        cleanupSelfUpdateDirectories(File("/data/local/tmp"))
         val directory = File("/data/local/tmp", "dsh-self-update-" + UUID.randomUUID().toString())
         if (!directory.mkdir()) throw SelfUpdateException("storage")
         Os.chmod(directory.path, 448)
