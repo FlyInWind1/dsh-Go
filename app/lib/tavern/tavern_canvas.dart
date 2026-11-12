@@ -266,6 +266,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       var stay=nearBottom();
       if(html===null){if(stream){stream.remove();stream=null;}return;}
       if(!stream){stream=mes({mesid:chat.children.length,node:'',name:name,html:'',user:false,system:false});stream.dataset.streaming='1';chat.appendChild(stream);}
+      else if(stream.getAttribute('ch_name')!==(name||'')){stream.setAttribute('ch_name',name||'');stream.querySelector('.name_text').textContent=name||'';}
       stream.querySelector('.mes_text').innerHTML=html;
       if(stay)toBottom();
     }

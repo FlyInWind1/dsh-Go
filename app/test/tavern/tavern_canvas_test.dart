@@ -6,7 +6,9 @@ import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/tavern/tavern_settings.dart';
 import 'package:dsh_app/ui/tavern/tavern_canvas_view.dart';
 import 'package:dsh_app/ui/tavern/tavern_chat_page.dart';
+import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
+import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -24,11 +26,27 @@ class _Canvas {
   var builds = 0;
 }
 
-Future<(PreviewTavern, String, _Canvas)> _chat(WidgetTester tester, {Map<String, Object> prefs = const {}}) async {
+Future<(PreviewTavern, String, _Canvas)> _chat(
+  WidgetTester tester, {
+  Map<String, Object> prefs = const {},
+  bool group = false,
+  Duration tick = Duration.zero,
+}) async {
   SharedPreferences.setMockInitialValues({TavernSettingsController.canvasKey: true, ...prefs});
-  final tavern = PreviewTavern(tick: Duration.zero);
-  final chat = (await tester.runAsync(() => tavern.createChat('sample-innkeeper')))!;
-  await tester.runAsync(() => tavern.narrate(chat, '*雨停了。*\n\n"进来吧，" 她说。'));
+  final tavern = PreviewTavern(tick: tick);
+  final String chat;
+  if (group) {
+    chat = (await tester.runAsync(
+      () => tavern.createGroupChat(
+        ['sample-innkeeper', 'sample-navigator'],
+        activation: TavernGroupActivation.listOrder,
+        addGreetings: false,
+      ),
+    ))!;
+  } else {
+    chat = (await tester.runAsync(() => tavern.createChat('sample-innkeeper')))!;
+    await tester.runAsync(() => tavern.narrate(chat, '*雨停了。*\n\n"进来吧，" 她说。'));
+  }
   tester.view.physicalSize = const Size(390, 844) * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -146,6 +164,32 @@ void main() {
     canvas.onMenu!(narration.nodeId);
     await tester.pumpAndSettle();
     expect(find.text('复制'), findsOneWidget);
+  });
+
+  testWidgets('in a group, the reply being written goes under whoever speaks now', (tester) async {
+    final (tavern, chat, canvas) = await _chat(tester, group: true, tick: const Duration(milliseconds: 1));
+    final writers = <String>{};
+    void seen() {
+      if (canvas.streaming!.value case (final name, _)) writers.add(name);
+    }
+
+    canvas.streaming!.addListener(seen);
+    addTearDown(() => canvas.streaming!.removeListener(seen));
+    await tester.enterText(find.byType(TextField), '大家好');
+    await tester.pump();
+    await tester.tap(find.byIcon(AppIcons.send));
+    for (var i = 0; i < 200; i++) {
+      await tester.pump(const Duration(milliseconds: 5));
+    }
+    await tester.pumpAndSettle();
+
+    // Each member under their own name; never the group's title (林晚、星图).
+    expect(writers, containsAll(['林晚', '星图']));
+    expect(writers, isNot(contains('林晚、星图')));
+    final path = (await tester.runAsync(() => tavern.path(chat)))!;
+    expect(path.map((m) => m.speakerCharacterId), [null, 'sample-innkeeper', 'sample-navigator']);
+    expect(canvas.entries.skip(1).map((e) => e.name), ['林晚', '星图']);
+    expect(canvas.streaming!.value, isNull);
   });
 
   testWidgets('视觉小说 keeps its own view', (tester) async {

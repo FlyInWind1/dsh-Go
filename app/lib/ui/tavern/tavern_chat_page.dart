@@ -153,13 +153,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// null while nothing is being written. Fed only while the canvas shows.
   final _canvasStream = ValueNotifier<(String, String)?>(null);
   bool _canvasOn = false;
+
+  /// The chat's character (or a group's title), and the names of all.
   String _canvasSpeaker = '';
+  Map<String, String> _canvasNames = const {};
 
   void _feedCanvas() {
     if (!_canvasOn) return;
     final text = _live.shown;
+    // In a group, the member speaking as of their own events, which come
+    // before the page rebuilds for them.
+    final speaker = _canvasNames[_group == null ? null : _groupProgress?.speakerCharacterId] ?? _canvasSpeaker;
     _canvasStream.value = _running && !_drafting && text.isNotEmpty
-        ? (_canvasSpeaker, tavernStoryHtml(tavernComponentTagsOut(tavernStripMarkers(text))))
+        ? (speaker, tavernStoryHtml(tavernComponentTagsOut(tavernStripMarkers(text))))
         : null;
   }
 
@@ -1175,6 +1181,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final group = _group;
     final names = {for (final c in characters ?? const <TavernCharacter>[]) c.id: c.name};
     final name = group?.title ?? character?.name ?? l10n.tavernTitle;
+    // Who writes the reply now: in a group, the member speaking, not the
+    // group's title; else the chat's character.
+    final speaking = group == null ? null : _groupProgress?.speakerCharacterId;
+    final writer = names[speaking] ?? name;
     final preview = _tavern is TavernPreview;
     // The card's own look (酒馆设置 can turn it off): a layout to start in,
     // a picture, an accent and name colours for the story.
@@ -1247,6 +1257,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           live: _live,
           thinking: _thinking,
           indent: indent,
+          speaker: group != null && !novel ? writer : null,
+          lead: name,
         ),
     ];
 
@@ -1262,6 +1274,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final canvas = layout != TavernLayout.visualNovel && ref.watch(tavernSettingsProvider.select((s) => s.canvas));
     _canvasOn = canvas;
     _canvasSpeaker = name;
+    _canvasNames = names;
     if (canvas) _feedCanvas();
     // The pages and the canvas read each message as shown, through the
     // display regex; the bubble and novel rows ask for their own.
@@ -1357,7 +1370,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                           TavernMessage(
                             nodeId: _streamNode ?? '',
                             role: TavernRole.character,
-                            speaker: name,
+                            speaker: writer,
+                            speakerCharacterId: speaking,
                             text: '',
                             at: DateTime(0),
                           ),
