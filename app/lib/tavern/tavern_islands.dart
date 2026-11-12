@@ -2,9 +2,13 @@
 // HTML — an ```html block, or raw <style>, <div>, <table>… — shows that part
 // in a sandboxed web view of its own, as tall as its content; the rest of the
 // message stays native Markdown. Cards' status bars and styled panels live
-// here. Whole-page canvases (level 2) are another matter.
+// here. Whole-page canvases (level 2) are another matter. Component tags
+// (<dsh-letter>…, tavern_components.dart) outside an HTML block are parts of
+// their own, drawn natively.
 
 import 'dart:ui' show Color;
+
+import 'tavern_components.dart';
 
 /// One part of a message.
 sealed class TavernPart {
@@ -23,6 +27,12 @@ final class TavernIslandPart extends TavernPart {
   final String html;
 }
 
+/// A component (`<dsh-letter>`…), drawn natively.
+final class TavernComponentPart extends TavernPart {
+  const TavernComponentPart(this.component);
+  final TavernComponent component;
+}
+
 final _htmlFence = RegExp(
   r'^(`{3,}|~{3,})[ \t]*html\b[^\n]*\n([\s\S]*?)\n?^\1[ \t]*$',
   multiLine: true,
@@ -33,25 +43,53 @@ final _blockHtml = RegExp(
   caseSensitive: false,
 );
 
-/// [text] cut into parts: each ```html block an island; text around them
-/// that carries block HTML an island too (as SillyTavern would show it);
-/// the rest Markdown. One text part when there is no HTML to speak of.
-List<TavernPart> tavernParts(String text) {
+/// Text that is only a little punctuation: what follows a component in the
+/// same sentence (「…`</dsh-item>`。」) goes back onto the text before it.
+final _trailing = RegExp(r'^[\s\p{P}]{1,3}$', unicode: true);
+
+/// [text] cut into parts: each component tag outside an HTML block a part of
+/// its own; with [islands], each ```html block an island and text around them
+/// that carries block HTML an island too (as SillyTavern would show it); the
+/// rest Markdown. One text part, [text] as it is, when there is nothing else.
+List<TavernPart> tavernParts(String text, {bool islands = true}) {
   final parts = <TavernPart>[];
-  void outside(String segment) {
+  void prose(String segment) {
     if (segment.trim().isEmpty) return;
-    parts.add(_blockHtml.hasMatch(segment) ? TavernIslandPart(_htmlOf(segment)) : TavernTextPart(segment.trim()));
+    // 「她递给你<dsh-item …>…</dsh-item>。」: the 。 ends 她递给你, not a
+    // paragraph of its own under the card.
+    if (_trailing.hasMatch(segment) && parts.length >= 2 && parts.last is TavernComponentPart) {
+      if (parts[parts.length - 2] case TavernTextPart(:final markdown)) {
+        parts[parts.length - 2] = TavernTextPart(markdown + segment.trim());
+        return;
+      }
+    }
+    parts.add(
+      islands && _blockHtml.hasMatch(segment) ? TavernIslandPart(_htmlOf(segment)) : TavernTextPart(segment.trim()),
+    );
+  }
+
+  void outside(String segment) {
+    for (final piece in tavernSplitComponents(segment)) {
+      switch (piece) {
+        case TavernComponent component:
+          parts.add(TavernComponentPart(component));
+        case String words:
+          prose(words);
+      }
+    }
   }
 
   var at = 0;
-  for (final fence in _htmlFence.allMatches(text)) {
-    outside(text.substring(at, fence.start));
-    final html = fence.group(2)!;
-    if (html.trim().isNotEmpty) parts.add(TavernIslandPart(html));
-    at = fence.end;
+  if (islands) {
+    for (final fence in _htmlFence.allMatches(text)) {
+      outside(text.substring(at, fence.start));
+      final html = fence.group(2)!;
+      if (html.trim().isNotEmpty) parts.add(TavernIslandPart(html));
+      at = fence.end;
+    }
   }
   outside(text.substring(at));
-  if (!parts.any((p) => p is TavernIslandPart)) return [TavernTextPart(text)];
+  if (parts.every((p) => p is TavernTextPart)) return [TavernTextPart(text)];
   return parts;
 }
 

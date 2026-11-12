@@ -24,6 +24,7 @@ import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
+import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_pinned.dart';
@@ -53,6 +54,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import '../wallpaper/wallpaper_backdrop.dart';
 import 'tavern_arrive.dart';
+import 'tavern_component_view.dart';
 import 'tavern_character_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
@@ -1832,9 +1834,10 @@ class _Shown extends ConsumerWidget {
     );
     Widget text(String markdown) =>
         MarkdownBody(text: indent ? tavernIndentParagraphs(markdown) : markdown, selectable: false);
-    // HTML in it: those parts in islands of their own (酒馆设置 › 显示).
-    final parts = ref.watch(tavernSettingsProvider.select((s) => s.islands)) ? tavernParts(shown) : null;
-    if (parts == null || parts.every((p) => p is TavernTextPart)) return text(shown);
+    // HTML in it: those parts in islands of their own (酒馆设置 › 显示);
+    // component tags (<dsh-letter>…) as cards, either way.
+    final parts = tavernParts(shown, islands: ref.watch(tavernSettingsProvider.select((s) => s.islands)));
+    if (parts case [TavernTextPart()]) return text(shown);
     final island = ref.watch(tavernIslandBuilderProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1845,6 +1848,10 @@ class _Shown extends ConsumerWidget {
             TavernIslandPart(:final html) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: island(html),
+            ),
+            TavernComponentPart(:final component) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: TavernComponentView(component: component),
             ),
           },
       ],
@@ -1996,8 +2003,12 @@ class _StreamingReply extends StatelessWidget {
           if (text.isEmpty && reasoning.isEmpty)
             const Align(alignment: Alignment.centerLeft, child: TypingIndicator())
           else if (shown.isNotEmpty)
+            // Component tags turn into cards once the reply is in; while it
+            // is written, only their words.
             MarkdownBody(
-              text: indent ? tavernIndentParagraphs(tavernStripMarkers(shown)) : tavernStripMarkers(shown),
+              text: indent
+                  ? tavernIndentParagraphs(tavernComponentTagsOut(tavernStripMarkers(shown)))
+                  : tavernComponentTagsOut(tavernStripMarkers(shown)),
               streaming: true,
               selectable: false,
             ),

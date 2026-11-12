@@ -22075,6 +22075,51 @@ class L10nEn extends L10n {
   }
 
   @override
+  String tavernLetterFrom(String from) {
+    return 'A letter from $from';
+  }
+
+  @override
+  String get tavernLetter => 'A letter';
+
+  @override
+  String get tavernComponentMore => 'Show all';
+
+  @override
+  String get tavernComponentLess => 'Show less';
+
+  @override
+  String get tavernItemTaken => 'Got';
+
+  @override
+  String get tavernClue => 'Clue';
+
+  @override
+  String tavernPhoneFrom(String from) {
+    return 'Message from $from';
+  }
+
+  @override
+  String get tavernPhoneMessage => 'A message';
+
+  @override
+  String tavernRollCheck(String skill) {
+    return 'Check: $skill';
+  }
+
+  @override
+  String get tavernRoll => 'Roll';
+
+  @override
+  String get tavernRollSuccess => 'Success';
+
+  @override
+  String get tavernRollFailure => 'Failure';
+
+  @override
+  String get tavernGameHere => 'A mini-game goes here; it can\'t be played here yet';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

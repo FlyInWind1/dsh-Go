@@ -30,8 +30,7 @@ Map<String, Object?> tavernCardToNative(Map<String, Object?> card) => {
     if (_topNames[key] case final own?)
       own: key == 'enabled' ? value != true : value
     else if (key == 'extensions' && value is Map<String, Object?>)
-      for (final MapEntry(key: name, value: field) in value.entries)
-        ?_extensionNames[name]: field,
+      for (final MapEntry(key: name, value: field) in value.entries) ?_extensionNames[name]: field,
 };
 
 /// Card name → ST's own, for the top-level fields ('enabled' is ST's 'disable', turned over).

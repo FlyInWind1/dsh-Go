@@ -38204,6 +38204,84 @@ abstract class L10n {
   /// **'这条分支上的 {count} 条消息，连同从它分出去的，都会删掉；删了之后几秒内可以撤销。正在走的这条不受影响。'**
   String tavernBranchDeleteMessage(int count);
 
+  /// No description provided for @tavernLetterFrom.
+  ///
+  /// In zh, this message translates to:
+  /// **'{from}的信'**
+  String tavernLetterFrom(String from);
+
+  /// No description provided for @tavernLetter.
+  ///
+  /// In zh, this message translates to:
+  /// **'一封信'**
+  String get tavernLetter;
+
+  /// No description provided for @tavernComponentMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开'**
+  String get tavernComponentMore;
+
+  /// No description provided for @tavernComponentLess.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get tavernComponentLess;
+
+  /// No description provided for @tavernItemTaken.
+  ///
+  /// In zh, this message translates to:
+  /// **'获得'**
+  String get tavernItemTaken;
+
+  /// No description provided for @tavernClue.
+  ///
+  /// In zh, this message translates to:
+  /// **'线索'**
+  String get tavernClue;
+
+  /// No description provided for @tavernPhoneFrom.
+  ///
+  /// In zh, this message translates to:
+  /// **'{from} 发来消息'**
+  String tavernPhoneFrom(String from);
+
+  /// No description provided for @tavernPhoneMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'一条消息'**
+  String get tavernPhoneMessage;
+
+  /// No description provided for @tavernRollCheck.
+  ///
+  /// In zh, this message translates to:
+  /// **'检定：{skill}'**
+  String tavernRollCheck(String skill);
+
+  /// No description provided for @tavernRoll.
+  ///
+  /// In zh, this message translates to:
+  /// **'掷骰'**
+  String get tavernRoll;
+
+  /// No description provided for @tavernRollSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功'**
+  String get tavernRollSuccess;
+
+  /// No description provided for @tavernRollFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get tavernRollFailure;
+
+  /// No description provided for @tavernGameHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'这里有一个小游戏，现在还不能在这里玩'**
+  String get tavernGameHere;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

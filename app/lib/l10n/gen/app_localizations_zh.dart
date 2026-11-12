@@ -20916,6 +20916,51 @@ class L10nZh extends L10n {
   }
 
   @override
+  String tavernLetterFrom(String from) {
+    return '$from的信';
+  }
+
+  @override
+  String get tavernLetter => '一封信';
+
+  @override
+  String get tavernComponentMore => '展开';
+
+  @override
+  String get tavernComponentLess => '收起';
+
+  @override
+  String get tavernItemTaken => '获得';
+
+  @override
+  String get tavernClue => '线索';
+
+  @override
+  String tavernPhoneFrom(String from) {
+    return '$from 发来消息';
+  }
+
+  @override
+  String get tavernPhoneMessage => '一条消息';
+
+  @override
+  String tavernRollCheck(String skill) {
+    return '检定：$skill';
+  }
+
+  @override
+  String get tavernRoll => '掷骰';
+
+  @override
+  String get tavernRollSuccess => '成功';
+
+  @override
+  String get tavernRollFailure => '失败';
+
+  @override
+  String get tavernGameHere => '这里有一个小游戏，现在还不能在这里玩';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

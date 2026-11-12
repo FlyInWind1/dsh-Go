@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../l10n/l10n.dart';
+import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
 import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_sprites.dart';
 import '../chat/render/markdown_body.dart';
@@ -58,8 +59,8 @@ List<TavernPage> _messagePages(TavernMessage m, String text, {required bool stre
   String? current;
   return [
     for (final paragraph in _paragraphs(text))
-      if ((current = tavernMarkerIn(paragraph) ?? current, tavernStripMarkers(paragraph).trim()) case (_, final words)
-          when words.isNotEmpty)
+      if ((current = tavernMarkerIn(paragraph) ?? current, tavernComponentTagsOut(tavernStripMarkers(paragraph)).trim())
+          case (_, final words) when words.isNotEmpty)
         for (final page in tavernParagraphPages(words))
           TavernPage(m, page, streaming: streaming, marker: current ?? first),
   ];

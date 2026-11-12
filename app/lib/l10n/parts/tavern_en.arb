@@ -995,5 +995,21 @@
   "tavernBranchDelete": "Delete this branch",
   "tavernBranchDeleteTitle": "Delete this branch?",
   "tavernBranchDeleteMessage": "Its {count} messages, and every branch that grew from it, will go; you can take it back for a few seconds. The way the story is on now is not touched.",
-  "@tavernBranchDeleteMessage": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernBranchDeleteMessage": {"placeholders": {"count": {"type": "int"}}},
+  "tavernLetterFrom": "A letter from {from}",
+  "@tavernLetterFrom": {"placeholders": {"from": {"type": "String"}}},
+  "tavernLetter": "A letter",
+  "tavernComponentMore": "Show all",
+  "tavernComponentLess": "Show less",
+  "tavernItemTaken": "Got",
+  "tavernClue": "Clue",
+  "tavernPhoneFrom": "Message from {from}",
+  "@tavernPhoneFrom": {"placeholders": {"from": {"type": "String"}}},
+  "tavernPhoneMessage": "A message",
+  "tavernRollCheck": "Check: {skill}",
+  "@tavernRollCheck": {"placeholders": {"skill": {"type": "String"}}},
+  "tavernRoll": "Roll",
+  "tavernRollSuccess": "Success",
+  "tavernRollFailure": "Failure",
+  "tavernGameHere": "A mini-game goes here; it can't be played here yet"
 }

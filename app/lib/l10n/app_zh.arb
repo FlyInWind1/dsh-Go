@@ -12866,6 +12866,40 @@
       }
     }
   },
+  "tavernLetterFrom": "{from}的信",
+  "@tavernLetterFrom": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernLetter": "一封信",
+  "tavernComponentMore": "展开",
+  "tavernComponentLess": "收起",
+  "tavernItemTaken": "获得",
+  "tavernClue": "线索",
+  "tavernPhoneFrom": "{from} 发来消息",
+  "@tavernPhoneFrom": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPhoneMessage": "一条消息",
+  "tavernRollCheck": "检定：{skill}",
+  "@tavernRollCheck": {
+    "placeholders": {
+      "skill": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernRoll": "掷骰",
+  "tavernRollSuccess": "成功",
+  "tavernRollFailure": "失败",
+  "tavernGameHere": "这里有一个小游戏，现在还不能在这里玩",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

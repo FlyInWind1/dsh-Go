@@ -995,5 +995,21 @@
   "tavernBranchDelete": "删掉这条分支",
   "tavernBranchDeleteTitle": "删掉这条分支？",
   "tavernBranchDeleteMessage": "这条分支上的 {count} 条消息，连同从它分出去的，都会删掉；删了之后几秒内可以撤销。正在走的这条不受影响。",
-  "@tavernBranchDeleteMessage": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernBranchDeleteMessage": {"placeholders": {"count": {"type": "int"}}},
+  "tavernLetterFrom": "{from}的信",
+  "@tavernLetterFrom": {"placeholders": {"from": {"type": "String"}}},
+  "tavernLetter": "一封信",
+  "tavernComponentMore": "展开",
+  "tavernComponentLess": "收起",
+  "tavernItemTaken": "获得",
+  "tavernClue": "线索",
+  "tavernPhoneFrom": "{from} 发来消息",
+  "@tavernPhoneFrom": {"placeholders": {"from": {"type": "String"}}},
+  "tavernPhoneMessage": "一条消息",
+  "tavernRollCheck": "检定：{skill}",
+  "@tavernRollCheck": {"placeholders": {"skill": {"type": "String"}}},
+  "tavernRoll": "掷骰",
+  "tavernRollSuccess": "成功",
+  "tavernRollFailure": "失败",
+  "tavernGameHere": "这里有一个小游戏，现在还不能在这里玩"
 }
