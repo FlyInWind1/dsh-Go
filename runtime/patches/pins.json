@@ -232,6 +232,14 @@
         }
       }
     },
+    "rrule-negative-position-range.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/rrule/dist/es5/rrule.js": {
+          "after": "7a23596f28eeeadd7dbc80d8b73f1317a5d94a6f70e855933b06ca07a8e1d88c",
+          "before": "653c3065b3fa57aa510852ea943f4a359ebdfb3d962340f648a37f744f237204"
+        }
+      }
+    },
     "schemastery-json-context.diff": {
       "0.2.1-rc.4": {
         "node_modules/@deepseek-ai/schemastery/lib/index.cjs": {
