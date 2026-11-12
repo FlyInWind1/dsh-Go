@@ -1,5 +1,6 @@
 package io.github.ccch1mneyyy.dsh_app.runtime
 
+import io.github.ccch1mneyyy.dsh_app.files.GuestFiles
 import java.io.File
 import java.nio.file.Files
 import java.security.MessageDigest
@@ -76,7 +77,11 @@ private fun parseBaseCompatibility(raw: JSONObject): BaseCompatibility = try {
 }
 
 private fun readRuntimeInfo(tree: File): JSONObject = try {
-    JSONObject(File(tree, "etc/dsh-app/runtime.json").readText())
+    // An existing image may still hold a tawc backup token before any new launch.
+    val file = File(tree, "etc/dsh-app/runtime.json").takeIf { it.isFile }
+        ?: GuestFiles.resolve(tree, "/etc/dsh-app/runtime.json", PhoneStorage.GUEST_PATH)
+        ?: throw RuntimeUpgradeBlocked("manifest")
+    JSONObject(file.readText())
 } catch (_: Exception) {
     throw RuntimeUpgradeBlocked("manifest")
 }
