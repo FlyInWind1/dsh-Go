@@ -4,7 +4,9 @@
 // card's CSS that reaches across messages (#chat .mes …) takes, and ST's own
 // colour variables (--SmartThemeQuoteColor …) carry the story's colours.
 // Messages arrive as JSON through our script; the page itself is loaded once.
-// Card scripts don't run yet: they come with the helper bridge.
+// Card scripts don't run yet: they come with the helper bridge. Component
+// tags (<dsh-letter>…, roleplay-ui §5) are Web Components here, with parts
+// and --dsh-* variables a card's CSS may restyle.
 
 import 'dart:convert';
 import 'dart:ui' show Color;
@@ -35,6 +37,40 @@ final class TavernCanvasEntry {
     'html': html,
     'user': isUser,
     'system': isSystem,
+  };
+}
+
+/// The words the canvas's components say, in the reader's language:
+/// letterFrom and phoneFrom carry `{from}`, rollCheck `{skill}`.
+final class TavernCanvasLabels {
+  const TavernCanvasLabels({
+    this.letter = 'A letter',
+    this.letterFrom = 'A letter from {from}',
+    this.taken = 'Got',
+    this.clue = 'Clue',
+    this.phone = 'A message',
+    this.phoneFrom = 'Message from {from}',
+    this.roll = 'Roll',
+    this.rollCheck = 'Check: {skill}',
+    this.success = 'Success',
+    this.failure = 'Failure',
+    this.game = "A mini-game goes here; it can't be played here yet",
+  });
+
+  final String letter, letterFrom, taken, clue, phone, phoneFrom, roll, rollCheck, success, failure, game;
+
+  Map<String, String> toJson() => {
+    'letter': letter,
+    'letterFrom': letterFrom,
+    'taken': taken,
+    'clue': clue,
+    'phone': phone,
+    'phoneFrom': phoneFrom,
+    'roll': roll,
+    'rollCheck': rollCheck,
+    'success': success,
+    'failure': failure,
+    'game': game,
   };
 }
 
@@ -147,6 +183,7 @@ String tavernCanvasDocument({
   required double lineHeight,
   required String nonce,
   String userLabel = '',
+  TavernCanvasLabels labels = const TavernCanvasLabels(),
   bool noScripts = false,
   bool offline = false,
 }) {
@@ -252,6 +289,53 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
     var m=owner(ev.target);if(!m||!m.dataset.node)return;
     if(String(window.getSelection())==='')ev.preventDefault();
   });
+  // Component tags as Web Components: their own look in a shadow root, with
+  // parts (::part(paper) …) and --dsh-* variables left for a card to restyle.
+  var L=${jsonEncode(labels.toJson())};
+  function fill(s,k,v){return s.split('{'+k+'}').join(v);}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  var base=':host{display:block;margin:6px 0;color:var(--dsh-text);font:inherit;font-style:normal;}'+
+    '[part~=card]{border:1px solid var(--dsh-card-border,rgba(127,127,127,.28));border-radius:14px;padding:12px 14px;background:var(--dsh-card,rgba(127,127,127,.06));}'+
+    '[part~=head]{display:flex;gap:8px;align-items:baseline;font-weight:600;font-size:.92em;}'+
+    '[part~=head] [part~=title]{flex:1;color:var(--dsh-accent);}'+
+    '[part~=meta]{font-weight:400;font-size:.8em;color:var(--dsh-muted);}'+
+    '[part~=body]{margin-top:8px;}';
+  function define(tag,css,html){
+    if(customElements.get(tag))return;
+    customElements.define(tag,class extends HTMLElement{
+      connectedCallback(){
+        if(this.shadowRoot)return;
+        var root=this.attachShadow({mode:'open'});
+        root.innerHTML='<style>'+base+css+'</style>'+html(this);
+      }
+    });
+  }
+  function attr(el,names){for(var i=0;i<names.length;i++){var v=el.getAttribute(names[i]);if(v&&v.trim())return v.trim();}return null;}
+  define('dsh-letter','[part~=card]{background:var(--dsh-letter-paper,rgba(232,211,166,.24));line-height:1.75;}',function(el){
+    var from=attr(el,['from','sender','author']);var date=attr(el,['date','time']);
+    return '<div part="card paper"><div part="head"><span part="title">'+esc(from?fill(L.letterFrom,'from',from):L.letter)+'</span>'+(date?'<span part="meta">'+esc(date)+'</span>':'')+'</div><div part="body"><slot></slot></div></div>';
+  });
+  define('dsh-item','[part~=card]{display:flex;gap:12px;align-items:flex-start;padding:10px 14px 10px 12px;}[part~=icon]{width:34px;height:34px;border-radius:10px;background:var(--dsh-item-icon,rgba(127,127,127,.14));display:flex;align-items:center;justify-content:center;flex:none;}[part~=name]{font-weight:600;}[part~=taken]{margin-left:8px;font-size:.75em;padding:1px 7px;border-radius:6px;background:var(--dsh-item-taken,rgba(60,160,90,.18));}[part~=body]{margin-top:2px;font-size:.88em;color:var(--dsh-muted);}',function(el){
+    var name=attr(el,['name','title']);var taken=el.hasAttribute('take')||el.hasAttribute('taken');
+    return '<div part="card item"><div part="icon">✦</div><div><div><span part="name">'+esc(name||'')+'</span>'+(taken?'<span part="taken">'+esc(L.taken)+'</span>':'')+'</div><div part="body"><slot></slot></div></div></div>';
+  });
+  define('dsh-clue',':host{transform:rotate(-.7deg);}[part~=card]{background:var(--dsh-clue-note,rgba(245,215,110,.28));}',function(el){
+    var title=attr(el,['title','name']);
+    return '<div part="card note"><div part="head"><span part="title">'+esc(title||L.clue)+'</span></div><div part="body"><slot></slot></div></div>';
+  });
+  define('dsh-phone','[part~=card]{max-width:360px;}[part~=bubble]{margin-top:8px;padding:8px 12px;border-radius:4px 14px 14px 14px;background:var(--dsh-phone-bubble,rgba(127,127,127,.14));}',function(el){
+    var from=attr(el,['from','sender','name']);var time=attr(el,['time','date']);
+    return '<div part="card phone"><div part="head"><span part="title">'+esc(from?fill(L.phoneFrom,'from',from):L.phone)+'</span>'+(time?'<span part="meta">'+esc(time)+'</span>':'')+'</div><div part="bubble"><slot></slot></div></div>';
+  });
+  define('dsh-roll','[part~=head]{align-items:center;}[part~=score]{font-variant-numeric:tabular-nums;}[part~=result]{font-weight:700;}.ok{color:var(--dsh-success,#2f8a4c);}.bad{color:var(--dsh-danger,#c0392b);}[part~=body]{margin-top:4px;font-size:.8em;color:var(--dsh-muted);}',function(el){
+    var skill=attr(el,['skill','check','name','title']);var value=attr(el,['value','roll','score']);var target=attr(el,['target','dc','difficulty','against']);var result=attr(el,['result','outcome']);
+    var r=(result||'').toLowerCase();var ok=/^(success|pass|passed|succeeded|成功|大成功|通过)\$/.test(r);var bad=/^(fail|failure|failed|失败|大失败)\$/.test(r);
+    var label=ok?L.success:(bad?L.failure:result);
+    var score=[value,target].filter(function(x){return x;}).join(' / ');
+    return '<div part="card roll"><div part="head"><span part="title">'+esc(skill?fill(L.rollCheck,'skill',skill):L.roll)+'</span>'+(score?'<span part="score">'+esc(score)+'</span>':'')+(label?'<span part="result" class="'+(ok?'ok':bad?'bad':'')+'">'+esc(label)+'</span>':'')+'</div><div part="body"><slot></slot></div></div>';
+  });
+  define('dsh-notice',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<slot></slot>';});
+  define('dsh-game',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '▷ '+esc(L.game);});
   post({type:'ready'});
 })();
 </script></body></html>''';

@@ -93,6 +93,7 @@ void main() {
       lineHeight: 1.65,
       nonce: 'n0nce',
       userLabel: '你',
+      labels: const TavernCanvasLabels(letterFrom: '{from}的信', taken: '获得'),
       noScripts: noScripts,
       offline: offline,
     );
@@ -107,6 +108,12 @@ void main() {
     expect(open, contains('DshTavern.postMessage'));
     expect(open, contains('var userLabel="你"'));
     expect(open, isNot(contains('Content-Security-Policy')));
+    // Component tags are Web Components there, in the reader's words.
+    for (final tag in ['dsh-letter', 'dsh-item', 'dsh-clue', 'dsh-phone', 'dsh-roll', 'dsh-notice', 'dsh-game']) {
+      expect(open, contains("define('$tag'"));
+    }
+    expect(open, contains('"letterFrom":"{from}的信"'));
+    expect(open, contains('"taken":"获得"'));
     expect(page(noScripts: true), contains("script-src 'nonce-n0nce'"));
     expect(page(offline: true), contains("default-src 'none'"));
 
