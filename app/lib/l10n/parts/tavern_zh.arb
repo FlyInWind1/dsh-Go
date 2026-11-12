@@ -1043,5 +1043,8 @@
   "tavernRegexGone": "这条规则已经不在了，回列表刷新一下",
   "tavernRegexDeferred": "用到了宏，要到运行时才知道能不能跑",
   "tavernRegexTryDraft": "用现在填的试一下",
-  "tavernRegexDepthAny": "不限"
+  "tavernRegexDepthAny": "不限",
+  "tavernCanvas": "整页画布（试用）",
+  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。",
+  "tavernCanvasReloaded": "画面重新加载了"
 }

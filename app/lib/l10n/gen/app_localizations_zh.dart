@@ -21057,6 +21057,15 @@ class L10nZh extends L10n {
   String get tavernRegexDepthAny => '不限';
 
   @override
+  String get tavernCanvas => '整页画布（试用）';
+
+  @override
+  String get tavernCanvasSubtitle => '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。';
+
+  @override
+  String get tavernCanvasReloaded => '画面重新加载了';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

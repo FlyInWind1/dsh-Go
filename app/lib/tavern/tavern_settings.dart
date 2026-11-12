@@ -56,6 +56,7 @@ class TavernSettings {
     this.islands = true,
     this.islandNoScripts = false,
     this.islandOffline = false,
+    this.canvas = false,
     this.loaded = false,
   });
 
@@ -87,6 +88,11 @@ class TavernSettings {
   /// scripts don't run in islands; islands load nothing from the network.
   final bool islandNoScripts;
   final bool islandOffline;
+
+  /// 整页画布 (tavern_canvas.dart, a trial): the story in one web page with
+  /// SillyTavern's structure, so a card's CSS reaches across messages. Not
+  /// for 视觉小说; card scripts don't run there yet.
+  final bool canvas;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -103,6 +109,7 @@ class TavernSettings {
     bool? islands,
     bool? islandNoScripts,
     bool? islandOffline,
+    bool? canvas,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
@@ -117,6 +124,7 @@ class TavernSettings {
     islands: islands ?? this.islands,
     islandNoScripts: islandNoScripts ?? this.islandNoScripts,
     islandOffline: islandOffline ?? this.islandOffline,
+    canvas: canvas ?? this.canvas,
     loaded: true,
   );
 }
@@ -135,6 +143,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const islandsKey = 'tavern.islands';
   static const islandNoScriptsKey = 'tavern.islandNoScripts';
   static const islandOfflineKey = 'tavern.islandOffline';
+  static const canvasKey = 'tavern.canvas';
 
   @override
   TavernSettings build() {
@@ -161,6 +170,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         islands: prefs.getBool(islandsKey) ?? true,
         islandNoScripts: prefs.getBool(islandNoScriptsKey) ?? false,
         islandOffline: prefs.getBool(islandOfflineKey) ?? false,
+        canvas: prefs.getBool(canvasKey) ?? false,
         loaded: true,
       );
     } catch (_) {
@@ -232,6 +242,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setIslandOffline(bool on) async {
     state = state.copyWith(islandOffline: on);
     await _save((prefs) => prefs.setBool(islandOfflineKey, on));
+  }
+
+  Future<void> setCanvas(bool on) async {
+    state = state.copyWith(canvas: on);
+    await _save((prefs) => prefs.setBool(canvasKey, on));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

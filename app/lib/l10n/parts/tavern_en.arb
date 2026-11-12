@@ -1043,5 +1043,8 @@
   "tavernRegexGone": "This rule is gone; go back to the list",
   "tavernRegexDeferred": "It uses macros; whether it runs is known only when it does",
   "tavernRegexTryDraft": "Try it as filled in",
-  "tavernRegexDepthAny": "Any"
+  "tavernRegexDepthAny": "Any",
+  "tavernCanvas": "Whole-page canvas (trial)",
+  "tavernCanvasSubtitle": "The whole chat in one web page laid out as SillyTavern does, so a card's ST styles reach across messages. Not for visual novel; card scripts don't run here yet.",
+  "tavernCanvasReloaded": "The page reloaded"
 }

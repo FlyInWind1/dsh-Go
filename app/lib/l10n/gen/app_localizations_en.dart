@@ -22217,6 +22217,16 @@ class L10nEn extends L10n {
   String get tavernRegexDepthAny => 'Any';
 
   @override
+  String get tavernCanvas => 'Whole-page canvas (trial)';
+
+  @override
+  String get tavernCanvasSubtitle =>
+      'The whole chat in one web page laid out as SillyTavern does, so a card\'s ST styles reach across messages. Not for visual novel; card scripts don\'t run here yet.';
+
+  @override
+  String get tavernCanvasReloaded => 'The page reloaded';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

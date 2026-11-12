@@ -38474,6 +38474,24 @@ abstract class L10n {
   /// **'不限'**
   String get tavernRegexDepthAny;
 
+  /// No description provided for @tavernCanvas.
+  ///
+  /// In zh, this message translates to:
+  /// **'整页画布（试用）'**
+  String get tavernCanvas;
+
+  /// No description provided for @tavernCanvasSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。'**
+  String get tavernCanvasSubtitle;
+
+  /// No description provided for @tavernCanvasReloaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'画面重新加载了'**
+  String get tavernCanvasReloaded;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

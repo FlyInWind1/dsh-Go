@@ -24,6 +24,7 @@ import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
+import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
@@ -54,6 +55,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import '../wallpaper/wallpaper_backdrop.dart';
 import 'tavern_arrive.dart';
+import 'tavern_canvas_view.dart';
 import 'tavern_component_view.dart';
 import 'tavern_character_page.dart';
 import 'tavern_dice_sheet.dart';
@@ -139,6 +141,21 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
   /// The reply's text through the display regex, as it will show once stored.
   late final _live = TavernLiveDisplay((text) => _tavern.displayText(widget.chatId, nodeId: _streamNode, text: text));
+
+  /// The reply being written as 整页画布 takes it: who says it and its HTML;
+  /// null while nothing is being written. Fed only while the canvas shows.
+  final _canvasStream = ValueNotifier<(String, String)?>(null);
+  bool _canvasOn = false;
+  String _canvasSpeaker = '';
+
+  void _feedCanvas() {
+    if (!_canvasOn) return;
+    final text = _live.shown;
+    _canvasStream.value = _running && !_drafting && text.isNotEmpty
+        ? (_canvasSpeaker, tavernStoryHtml(tavernComponentTagsOut(tavernStripMarkers(text))))
+        : null;
+  }
+
   String? _error;
 
   /// [_error] is how a reply ended, not a failure: said without alarm.
@@ -200,6 +217,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
     _voiceFlag = ref.read(voiceInputActiveProvider.notifier);
     _voice.addListener(_reportVoice);
+    _live.addListener(_feedCanvas);
   }
 
   @override
@@ -211,7 +229,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     if (_running && _drafting) _tavern.stop(widget.chatId);
     unawaited(_turn?.cancel());
     _stream.dispose();
+    _live.removeListener(_feedCanvas);
     _live.dispose();
+    _canvasStream.dispose();
     _stopThinking();
     _thinking.dispose();
     _voice.removeListener(_reportVoice);
@@ -1052,9 +1072,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
         ? null
         : ref.watch(tavernLive2dProvider(characterId)).value;
     final revealRate = ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond));
-    // The pages read each message as shown, through the display regex; the
-    // bubble and novel rows ask for their own.
-    final shownText = layout == TavernLayout.visualNovel
+    // 整页画布 (a trial, 酒馆设置): the story in one web page; not for 视觉小说.
+    final canvas = layout != TavernLayout.visualNovel && ref.watch(tavernSettingsProvider.select((s) => s.canvas));
+    _canvasOn = canvas;
+    _canvasSpeaker = name;
+    if (canvas) _feedCanvas();
+    // The pages and the canvas read each message as shown, through the
+    // display regex; the bubble and novel rows ask for their own.
+    final shownText = layout == TavernLayout.visualNovel || canvas
         ? {
             for (final m in messages ?? const <TavernMessage>[])
               m.nodeId: ref.watch(tavernShownTextProvider((widget.chatId, m.nodeId, m.text))).value ?? m.text,
@@ -1177,6 +1202,26 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                           )
                         : null,
                   ),
+                )
+              : canvas
+              ? ref.watch(tavernCanvasBuilderProvider)(
+                  entries: [
+                    for (final (i, m) in (messages ?? const <TavernMessage>[]).indexed)
+                      if (!(_running && m.nodeId == _streamNode))
+                        TavernCanvasEntry(
+                          mesid: i,
+                          nodeId: m.nodeId,
+                          name: tavernSpeaker(context, m),
+                          isUser: m.role == TavernRole.user,
+                          isSystem: m.role == TavernRole.narrator || m.role == TavernRole.system,
+                          html: tavernStoryHtml(tavernStripMarkers(shownText[m.nodeId] ?? m.text)),
+                        ),
+                  ],
+                  streaming: _canvasStream,
+                  onMenu: (node) {
+                    final m = messages?.where((m) => m.nodeId == node).firstOrNull;
+                    if (m != null) unawaited(_menu(m, last: m.nodeId == lastCharacter));
+                  },
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: (n) {

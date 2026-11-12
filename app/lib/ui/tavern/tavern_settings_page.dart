@@ -307,6 +307,14 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
         value: settings.islands,
         onChanged: (on) => unawaited(controller.setIslands(on)),
       ),
+      SettingsSwitchTile(
+        key: const ValueKey('tavern-canvas'),
+        icon: AppIcons.webApp,
+        title: l10n.tavernCanvas,
+        subtitle: l10n.tavernCanvasSubtitle,
+        value: settings.canvas,
+        onChanged: (on) => unawaited(controller.setCanvas(on)),
+      ),
     ],
   );
   // Protections the user may choose; off unless they do.
