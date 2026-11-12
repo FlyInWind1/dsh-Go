@@ -498,6 +498,7 @@ $preload
       if(!d)return;
       if(d.kind==='lifecycle'){lifecycle(d);return;}
       if(d.kind==='invoke'){invoke(d);return;}
+      if(d.kind==='generation'){generationEvent(d);return;}
       if(d.kind!=='cache')return;
       // Not asked for yet: a snapshot taken later covers what was dropped.
       if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}
@@ -813,6 +814,105 @@ $preload
       else answer({status:'completed',value:typeof value==='boolean'?value:null,issues:issues});
     });
   }
+  // Asking the model (酒馆助手's 请求生成 page): generate(config) and
+  // generateRaw(config) give a Promise of the text, or {content, reasoning}
+  // when reasoning was asked for. On the way, as the page tells it:
+  // GENERATION_REQUESTED (its listeners may still change the config),
+  // GENERATION_STARTED, the stream's tokens (whole so far, and just the new
+  // ones) when should_stream, and GENERATION_ENDED with the text. What the
+  // engine has no way to do here — another API, tools, a JSON schema,
+  // pictures — is refused, said what, never quietly left out.
+  var iframe_events={};
+  ['GENERATION_REQUESTED','GENERATION_STARTED','STREAM_TOKEN_RECEIVED_FULLY','STREAM_TOKEN_RECEIVED_INCREMENTALLY','GENERATION_ENDED']
+    .forEach(function(n){iframe_events[n]='js_'+n.toLowerCase();});
+  function told(name,args){fire(evName(iframe_events[name]),args);}
+  var placeholders={world_info_before:'worldInfoBefore',persona_description:'personaDescription',char_description:'charDescription',
+    char_personality:'charPersonality',scenario:'scenario',world_info_after:'worldInfoAfter',dialogue_examples:'dialogueExamples',
+    chat_history:'chatHistory',user_input:'userInput'};
+  var placeholderOrder=['world_info_before','persona_description','char_description','char_personality','scenario',
+    'world_info_after','dialogue_examples','chat_history','user_input'];
+  function unsupported(what){var e=new Error('Not done here: '+what);e.code='unsupportedOption';e.committed=false;return e;}
+  function rolePrompt(p){
+    if(!p||typeof p!=='object')throw new TypeError('a prompt is {role, content}');
+    if(p.image!=null)throw unsupported('image');
+    return {role:p.role,content:p.content==null?'':String(p.content)};
+  }
+  function generationRequest(c,raw){
+    ['custom_api','tools','tool_choice','json_schema','image'].forEach(function(k){if(c[k]!=null)throw unsupported(k);});
+    var r={generationId:String(c.generation_id)};
+    if(c.preset_name!=null&&c.preset_name!=='in_use')r.presetId=String(c.preset_name);
+    if(c.user_input!=null)r.userInput=String(c.user_input);
+    if(c.should_stream)r.stream=true;
+    if(c.should_return_reasoning)r.includeReasoning=true;
+    if(c.should_silence)r.silent=true;
+    if(typeof c.max_chat_history==='number')r.maxChatHistory=c.max_chat_history;
+    var o=c.overrides;
+    if(o){
+      var ov={};
+      placeholderOrder.slice(0,7).forEach(function(k){if(o[k]!=null)ov[placeholders[k]]=String(o[k]);});
+      var h=o.chat_history;
+      if(h){
+        if(h.with_depth_entries!=null)ov.withDepthEntries=!!h.with_depth_entries;
+        if(h.author_note!=null)ov.authorNote=String(h.author_note);
+        if(h.prompts!=null)ov.chatHistory=[].concat(h.prompts).map(rolePrompt);
+      }
+      r.overrides=ov;
+    }
+    if(c.injects!=null)r.injects=[].concat(c.injects).map(function(p,i){
+      return injection(Object.assign({},p,{id:r.generationId+'-inject-'+i}));
+    });
+    if(raw)r.orderedPrompts=(c.ordered_prompts==null?placeholderOrder:[].concat(c.ordered_prompts)).map(function(p){
+      if(typeof p==='string'){
+        if(!placeholders[p])throw new TypeError('Not a prompt name: '+p);
+        return {kind:'placeholder',placeholder:placeholders[p]};
+      }
+      var x=rolePrompt(p);x.kind='literal';return x;
+    });
+    return r;
+  }
+  var genSeq=0,generating={};
+  function generation(kind,config){
+    var c=Object.assign({},config||{});
+    if(c.generation_id==null)c.generation_id='gen-'+pageKey+'-'+(++genSeq);
+    var id=String(c.generation_id),g=null;
+    return attempt(function(){
+      return fire(evName(iframe_events.GENERATION_REQUESTED),[id,kind,c]).then(function(){
+        var request=generationRequest(c,kind==='generateRaw');
+        g=generating[id]={stream:!!c.should_stream,text:'',started:false};
+        return call(kind,{request:request});
+      }).then(function(res){
+        delete generating[id];
+        if(!g.started)told('GENERATION_STARTED',[id]);
+        told('GENERATION_ENDED',[res.text,id]);
+        if(!c.should_return_reasoning)return res.text;
+        var out={content:res.text};if(res.reasoning!=null)out.reasoning=res.reasoning;return out;
+      },function(e){if(generating[id]===g)delete generating[id];throw e;});
+    });
+  }
+  function generationEvent(d){
+    var g=generating[d.id];if(!g||d.isSnapshot)return;
+    if((d.event==='started'||d.event==='textDelta')&&!g.started){g.started=true;told('GENERATION_STARTED',[d.id]);}
+    if(d.event==='textDelta'&&g.stream){
+      var delta=d.delta||'';
+      g.text=d.text?d.text:g.text+delta;
+      told('STREAM_TOKEN_RECEIVED_FULLY',[g.text,d.id]);
+      told('STREAM_TOKEN_RECEIVED_INCREMENTALLY',[delta,d.id]);
+    }
+  }
+  function generate(config){return generation('generate',config);}
+  function generateRaw(config){return generation('generateRaw',config);}
+  // Synchronous, as the page has it: whether one of this page's was running
+  // and is now asked to stop (the engine's own answer follows).
+  function stopGenerationById(id){
+    id=String(id);if(!generating[id])return false;
+    call('stopGenerationById',{generationId:id}).then(null,function(){});
+    return true;
+  }
+  function stopAllGeneration(){var any=false;Object.keys(generating).forEach(function(id){any=stopGenerationById(id)||any;});return any;}
+  [['generate',watched(generate)],['generateRaw',watched(generateRaw)],['stopGenerationById',stopGenerationById],
+   ['stopAllGeneration',stopAllGeneration]].forEach(function(f){dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];});
+  dsh.scripts.iframe_events=iframe_events;
+  if(!window.iframe_events)window.iframe_events=iframe_events;
   dsh.scripts.injectPrompts=injectPrompts;dsh.scripts.uninjectPrompts=uninjectPrompts;
   if(!window.injectPrompts)window.injectPrompts=injectPrompts;
   if(!window.uninjectPrompts)window.uninjectPrompts=uninjectPrompts;

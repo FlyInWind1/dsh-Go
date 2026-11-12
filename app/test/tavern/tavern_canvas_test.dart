@@ -208,6 +208,16 @@ void main() {
     expect(open, contains("if(!this.hasAttribute('role'))this.setAttribute('role',a[0]);"));
     expect('<div part="head" aria-hidden="true">'.allMatches(open).length, 4);
     expect(open, contains(r'content:"\25CF" / "";'));
+    // Prompt injections and asking the model, 酒馆助手's names (the page's
+    // behaviour was checked in Edge against a stub engine).
+    for (final name in ['generate', 'generateRaw', 'stopGenerationById', 'stopAllGeneration']) {
+      expect(open, contains("['$name',"));
+    }
+    expect(open, contains("if(d.kind==='generation'){generationEvent(d);return;}"));
+    expect(open, contains("if(d.kind==='invoke'){invoke(d);return;}"));
+    expect(open, contains("['custom_api','tools','tool_choice','json_schema','image']"));
+    expect(open, contains('if(!window.iframe_events)window.iframe_events=iframe_events;'));
+    expect(open, contains('if(!window.injectPrompts)window.injectPrompts=injectPrompts;'));
     expect(page(noScripts: true), contains("script-src 'nonce-n0nce'"));
     expect(page(offline: true), contains("default-src 'none'"));
     // Offline with scripts on: no nonce beside 'unsafe-inline', or a card's

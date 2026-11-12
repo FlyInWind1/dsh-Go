@@ -21,9 +21,14 @@
 import 'package:dsh_tavern/dsh_tavern.dart';
 
 class TavernScriptWire {
-  TavernScriptWire(this.bridge);
+  TavernScriptWire(this.bridge, {this.onGeneration});
 
   final TavernScriptBridge bridge;
+
+  /// Told each event of a generation asked over this wire while it runs
+  /// (its words as they come), for the page that asked; the reply itself
+  /// waits for the result.
+  final void Function(Map<String, Object?> event)? onGeneration;
 
   /// The reply to [request], always JSON; never throws.
   Future<Map<String, Object?>> handle(Object? request) async {
@@ -194,6 +199,30 @@ class TavernScriptWire {
         return null;
       case 'listInjections':
         return [for (final v in await bridge.listInjections(p.string('contextId'))) tavernScriptInjectionViewJson(v)];
+      // Asking the model (B2): the engine's request fields; the reply is the
+      // result once it is in, its events told on the way ([onGeneration]).
+      case 'generate' || 'generateRaw':
+        final contextId = p.string('contextId');
+        final request = p.object('request');
+        final handle = p.method == 'generate'
+            ? await bridge.generate(contextId, TavernScriptGenerateRequest.fromJson(request))
+            : await bridge.generateRaw(contextId, TavernScriptRawRequest.fromJson(request));
+        final told = onGeneration;
+        final watch = told == null ? null : handle.events.listen((e) => told(tavernScriptGenerationEventJson(e)));
+        try {
+          final result = await handle.result;
+          return {
+            'id': result.id,
+            'text': result.text,
+            'reasoning': result.reasoning,
+            'finishReason': result.finishReason,
+            'hookIssues': [for (final x in result.hookIssues) _issueJson(x)],
+          };
+        } finally {
+          await watch?.cancel();
+        }
+      case 'stopGenerationById':
+        return bridge.stopGenerationById(p.string('generationId'));
     }
     throw TavernScriptException(
       code: TavernScriptErrorCode.unsupportedCapability,
@@ -430,6 +459,20 @@ Map<String, Object?> tavernScriptInjectionViewJson(TavernScriptInjectionView v) 
     'leaseId': v.leaseId,
   };
 }
+
+/// A generation's event as the page reads it: which, how it stands, and its
+/// words so far ([text]) or just now ([delta]).
+Map<String, Object?> tavernScriptGenerationEventJson(TavernScriptGenerationEvent e) => {
+  'id': e.id,
+  'seq': e.seq,
+  'event': e.kind.name,
+  'status': e.status.name,
+  'text': e.text,
+  'delta': e.delta,
+  'reasoning': e.reasoning,
+  'finishReason': e.finishReason,
+  'isSnapshot': e.isSnapshot,
+};
 
 Map<String, Object?> _issueJson(TavernScriptIssue i) => {
   'code': i.code,

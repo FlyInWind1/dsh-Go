@@ -299,6 +299,74 @@ void main() {
     expect(await texts(), [greeting, '一改']);
   });
 
+  test("asking the model: the engine's request as given, its events told as they come, the result as JSON", () async {
+    final bridge = _Generating();
+    final told = <Map<String, Object?>>[];
+    final wire = TavernScriptWire(bridge, onGeneration: told.add);
+    final result =
+        _result(
+              await _ask(wire, 'generate', {
+                'contextId': 'ctx',
+                'request': {
+                  'generationId': 'g1',
+                  'userInput': '在吗',
+                  'stream': true,
+                  'overrides': {'scenario': '雨夜'},
+                },
+              }),
+            )!
+            as Map<String, Object?>;
+    expect(result, {'id': 'g1', 'text': '你好', 'reasoning': null, 'finishReason': 'stop', 'hookIssues': <Object?>[]});
+    expect(bridge.asked!.userInput, '在吗');
+    expect(bridge.asked!.stream, isTrue);
+    expect(bridge.asked!.overrides.fields, {'scenario': '雨夜'});
+    expect(
+      [for (final e in told) (e['event'], e['delta'])],
+      [('started', null), ('textDelta', '你'), ('textDelta', '好')],
+    );
+    expect(told.every((e) => e['id'] == 'g1'), isTrue);
+
+    // Raw: its ordered prompts as the engine reads them.
+    told.clear();
+    _result(
+      await _ask(wire, 'generateRaw', {
+        'contextId': 'ctx',
+        'request': {
+          'generationId': 'g2',
+          'orderedPrompts': [
+            {'kind': 'placeholder', 'placeholder': 'chatHistory'},
+            {'kind': 'literal', 'role': 'system', 'content': '只说一句'},
+          ],
+        },
+      }),
+    );
+    expect(bridge.raw!.orderedPrompts, hasLength(2));
+
+    // A field the engine does not have is refused by it; a failure is a
+    // structured error; a stop for nothing running is false.
+    expect(
+      _error(
+        await _ask(wire, 'generate', {
+          'contextId': 'ctx',
+          'request': {'tools': <Object?>[]},
+        }),
+      )['code'],
+      isA<String>(),
+    );
+    bridge.fail = true;
+    expect(
+      _error(
+        await _ask(wire, 'generate', {
+          'contextId': 'ctx',
+          'request': {'generationId': 'g3'},
+        }),
+      )['code'],
+      'model',
+    );
+    expect(_result(await _ask(wire, 'stopGenerationById', {'generationId': 'nobody'})), isFalse);
+    expect(_result(await _ask(wire, 'stopGenerationById', {'generationId': 'g1'})), isTrue);
+  });
+
   test('a wrong request is told why, as an error, not a broken channel', () async {
     final id =
         (_result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>)['id']! as String;
@@ -355,4 +423,75 @@ void main() {
     expect(reply['ok'], isFalse);
     expect(jsonEncode(reply), isA<String>());
   });
+}
+
+/// A bridge that only generates: two words, as events and as the result
+/// (or a model failure); nothing else is asked of it here.
+class _Generating implements TavernScriptBridge {
+  TavernScriptGenerateRequest? asked;
+  TavernScriptRawRequest? raw;
+  bool fail = false;
+
+  TavernScriptGeneration _run(TavernScriptGenerateRequest request) {
+    final id = request.generationId ?? 'g';
+    const origin = TavernScriptGenerationOrigin(contextId: 'ctx', instanceId: 'frame', provider: 'test', model: 'test');
+    return _Handle(
+      id,
+      Stream.fromIterable([
+        TavernScriptGenerationEvent(
+          id: id,
+          seq: 1,
+          kind: TavernScriptGenerationEventKind.started,
+          status: TavernScriptGenerationStatus.running,
+        ),
+        for (final (i, word) in ['你', '好'].indexed)
+          TavernScriptGenerationEvent(
+            id: id,
+            seq: 2 + i,
+            kind: TavernScriptGenerationEventKind.textDelta,
+            status: TavernScriptGenerationStatus.running,
+            delta: word,
+          ),
+      ]),
+      fail
+          // Failing later, as a model does: by then the wire is waiting for it.
+          ? Future.delayed(
+              const Duration(milliseconds: 5),
+              () => throw TavernScriptException(
+                code: TavernScriptErrorCode.model,
+                operation: 'generate',
+                message: 'boom',
+              ),
+            )
+          : Future.delayed(
+              const Duration(milliseconds: 5),
+              () => TavernScriptGenerationResult(id: id, text: '你好', origin: origin, finishReason: 'stop'),
+            ),
+    );
+  }
+
+  @override
+  Future<TavernScriptGeneration> generate(String contextId, TavernScriptGenerateRequest request) async =>
+      _run(asked = request);
+
+  @override
+  Future<TavernScriptGeneration> generateRaw(String contextId, TavernScriptRawRequest request) async =>
+      _run(raw = request);
+
+  @override
+  bool stopGenerationById(String generationId) => generationId == 'g1';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Handle implements TavernScriptGeneration {
+  _Handle(this.id, this.events, this.result);
+
+  @override
+  final String id;
+  @override
+  final Stream<TavernScriptGenerationEvent> events;
+  @override
+  final Future<TavernScriptGenerationResult> result;
 }

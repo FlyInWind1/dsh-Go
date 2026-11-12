@@ -37,7 +37,8 @@ class TavernCanvasCalls {
   /// (it reloads a snapshot when it comes).
   TavernScriptPage? deliver;
 
-  late final _wire = TavernScriptWire(_bridge);
+  // A generation's events go to the page as they come, like a delivery.
+  late final _wire = TavernScriptWire(_bridge, onGeneration: (e) => deliver?.call({...e, 'kind': 'generation'}));
   Future<String>? _context;
   String? _registered;
 
