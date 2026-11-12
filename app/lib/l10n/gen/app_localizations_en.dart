@@ -20601,7 +20601,7 @@ class L10nEn extends L10n {
   String get tavernLorebookFieldSecondary => 'Secondary keys';
 
   @override
-  String get tavernLorebookFieldSecondaryHelp => 'If set, one of these must appear too.';
+  String get tavernLorebookFieldSecondaryHelp => 'If filled, the entry is also checked against them as set below.';
 
   @override
   String get tavernLorebookFieldContent => 'Text';
@@ -21383,6 +21383,63 @@ class L10nEn extends L10n {
 
   @override
   String get tavernPromptForbidJailbreak => 'A card\'s own post-history instructions won\'t replace this one.';
+
+  @override
+  String get tavernLoreCommon => 'Common';
+
+  @override
+  String get tavernLoreMore => 'More';
+
+  @override
+  String get tavernLorePosAnTop => 'Before author\'s note';
+
+  @override
+  String get tavernLorePosAnBottom => 'After author\'s note';
+
+  @override
+  String get tavernLorePosExampleTop => 'Before examples';
+
+  @override
+  String get tavernLorePosExampleBottom => 'After examples';
+
+  @override
+  String get tavernLorePosOutlet => 'Outlet';
+
+  @override
+  String get tavernLoreLogic => 'How secondary keys count';
+
+  @override
+  String get tavernLoreLogicAndAny => 'Any';
+
+  @override
+  String get tavernLoreLogicAndAll => 'All';
+
+  @override
+  String get tavernLoreLogicNotAny => 'None';
+
+  @override
+  String get tavernLoreLogicNotAll => 'Not all';
+
+  @override
+  String get tavernLoreProbability => 'Chance';
+
+  @override
+  String get tavernLoreCase => 'Case-sensitive';
+
+  @override
+  String get tavernLoreWhole => 'Whole words';
+
+  @override
+  String get tavernLoreDefault => 'Default';
+
+  @override
+  String get tavernLoreYes => 'Yes';
+
+  @override
+  String get tavernLoreNo => 'No';
+
+  @override
+  String get tavernLorePosDepth => 'At depth';
 
   @override
   String get updateCheck => 'Check for updates';

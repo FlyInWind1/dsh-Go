@@ -24,6 +24,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_presets_page.dart';
+import 'tavern_stepper.dart';
 
 /// One preset, as it is now; again when the library changes.
 final tavernPresetProvider = FutureProvider.autoDispose.family<TavernPreset?, String>((ref, id) {
@@ -333,39 +334,13 @@ class _PromptSheetState extends ConsumerState<_PromptSheet> {
     }
   }
 
-  /// A number the person steps up and down, saved under [key] as it changes.
+  /// A number the person steps up and down, saved as it changes.
   Widget _stepper({
     required String name,
     required int value,
     required int max,
     required void Function(int value) onChanged,
-  }) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          key: ValueKey('tavern-prompt-$name-down'),
-          icon: const Icon(AppIcons.decrement, size: 18),
-          onPressed: value > 0 ? () => onChanged(value - 1) : null,
-        ),
-        SizedBox(
-          width: 40,
-          child: Text(
-            '$value',
-            key: ValueKey('tavern-prompt-$name-value'),
-            textAlign: TextAlign.center,
-            style: AppType.tabular(theme.textTheme.titleMedium!),
-          ),
-        ),
-        IconButton(
-          key: ValueKey('tavern-prompt-$name-up'),
-          icon: const Icon(AppIcons.increment, size: 18),
-          onPressed: value < max ? () => onChanged(value + 1) : null,
-        ),
-      ],
-    );
-  }
+  }) => TavernStepper(keyName: 'tavern-prompt-$name', value: value, max: max, onChanged: onChanged);
 
   Future<void> _editContent() async {
     final text = await Navigator.of(context)

@@ -106,6 +106,80 @@ void main() {
     expect(find.text('关键词：地下室、酒窖、钥匙'), findsOneWidget);
   });
 
+  testWidgets("an entry's place goes where the engine reads it, and 更多 holds ST's other fields", (tester) async {
+    final tavern = await _open(tester, 'sample-innkeeper');
+    await tester.tap(find.text('地下室').first);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('tavern-lore-common')), matching: find.text('常用')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('tavern-lore-depth')), findsNothing);
+
+    // At a depth: how far up the chat, and as whom.
+    final position = find.byKey(const ValueKey('tavern-lore-position'));
+    await _center(tester, position);
+    await tester.tap(find.descendant(of: position, matching: find.text('按深度')));
+    await tester.pumpAndSettle();
+    await _center(tester, find.byKey(const ValueKey('tavern-lore-depth')));
+    expect(tester.widget<Text>(find.byKey(const ValueKey('tavern-lore-depth-value'))).data, '4');
+    await tester.tap(find.byKey(const ValueKey('tavern-lore-depth-up')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-lore-role')), matching: find.text('用户')));
+    await tester.pumpAndSettle();
+
+    // 更多: how the secondary keys count, the chance, case.
+    final logic = find.byKey(const ValueKey('tavern-lore-logic'));
+    await _center(tester, logic);
+    await tester.tap(find.descendant(of: logic, matching: find.text('都不含')));
+    await tester.pumpAndSettle();
+    final chance = find.byKey(const ValueKey('tavern-lore-chance'));
+    await _center(tester, chance);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('tavern-lore-chance-value'))).data, '100%');
+    await tester.tap(find.byKey(const ValueKey('tavern-lore-chance-down')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.byKey(const ValueKey('tavern-lore-chance-value'))).data, '95%');
+    final kase = find.byKey(const ValueKey('tavern-lore-case'));
+    await _center(tester, kase);
+    await tester.tap(find.descendant(of: kase, matching: find.text('是')));
+    await tester.pumpAndSettle();
+    await _save(tester);
+
+    final cellar = (await _entries(tavern, 'sample-innkeeper')).firstWhere((e) => '${e['keys']}'.contains('地下室'));
+    final ext = cellar['extensions']! as Map<String, Object?>;
+    expect(cellar['position'], 'after_char'); // as ST writes a depth entry
+    expect(
+      (ext['position'], ext['depth'], ext['role'], ext['selectiveLogic'], ext['probability'], ext['useProbability']),
+      (4, 5, 1, 2, 95, true),
+    );
+    expect(ext['case_sensitive'], isTrue);
+    expect(ext.containsKey('match_whole_words'), isFalse); // untouched: not written
+    expect(cellar['content'], '旅店地下室名义上是酒窖，钥匙只有林晚有。');
+  });
+
+  testWidgets("a card whose entry keeps ST's own place moves when 角色设定前/后 is chosen", (tester) async {
+    final tavern = await _open(tester, 'sample-innkeeper');
+    // As an ST-made card has it: the place in extensions, at 示例前.
+    final index = (await _entries(tavern, 'sample-innkeeper')).indexWhere((e) => '${e['keys']}'.contains('地下室'));
+    await tester.runAsync(
+      () => tavern.updateCharacterBookEntry('sample-innkeeper', index, {
+        'extensions': {'position': 5},
+      }),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('地下室').first);
+    await tester.pumpAndSettle();
+    final position = find.byKey(const ValueKey('tavern-lore-position'));
+    await _center(tester, position);
+    expect(find.descendant(of: position, matching: find.text('示例前')), findsOneWidget); // its own, shown
+    await tester.tap(find.descendant(of: position, matching: find.text('角色设定后')));
+    await tester.pumpAndSettle();
+    await _save(tester);
+    final cellar = (await _entries(tavern, 'sample-innkeeper'))[index];
+    expect((cellar['extensions']! as Map)['position'], 1);
+    expect(cellar.containsKey('position'), isFalse); // the card's own field: after_char before and after, so untouched
+  });
+
   testWidgets('+ adds an entry from an empty form; delete asks, then it goes', (tester) async {
     final tavern = await _open(tester, 'sample-innkeeper');
     await tester.tap(find.byKey(const ValueKey('tavern-lore-add')));

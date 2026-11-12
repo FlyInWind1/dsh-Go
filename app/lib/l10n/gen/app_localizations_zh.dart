@@ -19524,7 +19524,7 @@ class L10nZh extends L10n {
   String get tavernLorebookFieldSecondary => '次关键词';
 
   @override
-  String get tavernLorebookFieldSecondaryHelp => '填了的话，还要同时出现其中一个才带进去。';
+  String get tavernLorebookFieldSecondaryHelp => '填了的话，再按下面「次关键词怎么算」筛一遍才带进去。';
 
   @override
   String get tavernLorebookFieldContent => '内容';
@@ -20271,6 +20271,63 @@ class L10nZh extends L10n {
 
   @override
   String get tavernPromptForbidJailbreak => '角色卡自带的历史后指令不会替换这一条。';
+
+  @override
+  String get tavernLoreCommon => '常用';
+
+  @override
+  String get tavernLoreMore => '更多';
+
+  @override
+  String get tavernLorePosAnTop => '作者注前';
+
+  @override
+  String get tavernLorePosAnBottom => '作者注后';
+
+  @override
+  String get tavernLorePosExampleTop => '示例前';
+
+  @override
+  String get tavernLorePosExampleBottom => '示例后';
+
+  @override
+  String get tavernLorePosOutlet => '出口';
+
+  @override
+  String get tavernLoreLogic => '次关键词怎么算';
+
+  @override
+  String get tavernLoreLogicAndAny => '含任一';
+
+  @override
+  String get tavernLoreLogicAndAll => '全都含';
+
+  @override
+  String get tavernLoreLogicNotAny => '都不含';
+
+  @override
+  String get tavernLoreLogicNotAll => '不全含';
+
+  @override
+  String get tavernLoreProbability => '触发概率';
+
+  @override
+  String get tavernLoreCase => '区分大小写';
+
+  @override
+  String get tavernLoreWhole => '整词匹配';
+
+  @override
+  String get tavernLoreDefault => '默认';
+
+  @override
+  String get tavernLoreYes => '是';
+
+  @override
+  String get tavernLoreNo => '否';
+
+  @override
+  String get tavernLorePosDepth => '按深度';
 
   @override
   String get updateCheck => '检查更新';

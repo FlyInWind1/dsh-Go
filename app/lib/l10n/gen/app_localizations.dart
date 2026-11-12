@@ -35639,7 +35639,7 @@ abstract class L10n {
   /// No description provided for @tavernLorebookFieldSecondaryHelp.
   ///
   /// In zh, this message translates to:
-  /// **'填了的话，还要同时出现其中一个才带进去。'**
+  /// **'填了的话，再按下面「次关键词怎么算」筛一遍才带进去。'**
   String get tavernLorebookFieldSecondaryHelp;
 
   /// No description provided for @tavernLorebookFieldContent.
@@ -36973,6 +36973,120 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'角色卡自带的历史后指令不会替换这一条。'**
   String get tavernPromptForbidJailbreak;
+
+  /// No description provided for @tavernLoreCommon.
+  ///
+  /// In zh, this message translates to:
+  /// **'常用'**
+  String get tavernLoreCommon;
+
+  /// No description provided for @tavernLoreMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get tavernLoreMore;
+
+  /// No description provided for @tavernLorePosAnTop.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者注前'**
+  String get tavernLorePosAnTop;
+
+  /// No description provided for @tavernLorePosAnBottom.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者注后'**
+  String get tavernLorePosAnBottom;
+
+  /// No description provided for @tavernLorePosExampleTop.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例前'**
+  String get tavernLorePosExampleTop;
+
+  /// No description provided for @tavernLorePosExampleBottom.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例后'**
+  String get tavernLorePosExampleBottom;
+
+  /// No description provided for @tavernLorePosOutlet.
+  ///
+  /// In zh, this message translates to:
+  /// **'出口'**
+  String get tavernLorePosOutlet;
+
+  /// No description provided for @tavernLoreLogic.
+  ///
+  /// In zh, this message translates to:
+  /// **'次关键词怎么算'**
+  String get tavernLoreLogic;
+
+  /// No description provided for @tavernLoreLogicAndAny.
+  ///
+  /// In zh, this message translates to:
+  /// **'含任一'**
+  String get tavernLoreLogicAndAny;
+
+  /// No description provided for @tavernLoreLogicAndAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全都含'**
+  String get tavernLoreLogicAndAll;
+
+  /// No description provided for @tavernLoreLogicNotAny.
+  ///
+  /// In zh, this message translates to:
+  /// **'都不含'**
+  String get tavernLoreLogicNotAny;
+
+  /// No description provided for @tavernLoreLogicNotAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'不全含'**
+  String get tavernLoreLogicNotAll;
+
+  /// No description provided for @tavernLoreProbability.
+  ///
+  /// In zh, this message translates to:
+  /// **'触发概率'**
+  String get tavernLoreProbability;
+
+  /// No description provided for @tavernLoreCase.
+  ///
+  /// In zh, this message translates to:
+  /// **'区分大小写'**
+  String get tavernLoreCase;
+
+  /// No description provided for @tavernLoreWhole.
+  ///
+  /// In zh, this message translates to:
+  /// **'整词匹配'**
+  String get tavernLoreWhole;
+
+  /// No description provided for @tavernLoreDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get tavernLoreDefault;
+
+  /// No description provided for @tavernLoreYes.
+  ///
+  /// In zh, this message translates to:
+  /// **'是'**
+  String get tavernLoreYes;
+
+  /// No description provided for @tavernLoreNo.
+  ///
+  /// In zh, this message translates to:
+  /// **'否'**
+  String get tavernLoreNo;
+
+  /// No description provided for @tavernLorePosDepth.
+  ///
+  /// In zh, this message translates to:
+  /// **'按深度'**
+  String get tavernLorePosDepth;
 
   /// No description provided for @updateCheck.
   ///
