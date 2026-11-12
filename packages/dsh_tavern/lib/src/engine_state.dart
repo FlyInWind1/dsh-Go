@@ -85,7 +85,7 @@ class _StateInput {
 Future<TavernStateSnapshot> _readSavedState(TavernEngine engine, String chatId) async {
   final chat = engine._store.chat(chatId);
   final leaf = chat.currentLeafId;
-  final saved = leaf == null ? <String, Object?>{} : engine._stateAt(chatId, leaf);
+  final saved = engine._stateAt(chatId, leaf);
   final extra = leaf == null ? <String, Object?>{} : engine._store.node(chatId, leaf).extra;
   final metadata = engine._chatCodec.metadataForNode(engine._store, chatId);
   final settings = engine._effectiveSettings(chat, metadata);
@@ -201,7 +201,7 @@ Future<TavernStateEditResult> _editSavedState(
     () => engine._withMutation(chatId, () async {
       final chat = engine._store.chat(chatId);
       final leaf = chat.currentLeafId;
-      final saved = leaf == null ? <String, Object?>{} : engine._stateAt(chatId, leaf);
+      final saved = engine._stateAt(chatId, leaf);
       final extra = leaf == null ? <String, Object?>{} : engine._store.node(chatId, leaf).extra;
       final settings = engine._effectiveSettings(chat, engine._chatCodec.metadataForNode(engine._store, chatId));
       final record = await engine._record(chat.characterId);

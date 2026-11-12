@@ -19,6 +19,8 @@ import 'regex_library.dart';
 import 'state.dart';
 import 'worldinfo/world_info.dart' show WorldInfoSource;
 
+part 'group.dart';
+
 enum PresetSelectionSource { chat, chatInline, globalDefault, globalInline, stDefault }
 
 /// Selection for a newly admitted turn. Missing legacy ids fall through to
@@ -121,14 +123,16 @@ class TavernCharacterAsset {
 
 /// A conversation in the list.
 class TavernChatSummary {
-  const TavernChatSummary({
+  TavernChatSummary({
     required this.id,
     required this.characterId,
     required this.title,
     required this.updatedAt,
     this.lastText,
     this.messageCount = 0,
-  });
+    this.kind = TavernChatKind.single,
+    List<String> memberCharacterIds = const [],
+  }) : memberCharacterIds = List<String>.unmodifiable(memberCharacterIds);
 
   final String id;
   final String characterId;
@@ -138,6 +142,8 @@ class TavernChatSummary {
   /// The last message on the current path, plain text, for a preview line.
   final String? lastText;
   final int messageCount;
+  final TavernChatKind kind;
+  final List<String> memberCharacterIds;
 }
 
 enum TavernRole { user, character, narrator, system }
@@ -158,6 +164,7 @@ class TavernMessage {
     this.hidden = false,
     this.usage,
     this.reportedUsage,
+    this.speakerCharacterId,
   });
 
   final String nodeId;
@@ -166,6 +173,9 @@ class TavernMessage {
 
   /// Display name: the character's or the persona's.
   final String speaker;
+
+  /// Stable library identity; null for users, narration and unknown imports.
+  final String? speakerCharacterId;
 
   /// The stored text (after write-back regex). Use displayText for an ephemeral
   /// display-regex copy; Markdown rendering remains the caller's responsibility.
@@ -202,6 +212,7 @@ class TavernTreeNode {
     this.siblingCount = 1,
     this.hidden = false,
     this.branchName,
+    this.speakerCharacterId,
   });
 
   final String nodeId;
@@ -223,6 +234,7 @@ class TavernTreeNode {
 
   /// An optional label for the branch starting at this node.
   final String? branchName;
+  final String? speakerCharacterId;
 }
 
 /// What one model call cost, as the API reported it.
@@ -494,6 +506,51 @@ abstract interface class Tavern {
 
   /// A new chat whose first message is greeting [greeting] (0 = `first_mes`).
   Future<String> createChat(String characterId, {int greeting = 0});
+
+  /// A shared tree with a stable host definition and sequential actor calls.
+  /// Mutable inputs are captured at invocation. See [sendGroup] for admission.
+  Future<String> createGroupChat(
+    List<String> characterIds, {
+    String? hostCharacterId,
+    String? title,
+    TavernGroupActivation activation = TavernGroupActivation.natural,
+    int maxSpeakersPerTurn = 3,
+    bool allowSelfResponses = false,
+    bool addGreetings = true,
+  });
+  Future<TavernGroupChat?> groupChat(String chatId);
+  Stream<TavernGroupChat?> watchGroupChat(String chatId);
+  Future<TavernGroupChat> addGroupMember(
+    String chatId,
+    String characterId, {
+    double? talkativeness,
+    bool muted = false,
+    TavernGroupModelRole? modelRole,
+  });
+  Future<TavernGroupChat> updateGroupMember(
+    String chatId,
+    String characterId, {
+    double? talkativeness,
+    bool? muted,
+    TavernGroupModelRole? modelRole,
+  });
+  Future<TavernGroupChat> removeGroupMember(String chatId, String characterId);
+  Future<TavernGroupChat> reorderGroupMembers(String chatId, List<String> characterIds);
+  Future<TavernGroupChat> updateGroupChat(
+    String chatId, {
+    String? title,
+    TavernGroupActivation? activation,
+    int? maxSpeakersPerTurn,
+    bool? allowSelfResponses,
+  });
+
+  /// Listening admits one batch. Subscription cancellation only detaches.
+  /// An explicit member overrides selection (including mute) for one reply.
+  /// A committed user line survives failure; progress.userNodeId identifies it.
+  Stream<TavernGroupEvent> sendGroup(String chatId, String text, {String? speakerCharacterId});
+
+  /// Atomic snapshot plus future batch events; never starts a model request.
+  Stream<TavernGroupEvent> resumeGroupTurn(String chatId);
 
   /// Imports a same-character batch without adding greetings or evaluating
   /// macros. Related main_chat files become branches; unrelated files remain

@@ -76,6 +76,7 @@ final class ChatJsonlCodec {
             parentId: node.parent == null ? null : ids[node.parent],
             role: node.variant.role,
             speaker: node.variant.name,
+            speakerCharacterId: node.variant.speakerCharacterId,
             text: node.variant.text,
             reasoning: node.variant.reasoning,
             at: node.variant.at,
@@ -501,6 +502,7 @@ final class _ExportTree {
     if (own.isNotEmpty && own['version'] != 1) {
       throw StateError('Unsupported stored dshgo.chatJsonl version.');
     }
+    own.remove('speakerCharacterId');
     final state = _state(node);
     own.addAll({
       'version': 1,
@@ -509,6 +511,7 @@ final class _ExportTree {
       'message': _messageFields(node),
       'text': node.message.text,
       'role': node.message.role.name,
+      'speakerCharacterId': ?node.message.speakerCharacterId,
       'hidden': node.message.hidden,
       'usage': _usageJson(node.message.usage),
       'at': node.message.at.toUtc().toIso8601String(),
@@ -805,6 +808,7 @@ final class _Variant {
         ? TavernRole.system
         : TavernRole.character;
     hidden = original['is_system'] == true;
+    speakerCharacterId = role == TavernRole.character ? own['speakerCharacterId'] as String? : null;
     if (role == TavernRole.system && own['hidden'] is bool) {
       hidden = own['hidden'] as bool;
     }
@@ -880,6 +884,7 @@ final class _Variant {
           if (!_swipeFields.contains(entry.key)) entry.key: entry.value,
       },
       'role': role.name,
+      'speakerCharacterId': speakerCharacterId,
       'hidden': hidden,
       'rawSwipe': rawSwipe,
       'usage': _usageJson(usage),
@@ -892,6 +897,7 @@ final class _Variant {
   late Map<String, Object?> state;
   late String text;
   late String name;
+  late String? speakerCharacterId;
   late TavernRole role;
   late bool hidden;
   late String? reasoning;
@@ -1152,7 +1158,15 @@ Map<String, Object?> _checkedEnvelope(Object? value, StChatDocument document, in
   if (result.isNotEmpty && result['version'] != 1) {
     _error(document, line, 'Unsupported dshgo.chatJsonl version; no part of this batch was imported.');
   }
-  for (final key in ['nodeId', 'selectedChildId', 'text', 'at', 'sourceFileName', 'runtimeContext']) {
+  for (final key in [
+    'nodeId',
+    'selectedChildId',
+    'speakerCharacterId',
+    'text',
+    'at',
+    'sourceFileName',
+    'runtimeContext',
+  ]) {
     if (result[key] != null && result[key] is! String) {
       _error(document, line, 'chatJsonl.$key must be text.');
     }

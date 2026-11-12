@@ -52,6 +52,7 @@ part 'engine_director_watch.dart';
 part 'engine_story.dart';
 part 'engine_card_events.dart';
 part 'engine_secrets.dart';
+part 'engine_group.dart';
 
 /// App convenience factory. [directory] is the actual tavern data directory,
 /// normally `<app support>/tavern`. No extra path component is appended.
@@ -135,7 +136,7 @@ class TavernEngine implements Tavern {
       if (_closed) return;
       _paths.add(chatId);
       _directors.changed(chatId);
-      if (!_turns.containsKey(chatId)) _notifyLists();
+      if (!_mainBusy(chatId)) _notifyLists();
     });
     _personaSubscription = _personas.changes.listen((_) => _directors.changedAll());
   }
@@ -249,6 +250,8 @@ class TavernEngine implements Tavern {
   final _chatsChanged = StreamController<void>.broadcast();
   final _paths = StreamController<String>.broadcast();
   final _turns = <String, _Turn>{};
+  late final _GroupCoordinator _groups = _GroupCoordinator(this);
+  bool _mainBusy(String chatId) => _turns.containsKey(chatId) || _groups.rounds.containsKey(chatId);
   final _mutations = <String, Future<void>>{};
   final _deletingCharacters = <String>{};
   final _deletingPersonas = <String>{};
@@ -381,6 +384,8 @@ class TavernEngine implements Tavern {
         updatedAt: chat.updatedAt,
         lastText: chat.lastText == null ? null : _plainText(chat.lastText!),
         messageCount: chat.messageCount,
+        kind: chat.kind,
+        memberCharacterIds: chat.memberCharacterIds,
       ),
   ];
 
@@ -689,19 +694,32 @@ class TavernEngine implements Tavern {
   @override
   Future<void> deleteCharacter(String characterId) {
     _ensureAdmission();
+    final hosted = _store.groupHostChats(characterId);
+    if (hosted.isNotEmpty) {
+      return Future.error(
+        TavernGroupException(TavernGroupError.hostInUse, characterId: characterId, relatedChatIds: hosted),
+      );
+    }
     if (!_deletingCharacters.add(characterId)) {
       return Future.error(StateError('Character deletion is already running.'));
     }
     return _operation(
       () => _libraryOperation(() async {
         try {
+          final hosted = _store.groupHostChats(characterId);
+          if (hosted.isNotEmpty) {
+            throw TavernGroupException(TavernGroupError.hostInUse, characterId: characterId, relatedChatIds: hosted);
+          }
           final ids = _store.listChats(characterId: characterId).map((chat) => chat.id).toList();
           await Future.wait([for (final id in ids) _withMutation<void>(id, () {})]);
           await Future.wait([for (final id in ids) _directors.cancelChat(id)]);
           await _library.delete(characterId);
           _characterCache = null;
           unawaited(_characterDetails.remove(characterId));
-          _store.deleteCharacterChats(characterId);
+          _store.transaction(() {
+            _store.removeCharacterGroupMemberships(characterId);
+            _store.deleteCharacterChats(characterId);
+          });
           for (final id in ids) {
             _inspections.remove(id);
             _latestInspections.remove(id);
@@ -793,7 +811,8 @@ class TavernEngine implements Tavern {
         for (final chat in _store.listChatPersonaBindings()) {
           if (chat.personaId == personaId ||
               _personas.resolve(personaId: chat.personaId).persona?.id == personaId ||
-              _turns[chat.id]?.personaSelection.persona?.id == personaId) {
+              _turns[chat.id]?.personaSelection.persona?.id == personaId ||
+              _groups.rounds[chat.id]?.persona.persona?.id == personaId) {
             affected.add(chat.id);
           }
         }
@@ -865,6 +884,7 @@ class TavernEngine implements Tavern {
             parentId: null,
             role: TavernRole.character,
             speaker: record.card.promptName,
+            speakerCharacterId: characterId,
             text: text,
             state: state,
           );
@@ -894,6 +914,98 @@ class TavernEngine implements Tavern {
       return id;
     }),
   );
+
+  @override
+  Future<String> createGroupChat(
+    List<String> characterIds, {
+    String? hostCharacterId,
+    String? title,
+    TavernGroupActivation activation = TavernGroupActivation.natural,
+    int maxSpeakersPerTurn = 3,
+    bool allowSelfResponses = false,
+    bool addGreetings = true,
+  }) => _operation(() {
+    final ids = List<String>.of(characterIds);
+    return _libraryOperation(
+      () => _groups.create(
+        ids,
+        hostCharacterId: hostCharacterId,
+        title: title,
+        activation: activation,
+        maxSpeakersPerTurn: maxSpeakersPerTurn,
+        allowSelfResponses: allowSelfResponses,
+        addGreetings: addGreetings,
+      ),
+    );
+  });
+  @override
+  Future<TavernGroupChat?> groupChat(String chatId) => _operation(() => _groups.read(chatId));
+  @override
+  Stream<TavernGroupChat?> watchGroupChat(String chatId) {
+    _ensureOpen();
+    return _watch(_chatsChanged.stream, () => _groups.read(chatId));
+  }
+
+  @override
+  Future<TavernGroupChat> addGroupMember(
+    String chatId,
+    String characterId, {
+    double? talkativeness,
+    bool muted = false,
+    TavernGroupModelRole? modelRole,
+  }) => _operation(
+    () => _libraryOperation(
+      () => _withMutation(
+        chatId,
+        () => _groups.add(chatId, characterId, talkativeness: talkativeness, muted: muted, modelRole: modelRole),
+      ),
+    ),
+  );
+  @override
+  Future<TavernGroupChat> updateGroupMember(
+    String chatId,
+    String characterId, {
+    double? talkativeness,
+    bool? muted,
+    TavernGroupModelRole? modelRole,
+  }) => _operation(
+    () => _withMutation(
+      chatId,
+      () => _groups.updateMember(chatId, characterId, talkativeness: talkativeness, muted: muted, modelRole: modelRole),
+    ),
+  );
+  @override
+  Future<TavernGroupChat> removeGroupMember(String chatId, String characterId) =>
+      _operation(() => _withMutation(chatId, () => _groups.remove(chatId, characterId)));
+  @override
+  Future<TavernGroupChat> reorderGroupMembers(String chatId, List<String> characterIds) => _operation(() {
+    final captured = List<String>.of(characterIds);
+    return _withMutation(chatId, () => _groups.reorder(chatId, captured));
+  });
+  @override
+  Future<TavernGroupChat> updateGroupChat(
+    String chatId, {
+    String? title,
+    TavernGroupActivation? activation,
+    int? maxSpeakersPerTurn,
+    bool? allowSelfResponses,
+  }) => _operation(
+    () => _withMutation(
+      chatId,
+      () => _groups.update(
+        chatId,
+        title: title,
+        activation: activation,
+        maxSpeakersPerTurn: maxSpeakersPerTurn,
+        allowSelfResponses: allowSelfResponses,
+      ),
+    ),
+  );
+  @override
+  Stream<TavernGroupEvent> sendGroup(String chatId, String text, {String? speakerCharacterId}) =>
+      _groups.send(chatId, text, speakerCharacterId: speakerCharacterId);
+  @override
+  Stream<TavernGroupEvent> resumeGroupTurn(String chatId) => _groups.resume(chatId);
 
   @override
   Future<TavernChatImportResult> importChats(
@@ -1007,6 +1119,7 @@ class TavernEngine implements Tavern {
           siblingCount: message.siblingCount,
           hidden: message.hidden,
           branchName: name is String ? name : null,
+          speakerCharacterId: message.speakerCharacterId,
         ),
       );
     }
@@ -1361,7 +1474,8 @@ class TavernEngine implements Tavern {
           final chat = _store.chat(summary.id);
           if (chat.presetId == presetId ||
               _resolvePreset(chat).selection.effectivePresetId == presetId ||
-              _turns[chat.id]?.presetId == presetId) {
+              _turns[chat.id]?.presetId == presetId ||
+              _groups.rounds[chat.id]?.presetId == presetId) {
             affected.add(chat.id);
           }
         }
@@ -1661,9 +1775,16 @@ class TavernEngine implements Tavern {
     final settings = _personaSettings(_effectiveSettings(chat, metadata), _personas.resolve(personaId: chat.personaId));
     final config = _config;
     final now = _clock();
-    final record = await _record(chat.characterId);
+    final group = _store.groupChat(chat.id);
+    final displayNode = job.nodeId == null ? null : _store.node(chat.id, job.nodeId!);
+    final actorId = group != null && displayNode?.message.role == TavernRole.character
+        ? displayNode!.message.speakerCharacterId
+        : active?.actorId ?? chat.characterId;
+    final record = actorId == null ? null : await _record(actorId);
+    final groupView = group == null ? null : await _groups.capture(group);
     if (!current()) return TavernDisplayResult(text: job.text, superseded: true);
-    if (record == null) throw const TavernImportError('角色不存在。');
+    if (record == null && group == null) throw const TavernImportError('角色不存在。');
+    final data = record?.card.data ?? <String, Object?>{'name': displayNode?.message.speaker ?? ''};
     final contextTarget = job.nodeId ?? active?.reply?.nodeId;
     if (!job.reasoning && contextTarget != null) {
       final index = history.indexWhere((node) => node.message.nodeId == contextTarget);
@@ -1671,7 +1792,7 @@ class TavernEngine implements Tavern {
     }
     final random = Random(_displaySeed('${job.chatId}\u0000${job.nodeId ?? ''}\u0000${job.reasoning}'));
     final environment = _MacroEnvironment(
-      _effectiveCard(record.card.data, settings),
+      _effectiveCard(data, settings),
       settings,
       local,
       global,
@@ -1684,7 +1805,9 @@ class TavernEngine implements Tavern {
       active?.generationType ?? 'normal',
       chatIdHash: _finiteNumber(metadata['chat_id_hash']),
       pickRerollSeed: metadata['pick_reroll_seed'],
-      characterId: chat.characterId,
+      characterId: actorId ?? '',
+      groupNames: groupView?.names,
+      groupNotMuted: groupView?.enabledNames,
     );
     final placement = job.reasoning
         ? RegexPlacement.reasoning
@@ -1710,7 +1833,17 @@ class TavernEngine implements Tavern {
     );
     return TavernDisplayResult(
       text: rendered.text,
-      warnings: rendered.warnings,
+      warnings: [
+        ...rendered.warnings,
+        if (group != null && record == null)
+          const RegexDisplayWarning(
+            ruleId: '',
+            ruleName: '',
+            ruleIndex: -1,
+            reason: 'group_speaker_unavailable',
+            message: 'The historical speaker identity is unavailable; character regex was omitted.',
+          ),
+      ],
       replacements: rendered.replacements,
       superseded: rendered.cancelled || !current(),
     );
@@ -2306,11 +2439,17 @@ class TavernEngine implements Tavern {
     // this same gate; none can enter while another affected chat is draining.
     for (final id in ids) {
       _mutations[id] = released.future;
+      _groups.cancel(id);
       _turns[id]?.cancellation.cancel();
     }
     return () async {
       try {
         await Future.wait(previous);
+        final groups = [for (final id in ids) ?_groups.rounds[id]];
+        for (final group in groups) {
+          group.cancel();
+        }
+        await Future.wait([for (final group in groups) group.done.future]);
         final running = ids.map((id) => _turns[id]).whereType<_Turn>().toList();
         for (final turn in running) {
           turn.cancellation.cancel();
@@ -2381,9 +2520,15 @@ class TavernEngine implements Tavern {
   Future<void> edit(String chatId, String nodeId, String text) => _operation(
     () => _withMutation(chatId, () async {
       final chat = _store.chat(chatId);
-      final record = await _record(chat.characterId);
-      if (record == null) throw const TavernImportError('角色不存在。');
       final target = _store.node(chatId, nodeId);
+      final group = _store.groupChat(chatId);
+      final actorId = group != null && target.message.role == TavernRole.character
+          ? target.message.speakerCharacterId
+          : chat.characterId;
+      final record = actorId == null ? null : await _record(actorId);
+      if (record == null && group == null) throw const TavernImportError('角色不存在。');
+      final groupView = group == null ? null : await _groups.capture(group);
+      final data = record?.card.data ?? <String, Object?>{'name': target.message.speaker};
       final current = _historyTo(chatId, chat.currentLeafId).any((node) => node.message.nodeId == nodeId);
       var terminal = current ? _store.node(chatId, chat.currentLeafId!) : target;
       while (!current && terminal.selectedChildId != null) {
@@ -2401,7 +2546,7 @@ class TavernEngine implements Tavern {
         _personas.resolve(personaId: chat.personaId),
       );
       final environment = _MacroEnvironment(
-        _effectiveCard(record.card.data, settings),
+        _effectiveCard(data, settings),
         settings,
         local,
         _globalVariables,
@@ -2414,7 +2559,9 @@ class TavernEngine implements Tavern {
         'normal',
         chatIdHash: _finiteNumber(metadata['chat_id_hash']),
         pickRerollSeed: metadata['pick_reroll_seed'],
-        characterId: chat.characterId,
+        characterId: actorId ?? '',
+        groupNames: groupView?.names,
+        groupNotMuted: groupView?.enabledNames,
       );
       final globals = _runtimeCopy(_globalVariables);
       try {
@@ -2591,7 +2738,7 @@ class TavernEngine implements Tavern {
   }
 
   Map<String, Object?> _stateAt(String chatId, String? nodeId) {
-    if (nodeId == null) return <String, Object?>{};
+    if (nodeId == null) return _store.groupInitialState(chatId);
     final node = _store.node(chatId, nodeId);
     final override = _map(node.extra['dshgo'])['tavernState'];
     final state = override is Map<String, Object?> ? _copy(override) : _store.nodeState(chatId, nodeId);
@@ -2622,126 +2769,150 @@ class TavernEngine implements Tavern {
       _operation(() => _appendManualMessage(chatId, text, narrator: true, speaker: speaker));
 
   Future<TavernMessage> _appendManualMessage(String chatId, String text, {required bool narrator, String? speaker}) =>
-      _withMutation(chatId, () async {
-        final chat = _store.chat(chatId);
-        final record = await _record(chat.characterId);
-        if (record == null) {
-          throw const TavernImportError('角色不存在。');
-        }
-        final leaf = chat.currentLeafId;
-        final metadata = _chatCodec.metadataForNode(_store, chatId);
-        final state = leaf == null ? _emptyChatState(metadata) : _stateAt(chatId, leaf);
-        final source = state['chatJsonlSourceFile'] ?? _map(_map(chat.metadata['dshgo'])['chatJsonl'])['rootFile'];
-        final sourceFile = source is String ? source : null;
-        if (sourceFile != null) {
-          state['chatJsonlSourceFile'] = sourceFile;
-        }
-        final cached = _liveVariables[chatId];
-        final local = cached != null && cached.leaf == leaf
-            ? _runtimeCopy(cached.values)
-            : state.containsKey('variables')
-            ? _map(state['variables'])
-            : leaf != null && sourceFile != null
-            ? <String, Object?>{}
-            : _copy(chat.variables);
-        final settings = _personaSettings(
-          _effectiveSettings(chat, metadata),
-          _personas.resolve(personaId: chat.personaId),
-        );
-        final history = _historyTo(chatId, leaf);
-        final presetRaw = _map(settings['preset']);
-        final preset = ChatPreset({
-          ...(presetRaw.isEmpty ? ChatPreset.stDefault().raw : presetRaw),
-          'show_thoughts': _config.thinking,
-        });
-        final environment = _MacroEnvironment(
-          _effectiveCard(record.card.data, settings),
-          settings,
-          local,
-          _globalVariables,
-          history,
-          _config,
-          _clock(),
-          _random,
-          _macroChatIdentity(chat, state, metadata, sourceFile, node: history.lastOrNull),
-          text,
-          'normal',
-          chatIdHash: _finiteNumber(metadata['chat_id_hash']),
-          pickRerollSeed: metadata['pick_reroll_seed'],
-          characterId: chat.characterId,
-          preset: preset,
-        );
-        final beforeGlobals = _jsonString(_globalVariables);
-        late final String expanded;
-        try {
-          // Adapted from SillyTavern (AGPL-3.0), commit
-          // 7e8663cd9c184a550b37238218bdd32c6efc68e9:
-          // public/script.js::sendMessageAsUser and
-          // public/scripts/slash-commands.js::sendNarratorMessage.
-          // sendMessageAsUser applies USER_INPUT before substitution.
-          // sendNarratorMessage instead substitutes text.trim(), without regex 3.
-          final prepared = narrator
-              ? trimJsWhitespace(text)
-              : environment.regex.apply(text, placement: RegexPlacement.userInput, expand: environment.regexExpand);
-          expanded = environment.expand(prepared, const {});
-        } catch (prepareError, prepareStackTrace) {
-          // Local state is detached, but preparation uses ST/T11's real globals.
-          // Preserve both failures when those effects cannot be saved either.
-          try {
-            if (beforeGlobals != _jsonString(_globalVariables)) {
-              await _saveDocument();
-            }
-          } catch (saveError, saveStackTrace) {
-            Error.throwWithStackTrace(
-              _PreparationSaveFailure(
-                prepareError,
-                prepareStackTrace,
-                saveError,
-                saveStackTrace,
-                operation: narrator ? 'narrate' : 'sendOnly',
-              ),
-              saveStackTrace,
-            );
-          }
-          Error.throwWithStackTrace(prepareError, prepareStackTrace);
-        }
-        // Save preparation effects before SQL: a failed write must not append a
-        // manual message. Later SQL failure rolls back local state and the tree,
-        // while already saved global preparation effects remain committed.
+      _withMutation(chatId, () => _appendMessage(chatId, text, narrator: narrator, speaker: speaker));
+
+  Future<TavernMessage> _appendMessage(
+    String chatId,
+    String text, {
+    required bool narrator,
+    String? speaker,
+    _GroupView? groupView,
+    StoredCharacter? actor,
+    Map<String, Object?>? settingsOverride,
+    TavernModelConfig? configOverride,
+    ModelCancellation? cancellation,
+  }) async {
+    final chat = _store.chat(chatId);
+    if (groupView == null) {
+      final group = _store.groupChat(chatId);
+      if (group != null) groupView = await _groups.capture(group);
+    }
+    final record = actor ?? groupView?.host ?? await _record(chat.characterId);
+    if (record == null) {
+      throw const TavernImportError('角色不存在。');
+    }
+    final leaf = chat.currentLeafId;
+    final metadata = _chatCodec.metadataForNode(_store, chatId);
+    final state = leaf == null && groupView == null ? _emptyChatState(metadata) : _stateAt(chatId, leaf);
+    final source = state['chatJsonlSourceFile'] ?? _map(_map(chat.metadata['dshgo'])['chatJsonl'])['rootFile'];
+    final sourceFile = source is String ? source : null;
+    if (sourceFile != null) {
+      state['chatJsonlSourceFile'] = sourceFile;
+    }
+    final cached = _liveVariables[chatId];
+    final local = cached != null && cached.leaf == leaf
+        ? _runtimeCopy(cached.values)
+        : state.containsKey('variables')
+        ? _map(state['variables'])
+        : leaf != null && sourceFile != null
+        ? <String, Object?>{}
+        : _copy(chat.variables);
+    final settings =
+        settingsOverride ??
+        _personaSettings(_effectiveSettings(chat, metadata), _personas.resolve(personaId: chat.personaId));
+    final config = configOverride ?? _config;
+    cancellation?.check();
+    final history = _historyTo(chatId, leaf);
+    final presetRaw = _map(settings['preset']);
+    final preset = ChatPreset({
+      ...(presetRaw.isEmpty ? ChatPreset.stDefault().raw : presetRaw),
+      'show_thoughts': config.thinking,
+    });
+    final environment = _MacroEnvironment(
+      _effectiveCard(record.card.data, settings),
+      settings,
+      local,
+      _globalVariables,
+      history,
+      config,
+      _clock(),
+      _random,
+      _macroChatIdentity(chat, state, metadata, sourceFile, node: history.lastOrNull),
+      text,
+      'normal',
+      chatIdHash: _finiteNumber(metadata['chat_id_hash']),
+      pickRerollSeed: metadata['pick_reroll_seed'],
+      characterId: record.id,
+      preset: preset,
+      groupNames: groupView?.names,
+      groupNotMuted: groupView?.enabledNames,
+    );
+    final beforeGlobals = _jsonString(_globalVariables);
+    late final String expanded;
+    try {
+      // Adapted from SillyTavern (AGPL-3.0), commit
+      // 7e8663cd9c184a550b37238218bdd32c6efc68e9:
+      // public/script.js::sendMessageAsUser and
+      // public/scripts/slash-commands.js::sendNarratorMessage.
+      // sendMessageAsUser applies USER_INPUT before substitution.
+      // sendNarratorMessage instead substitutes text.trim(), without regex 3.
+      final prepared = narrator
+          ? trimJsWhitespace(text)
+          : environment.regex.apply(text, placement: RegexPlacement.userInput, expand: environment.regexExpand);
+      expanded = environment.expand(prepared, const {});
+    } catch (prepareError, prepareStackTrace) {
+      // Local state is detached, but preparation uses ST/T11's real globals.
+      // Preserve both failures when those effects cannot be saved either.
+      try {
         if (beforeGlobals != _jsonString(_globalVariables)) {
           await _saveDocument();
         }
-        final nextState = <String, Object?>{
-          ...state,
-          'variables': _copy(local),
-          'stChatId': environment.chatId,
-          'stChatIdHash': environment.chatIdHash,
-        };
-        _initializeDshState(_stateDefinition(record.card.data), nextState, settings['stateEnabled'] != false);
-        final narratorName = metadata['narrator_name'];
-        final name = narrator
-            ? speaker ?? (narratorName is String && narratorName.isNotEmpty ? narratorName : 'System')
-            : environment.userName;
-        final message = _store.transaction(() {
-          final message = _store.append(
-            chatId,
-            parentId: leaf,
-            role: narrator ? TavernRole.narrator : TavernRole.user,
-            speaker: name,
-            text: expanded,
-            extra: narrator ? const {'type': 'narrator'} : const {},
-            state: nextState,
-          );
-          _store.updateChat(
-            chatId,
-            variables: _copy(local),
-            metadata: _runtimeMetadata(_store.chat(chatId).metadata, nextState),
-          );
-          return message;
-        });
-        _liveVariables[chatId] = (leaf: message.nodeId, values: _runtimeCopy(local));
-        return message;
-      });
+      } catch (saveError, saveStackTrace) {
+        Error.throwWithStackTrace(
+          _PreparationSaveFailure(
+            prepareError,
+            prepareStackTrace,
+            saveError,
+            saveStackTrace,
+            operation: narrator ? 'narrate' : 'sendOnly',
+          ),
+          saveStackTrace,
+        );
+      }
+      Error.throwWithStackTrace(prepareError, prepareStackTrace);
+    }
+    // Save preparation effects before SQL: a failed write must not append a
+    // manual message. Later SQL failure rolls back local state and the tree,
+    // while already saved global preparation effects remain committed.
+    if (beforeGlobals != _jsonString(_globalVariables)) {
+      await _saveDocument();
+    }
+    final nextState = <String, Object?>{
+      ...state,
+      'variables': _copy(local),
+      'stChatId': environment.chatId,
+      'stChatIdHash': environment.chatIdHash,
+    };
+    _initializeDshState(
+      _stateDefinition(groupView?.host.card.data ?? record.card.data),
+      nextState,
+      settings['stateEnabled'] != false,
+    );
+    final narratorName = metadata['narrator_name'];
+    final name = narrator
+        ? speaker ?? (narratorName is String && narratorName.isNotEmpty ? narratorName : 'System')
+        : environment.userName;
+    cancellation?.check();
+    final message = _store.transaction(() {
+      final message = _store.append(
+        chatId,
+        parentId: leaf,
+        role: narrator ? TavernRole.narrator : TavernRole.user,
+        speaker: name,
+        text: expanded,
+        extra: narrator ? const {'type': 'narrator'} : const {},
+        state: nextState,
+      );
+      _store.updateChat(
+        chatId,
+        variables: _copy(local),
+        metadata: _runtimeMetadata(_store.chat(chatId).metadata, nextState),
+      );
+      return message;
+    });
+    _liveVariables[chatId] = (leaf: message.nodeId, values: _runtimeCopy(local));
+    return message;
+  }
 
   @override
   Stream<TavernEvent> regenerate(String chatId, String nodeId) =>
@@ -2760,6 +2931,13 @@ class TavernEngine implements Tavern {
         try {
           _ensureOpen();
           _store.chat(chatId);
+          if (_groups.rounds.containsKey(chatId)) {
+            controller.add(
+              const TavernTurnFailed(TavernFailure.invalidParameters, detail: 'group_requires_resumeGroupTurn'),
+            );
+            unawaited(controller.close());
+            return;
+          }
           final turn = _turns[chatId];
           if (turn == null || turn.finished) {
             unawaited(controller.close());
@@ -2791,6 +2969,7 @@ class TavernEngine implements Tavern {
 
   @override
   void stop(String chatId) {
+    _groups.cancel(chatId);
     _turns[chatId]?.cancellation.cancel();
   }
 
@@ -2807,13 +2986,46 @@ class TavernEngine implements Tavern {
             return;
           }
           final chat = _store.chat(chatId);
+          if (_mainBusy(chatId) || _mutations.containsKey(chatId)) {
+            controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
+            unawaited(controller.close());
+            return;
+          }
+          final group = _store.groupChat(chatId);
+          if (group != null && (kind == _TurnKind.send || kind == _TurnKind.impersonate)) {
+            controller.add(
+              TavernTurnFailed(
+                TavernFailure.invalidParameters,
+                detail: kind == _TurnKind.send ? 'group_requires_sendGroup' : 'group_impersonate_unsupported',
+              ),
+            );
+            unawaited(controller.close());
+            return;
+          }
+          var actorId = chat.characterId;
+          var actorConfig = _config;
+          if (group != null) {
+            final targetId = nodeId == null ? null : _store.node(chatId, nodeId).message.speakerCharacterId;
+            final member = group.members.where((item) => item.characterId == targetId).firstOrNull;
+            if (member == null) {
+              controller.add(
+                const TavernTurnFailed(TavernFailure.invalidParameters, detail: 'group_actor_not_in_roster'),
+              );
+              unawaited(controller.close());
+              return;
+            }
+            actorId = member.characterId;
+            actorConfig = _groupModelConfig(_config, member.modelRole);
+          }
           final selection = _personas.resolve(personaId: chat.personaId);
           final presetSelection = _resolvePreset(chat).selection;
-          if (_turns.containsKey(chatId) ||
+          if (_mainBusy(chatId) ||
               _mutations.containsKey(chatId) ||
               _globalPresetUpdate ||
               _deletingPresets.contains(presetSelection.effectivePresetId) ||
               _deletingCharacters.contains(chat.characterId) ||
+              _deletingCharacters.contains(actorId) ||
+              group?.members.any((member) => _deletingCharacters.contains(member.characterId)) == true ||
               _deletingPersonas.contains(selection.persona?.id)) {
             controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
             unawaited(controller.close());
@@ -2829,13 +3041,14 @@ class TavernEngine implements Tavern {
             input,
             nodeId,
             controller,
-            _config,
+            actorConfig,
             _personaSettings(_effectiveSettings(chat, metadata), selection),
             _clock(),
             selection,
             metadata,
             sourceFile is String ? sourceFile : null,
             presetSelection.effectivePresetId,
+            actorId: actorId,
           );
           turn = running;
           running.directorCaptured = _directors.latestSuccess(chatId);
@@ -2867,14 +3080,25 @@ class TavernEngine implements Tavern {
     try {
       beforeGlobals = _jsonString(_globalVariables);
       turn.originalVariables = _runtimeCopy(_liveVariables[chatId]?.values ?? turn.chat.variables);
-      turn.secretCardRevision = _directors._cardRevisions[turn.chat.characterId] ?? 0;
+      turn.secretCardRevision ??= _directors._cardRevisions[turn.chat.characterId] ?? 0;
       // Cancellation releases the turn, not its actual local file work.
       // Keep the original read owned until every character file has drained.
-      final record = await turn.cancellation.wait(_trackOperation(_record(turn.chat.characterId)));
+      if (turn.groupView == null) {
+        final group = _store.groupChat(chatId);
+        if (group != null) {
+          turn.groupView = await turn.cancellation.wait(
+            _trackOperation(_groups.capture(group, checkCancelled: turn.cancellation.check)),
+          );
+        }
+      }
+      final record = turn.groupView == null
+          ? await turn.cancellation.wait(_trackOperation(_record(turn.actorId)))
+          : turn.groupView!.cards[turn.actorId];
       if (record == null) throw const TavernImportError('角色不存在。');
       turn.cancellation.check();
       final data = _effectiveCard(record.card.data, turn.settings);
-      turn.directorCard = _copy(data);
+      final hostData = _effectiveCard(turn.groupView?.host.card.data ?? record.card.data, turn.settings);
+      turn.directorCard = _copy(hostData);
       StoredNode? target;
       if (turn.nodeId != null) {
         target = _store.node(chatId, turn.nodeId!);
@@ -2888,7 +3112,9 @@ class TavernEngine implements Tavern {
       // A successful impersonation may update the terminal state of an empty
       // chat without adding a node. Only a turn starting at that empty current
       // end may resume it; an empty regenerate prefix has no such snapshot.
-      var state = parent == null && turn.chat.currentLeafId == null && turn.kind != _TurnKind.regenerate
+      var state = turn.groupView != null && parent == null
+          ? _stateAt(chatId, null)
+          : parent == null && turn.chat.currentLeafId == null && turn.kind != _TurnKind.regenerate
           ? _emptyChatState(turn.metadata)
           : _stateAt(chatId, parent);
       if (turn.sourceFile != null) state['chatJsonlSourceFile'] = turn.sourceFile;
@@ -2902,16 +3128,16 @@ class TavernEngine implements Tavern {
           : _copy(turn.chat.variables);
       turn.variables = local;
       turn.state = state;
-      _bindSecretTurn(this, turn, data, parent, target, (next, restored) {
+      _bindSecretTurn(this, turn, hostData, parent, target, (next, restored) {
         state = next;
         turn.state = next;
         target = restored;
         turn.originalTarget = restored;
       });
-      _prepareStateTurn(turn, data);
+      _prepareStateTurn(turn, hostData);
       final history = _historyTo(chatId, parent);
-      turn.directorPrepared = _directors.prepare(turn, data, parent);
-      _prepareCardEventTurn(this, turn, data);
+      turn.directorPrepared = _directors.prepare(turn, hostData, parent);
+      _prepareCardEventTurn(this, turn, hostData);
       // An inactive target can rewrite remembered edges outside the old active
       // path. Preserve only edges activation can change, including a null
       // selection with still-stored, unselected children below it.
@@ -2946,7 +3172,9 @@ class TavernEngine implements Tavern {
         turn.generationType,
         chatIdHash: _finiteNumber(turn.metadata['chat_id_hash']),
         pickRerollSeed: turn.metadata['pick_reroll_seed'],
-        characterId: turn.chat.characterId,
+        characterId: turn.actorId,
+        groupNames: turn.groupView?.names,
+        groupNotMuted: turn.groupView?.enabledNames,
         preset: preset,
       );
       turn.environment = environment;
@@ -3003,9 +3231,10 @@ class TavernEngine implements Tavern {
       final books = await turn.cancellation.wait(
         _trackOperation(
           _loadBooks(
-            turn.chat.characterId,
+            turn.actorId,
             data,
             turn.settings,
+            group: turn.groupView,
             personaId: turn.personaSelection.persona?.id,
             stWorldNames: {if (activeWorldName is String && activeBookId is String) activeBookId: activeWorldName},
             checkCancelled: turn.cancellation.check,
@@ -3052,8 +3281,8 @@ class TavernEngine implements Tavern {
           scenario: prepared['scenario'],
           creatorNotes: prepared['creator_notes'],
           trigger: turn.generationType,
-          characterName: _characterFilename(turn.settings, turn.chat.characterId),
-          characterTags: _characterTags(turn.settings, turn.chat.characterId),
+          characterName: _characterFilename(turn.settings, turn.actorId),
+          characterTags: _characterTags(turn.settings, turn.actorId),
           timedWorldInfo: _map(state['timedWorldInfo']),
           decoratorState: _map(state['decoratorState']),
           assistantMessageCount: eligibleHistory.where((node) => node.message.role == TavernRole.character).length,
@@ -3084,7 +3313,7 @@ class TavernEngine implements Tavern {
         ..._finishInjections(initialInjections, world, deepseek: turn.config.deepseek),
         ..._stateTurnInjections(turn),
         ..._cardEventTurnInjections(turn),
-        ..._secretTurnInjections(this, turn, data),
+        ..._secretTurnInjections(this, turn, hostData),
         ..._directorInjections(turn),
       ];
       final examples = [for (var index = 0; index < world.activated.length; index++) (index, world.activated[index])];
@@ -3101,7 +3330,8 @@ class TavernEngine implements Tavern {
           history: [for (final node in promptHistory) _promptHistory(node)],
           model: turn.config.model,
           userName: environment.userName,
-          characterId: turn.chat.characterId,
+          characterId: turn.actorId,
+          groupNames: turn.groupView?.names ?? const [],
           generationType: turn.generationType,
           deepseek: turn.config.deepseek,
           persona: environment.persona,
@@ -3165,6 +3395,17 @@ class TavernEngine implements Tavern {
       _captureCardEventAssembly(turn, assembly);
       _captureSecretAssembly(turn, assembly);
       _captureDirectorAssembly(this, turn, assembly, world);
+      if (turn.groupRound case final round?) {
+        _setInspection(
+          turn,
+          turn.inspection.copyWith(
+            director: {
+              ...turn.inspection.director,
+              'groupSelection': {'roundId': round.id, 'plannedCharacterIds': round.planned, 'issues': round.issues},
+            },
+          ),
+        );
+      }
       if (turn.stateDefinition != null || _hasSecretTrace(turn)) {
         _setInspection(turn, turn.inspection.copyWith(state: _statePreparationTrace(turn)));
       }
@@ -3195,15 +3436,28 @@ class TavernEngine implements Tavern {
             _store.selectNode(chatId, message.nodeId, restoreDescendants: false);
             final extra = _copy(continuationTarget.extra);
             extra['dshgo'] = {..._map(extra['dshgo']), 'tavernState': turn.currentState};
-            message = _store.updateMessage(chatId, message.nodeId, extra: extra);
+            if (turn.groupView != null) {
+              final own = _map(extra['dshgo']);
+              own['group'] = {
+                ..._map(own['group']),
+                'version': 1,
+                'actorCharacterId': turn.actorId,
+                'model': turn.config.model,
+                'deepseek': turn.config.deepseek,
+              };
+              extra['dshgo'] = own;
+            }
+            message = _store.updateMessage(chatId, message.nodeId, extra: extra, speakerCharacterId: turn.actorId);
           } else {
             message = _store.append(
               chatId,
               parentId: parent,
               role: TavernRole.character,
               speaker: record.card.promptName,
+              speakerCharacterId: turn.actorId,
               text: '',
               state: turn.currentState,
+              extra: _groupReplyExtra(turn),
             );
           }
           final inspection = turn.inspection.copyWith(nodeId: message.nodeId);
@@ -3225,7 +3479,9 @@ class TavernEngine implements Tavern {
       turn.cancellation.check();
       final stateSettlement = _settleStateTurn(this, turn, successful: true);
       turn.stateAttempt = stateSettlement;
-      final storySettlement = _settleStoryTurn(this, turn, stateSettlement?.state ?? turn.currentState);
+      final storySettlement = turn.groupRound == null
+          ? _settleStoryTurn(this, turn, stateSettlement?.state ?? turn.currentState)
+          : null;
       turn.storyAttempt = storySettlement;
       _commitTurn(
         turn,
@@ -3233,9 +3489,10 @@ class TavernEngine implements Tavern {
         stateSettlement: stateSettlement,
         storySettlement: storySettlement,
       );
+      _groups.actorCommitted(turn);
       turn.emit(TavernTurnDone(_latest(turn), finishReason: turn.finishReason));
       turn.terminal = true;
-      _directors.afterTurn(turn);
+      if (turn.groupRound == null) _directors.afterTurn(turn);
     } catch (error) {
       var failure = error is TavernModelException
           ? error.kind
@@ -3329,6 +3586,7 @@ class TavernEngine implements Tavern {
     String? personaId,
     Map<String, String> stWorldNames = const {},
     void Function()? checkCancelled,
+    _GroupView? group,
   }) async {
     final result = <WorldInfoBook>[];
     final missing = <Map<String, Object?>>[];
@@ -3336,7 +3594,10 @@ class TavernEngine implements Tavern {
     for (final source in WorldInfoSource.values) {
       final ids = <String>[
         ..._strings(bindings[source.name]),
-        if (source == WorldInfoSource.character) ..._strings(_map(settings['characterLorebooks'])[characterId]),
+        if (source == WorldInfoSource.character)
+          for (final id
+              in group == null ? [characterId] : [for (final member in group.group.members) member.characterId])
+            ..._strings(_map(settings['characterLorebooks'])[id]),
         if (source == WorldInfoSource.persona && personaId != null)
           ..._strings(_map(settings['personaLorebooks'])[personaId]),
       ];
@@ -3359,9 +3620,17 @@ class TavernEngine implements Tavern {
       }
     }
     checkCancelled?.call();
-    final embedded = data['character_book'];
-    if (embedded is Map<String, Object?>) {
-      result.add(WorldInfoBook.fromJson(id: '$characterId:card', source: WorldInfoSource.character, json: embedded));
+    final embeddedCards = group == null
+        ? <String, Map<String, Object?>>{characterId: data}
+        : {
+            for (final member in group.group.members)
+              if (group.cards[member.characterId] case final card?) member.characterId: card.card.data,
+          };
+    for (final card in embeddedCards.entries) {
+      final embedded = card.value['character_book'];
+      if (embedded is Map<String, Object?>) {
+        result.add(WorldInfoBook.fromJson(id: '${card.key}:card', source: WorldInfoSource.character, json: embedded));
+      }
     }
     return (loaded: result, missing: missing);
   }
@@ -3594,6 +3863,7 @@ class TavernEngine implements Tavern {
       parentId: reply.parentId,
       role: reply.role,
       speaker: reply.speaker,
+      speakerCharacterId: reply.speakerCharacterId,
       text: turn.text!.toString(),
       reasoning: reasoning.isEmpty && reply.reasoning == null ? null : reasoning,
       at: reply.at,
@@ -3643,6 +3913,8 @@ class TavernEngine implements Tavern {
           text: message.text,
           reasoning: message.reasoning,
           clearReasoning: message.reasoning == null,
+          speakerCharacterId: message.speakerCharacterId,
+          clearSpeakerCharacterId: message.speakerCharacterId == null,
           usage: message.usage,
           clearUsage: message.usage == null,
           extra: original.extra,
@@ -3750,7 +4022,7 @@ class TavernEngine implements Tavern {
   @override
   Future<TavernBackupInfo> backup(String destinationPath) {
     _ensureOpen();
-    if (_backupInProgress || _turns.isNotEmpty || _directors.hasJobs) {
+    if (_backupInProgress || _turns.isNotEmpty || _groups.rounds.isNotEmpty || _directors.hasJobs) {
       return Future.error(const TavernModelException(TavernFailure.busy, 'backup_busy'));
     }
     // Close admission before draining. Capture the prior operations BEFORE
@@ -3813,14 +4085,21 @@ class TavernEngine implements Tavern {
 
   Future<void> _close() async {
     _closing = true;
+    for (final group in _groups.rounds.values) {
+      group.cancel();
+    }
     for (final turn in _turns.values) {
       turn.cancellation.cancel();
     }
     await _directors.close();
     // Unblock guarded work before waiting for operations that may own it.
     await Future.wait([_regexWorker.close(), _keywordWorker.close()]);
-    while (_turns.isNotEmpty || _operations.isNotEmpty) {
-      await Future.wait<void>([..._operations, for (final turn in _turns.values) turn.done.future]);
+    while (_turns.isNotEmpty || _groups.rounds.isNotEmpty || _operations.isNotEmpty) {
+      await Future.wait<void>([
+        ..._operations,
+        for (final turn in _turns.values) turn.done.future,
+        for (final group in _groups.rounds.values) group.done.future,
+      ]);
     }
     await _fileQueue;
     await _libraryQueue;
@@ -3909,16 +4188,19 @@ class _Turn {
     this.kind,
     this.input,
     this.nodeId,
-    StreamController<TavernEvent> controller,
+    StreamController<TavernEvent>? controller,
     this.config,
     this.settings,
     this.at,
     this.personaSelection,
     this.metadata,
     this.sourceFile,
-    this.presetId,
-  ) {
-    observers.add(controller);
+    this.presetId, {
+    String? actorId,
+    this.groupView,
+    this.groupRound,
+  }) : actorId = actorId ?? chat.characterId {
+    if (controller != null) observers.add(controller);
     inspection = TavernTurnInspection(
       chatId: chat.id,
       contextNodeId: chat.currentLeafId,
@@ -3939,6 +4221,10 @@ class _Turn {
   final Map<String, Object?> metadata;
   final String? sourceFile;
   final String? presetId;
+  final String actorId;
+  _GroupView? groupView;
+  final _GroupRound? groupRound;
+  void Function(TavernEvent)? onEvent;
   final cancellation = ModelCancellation();
   final done = Completer<void>();
   bool finished = false;
@@ -4024,6 +4310,7 @@ class _Turn {
 
   void emit(TavernEvent event) {
     if (terminal) return;
+    onEvent?.call(event);
     for (final observer in observers) {
       if (!observer.isClosed) observer.add(event);
     }
@@ -4035,6 +4322,7 @@ TavernMessage _withReportedUsage(TavernMessage message, TavernUsage? usage) => T
   parentId: message.parentId,
   role: message.role,
   speaker: message.speaker,
+  speakerCharacterId: message.speakerCharacterId,
   text: message.text,
   reasoning: message.reasoning,
   at: message.at,
@@ -4061,6 +4349,8 @@ class _MacroEnvironment {
     this.chatIdHash,
     this.pickRerollSeed,
     this.characterId = '',
+    this.groupNames,
+    this.groupNotMuted,
     ChatPreset? preset,
   }) {
     final raw = _map(settings['preset']);
@@ -4078,6 +4368,8 @@ class _MacroEnvironment {
   num? chatIdHash;
   final Object? pickRerollSeed;
   final String characterId;
+  final List<String>? groupNames;
+  final List<String>? groupNotMuted;
   final String input;
   final String generationType;
   final outlets = <String, String>{};
@@ -4114,6 +4406,8 @@ class _MacroEnvironment {
     localVariables: local,
     globalVariables: global,
     card: card,
+    group: groupNames?.join(', '),
+    groupNotMuted: groupNotMuted?.join(', '),
     userName: userName,
     persona: persona,
     history: _MacroHistory(history),
@@ -4452,6 +4746,14 @@ List<StoredNode> _preparePromptHistory(
   var additions = 0;
   for (var index = transformed.length - 1; index >= 0; index--) {
     final node = transformed[index];
+    if (environment.groupNames != null) {
+      final provenance = _map(_map(node.extra['dshgo'])['group']);
+      if (node.message.speakerCharacterId != environment.characterId ||
+          provenance['model'] != environment.config.model ||
+          provenance['deepseek'] != environment.config.deepseek) {
+        continue;
+      }
+    }
     final depth = transformed.length - index - (continuing ? 2 : 1);
     final reasoning = environment.regex.apply(
       node.message.reasoning ?? '',
@@ -4574,6 +4876,7 @@ StoredNode _nodeWithText(StoredNode node, String text) {
       parentId: value.parentId,
       role: value.role,
       speaker: value.speaker,
+      speakerCharacterId: value.speakerCharacterId,
       text: text,
       reasoning: value.reasoning,
       at: value.at,

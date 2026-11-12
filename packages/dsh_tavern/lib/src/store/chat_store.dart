@@ -162,7 +162,7 @@ class ChatStore {
     return ChatStore._(database, clock: clock, createId: createId);
   }
 
-  static const schemaVersion = 6;
+  static const schemaVersion = 7;
 
   // Keys are destination versions. Future upgrades register every successor
   // here and increase schemaVersion; no existing schema is dropped or replayed.
@@ -174,6 +174,7 @@ class ChatStore {
     4: _schemaV4,
     5: _schemaV5,
     6: _schemaV6,
+    7: _schemaV7,
   };
   final Database _db;
   final DateTime Function() _clock;
@@ -822,6 +823,92 @@ class ChatStore {
     );
   }
 
+  /// A group keeps its real host in chats.character_id. Library existence is
+  /// projected by the engine; the SQL roster never guesses a card by name.
+  TavernGroupChat? groupChat(String chatId) {
+    _ensureOpen();
+    final rows = _db.select(
+      '''SELECT g.*, c.character_id, char(1) || c.title AS title
+      FROM group_chats g JOIN chats c ON c.id = g.chat_id WHERE g.chat_id = ?''',
+      [chatId],
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.single;
+    return TavernGroupChat(
+      chatId: chatId,
+      title: _unguardText(row['title'])!,
+      hostCharacterId: row['character_id'] as String,
+      activation: TavernGroupActivation.values.byName(row['activation'] as String),
+      maxSpeakersPerTurn: row['max_speakers'] as int,
+      allowSelfResponses: row['allow_self_responses'] == 1,
+      members: [
+        for (final member in _db.select('SELECT * FROM group_members WHERE chat_id = ? ORDER BY position', [chatId]))
+          TavernGroupMember(
+            characterId: member['character_id'] as String,
+            talkativeness: (member['talkativeness'] as num).toDouble(),
+            muted: member['muted'] == 1,
+            modelRole: TavernGroupModelRole.values.byName(member['model_role'] as String),
+          ),
+      ],
+    );
+  }
+
+  void saveGroup(TavernGroupChat group) {
+    transaction(() {
+      final chat = _chatRow(group.chatId);
+      if (chat['character_id'] != group.hostCharacterId) throw StateError('A group host cannot be rebound.');
+      _db.execute(
+        '''INSERT INTO group_chats (chat_id, activation, max_speakers, allow_self_responses)
+        VALUES (?, ?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET
+        activation = excluded.activation, max_speakers = excluded.max_speakers,
+        allow_self_responses = excluded.allow_self_responses''',
+        [group.chatId, group.activation.name, group.maxSpeakersPerTurn, group.allowSelfResponses ? 1 : 0],
+      );
+      _db.execute('DELETE FROM group_members WHERE chat_id = ?', [group.chatId]);
+      for (var index = 0; index < group.members.length; index++) {
+        final member = group.members[index];
+        _db.execute(
+          '''INSERT INTO group_members
+          (chat_id, character_id, position, talkativeness, muted, model_role) VALUES (?, ?, ?, ?, ?, ?)''',
+          [group.chatId, member.characterId, index, member.talkativeness, member.muted ? 1 : 0, member.modelRole.name],
+        );
+      }
+      updateChat(group.chatId, title: group.title);
+    });
+  }
+
+  Map<String, Object?> groupInitialState(String chatId) {
+    final rows = _db.select('SELECT initial_state FROM group_chats WHERE chat_id = ?', [chatId]);
+    return rows.isEmpty ? <String, Object?>{} : _map(rows.single['initial_state']);
+  }
+
+  void setGroupInitialState(String chatId, Map<String, Object?> state) {
+    transaction(() {
+      if (groupChat(chatId) == null) throw StateError('Group not found: $chatId');
+      _db.execute('UPDATE group_chats SET initial_state = ? WHERE chat_id = ?', [jsonEncode(state), chatId]);
+      _touch(chatId);
+    });
+  }
+
+  List<String> groupHostChats(String characterId) => [
+    for (final row in _db.select(
+      '''SELECT c.id FROM chats c JOIN group_chats g ON g.chat_id = c.id
+      WHERE c.character_id = ? ORDER BY c.id''',
+      [characterId],
+    ))
+      row['id'] as String,
+  ];
+
+  void removeCharacterGroupMemberships(String characterId) {
+    transaction(() {
+      final affected = _db.select('SELECT chat_id FROM group_members WHERE character_id = ?', [characterId]);
+      _db.execute('DELETE FROM group_members WHERE character_id = ?', [characterId]);
+      for (final row in affected) {
+        _touch(row['chat_id'] as String);
+      }
+    });
+  }
+
   /// Explicit persona bindings in the same recency order as [listChats].
   /// Selection and cleanup do not need message bodies or chat JSON documents.
   List<({String id, String? personaId})> listChatPersonaBindings() {
@@ -836,9 +923,10 @@ class ChatStore {
   Map<String, ({int count, DateTime lastAt})> characterChatStats() {
     _ensureOpen();
     return {
-      for (final row in _db.select(
-        'SELECT character_id, COUNT(*) AS chat_count, MAX(updated_at) AS last_at FROM chats GROUP BY character_id',
-      ))
+      for (final row in _db.select('''SELECT ids.character_id, COUNT(*) AS chat_count, MAX(c.updated_at) AS last_at
+          FROM (SELECT id AS chat_id, character_id FROM chats
+            UNION SELECT chat_id, character_id FROM group_members) ids
+          JOIN chats c ON c.id = ids.chat_id GROUP BY ids.character_id'''))
         row['character_id'] as String: (count: row['chat_count'] as int, lastAt: _date(row['last_at'])),
     };
   }
@@ -847,10 +935,13 @@ class ChatStore {
     _ensureOpen();
     final rows = _db.select(
       '''SELECT c.id, c.character_id, char(1) || c.title AS title, c.updated_at,
-                char(1) || COALESCE(n.stream_text, n.text) AS last_text, COALESCE(n.depth, 0) AS message_count
+                char(1) || COALESCE(n.stream_text, n.text) AS last_text, COALESCE(n.depth, 0) AS message_count,
+                EXISTS(SELECT 1 FROM group_chats g WHERE g.chat_id = c.id) AS is_group
          FROM chats c LEFT JOIN nodes n ON n.id = c.current_leaf_id AND n.deleted_by IS NULL
-         WHERE (? IS NULL OR c.character_id = ?) ORDER BY c.updated_at DESC, c.id''',
-      [characterId, characterId],
+         WHERE (? IS NULL OR c.character_id = ? OR EXISTS(
+           SELECT 1 FROM group_members m WHERE m.chat_id = c.id AND m.character_id = ?))
+         ORDER BY c.updated_at DESC, c.id''',
+      [characterId, characterId, characterId],
     );
     return [
       for (final row in rows)
@@ -861,6 +952,10 @@ class ChatStore {
           updatedAt: _date(row['updated_at']),
           lastText: _unguardText(row['last_text']),
           messageCount: row['message_count'] as int,
+          kind: row['is_group'] == 1 ? TavernChatKind.group : TavernChatKind.single,
+          memberCharacterIds: row['is_group'] == 1
+              ? [for (final member in groupChat(row['id'] as String)!.members) member.characterId]
+              : const [],
         ),
     ];
   }
@@ -908,6 +1003,7 @@ class ChatStore {
     required String text,
     String? id,
     String? reasoning,
+    String? speakerCharacterId,
     DateTime? at,
     bool hidden = false,
     bool makeCurrent = true,
@@ -923,8 +1019,8 @@ class ChatStore {
       final nodeId = id ?? _createId();
       _db.execute(
         '''INSERT INTO nodes
-           (id, chat_id, parent_id, depth, role, speaker, text, reasoning, at, hidden, usage, reported_usage, extra, original)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+           (id, chat_id, parent_id, depth, role, speaker, text, reasoning, at, hidden, usage, reported_usage, extra, original, speaker_character_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         [
           nodeId,
           chatId,
@@ -940,6 +1036,7 @@ class ChatStore {
           _reportedUsage(extra, chatId, nodeId),
           jsonEncode(extra),
           jsonEncode(original),
+          speakerCharacterId,
         ],
       );
       final parentSnapshot = parentId == null ? null : _nodeStateSnapshot(chatId, parentId);
@@ -1194,7 +1291,9 @@ ORDER BY n.seq
     String nodeId, {
     String? text,
     String? reasoning,
+    String? speakerCharacterId,
     TavernUsage? usage,
+    bool clearSpeakerCharacterId = false,
     bool clearReasoning = false,
     bool clearUsage = false,
     Map<String, Object?>? extra,
@@ -1214,6 +1313,9 @@ ORDER BY n.seq
       // UPDATE OF text drives the FTS trigger. Metadata-only writes must not
       // name text, and must not promote an in-progress body as a side effect.
       if (text != null || promote) put('text', text ?? _unguardText(row['stream_text']));
+      if (speakerCharacterId != null || clearSpeakerCharacterId) {
+        put('speaker_character_id', clearSpeakerCharacterId ? null : speakerCharacterId);
+      }
       if (reasoning != null || clearReasoning || promote) {
         put(
           'reasoning',
@@ -1509,8 +1611,16 @@ ORDER BY n.seq
 
   void deleteCharacterChats(String characterId) {
     transaction(() {
-      final rows = _db.select('SELECT id FROM chats WHERE character_id = ?', [characterId]);
-      _db.execute('DELETE FROM chats WHERE character_id = ?', [characterId]);
+      final rows = _db.select(
+        '''SELECT id FROM chats WHERE character_id = ?
+        AND NOT EXISTS(SELECT 1 FROM group_chats g WHERE g.chat_id = chats.id)''',
+        [characterId],
+      );
+      _db.execute(
+        '''DELETE FROM chats WHERE character_id = ?
+        AND NOT EXISTS(SELECT 1 FROM group_chats g WHERE g.chat_id = chats.id)''',
+        [characterId],
+      );
       _changedChats.addAll(rows.map((row) => row['id'] as String));
     });
   }
@@ -1795,6 +1905,7 @@ ORDER BY n.seq
     parentId: row['parent_id'] as String?,
     role: TavernRole.values.byName(row['role'] as String),
     speaker: _unguardText(row['speaker'])!,
+    speakerCharacterId: _unguardText(row['speaker_character_id']),
     text: _unguardText(row['stream_text'] ?? row['text'])!,
     reasoning: _unguardText(row['stream_text'] != null ? row['stream_reasoning'] : row['reasoning']),
     at: _date(row['at']),
@@ -1891,7 +2002,7 @@ ORDER BY n.seq
     char(1) || n.speaker AS speaker, char(1) || n.text AS text,
     char(1) || n.reasoning AS reasoning, n.at, n.hidden, n.usage, n.extra, n.original,
     char(1) || n.stream_text AS stream_text, char(1) || n.stream_reasoning AS stream_reasoning,
-    n.deleted_by, n.reported_usage''';
+    n.deleted_by, n.reported_usage, char(1) || n.speaker_character_id AS speaker_character_id''';
 
   static const _chatColumns = '''
     c.id, c.character_id, char(1) || c.title AS title, c.created_at, c.updated_at,
@@ -1979,6 +2090,27 @@ CREATE TRIGGER nodes_fts_update AFTER UPDATE OF text, speaker ON nodes BEGIN
   INSERT INTO nodes_fts(nodes_fts, rowid, text, speaker) VALUES ('delete', old.seq, old.text, old.speaker);
   INSERT INTO nodes_fts(rowid, text, speaker) VALUES (new.seq, new.text, new.speaker);
 END;
+''';
+
+  static const _schemaV7 = '''
+ALTER TABLE nodes ADD COLUMN speaker_character_id TEXT;
+CREATE TABLE group_chats (
+  chat_id TEXT PRIMARY KEY NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+  activation TEXT NOT NULL,
+  max_speakers INTEGER NOT NULL CHECK(max_speakers > 0),
+  allow_self_responses INTEGER NOT NULL CHECK(allow_self_responses IN (0, 1)),
+  initial_state TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE group_members (
+  chat_id TEXT NOT NULL REFERENCES group_chats(chat_id) ON DELETE CASCADE,
+  character_id TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  talkativeness REAL NOT NULL CHECK(talkativeness >= 0 AND talkativeness <= 1),
+  muted INTEGER NOT NULL CHECK(muted IN (0, 1)),
+  model_role TEXT NOT NULL,
+  PRIMARY KEY(chat_id, character_id)
+);
+CREATE INDEX group_members_character ON group_members(character_id);
 ''';
 
   static const _schemaV6 = '''

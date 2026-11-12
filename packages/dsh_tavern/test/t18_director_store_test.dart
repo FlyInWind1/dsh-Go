@@ -156,7 +156,7 @@ void main() {
     expect(empty.result['sourceKind'], 'empty');
     expect(empty.result['sourceNodeId'], isNull);
     expect(h.database.select('PRAGMA foreign_key_check'), isEmpty);
-    expect(h.database.select('PRAGMA user_version').single['user_version'], 6);
+    expect(h.database.select('PRAGMA user_version').single['user_version'], 7);
   });
 
   test('summaries require both endpoints in source order and exclude other branches and chats', () async {
@@ -337,7 +337,7 @@ void main() {
       expect(h.store.directorMemories(chat).last.valid, isFalse);
       expect(h.store.directorMemories(chat).last.entry, isEmpty);
       expect(h.rows(), before);
-      expect(h.database.select('PRAGMA user_version').single['user_version'], 6);
+      expect(h.database.select('PRAGMA user_version').single['user_version'], 7);
     },
   );
 }

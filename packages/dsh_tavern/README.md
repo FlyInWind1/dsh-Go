@@ -1003,3 +1003,77 @@ createChat 将选中的 first_mes 或 alternate_greetings 原文直接交给 AI_
 本包仍按原合同执行 AI_OUTPUT 正则→整段宏展开→去 CR，并保留局部状态、SQL 事务和已发生全局效果的失败处理。公开 greeting 索引仍是 0 对应 first_mes、其后按原 alternate 顺序计数；空字符串占位，选择空项仍保存空正文根，greetingIndex 保留实际索引，不模拟 ST 界面在空 first_mes 时重排默认项的行为。
 
 新增两个公开门面回归使用真实文件／SQLite、字段编辑、JSONL 导出与一次重开，不调用模型；第二项只检验本包既有处理次序，不声称执行过 ST 整体创建与宏展开流程。实际 Dart 结果及唯一核心的旧产品差异仍待本机验证。
+
+# P2 G1–G3：共用聊天树的群聊
+
+本层实现已交付 `P2-API.md` 的群聊 A 部分。每批使用同一聊天树，演员按有限计划逐个完成；下一人读取前一人已经提交的正文、普通变量和主持状态。没有循环调用公共 `send`，也没有并行演员请求。这里描述候选源码行为；本地未运行 Dart、formatter 或测试，实际验证结果以本层代跑回件为准。
+
+## 建群、成员与旧入口
+
+```dart
+final groupId = await tavern.createGroupChat(
+  [aliceId, bobId],
+  hostCharacterId: hostId,
+  activation: TavernGroupActivation.listOrder,
+  maxSpeakersPerTurn: 3,
+  addGreetings: false,
+);
+await tavern.updateGroupMember(groupId, bobId,
+    talkativeness: 0.5, modelRole: TavernGroupModelRole.helper);
+final events = tavern.sendGroup(groupId, '一起讨论下一步。');
+// 明确让某一成员说一次；允许覆盖该成员的 mute。
+final oneSpeaker = tavern.sendGroup(groupId, '', speakerCharacterId: bobId);
+```
+
+两个返回的 stream 都在监听时接纳，示例中的调用本身不会启动模型；同一聊天只能监听接纳一个主操作，另一个会得到 busy。`groupChat` / `watchGroupChat` 返回不可变的成员快照；`addGroupMember`、`updateGroupMember`、`removeGroupMember`、`reorderGroupMembers` 和 `updateGroupChat` 返回更新后的完整配置。调用时复制成员列表，排队后不会重读调用方的可变 List。
+
+主持必须是真实库卡，缺省为首成员，可以不在发言名单；有显式主持可建空名单，名单移空仍是群聊。主持定义来源首版不可隐式重绑。`deleteCharacter` 若仍被任何群用作主持，返回 `TavernGroupException(hostInUse)` 和 `relatedChatIds`，在库队列实际删除前再次检查；移除主持的发言席位不改变这个引用。删除非主持卡先取消排空受影响批次，再移出名单，保留群历史和旧发言 ID。文件删除与 SQL 不承诺跨资源原子；文件已失而 SQL 未完成时读取可显示 `available=false`，不会因此删除群。
+
+成员 ID 必须存在且不重复。talkativeness 的显式输入必须是有限 0..1；缺省从卡读取并规范化，非法或缺失用 0.5，随后作为群偏好独立保存。update 的 null 表示不改；重排必须是完整排列；上限为正整数。CRUD 校验经 Future 返回 `TavernGroupException` 的领域 code，真实 I/O 错误保留存储失败。无群或单聊的 `groupChat` 为 null。
+
+| 入口 | 群行为 |
+| --- | --- |
+| `sendGroup` / `resumeGroupTurn` | 新群事件流；明确点名只排一人，重连只给当前快照和后续事件 |
+| `send` | 空闲群为 invalidParameters / `group_requires_sendGroup`；已有同聊天主操作时先返回 busy |
+| `resumeTurn` | 活跃群批次为 `group_requires_resumeGroupTurn`；群内单次重做仍用原入口观察 |
+| `regenerate` / `continueReply` | 从目标 `speakerCharacterId` 选当前在册演员及模型角色，只生成一人；未知身份、移出名单或缺失卡明确失败，静音不阻止显式重做 |
+| `impersonate` | 空闲群为 invalidParameters / `group_impersonate_unsupported` |
+| `sendOnly` / `narrate` | 取消并排空整个批次，再用主持环境写一条，无模型调用 |
+| `stop` / 树结构编辑 / 成员配置编辑 | stop 取消整批；结构编辑先取消排空，之后才修改，不等待暂停的 observer |
+
+## 调度、流与费用
+
+- natural 采用固定 ST 的 ASCII 单词点名、shuffle、talkativeness 阈值、fallback、去重，然后应用本项目 cap。无输入时只看实际最后一行；该行 is_system 为真则正文为空，不倒查更早消息。`allowSelfResponses=false` 的 banned 影响原前两段，但原 fallback 仍可能选回自己。中文明确点名使用 ID。
+- listOrder 是按当前名单从头列出启用成员再 cap，不保存公平轮转游标。randomPool 每次只选一人；新用户输入清空“本轮已说过”池，否则从最近用户行之后的真实 speaker ID 计算池。
+- manual 未明确点名就不生成；有输入仍保存用户行并结束 noSpeakers。这与固定 ST MANUAL 的无输入随机回退是明示差异。director 只读本轮捕获的合格已保存提案，不临时调用导演补人。
+- mute 只禁止自动选人；零 talkativeness 仍可能因原阈值或 fallback 被选中。读取 DTO、重连和 UI 展示均不重抽随机。
+
+正常顺序为外层 `TavernGroupStarted` → ready → speaking（`TavernGroupMemberEvent` 包住 Started/delta）→ SQL 提交后的 settling → 内层 Done → 下一演员 → 唯一 `TavernGroupFinished`。内层 Failed 直接进入外层 failed/cancelled 终态；settling 只标明演员 SQL 已提交，不代表整批成功。`remainingCharacterIds` 只包含尚未开始者，`speakerCharacterId` 是当前演员；`generationId` 在该演员活跃时存在，结束后清空。每份 progress 的列表是独立不可变副本。每个 child 仍只有一个原 TavernEvent 终态，不能把 child Done 当成整群完成。
+
+取消订阅只离页。`resumeGroupTurn` 原子注册并发送 `TavernGroupSnapshot`（含尚未 checkpoint 的完整当前正文），不重放 delta、RNG、Key 或 HTTP；无活跃批次就关流。stop、close 或进程终止后不自动补剩余演员。外层占用覆盖准备、演员间隙和 settling；人设、预设删除也识别整批捕获的资源。
+
+用户行最多提交一次；提交后 `progress.userNodeId` 即凭据，第一演员零输出失败也不删除它。A 成功、B 失败时 A 保留；B 有输出按原规则保存 partial，零输出新回复撤回，C 不启动。失败终态的 remaining 保留未启动名单，仅用于解释。终态存储失败明确为 server，不保证 partial 是完整最新文本，不应据此自动再插用户行。
+
+每名演员是独立请求和用量。main 使用本批捕获的模型配置；helper 在 DeepSeek 用 `deepseek-flash` / thinking=false，其余 provider 用原 model / thinking=false，沿同一个 endpoint 和 Key callback。helper 演员仍走普通角色预设及流式通道，不携带导演 direct 工具。取消后不额外启动下一人的 Key/HTTP。
+
+## 演员、主持和所有成员的书
+
+演员决定人物字段、`char`、角色正则、当前 WI 过滤和发言身份；真实主持独占共享 DSH schema/规则、故事、秘密和导演定义。不会把演员的另一套 schema 反复初始化进共享状态。创建时主持初值保存一次；无 greeting/空名单也用 `group_chats.initial_state` 保存同一根基线，空路径 readState、首演员、重开和完整备份都读取它。群开场按名单选择、展开并写入真实演员 ID；添加成员不自动补开场。
+
+提示词采用固定 ST SWAP：当前演员字段加完整共享可见历史，传入现有 assembler 的 groupNames、群开场/nudge/姓名处理及原预算。`group` 为全部可用成员名、`groupNotMuted` 为未静音可用成员名，主持不在名单就不偷偷加入。输入宏/写回正则只执行一次，有计划用首演员环境，无计划用主持。角色 prompt/写回正则仍仅用当前演员；显示/编辑有 ID 的旧正文用真实发言卡，缺失或无身份的历史可继续显示，显示结果以 `group_speaker_unavailable` 标记未套角色规则，不按同名猜卡。
+
+每名演员都加载在册成员（含静音者）的嵌入书，以及每个成员显式 characterLorebooks 的并集；共享 global/chat/persona/memory 绑定保留。外部书维持 bookId，并由现有 `_sortedEntries` 按原 global→chat→persona→character→memory 优先级去重；嵌入书保持 `<characterId>:card`。当前演员仍决定 characterFilter/tags。主持不在名单时不因主持身份额外注入主持内嵌书。全员书是 ADDENDUM-10 的产品要求，已读固定 ST getCharacterLore 本身仅证明当前 chId 的读取，不冒称原 ST 所有模式已有全员书。
+
+共用历史不新增跨角色思考传输。只有当前演员、同模型及 provider 来源的已知群消息可沿原 reasoning 设置参加；来源未知或其他演员的 reasoning 不新增到正文。每位演员正常提交各结算一次 T17，因此最多三人可能消耗三份 x-dsh-step 额度；章节回合计数及普通自动导演只在完整批次最后结算一次。失败/取消/无人发言不额外推进故事或安排新自动导演，已有演员的状态修改保留。既有秘密增强若显式开启，仍可能按原合同另安排一份秘密 helper。
+
+导演点名只接受已保存 `name='group.speaker'`、字符串 data 内 `{ "characterId": "真实ID" }` 的提案。验证原成功来源、祖先/fingerprint、稳定 eventId 和原记录字段；群导演作业即使没有卡 eventRules 也持久保存 outputIndex，但不因此新增 eventCapability。不按名字猜、不扩展其他事件执行权限。无效、静音、重复或不可用候选保存 `group.selection` 审计，`readDirector().issues` 与演员 inspection 保留诊断。实际消耗的 eventId 写到回复节点的分支局部 extra；零输出撤回不消费，partial 留存则消费，其他未消费分支可按原来源规则再次选择。原 pending proposal 不被全局删除或改写。
+
+## 持久化和 App 接合
+
+SQLite 注册迁移升至 7：group_chats、group_members、nodes.speaker_character_id；主持仍是 chats.character_id。旧单聊不变群，旧节点未知 ID 保持 null，新开场和生成填写已知 ID。聊天列表/角色统计同时识别主持和成员且每 chat 去重；消息/path/tree/search/流/终态及复制均透传 ID。JSONL 使用 `extra.dshgo.chatJsonl.speakerCharacterId` 保留每个 swipe 身份；本地 UUID 不能冒充 ST original_avatar。完整备份包含群表、初始状态和消息 ID；不宣称目前只有 JSONL 的接口能够完整互导 ST groups 定义，不能按同名自动映射跨库成员。
+
+App 的 `DeferredTavern` 要转发所有新群方法，Preview 由 owner 按完整群事件序列模拟。本层没有读取或修改 App。`TavernChatSummary` 增加 kind 与不可变 memberCharacterIds；为复制列表，构造器不再 const，既有 `const TavernChatSummary(...)` 调用应移除 const。其 characterId 在群里表示主持，消息演员应读 nullable speakerCharacterId。新 DTO 字段均有单聊默认值；不把主持头像当成每条消息的发言人。
+
+本层未实现 P2 B 的脚本注册、JS 宿主或 MVU：settling/generationId 是真实提交边界和后续接合点，当前不会制造成功 hook Ack。B 接入时必须在 child SQL 已提交之后完成宿主同步/handler 写确认，再发 Done；同 hook 目标变量短写不能排队等待自己的 outer.done，外部结构变化则取消剩余。批尾 story 当前复用已提交 child 的私有缓冲；B 若允许 hook 编辑正文/变量，必须先刷新或仅提交最新运行态，不能用旧缓冲覆盖 hook 写入。本层没有声称该未来 hook 合同已实测。
+
+固定参考为 ST `7e8663cd9c184a550b37238218bdd32c6efc68e9` 的 [group-chats.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/group-chats.js)、[utils.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/utils.js)、[openai.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/openai.js) 及 [world-info.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/world-info.js)。这次只读源码，没有新增 ST probe；`p2_group_store_engine_test.dart`、`p2_group_turn_engine_test.dart` 和旧 schema 回归的实际运行由正式代跑给证据，不把静态源码审阅当作通过。

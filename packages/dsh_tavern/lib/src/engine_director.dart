@@ -46,12 +46,17 @@ Map<String, Object?> _directorPersona(PersonaSelection selection, Map<String, Ob
 Map<String, Object?> _directorSource(TavernEngine engine, String chatId, String? nodeId) {
   final history = engine._store.historyTo(chatId, nodeId);
   final visible = history.where((node) => !node.message.hidden && !_systemMessage(node)).toList();
-  final saved = nodeId == null
+  final group = engine._store.groupChat(chatId);
+  final saved = nodeId == null && group == null
       ? _emptyChatState(engine._chatCodec.metadataForNode(engine._store, chatId))
       : engine._stateAt(chatId, nodeId);
   final input = _StateInput(saved);
   return _copy({
     'kind': nodeId == null ? 'empty' : 'node', 'nodeId': nodeId,
+    if (group != null)
+      'groupMembers': [
+        for (final member in group.members) {'characterId': member.characterId, 'muted': member.muted},
+      ],
     // Include every ancestor id to invalidate deletion/reparenting without
     // comparing a later descendant's state with this immutable source.
     'path': [for (final node in history) node.message.nodeId],
@@ -65,6 +70,7 @@ Map<String, Object?> _directorSource(TavernEngine engine, String chatId, String?
           'role': node.message.role.name,
           'speaker': node.message.speaker,
           'text': node.message.text,
+          if (group != null) 'speakerCharacterId': node.message.speakerCharacterId,
           'hidden': node.message.hidden,
           'system': _systemMessage(node),
         },
@@ -76,6 +82,7 @@ Map<String, Object?> _directorSource(TavernEngine engine, String chatId, String?
           'role': node.message.role.name,
           'speaker': node.message.speaker,
           'text': node.message.text,
+          if (group != null) 'speakerCharacterId': node.message.speakerCharacterId,
         },
     ],
     'state': {
@@ -173,11 +180,13 @@ class _DirectorJob {
     required this.cardRevision,
     this.card,
     this.secret = false,
+    this.group,
   }) : id = 'director-${_newStateId()}',
        requestKey = _directorHash({'source': source, 'settings': settings, 'persona': persona, 'secret': secret});
   final String id;
   final String chatId;
   final String characterId;
+  final TavernGroupChat? group;
   final String? nodeId;
   final Map<String, Object?> source;
   final Map<String, Object?> settings;
@@ -309,13 +318,14 @@ class _DirectorCoordinator {
       secret: secret,
       cardRevision: cardRevision ?? _cardRevisions[chat.characterId] ?? 0,
       card: card == null ? null : _copy(card),
+      group: engine._store.groupChat(chatId),
     );
   }
 
   Future<TavernDirectorRun> manual(String chatId) {
     engine._ensureAdmission();
     final chat = engine._store.chat(chatId);
-    if (engine._turns.containsKey(chatId) ||
+    if (engine._mainBusy(chatId) ||
         engine._mutations.containsKey(chatId) ||
         engine._deletingCharacters.contains(chat.characterId)) {
       throw const TavernModelException(TavernFailure.busy, 'director_context_busy');
@@ -577,7 +587,11 @@ class _DirectorCoordinator {
       final story = _storyDirectorContext(job.card!, job.source);
       job.storyPhase = story.phase;
       job.eventCapability = _cardEventCapability(job.card!, job.settings);
+      final groupDirectory = job.group == null
+          ? null
+          : await job.cancellation.wait(_prepareIO(job, engine._groups.directory(job.group!)));
       final input = jsonEncode({
+        'groupMembers': ?groupDirectory,
         'card': secretInput.card,
         'persona': job.persona,
         'summaries': summaries.skip(max(0, summaries.length - 20)).toList(),
@@ -813,17 +827,13 @@ class _DirectorCoordinator {
                   kind: 'director.event',
                   at: now,
                   result: {
-                    'version': 1,
-                    'runId': job.id,
-                    'source': 'director',
-                    'status': 'pending',
-                    'sourceKind': raw['sourceKind'],
-                    'sourceNodeId': job.nodeId,
-                    'sourceFingerprint': job.fingerprint,
-                    'createdAt': now.toUtc().toIso8601String(),
-                    if (job.eventCapability != null) 'outputIndex': i,
-                    'name': events[i]['name'],
-                    'data': events[i]['data'],
+                    'version': 1, 'runId': job.id, 'source': 'director', 'status': 'pending',
+                    'sourceKind': raw['sourceKind'], 'sourceNodeId': job.nodeId,
+                    'sourceFingerprint': job.fingerprint, 'createdAt': now.toUtc().toIso8601String(),
+                    // Group routing authenticates this position even when the
+                    // host defines no executable card event rules.
+                    if (job.eventCapability != null || job.group != null) 'outputIndex': i,
+                    'name': events[i]['name'], 'data': events[i]['data'],
                   },
                 ),
               );
@@ -941,6 +951,8 @@ class _DirectorCoordinator {
     final chat = engine._store.chat(chatId);
     final selection = engine._personas.resolve(personaId: chat.personaId);
     final issues = <Map<String, Object?>>[...?_transientIssues[chatId]];
+    final groupSelection = engine._store.agentRunsByKind(chatId, const {'group.selection'}, limit: 1).firstOrNull;
+    if (groupSelection != null) issues.addAll(_stateRows(groupSelection.result['issues']));
     Map<String, Object?>? readSettings() {
       try {
         return _personaSettings(engine._effectiveSettings(chat), selection);

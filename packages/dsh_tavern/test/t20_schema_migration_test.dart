@@ -44,6 +44,8 @@ void main() {
         'nodes_fts',
         'presets',
         'preset_preferences',
+        'group_chats',
+        'group_members',
       ]),
     );
     expect(database.select('SELECT * FROM preset_preferences').single['default_preset_id'], isNull);
@@ -112,7 +114,8 @@ void main() {
         'chats': ', tree_revision INTEGER NOT NULL DEFAULT 0',
         'nodes':
             ', stream_text TEXT, stream_reasoning TEXT, '
-            'deleted_by TEXT REFERENCES deleted_subtrees(id) DEFERRABLE INITIALLY DEFERRED, reported_usage TEXT',
+            'deleted_by TEXT REFERENCES deleted_subtrees(id) DEFERRABLE INITIALLY DEFERRED, reported_usage TEXT, '
+            'speaker_character_id TEXT',
       };
       for (final row in retainedDefinitions) {
         final addition = additions[row['name']];
@@ -123,6 +126,9 @@ void main() {
         }
       }
       expect(retainedDefinitions, oldDefinitions);
+      expect(database.select('SELECT * FROM group_chats'), isEmpty);
+      expect(database.select('SELECT * FROM group_members'), isEmpty);
+      expect(opened.path('chat').map((message) => message.speakerCharacterId), [null, null]);
       expect(database.select('PRAGMA application_id').single['application_id'], 765);
       expect(database.select('PRAGMA foreign_key_check'), isEmpty);
       expect(
@@ -271,14 +277,15 @@ Map<String, Object?> _legacyData(Database database) => {
 };
 void _expectUpgradedLegacyData(Database database, Object? expected) {
   // Keep every old row, field, and unknown column under exact comparison.
-  // Strip only the explicitly checked T23/T24 additions from this genuine v1
+  // Strip only the explicitly checked T23/T24/P2 additions from this genuine v1
   // fixture. The old payload has no owned inspection to backfill.
-  const addedNames = {'stream_text', 'stream_reasoning', 'deleted_by', 'reported_usage'};
+  const addedNames = {'stream_text', 'stream_reasoning', 'deleted_by', 'reported_usage', 'speaker_character_id'};
   expect(_rows(database, 'PRAGMA table_info(nodes)').where((row) => addedNames.contains(row['name'])).toList(), [
     {'cid': 15, 'name': 'stream_text', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
     {'cid': 16, 'name': 'stream_reasoning', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
     {'cid': 17, 'name': 'deleted_by', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
     {'cid': 18, 'name': 'reported_usage', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+    {'cid': 19, 'name': 'speaker_character_id', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
   ]);
   expect(_rows(database, 'PRAGMA table_info(chats)').where((row) => row['name'] == 'tree_revision').toList(), [
     {'cid': 13, 'name': 'tree_revision', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': '0', 'pk': 0},
