@@ -139,7 +139,8 @@ void main() {
       expect(find.text('未开启'), findsOneWidget);
       expect(find.text('开启后能做什么'), findsOneWidget);
       expect(find.text('准备'), findsNothing);
-      expect(find.byKey(const ValueKey('phone-more-options')), findsNothing);
+      // Setup and Shell remain reachable while off; background controls do not.
+      expect(find.text('不打扰模式'), findsNothing);
 
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();

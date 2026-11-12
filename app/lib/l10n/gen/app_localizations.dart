@@ -19373,7 +19373,7 @@ abstract class L10n {
   /// No description provided for @phoneDndSuiAllSet.
   ///
   /// In zh, this message translates to:
-  /// **'Sui 这边准备好了。'**
+  /// **'Sui 已启动并授权，接下来连接后台屏。'**
   String get phoneDndSuiAllSet;
 
   /// No description provided for @phoneDndSuiPermissionFailed.
@@ -19439,7 +19439,7 @@ abstract class L10n {
   /// No description provided for @phoneDndShizukuAllSet.
   ///
   /// In zh, this message translates to:
-  /// **'Shizuku 这边准备好了。'**
+  /// **'Shizuku 已启动并授权，接下来连接后台屏。'**
   String get phoneDndShizukuAllSet;
 
   /// No description provided for @phoneDndShizukuInstalled.

@@ -10447,7 +10447,7 @@ class L10nZh extends L10n {
   String get phoneDndSuiStopped => 'Sui 接口当前不可用。确认 Sui 模块已启用，重启手机后再试。';
 
   @override
-  String get phoneDndSuiAllSet => 'Sui 这边准备好了。';
+  String get phoneDndSuiAllSet => 'Sui 已启动并授权，接下来连接后台屏。';
 
   @override
   String get phoneDndSuiPermissionFailed => '没能请求 Sui 授权。确认 Sui 模块已启用后再试。';
@@ -10480,7 +10480,7 @@ class L10nZh extends L10n {
   String get phoneDndGrantShizuku => '授权给 DSH Go';
 
   @override
-  String get phoneDndShizukuAllSet => 'Shizuku 这边准备好了。';
+  String get phoneDndShizukuAllSet => 'Shizuku 已启动并授权，接下来连接后台屏。';
 
   @override
   String get phoneDndShizukuInstalled => '已安装 Shizuku';

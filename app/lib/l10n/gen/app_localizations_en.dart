@@ -10978,7 +10978,7 @@ class L10nEn extends L10n {
       'The Sui interface isn’t available. Check that the Sui module is enabled, restart the phone and try again.';
 
   @override
-  String get phoneDndSuiAllSet => 'Sui is ready.';
+  String get phoneDndSuiAllSet => 'Sui is running and authorized. Connect the background screen next.';
 
   @override
   String get phoneDndSuiPermissionFailed =>
@@ -11015,7 +11015,7 @@ class L10nEn extends L10n {
   String get phoneDndGrantShizuku => 'Allow DSH Go';
 
   @override
-  String get phoneDndShizukuAllSet => 'Shizuku is ready.';
+  String get phoneDndShizukuAllSet => 'Shizuku is running and authorized. Connect the background screen next.';
 
   @override
   String get phoneDndShizukuInstalled => 'Shizuku installed';
