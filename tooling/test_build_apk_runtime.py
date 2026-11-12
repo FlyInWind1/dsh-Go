@@ -29,6 +29,10 @@ class BuildApkRuntimeTest(unittest.TestCase):
         for name in ("build-apk.sh", "build_number.py", "check_runtime_bundle.py"):
             shutil.copy2(ROOT / "tooling" / name, self.root / "tooling" / name)
         (self.root / "app/pubspec.yaml").write_text("version: 1.0.0+1\n")
+        # Stand-in for runtime/tawcroot/build.py: TAWCROOT_EXIT decides whether it "builds".
+        tawcroot = self.root / "runtime/tawcroot"
+        tawcroot.mkdir(parents=True)
+        (tawcroot / "build.py").write_text("import os, sys\nsys.exit(int(os.environ.get('TAWCROOT_EXIT', '0')))\n")
         self.calls_file = self.root / "flutter-calls.jsonl"
         tools = self.root / "bin"
         tools.mkdir()
