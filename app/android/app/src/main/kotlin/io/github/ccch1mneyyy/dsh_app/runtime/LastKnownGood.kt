@@ -89,7 +89,7 @@ object LastKnownGood {
         val dir = webDir(rootfs)
         val pkg = File(dir, "package.json")
         if (!pkg.isFile) return null
-        return parse(JSONObject(pkg.readText()), dir)
+        return parse(JSONObject(pkg.readText()), dir, rootfs)
     }
 
     /**
@@ -113,7 +113,7 @@ object LastKnownGood {
         return true
     }
 
-    private fun parse(json: JSONObject, dir: File): ProfileSnapshot {
+    private fun parse(json: JSONObject, dir: File, rootfs: File): ProfileSnapshot {
         val bundles = json.optJSONObject("dsh")?.optJSONObject("profile")?.optJSONArray("bundles").strings()
         val depsJson = json.optJSONObject("dependencies")
         val deps = LinkedHashSet<String>()
@@ -121,7 +121,10 @@ object LastKnownGood {
         val versions = LinkedHashMap<String, String>()
         for (name in deps) {
             val version = try {
-                JSONObject(File(dir, "node_modules/$name/package.json").readText()).optString("version")
+                val text = io.github.ccch1mneyyy.dsh_app.files.GuestFiles.resolve(
+                    rootfs, "/root/.dsh/profiles/web/node_modules/$name/package.json", PhoneStorage.GUEST_PATH,
+                )?.readText() ?: continue
+                JSONObject(text).optString("version")
             } catch (_: Exception) {
                 null
             }
@@ -180,7 +183,7 @@ object LastKnownGood {
         if (!pkg.isFile) throw IllegalStateException(missingConfig)
         return withLock(pkg, busyConfig) {
             val json = JSONObject(pkg.readText())
-            val plan = LkgPlan.of(lkg, parse(json, dir))
+            val plan = LkgPlan.of(lkg, parse(json, dir, rootfs))
             if (plan.bundlesChanged) {
                 val dsh = json.optJSONObject("dsh") ?: JSONObject().also { json.put("dsh", it) }
                 val profile = dsh.optJSONObject("profile") ?: JSONObject().also { dsh.put("profile", it) }
