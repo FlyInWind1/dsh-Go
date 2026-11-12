@@ -205,6 +205,8 @@ const tavernToastMax = 300;
 /// what render()/stream() hand it and reports a long press on a message to
 /// the `DshTavern` channel. [noScripts] and [offline] are 酒馆设置 › 安全's
 /// choices, as for islands. [libraries] are put in first, for card scripts.
+/// [themeCss] (an ST theme's custom CSS) comes after our styles, so it wins
+/// where both say something, as it does in ST.
 String tavernCanvasDocument({
   required Color text,
   required Color accent,
@@ -220,6 +222,7 @@ String tavernCanvasDocument({
   bool noScripts = false,
   bool offline = false,
   List<String> libraries = const [],
+  String themeCss = '',
 }) {
   // The libraries card scripts expect on the page (jQuery, lodash), ours and
   // so under the page's nonce; not there when card scripts do not run.
@@ -271,7 +274,9 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
 .mes_text img,.mes_text video,.mes_text svg{max-width:100%;height:auto;}
 .mes_text pre{white-space:pre-wrap;}
 .mes[data-streaming] .mes_text>:last-child::after,.mes[data-streaming] .mes_text:empty::after{content:"\\25CF";color:var(--dsh-muted);margin-left:3px;font-size:.6em;vertical-align:middle;}
-</style></head>
+</style>
+${themeCss.trim().isEmpty ? '' : '<style id="st-theme-css">${themeCss.replaceAll(RegExp('</style', caseSensitive: false), r'<\/style')}</style>'}
+</head>
 <body><div id="chat"></div>
 $preload
 <script nonce="$nonce">

@@ -37937,8 +37937,20 @@ abstract class L10n {
   /// No description provided for @tavernStThemeImportNote.
   ///
   /// In zh, this message translates to:
-  /// **'从 SillyTavern 导出的主题文件里取引号和斜体的颜色。'**
+  /// **'从 SillyTavern 导出的主题文件里取引号和斜体的颜色，和它的自定义 CSS。'**
   String get tavernStThemeImportNote;
+
+  /// No description provided for @tavernStThemeCss.
+  ///
+  /// In zh, this message translates to:
+  /// **'用它的自定义 CSS'**
+  String get tavernStThemeCss;
+
+  /// No description provided for @tavernStThemeCssSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配色选「ST」时加进整页画布，和在 ST 里一样盖过默认样式。版面乱了就关掉，颜色照用。'**
+  String get tavernStThemeCssSubtitle;
 
   /// No description provided for @tavernStThemeRemove.
   ///
@@ -37955,7 +37967,7 @@ abstract class L10n {
   /// No description provided for @tavernStThemeNoColors.
   ///
   /// In zh, this message translates to:
-  /// **'「{name}」里没有能用的引号或斜体颜色'**
+  /// **'「{name}」里没有能用的引号、斜体颜色或自定义 CSS'**
   String tavernStThemeNoColors(String name);
 
   /// No description provided for @tavernPromptContent.

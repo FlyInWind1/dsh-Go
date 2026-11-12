@@ -124,23 +124,28 @@ void main() {
   });
 
   test('the page has ST structure and colour variables, our script by nonce, and the chosen guards', () {
-    String page({bool noScripts = false, bool offline = false, List<String> libraries = const []}) =>
-        tavernCanvasDocument(
-          text: const Color(0xff112233),
-          accent: const Color(0xff445566),
-          muted: const Color(0xff778899),
-          quote: const Color(0xffaa5500),
-          emphasis: const Color(0xff556677),
-          userTint: const Color(0x22445566),
-          fontSize: 15,
-          lineHeight: 1.65,
-          nonce: 'n0nce',
-          userLabel: '你',
-          labels: const TavernCanvasLabels(letterFrom: '{from}的信', taken: '获得'),
-          noScripts: noScripts,
-          offline: offline,
-          libraries: libraries,
-        );
+    String page({
+      bool noScripts = false,
+      bool offline = false,
+      List<String> libraries = const [],
+      String themeCss = '',
+    }) => tavernCanvasDocument(
+      text: const Color(0xff112233),
+      accent: const Color(0xff445566),
+      muted: const Color(0xff778899),
+      quote: const Color(0xffaa5500),
+      emphasis: const Color(0xff556677),
+      userTint: const Color(0x22445566),
+      fontSize: 15,
+      lineHeight: 1.65,
+      nonce: 'n0nce',
+      userLabel: '你',
+      labels: const TavernCanvasLabels(letterFrom: '{from}的信', taken: '获得'),
+      noScripts: noScripts,
+      offline: offline,
+      libraries: libraries,
+      themeCss: themeCss,
+    );
     final open = page();
     expect(open, contains('<div id="chat"></div>'));
     // A long story: only the latest messages are always laid out, and one
@@ -205,6 +210,20 @@ void main() {
     expect(open, contains("post({type:'toast',level:level,title:t,message:m})"));
     expect(open, contains("new DOMParser().parseFromString(String(s),'text/html')"));
     expect(open, contains('if(!window.toastr)window.toastr=toastr;'));
+    // An ST theme's custom CSS comes after our styles, so it wins as in ST;
+    // a closing tag in it cannot end it. None given, none there.
+    expect(open, isNot(contains('st-theme-css')));
+    expect(page(themeCss: '  \n'), isNot(contains('st-theme-css')));
+    final themed = page(themeCss: '#chat .mes{border:1px solid gold}</STYLE><script>x()</script>');
+    final ours = themed.indexOf('</style>');
+    final theirs = themed.indexOf('<style id="st-theme-css">');
+    expect(ours, greaterThan(0));
+    expect(theirs, greaterThan(ours));
+    expect(theirs, lessThan(themed.indexOf('</head>')));
+    expect(
+      themed,
+      contains('<style id="st-theme-css">#chat .mes{border:1px solid gold}<\\/style><script>x()</script></style>'),
+    );
 
     final json = jsonDecode(
       tavernCanvasJson(const [

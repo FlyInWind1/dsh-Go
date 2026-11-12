@@ -20771,7 +20771,13 @@ class L10nZh extends L10n {
   String get tavernStThemeImport => '导入 ST 主题';
 
   @override
-  String get tavernStThemeImportNote => '从 SillyTavern 导出的主题文件里取引号和斜体的颜色。';
+  String get tavernStThemeImportNote => '从 SillyTavern 导出的主题文件里取引号和斜体的颜色，和它的自定义 CSS。';
+
+  @override
+  String get tavernStThemeCss => '用它的自定义 CSS';
+
+  @override
+  String get tavernStThemeCssSubtitle => '配色选「ST」时加进整页画布，和在 ST 里一样盖过默认样式。版面乱了就关掉，颜色照用。';
 
   @override
   String get tavernStThemeRemove => '移除';
@@ -20783,7 +20789,7 @@ class L10nZh extends L10n {
 
   @override
   String tavernStThemeNoColors(String name) {
-    return '「$name」里没有能用的引号或斜体颜色';
+    return '「$name」里没有能用的引号、斜体颜色或自定义 CSS';
   }
 
   @override

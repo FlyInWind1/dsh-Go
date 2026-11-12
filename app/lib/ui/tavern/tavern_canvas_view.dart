@@ -19,6 +19,7 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_canvas_calls.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_st_theme.dart';
 import '../common/brief_notice.dart';
 import '../theme/theme.dart';
 import '../web/web_view_guard.dart';
@@ -116,6 +117,10 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     final dsh = DshColors.of(context);
     final ink = TavernInkScope.maybeOf(context);
     final (noScripts, offline) = ref.read(tavernSettingsProvider.select((s) => (s.islandNoScripts, s.islandOffline)));
+    // An ST theme's custom CSS, with its colours chosen and its CSS kept on.
+    final themeCss = ref.read(tavernSettingsProvider.select((s) => s.palette)) == TavernPalette.st
+        ? ref.read(tavernStThemeProvider)?.canvasCss ?? ''
+        : '';
     final reading = ref.read(tavernSettingsProvider.select((s) => (s.textSize, s.lineHeight)));
     final text = theme.colorScheme.onSurface;
     // Card scripts get their libraries first; the page waits for them (and
@@ -128,7 +133,16 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       if (loaded.isLoading) return;
       libraries = loaded.value ?? const [];
     }
-    final key = (noScripts, offline, theme.brightness, ink?.dialogue, ink?.action, theme.colorScheme.primary, reading);
+    final key = (
+      noScripts,
+      offline,
+      theme.brightness,
+      ink?.dialogue,
+      ink?.action,
+      theme.colorScheme.primary,
+      reading,
+      themeCss,
+    );
     if (key == _loaded) return;
     _loaded = key;
     _ready = false;
@@ -160,6 +174,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       noScripts: noScripts,
       offline: offline,
       libraries: libraries,
+      themeCss: themeCss,
     );
     final controller = _controller ??= WebViewController();
     final textZoom = MediaQuery.textScalerOf(context).scale(100).round().clamp(50, 300);
@@ -299,9 +314,10 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   @override
   Widget build(BuildContext context) {
     ref.listen(
-      tavernSettingsProvider.select((s) => (s.islandNoScripts, s.islandOffline, s.textSize, s.lineHeight)),
+      tavernSettingsProvider.select((s) => (s.islandNoScripts, s.islandOffline, s.textSize, s.lineHeight, s.palette)),
       (_, _) => _open(),
     );
+    ref.listen(tavernStThemeProvider, (_, _) => _open());
     ref.listen(tavernCanvasLibrariesProvider, (_, next) {
       if (!next.isLoading) _open();
     });

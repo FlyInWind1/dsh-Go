@@ -21929,7 +21929,14 @@ class L10nEn extends L10n {
 
   @override
   String get tavernStThemeImportNote =>
-      'Takes the quote and italics colours from a theme file exported from SillyTavern.';
+      'Takes the quote and italics colours, and its custom CSS, from a theme file exported from SillyTavern.';
+
+  @override
+  String get tavernStThemeCss => 'Use its custom CSS';
+
+  @override
+  String get tavernStThemeCssSubtitle =>
+      'With 「ST」 as the colours, it goes into the whole-story canvas and overrides the default look, as in ST. Turn it off if the page comes apart; the colours stay.';
 
   @override
   String get tavernStThemeRemove => 'Remove';
@@ -21941,7 +21948,7 @@ class L10nEn extends L10n {
 
   @override
   String tavernStThemeNoColors(String name) {
-    return '“$name” has no quote or italics colour to use';
+    return '“$name” has no quote or italics colour or custom CSS to use';
   }
 
   @override

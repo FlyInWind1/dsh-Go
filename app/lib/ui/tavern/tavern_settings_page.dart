@@ -269,6 +269,17 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           subtitle: l10n.tavernStThemeImportNote,
           onTap: () => unawaited(importTavernFiles(context, ref)),
         ),
+      // Its custom CSS goes into the whole-story canvas with ST's colours;
+      // one that unsettles the page can be let go, the colours kept.
+      if (stTheme?.customCss != null)
+        SettingsSwitchTile(
+          key: const ValueKey('tavern-st-theme-css'),
+          icon: AppIcons.code,
+          title: l10n.tavernStThemeCss,
+          subtitle: l10n.tavernStThemeCssSubtitle,
+          value: stTheme!.useCss,
+          onChanged: (on) => unawaited(ref.read(tavernStThemeProvider.notifier).setUseCss(on)),
+        ),
       // What a reply will look like.
       Padding(
         key: const ValueKey('tavern-reading-preview'),
