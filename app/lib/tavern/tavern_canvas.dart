@@ -205,7 +205,9 @@ String tavernCanvasDocument({
           if (offline) 'media-src data: blob:',
           if (offline) 'font-src data:',
           if (offline) "style-src 'unsafe-inline' data:",
-          if (noScripts) "script-src 'nonce-$nonce'" else "script-src 'unsafe-inline' 'unsafe-eval' 'nonce-$nonce'",
+          // With scripts on, no nonce: next to one, 'unsafe-inline' counts for
+          // nothing and a card's own scripts and handlers would be refused.
+          if (noScripts) "script-src 'nonce-$nonce'" else "script-src 'unsafe-inline' 'unsafe-eval'",
           if (noScripts) "script-src-attr 'none'",
         ].join('; ')
       : null;
@@ -253,7 +255,12 @@ $preload
   function inert(s){var t=(s.getAttribute('type')||'').trim().toLowerCase();return t!==''&&!/^(text|application)[/](java|ecma)script\$|^module\$/.test(t);}
   // innerHTML leaves <script> inert: each is rebuilt in place, one after
   // another in document order (and after any earlier message's), an
-  // external one loaded before the next runs.
+  // external one loaded before the next runs. An inline one is named after
+  // its message (sourceURL dsh-mes-<n>.js), so whatever it defines can tell
+  // which message it belongs to from the stack, however late it runs: in a
+  // timer, a handler, after an await.
+  var marks=[];
+  function mark(m){return marks.push(typeof WeakRef==='function'?new WeakRef(m):{deref:function(){return m;}})-1;}
   function runIn(els){
     els.forEach(function(m){
       [].slice.call(m.querySelectorAll('script')).forEach(function(old){
@@ -262,7 +269,7 @@ $preload
           var s=document.createElement('script');
           for(var a=0;a<old.attributes.length;a++){var at=old.attributes[a];if(at.name!=='nonce')s.setAttribute(at.name,at.value);}
           if(old.hasAttribute('src')){s.async=false;s.onload=s.onerror=function(){done();};old.parentNode.replaceChild(s,old);}
-          else{s.text=old.text;old.parentNode.replaceChild(s,old);done();}
+          else{s.text=old.text+'\\n//# sourceURL=dsh-mes-'+mark(m)+'.js';old.parentNode.replaceChild(s,old);done();}
         });});
       });
     });
@@ -334,7 +341,12 @@ $preload
       // A newly drawn message's scripts run, once the page has the engine's
       // snapshot for their getters (or has been told it cannot).
       var scripted=fresh.filter(function(m){return m.querySelector('script');});
-      if(runScripts&&scripted.length){var go=function(){runIn(scripted);};dsh.scripts.ready().then(go,go);}
+      if(runScripts&&scripted.length){
+        // One the page's copy has not got yet (just written, its delivery
+        // still on the way) is read afresh first, so its scripts find it.
+        if(loaded&&scripted.some(function(m){return floorOf(m.dataset.node)<0;}))reload();
+        var go=function(){runIn(scripted);};dsh.scripts.ready().then(go,go);
+      }
       if(stay)toBottom();
     },
     stream:function(name,html){
@@ -518,6 +530,46 @@ $preload
   }
   dsh.scripts.getChatMessages=getChatMessages;
   if(!window.getChatMessages)window.getChatMessages=getChatMessages;
+  // Floors (酒馆助手's getLastMessageId, getCurrentMessageId, getIframeName and
+  // getMessageId, as its public page gives them), numbered as
+  // getChatMessages numbers them; a message is found by its node, a swipe's
+  // too. The page leaves an empty chat open: -1 here, as {{lastMessageId}}.
+  function floorOf(node){
+    for(var i=0;i<msgs.length;i++){
+      var x=msgs[i],id=x.messageId===undefined?i:x.messageId;
+      if(x.ref&&x.ref.nodeId===node)return id;
+      var ss=x.swipes||[];
+      for(var j=0;j<ss.length;j++)if(ss[j].ref&&ss[j].ref.nodeId===node)return id;
+    }
+    return -1;
+  }
+  function getLastMessageId(){return msgs.length-1;}
+  // The message the caller is in: the nearest named script on the stack;
+  // else a src script while it first runs; else an inline handler's event.
+  function callerMessage(){
+    var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
+    var stack=String(new Error().stack||'');Error.stackTraceLimit=limit;
+    var k=/dsh-mes-(\\d+)\\.js/.exec(stack),m=k&&marks[+k[1]]?marks[+k[1]].deref():null;
+    if(!m&&document.currentScript)m=owner(document.currentScript);
+    if(!m&&window.event&&window.event.target)m=owner(window.event.target);
+    return m&&m.isConnected&&m.dataset.node?m:null;
+  }
+  // Outside a message it throws, as the public page says.
+  function getCurrentMessageId(){
+    var m=callerMessage(),id=m?floorOf(m.dataset.node):-1;
+    if(id<0)throw new Error('getCurrentMessageId: not called from a message on this page');
+    return id;
+  }
+  function getIframeName(){return 'TH-message--'+getCurrentMessageId()+'--0';}
+  function getMessageId(name){
+    var r=/^TH-message--(\\d+)--\\d+\$/.exec(String(name));
+    if(!r)throw new Error('Not a message interface name: '+name);
+    return parseInt(r[1],10);
+  }
+  [['getLastMessageId',getLastMessageId],['getCurrentMessageId',getCurrentMessageId],
+   ['getIframeName',getIframeName],['getMessageId',getMessageId]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   // Writing messages (酒馆助手's set/create/delete/rotateChatMessages, as its
   // public pages give them): each a Promise of nothing. The page's own field
   // names are the engine's but for four; every other field goes as written,

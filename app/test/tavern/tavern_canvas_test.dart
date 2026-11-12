@@ -171,6 +171,15 @@ void main() {
     expect(open, contains('"taken":"获得"'));
     expect(page(noScripts: true), contains("script-src 'nonce-n0nce'"));
     expect(page(offline: true), contains("default-src 'none'"));
+    // Offline with scripts on: no nonce beside 'unsafe-inline', or a card's
+    // own scripts and handlers would be refused.
+    expect(page(offline: true), contains("script-src 'unsafe-inline' 'unsafe-eval'\">"));
+    expect(page(offline: true), isNot(contains("'unsafe-eval' 'nonce-")));
+    // A card's inline script is named after its message, for its floor.
+    expect(open, contains(r"s.text=old.text+'\n//# sourceURL=dsh-mes-'+mark(m)+'.js'"));
+    for (final name in ['getLastMessageId', 'getCurrentMessageId', 'getIframeName', 'getMessageId']) {
+      expect(open, contains("['$name',$name]"));
+    }
 
     final json = jsonDecode(
       tavernCanvasJson(const [
