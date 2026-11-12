@@ -45,9 +45,12 @@ class ShizukuStarter(
     private var binding: Binding? = null
     @Volatile private var listenersAdded = false
 
+    // Shizuku only replaces a running user service when this number changes; bump it
+    // together with any PrivilegedDisplayService protocol change, or an upgraded app
+    // keeps talking to the old service process.
     private val args0: Shizuku.UserServiceArgs
         get() = Shizuku.UserServiceArgs(ComponentName(context, PrivilegedDisplayService::class.java))
-            .tag("dsh.vdisplay").processNameSuffix("vdisplay").version(2).daemon(false)
+            .tag("dsh.vdisplay").processNameSuffix("vdisplay").version(3).daemon(false)
 
     private fun appInstalled(): Boolean =
         runCatching { context.packageManager.getApplicationInfo(PACKAGE, 0); true }.getOrDefault(false)
@@ -167,7 +170,7 @@ class ShizukuStarter(
             if (!probe.getBoolean(Proto.OK) || probe.getString("revision") != Proto.REVISION) return null
             val peer = MuxProtocol.peer(probe)
             peer?.let { MuxProtocol.acknowledge(remote.execute(MuxProtocol.optIn(it)), it) }
-            val candidate = ShizukuChannel(remote, peer, backgroundRequestLimit(probe::get, peer != null))
+            val candidate = ShizukuChannel(remote, peer, backgroundRequestLimit(probe::get, probe::containsKey, peer != null))
             return synchronized(guard) {
                 if (!owner.valid || !owner.mayStart()) { candidate.close(); return null }
                 candidate.also { channel = it }

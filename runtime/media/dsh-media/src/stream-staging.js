@@ -45,7 +45,7 @@ export async function writeStagedChunk(handle, chunk, hash, signal) {
 
 /** Factory test option permits only literal loopback HTTP, never a hostname resolving to loopback. */
 export function createStreamStager({ allowLoopback = false, lookup = dnsLookup } = {}) {
-  return async function stageDownload(urlValue, { directory, maxBytes = MAX_STAGED_DOWNLOAD_BYTES, timeoutMs = 120_000, signal } = {}) {
+  return async function stageDownload(urlValue, { directory, maxBytes = MAX_STAGED_DOWNLOAD_BYTES, timeoutMs = 120_000, signal, ownDownload } = {}) {
     if (typeof urlValue !== 'string' || typeof directory !== 'string' || !isAbsolute(directory) || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_STAGED_DOWNLOAD_BYTES
       || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 1_800_000) fail('invalid_request');
     checkAbort(signal);
@@ -114,7 +114,7 @@ export function createStreamStager({ allowLoopback = false, lookup = dnsLookup }
       const selected = addresses[0];
       await guardDirectory();
       path = join(directory, '.media-download-' + randomUUID() + '.part');
-      handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+      handle = await storageOperation(open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600));
       created = true;
       identity = await handle.stat({ bigint: true });
       await guardFile();
@@ -153,11 +153,15 @@ export function createStreamStager({ allowLoopback = false, lookup = dnsLookup }
       handle = undefined;
       await storageOperation(directoryHandle.sync());
       await guardFile();
+      const receipt = { kind: 'private-download', path, bytes, sha256: hash.digest('hex') };
+      // Keep cleanup ownership and the directory handle until the store accepts
+      // this download. Cancellation or a failed claim must not orphan its file.
+      await ownDownload?.(receipt);
+      active();
       // Close failures are not silently turned into a successful receipt.
       await storageOperation(directoryHandle.close());
       directoryHandle = undefined;
       active();
-      const receipt = { kind: 'private-download', path, bytes, sha256: hash.digest('hex') };
       success = true;
       return receipt;
     } catch (error) {

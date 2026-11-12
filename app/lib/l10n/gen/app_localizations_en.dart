@@ -1102,6 +1102,15 @@ class L10nEn extends L10n {
   String get activitySlashEnterArgs => 'Enter arguments, then send';
 
   @override
+  String get activitySlashRunIntent => 'Command · Run';
+
+  @override
+  String get activitySlashInsertIntent => 'Command · Insert';
+
+  @override
+  String get activitySlashSkillIntent => 'Skill · Insert';
+
+  @override
   String get activityStepTitle => 'Step details';
 
   @override
@@ -1632,7 +1641,275 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get activityQuotaTitle => 'Subscription usage';
+
+  @override
+  String get activityQuotaRefresh => 'Refresh usage';
+
+  @override
+  String get activityQuotaPermissionDenied => 'This subscription does not have permission to access usage.';
+
+  @override
+  String get activityQuotaAuthError => 'Sign-in expired or access denied. Check your subscription sign-in.';
+
+  @override
+  String get activityQuotaNetworkError => 'Network error. Try again later.';
+
+  @override
+  String get activityQuotaRateLimited => 'Too many requests. Try again later.';
+
+  @override
+  String get activityQuotaLoading => 'Loading subscription usage…';
+
+  @override
+  String get activityQuotaUnavailable => 'Can\'t load subscription usage right now. Try again later.';
+
+  @override
+  String get activityQuotaUnsupported => 'This host does not support subscription usage';
+
+  @override
+  String get activityQuotaSignedOut => 'Subscription is signed out';
+
+  @override
+  String get activityQuotaPrimary => 'Primary limit';
+
+  @override
+  String get activityQuotaSecondary => 'Secondary limit';
+
+  @override
+  String get activityQuotaFiveHour => '5 hours';
+
+  @override
+  String get activityQuotaSevenDay => '7 days';
+
+  @override
+  String get activityQuotaSevenDaySonnet => '7 days · Sonnet';
+
+  @override
+  String get activityQuotaSevenDayOpus => '7 days · Opus';
+
+  @override
+  String activityQuotaUsed(String value) {
+    return '$value used';
+  }
+
+  @override
+  String activityQuotaReset(String time) {
+    return 'Resets: $time';
+  }
+
+  @override
   String get activityToolListSeparator => ', ';
+
+  @override
+  String get androidShellTitle => 'Android Shell';
+
+  @override
+  String get androidShellEntryHint => 'Separate system-command channel, off by default';
+
+  @override
+  String get androidShellSubtitle =>
+      'Run Android system commands on this phone through Shizuku or self-ADB, not bash inside Ubuntu.';
+
+  @override
+  String get androidShellEnable => 'Allow Android Shell';
+
+  @override
+  String get androidShellEnableHint =>
+      'A separate switch, independent of non-disruptive mode and screen confirmation settings.';
+
+  @override
+  String get androidShellConfirmationNote =>
+      'Every command needs native confirmation on the phone. Screen-control confirmation exemptions do not apply. Shell permissions differ from screen control; app rules cannot block every command.';
+
+  @override
+  String get androidShellMasterOff =>
+      'Turn on Phone control on the previous page before enabling Android Shell. Authorization and pairing guidance remain available here.';
+
+  @override
+  String get androidShellRiskTitle => 'Allow Android system commands?';
+
+  @override
+  String get androidShellRiskBody =>
+      'Commands use the selected channel\'s actual UID and may change apps, system settings, and shared files. Screen app rules cannot fully protect against them. Every command still requires separate native confirmation. Only allow commands you understand and trust.';
+
+  @override
+  String get androidShellRiskAction => 'Allow Android Shell';
+
+  @override
+  String get androidShellBackend => 'Execution channel';
+
+  @override
+  String get androidShellShizukuHint =>
+      'Use an installed, running Shizuku with explicit authorization. Android 14, accessibility, and non-disruptive mode are not required.';
+
+  @override
+  String get androidShellAdb => 'Self-ADB';
+
+  @override
+  String get androidShellAdbHint =>
+      'Connect to this phone\'s wireless debugging with the app\'s private ADB identity. Other devices are not contacted.';
+
+  @override
+  String get androidShellInstalled => 'Shizuku installed';
+
+  @override
+  String get androidShellRunning => 'Shizuku running';
+
+  @override
+  String get androidShellGranted => 'Shizuku authorized';
+
+  @override
+  String get androidShellPaired => 'ADB paired';
+
+  @override
+  String get androidShellConnected => 'ADB connected';
+
+  @override
+  String get androidShellAuthorize => 'Request Shizuku authorization';
+
+  @override
+  String get androidShellAuthorizeHint =>
+      'Install and start Shizuku, then press this button to authorize dsh-Go. Opening or refreshing this page never requests permission.';
+
+  @override
+  String get androidShellStatus => 'Execution status';
+
+  @override
+  String get androidShellUid => 'Actual UID';
+
+  @override
+  String get androidShellUidUnknown => 'Not reported yet';
+
+  @override
+  String get androidShellRefresh => 'Refresh status';
+
+  @override
+  String get androidShellStop => 'Stop Android Shell';
+
+  @override
+  String get androidShellStopHint =>
+      'Cancel current commands and stop separate Shell execution without turning off screen control.';
+
+  @override
+  String get androidShellPairingGuide =>
+      'In Developer options, enable Wireless debugging and choose Pair device with pairing code. The code is used only for this pairing and is not saved or logged.';
+
+  @override
+  String get androidShellStartPairing => 'Open pairing guidance';
+
+  @override
+  String get androidShellPair => 'Enter pairing code';
+
+  @override
+  String get androidShellPairSubmit => 'Pair';
+
+  @override
+  String get androidShellPairCode => 'Six-digit pairing code';
+
+  @override
+  String get androidShellPairPort => 'Pairing port (optional)';
+
+  @override
+  String get androidShellPairPortHint =>
+      'Use the port in the pairing dialog, not the connection port on the main Wireless debugging page. Leave blank for discovery.';
+
+  @override
+  String get androidShellConnect => 'Connect ADB';
+
+  @override
+  String get androidShellConnectChannel => 'Connect selected channel';
+
+  @override
+  String get androidShellConnectPort => 'Connection port (optional)';
+
+  @override
+  String get androidShellConnectPortHint =>
+      'Use the port under IP address & port on the main Wireless debugging page, not the pairing port. Only this phone is contacted. Leave blank for discovery.';
+
+  @override
+  String androidShellErrorCode(String code) {
+    return 'Error code: $code';
+  }
+
+  @override
+  String androidShellLimits(int seconds, int bytes) {
+    return 'Up to $seconds seconds and $bytes output bytes per command';
+  }
+
+  @override
+  String get androidShellErrorDisabled => 'Android Shell is off.';
+
+  @override
+  String get androidShellErrorNotConnected => 'The selected channel is not connected.';
+
+  @override
+  String get androidShellErrorShizukuMissing => 'Install Shizuku first.';
+
+  @override
+  String get androidShellErrorShizukuStopped => 'Start Shizuku, then refresh the status.';
+
+  @override
+  String get androidShellErrorPermissionRequired => 'Explicit authorization in Shizuku is required.';
+
+  @override
+  String get androidShellErrorAdbNotPaired => 'Pair this phone with wireless debugging, then connect ADB.';
+
+  @override
+  String get androidShellErrorConnectFailed =>
+      'Connection failed. Check the selected channel and current wireless-debugging connection port, then retry.';
+
+  @override
+  String get androidShellErrorIdentityChanged => 'The channel identity changed. Stop, then authorize or connect again.';
+
+  @override
+  String get androidShellErrorBusy => 'Another operation is still pending. Retry later or stop Android Shell first.';
+
+  @override
+  String get androidShellErrorInvalidArguments =>
+      'Invalid input. Use a six-digit pairing code and a port from 1 to 65535.';
+
+  @override
+  String get androidShellErrorCancelled => 'The operation was cancelled.';
+
+  @override
+  String get androidShellErrorTimeout =>
+      'The operation timed out. Verify its outcome first; never automatically retry a dispatched command.';
+
+  @override
+  String get androidShellErrorConfirmationDenied => 'The command was not approved.';
+
+  @override
+  String get androidShellErrorCleanupFailed =>
+      'Stop cleanup did not finish. Retry stopping before running new commands.';
+
+  @override
+  String get androidShellErrorLocked => 'The phone is locked. Unlock it and retry.';
+
+  @override
+  String get androidShellErrorConfirmationUnavailable =>
+      'Native confirmation cannot be shown. Return to the app and check notification permission.';
+
+  @override
+  String get androidShellErrorTransportLost =>
+      'The channel disconnected. Verify the outcome first; never automatically retry a dispatched command. Reconnect if needed.';
+
+  @override
+  String get androidShellErrorProtocolMismatch =>
+      'The native module does not support this Shell protocol. Update the app.';
+
+  @override
+  String get androidShellErrorNativeUnavailable => 'The Android Shell native module is unavailable in this build.';
+
+  @override
+  String get androidShellErrorInvalidResponse => 'No valid native status was received. Refresh or update the app.';
+
+  @override
+  String get androidShellErrorStopFailed => 'Stopping was not confirmed. Refresh the status and retry stopping.';
+
+  @override
+  String get androidShellErrorUnknown =>
+      'The outcome could not be confirmed. Verify it first; never automatically retry a dispatched command.';
 
   @override
   String get botsFolderGone => 'This folder is gone';
@@ -2691,6 +2968,51 @@ class L10nEn extends L10n {
   String get botsPetAlways => 'Always';
 
   @override
+  String get botsPetOverlayShows => 'Show in the floating window';
+
+  @override
+  String get botsPetOverlayPixel => 'Pixel pet';
+
+  @override
+  String get botsPetOverlayCompanion => 'Room companion';
+
+  @override
+  String botsPetOverlayCompanionNamed(String name) {
+    return '$name from the Room';
+  }
+
+  @override
+  String get botsPetOverlayNoPack => 'Invite a character in the Companion Room first';
+
+  @override
+  String get botsPetOverlayPackBroken => 'The character pack is incomplete. Import it again in the Companion Room';
+
+  @override
+  String get botsPetOverlayUnavailable => 'This phone can\'t show your companion right now';
+
+  @override
+  String get botsPetOverlayCompanionHint =>
+      'Tap to play with her, tap twice to open the chat. Uses more battery than the pixel pet. It stops when the screen is off or the window is hidden';
+
+  @override
+  String get botsPetOverlayLoading => 'Bringing your companion out…';
+
+  @override
+  String get botsPetOverlayFallback => 'Your companion couldn\'t come out. The pixel pet is filling in';
+
+  @override
+  String get botsPetOverlayFraming => 'Framing';
+
+  @override
+  String get botsPetOverlayFramingFull => 'Full body';
+
+  @override
+  String get botsPetOverlayFramingHalf => 'Half body';
+
+  @override
+  String get botsPetOverlayFramingHint => 'Changing the framing reloads the character';
+
+  @override
   String get botsPetSwitchDisabled => 'Switch disabled';
 
   @override
@@ -3673,6 +3995,15 @@ class L10nEn extends L10n {
   String get chatAnswerHint => 'Type your answer…';
 
   @override
+  String get chatAnswerMode => 'Send text as an answer';
+
+  @override
+  String get chatMessageMode => 'Send a new message';
+
+  @override
+  String get chatQuestionAnswered => 'Answered';
+
+  @override
   String get chatStarting => 'Starting';
 
   @override
@@ -4366,7 +4697,7 @@ class L10nEn extends L10n {
   String get chatBranchHint => 'Continue in a new chat. The original stays as is.';
 
   @override
-  String get chatEditResendHint => 'Rewrite in a new chat. The original stays as is.';
+  String get chatEditResendHint => 'Rewrite in a new chat. Reattach images and files; the original stays as is.';
 
   @override
   String get chatSaveToPhotos => 'Save to Photos';
@@ -4524,6 +4855,43 @@ class L10nEn extends L10n {
   String get chatNoDetails => 'No details yet';
 
   @override
+  String chatOutputHiddenLines(int count, String shown) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$shown lines hidden',
+      one: '1 line hidden',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String chatOutputHiddenChars(String count) {
+    return '$count characters hidden';
+  }
+
+  @override
+  String chatOutputSummary(int count, String lines, String chars) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$lines lines', one: '1 line');
+    return '$_temp0 · $chars characters';
+  }
+
+  @override
+  String get chatOutputViewAll => 'View all';
+
+  @override
+  String get chatOutputCopyAll => 'Copy all';
+
+  @override
+  String get chatOutputCopied => 'Copied the full text';
+
+  @override
+  String get chatOutputToEnd => 'Jump to end';
+
+  @override
+  String get chatOutputToStart => 'Back to top';
+
+  @override
   String get chatErrApiKey => 'API key is invalid or expired';
 
   @override
@@ -4536,7 +4904,7 @@ class L10nEn extends L10n {
   String get chatErrRateLimit => 'Too many requests. Try again later.';
 
   @override
-  String get chatErrContextLength => 'Chat too long. Send /compact, then try again.';
+  String get chatErrContextLength => 'Chat too long. If /compact fails, try a new chat or model.';
 
   @override
   String get chatErrModelUnavailable => 'Model service temporarily unavailable';
@@ -4967,6 +5335,10 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get companionFailedBodyPlain =>
+      'Your companion didn\'t load just now. Try again first; if that doesn\'t help, import the asset pack again.';
+
+  @override
   String get companionPackBroken => 'This file can\'t be opened. It may not be an asset pack, or it may be damaged.';
 
   @override
@@ -5074,6 +5446,15 @@ class L10nEn extends L10n {
 
   @override
   String get companionTease3 => 'Don\'t you have anything better to do?';
+
+  @override
+  String get companionShake1 => 'Whoa, stop shaking!';
+
+  @override
+  String get companionShake2 => 'I\'m so dizzy… the water\'s sloshing everywhere.';
+
+  @override
+  String get companionShake3 => 'Keep that up and I\'ll start blowing bubbles!';
 
   @override
   String get companionStatusIdle => 'Daydreaming';
@@ -6085,6 +6466,9 @@ class L10nEn extends L10n {
   String get engineGeneralWebSending => 'Web sending';
 
   @override
+  String get engineGeneralWebOnlyHint => 'These settings only affect this host’s web app, not native chat.';
+
+  @override
   String get engineGeneralData => 'Data';
 
   @override
@@ -6492,6 +6876,39 @@ class L10nEn extends L10n {
 
   @override
   String get engineProviderConnection => 'Connection';
+
+  @override
+  String get engineProviderHeaders => 'Request headers (optional)';
+
+  @override
+  String get engineProviderHeadersWarning =>
+      'Headers are stored as plain text and are not redacted from logs. Use API Key or a credential reference for sensitive credentials.';
+
+  @override
+  String get engineProviderHeaderName => 'Name';
+
+  @override
+  String get engineProviderHeaderValue => 'Value';
+
+  @override
+  String get engineProviderHeaderAdd => 'Add header';
+
+  @override
+  String get engineProviderHeaderInvalidName =>
+      'Use letters, digits or HTTP token symbols in header names; no spaces or colons';
+
+  @override
+  String get engineProviderHeaderReserved => 'User-Agent is set by the engine; remove this header';
+
+  @override
+  String get engineProviderHeaderLocked => 'Managed by the engine; the existing setting is preserved';
+
+  @override
+  String get engineProviderHeaderDuplicate => 'Header names must be unique (case-insensitive)';
+
+  @override
+  String get engineProviderHeaderInvalidValue =>
+      'Use single-line Latin-1 values without control characters (tabs are allowed)';
 
   @override
   String get engineProviderDefaultUrl => 'Default URL';
@@ -12682,6 +13099,24 @@ class L10nEn extends L10n {
   String get plugInputGestureRequired => 'This effect requires a user tap';
 
   @override
+  String get seamsTitle => 'In-app interface';
+
+  @override
+  String get seamsOverlay => 'Chat overlay';
+
+  @override
+  String get seamsOverlayNote => 'Stays over the chat and yields when memory is tight';
+
+  @override
+  String get seamsSidebarPage => 'Sidebar entry';
+
+  @override
+  String get seamsSettingsPage => 'Plugin settings page';
+
+  @override
+  String get seamsDetailPage => 'Plugin detail extension';
+
+  @override
   String get pluginsOperationHostChanged => 'Host changed — nothing was done';
 
   @override
@@ -14415,6 +14850,61 @@ class L10nEn extends L10n {
   String get readListFailed => 'Not updated · previous results';
 
   @override
+  String get remoteDshMode => 'Instance management';
+
+  @override
+  String get remoteManaged => 'Managed';
+
+  @override
+  String get remoteAttachOnly => 'Attach only';
+
+  @override
+  String get remoteManagedHelp =>
+      'Start or reuse app-managed DSH. A live instance that cannot be reused is never replaced automatically.';
+
+  @override
+  String get remoteAttachOnlyHelp =>
+      'Forward only to a fixed port on remote 127.0.0.1. Never start, stop or restart DSH.';
+
+  @override
+  String get remoteDshPort => 'Remote DSH port';
+
+  @override
+  String get remoteDshToken => 'DSH launch token';
+
+  @override
+  String get remoteDshTokenHelp =>
+      'Enter the token from the existing instance’s launch URL. It stays in secure storage on this phone.';
+
+  @override
+  String get remoteAttachWorkingDirectoryHelp =>
+      'Existing instances are not probed for a home directory. Use a remote absolute path, or leave empty for DSH’s default.';
+
+  @override
+  String get remoteSshCompression => 'SSH compression';
+
+  @override
+  String get remoteSshCompressionHelp =>
+      'On by default. Negotiate compression after authentication; use uncompressed transport if unsupported.';
+
+  @override
+  String get remoteRestartManaged => 'Restart managed DSH';
+
+  @override
+  String get remoteRestartManagedWarning =>
+      'This stops the remote DSH recorded by the app and starts it again. Other clients and active chats may be interrupted. Continue only after checking nobody else is using it. Normal connection tests never do this.';
+
+  @override
+  String get remoteErrSharedInstance =>
+      'Remote managed DSH is still running, but its start command differs or its launch log is missing. To protect shared use, it was not restarted. Check the settings, use Attach only, or explicitly choose Restart managed DSH in Edit host.';
+
+  @override
+  String get remoteErrAttachSettings => 'Enter a valid remote DSH port and launch token';
+
+  @override
+  String get remoteDshAttached => 'Connected to existing DSH';
+
+  @override
   String get remoteStartupSection => 'On launch';
 
   @override
@@ -14585,7 +15075,8 @@ class L10nEn extends L10n {
   String get remoteDshStarted => 'Started DSH on the host';
 
   @override
-  String get remoteErrDshTokenRejected => 'Remote DSH rejected the sign-in token';
+  String get remoteErrDshTokenRejected =>
+      'Remote DSH rejected the token; it was not restarted. Check the token, or explicitly restart the managed instance in Edit host.';
 
   @override
   String get remoteErrDshSignIn => 'Couldn’t sign in to remote DSH';
@@ -15217,7 +15708,11 @@ class L10nEn extends L10n {
   String get remoteSelfHostedServer => 'Self-hosted server';
 
   @override
-  String get remoteSelfHostedSignInHelp => 'Sign in to your own liguobao/ds-harness-remote with email and password';
+  String get remoteSelfHostedSignInHelp =>
+      'Enter your server address. Sign in with email and password, or use this server to choose another sign-in method.';
+
+  @override
+  String get remoteUseServer => 'Use this server';
 
   @override
   String get remoteServerAddress => 'Server address';
@@ -16479,6 +16974,12 @@ class L10nEn extends L10n {
   String get searchKwPetDisplayWhen => 'pet display,when to show';
 
   @override
+  String get searchKwPetOverlayShows => 'floating companion,room companion,pixel pet,live2d';
+
+  @override
+  String get searchKwPetOverlayFraming => 'framing,full body,half body';
+
+  @override
   String get searchKwBlur => 'blur,glass,frosted';
 
   @override
@@ -16633,6 +17134,104 @@ class L10nEn extends L10n {
   String get searchKwQuickPanel => 'swipe,left swipe,shortcuts,gesture,quick panel,quick access';
 
   @override
+  String get selfUpdateTransport => 'Installation route';
+
+  @override
+  String get selfUpdateSystem => 'Normal installation (default)';
+
+  @override
+  String get selfUpdateShizuku => 'Shizuku';
+
+  @override
+  String get selfUpdateAdb => 'Local ADB';
+
+  @override
+  String get selfUpdateSecurityNote =>
+      'Every route remains subject to APK signatures and Android/vendor security policies. Skipping scans is not guaranteed. Root is unsupported; routes never switch automatically after a failure.';
+
+  @override
+  String get selfUpdateNativeConfirm =>
+      'Only a verified update for this app is installed, with native confirmation still required. Authorizing Shizuku does not approve installation. Phone control and AI Shell can remain off.';
+
+  @override
+  String get selfUpdateAuthorize => 'Request Shizuku authorization for updates';
+
+  @override
+  String get selfUpdateRefresh => 'Refresh transport status';
+
+  @override
+  String selfUpdateShizukuStatus(String status) {
+    return 'Shizuku: $status';
+  }
+
+  @override
+  String get selfUpdateReady => 'Authorized';
+
+  @override
+  String get selfUpdatePermissionRequired => 'Install, start, and authorize Shizuku first';
+
+  @override
+  String get selfUpdateUnsupportedIdentity =>
+      'Only shell UID 2000 is supported; root and other identities are unsupported';
+
+  @override
+  String get selfUpdateAdbHint =>
+      'Use this phone\'s paired wireless-debugging identity; connection starts only when you press Install. If unpaired, open the existing Android Shell pairing page without enabling Phone control or AI Shell. Pairing codes and ports are not saved or logged.';
+
+  @override
+  String get selfUpdatePairing => 'Open Android Shell pairing guidance';
+
+  @override
+  String get selfUpdateAdbPaired => 'Local ADB paired';
+
+  @override
+  String get selfUpdateAdbNotPaired => 'Local ADB not paired';
+
+  @override
+  String get selfUpdatePendingTitle => 'Verifying installation outcome';
+
+  @override
+  String get selfUpdatePendingMessage =>
+      'The installation may still be running. There is no automatic retry or route switch. Check system prompts, then read the actual installed state.';
+
+  @override
+  String get selfUpdateUnknownTitle => 'Installation outcome unknown';
+
+  @override
+  String get selfUpdateUnknownMessage =>
+      'A timeout, lost connection, or exited process does not prove failure. There is no automatic retry or route switch. Read the actual installed state first.';
+
+  @override
+  String get selfUpdateReadResult => 'Read actual installed state';
+
+  @override
+  String get selfUpdateVerifiedTitle => 'Installed version verified';
+
+  @override
+  String selfUpdateVerifiedVersion(String version, int code) {
+    return 'Current version $version (build $code), verified by the native layer.';
+  }
+
+  @override
+  String get selfUpdateFailedTitle => 'Installation did not complete';
+
+  @override
+  String get selfUpdateFailedMessage =>
+      'The native layer reported this installation failed. Check system prompts and the error code, then explicitly choose an installation route.';
+
+  @override
+  String selfUpdateErrorCode(String code) {
+    return 'Error code: $code';
+  }
+
+  @override
+  String get selfUpdateEndWaiting => 'End this wait';
+
+  @override
+  String get selfUpdateEndWaitingNote =>
+      'End this wait only after confirming the system is no longer installing. Clearing the record does not cancel a system installation or retry/switch routes. Native confirmation is required again.';
+
+  @override
   String get shellDeletePermanently => 'Delete permanently';
 
   @override
@@ -16667,7 +17266,7 @@ class L10nEn extends L10n {
 
   @override
   String get shellDeleteWarning =>
-      'The selected chat history will be permanently deleted from this host. This cannot be undone and is not archive.\n\nWorking directories, generated files, forks, shared attachments and published cloud shares are kept. Cloud shares must be removed separately. Active or related chats may be refused by the host.';
+      'The selected chat history will be permanently deleted from this host. This cannot be undone and is not archive.\n\nWorking directories, generated files, forks, shared attachments and published cloud shares are kept. Cloud shares must be removed separately. Subagent chats are deleted along with the chat. The host refuses a running chat or one with scheduled tasks.';
 
   @override
   String get shellDeleteOwnerChanged =>
@@ -16704,7 +17303,7 @@ class L10nEn extends L10n {
       'Stop running work before deleting. The host also checks active tasks and schedules.';
 
   @override
-  String get shellDeleteRelated => 'This chat has related subagent work. The host refused deletion to protect it.';
+  String get shellDeleteRelated => 'This chat still has scheduled tasks. The host refused deletion to protect them.';
 
   @override
   String get shellDeleteWriterHeld => 'Another process is using this chat. Close it there and try again.';
@@ -17783,6 +18382,18 @@ class L10nEn extends L10n {
   String get starSettingsTitle => 'Star DSH Go on GitHub';
 
   @override
+  String get hubStartPage => 'Start page';
+
+  @override
+  String get hubChatSuggestions => 'Chat suggestions';
+
+  @override
+  String get hubChatSuggestionsHint => 'Show chat suggestions on the start page';
+
+  @override
+  String get searchKwChatSuggestions => 'start page,empty page,new chat,chat suggestions,suggestion cards';
+
+  @override
   String get phoneStartupFailureStopping => 'Startup failed; stopping';
 
   @override
@@ -18306,6 +18917,10 @@ class L10nEn extends L10n {
 
   @override
   String get stateChatMissing => 'This chat is gone';
+
+  @override
+  String get stateChatFormatUnsupported =>
+      'This engine cannot read this chat\'s log format. Export diagnostics to investigate.';
 
   @override
   String get stateEngineUnsupported => 'Not supported by this engine version';
@@ -21602,7 +22217,7 @@ class L10nEn extends L10n {
 
   @override
   String get updateInstallBlockedMessage =>
-      'Allow installation in the system prompt, or download from the release page.';
+      'Allow installation in the system prompt. If the system blocks it outright (Xiaomi and others), try Shizuku or on-device ADB under Installation route; that needs no new signature.';
 
   @override
   String get updateInstallIncomplete => 'Installation incomplete';
@@ -21692,6 +22307,24 @@ class L10nEn extends L10n {
   String get updateSystemInstallerFailed => 'Couldn\'t open the system installer';
 
   @override
+  String get updateExportApk => 'Save the package';
+
+  @override
+  String get updateExportApkTitle => 'Save the package?';
+
+  @override
+  String get updateExportApkMessage =>
+      'Copies the package downloaded and verified now into Downloads/DSH-Go, so you can sign it yourself (MT Manager and the like) and install that.\n\nA package you signed has a different signature from ours: in-app updates then always report a signature mismatch, and every later version has to be signed and installed by hand.\n\nIf the system simply blocks the install (Xiaomi and other vendors), try Shizuku or on-device ADB under Installation route first; that needs no signing.';
+
+  @override
+  String updateExportApkDone(String path) {
+    return 'Saved to Downloads/$path';
+  }
+
+  @override
+  String get updateExportApkFailed => 'Couldn\'t save the package';
+
+  @override
   String get updateStarProject => 'Star it';
 
   @override
@@ -21730,7 +22363,7 @@ class L10nEn extends L10n {
 
   @override
   String get usageStatsFooter =>
-      'This switch controls dsh-go’s own usage counts, versions and phone maker statistics. It includes no chats, files or accounts, and does not control Google ML Kit SDK statistics.';
+      'This switch controls dsh-go’s own usage counts, versions, phone maker and model, and system version statistics. It includes no chats, files or accounts, and does not control Google ML Kit SDK statistics.';
 
   @override
   String get usageNoticeBody => 'No chats or personal info.\nTurn off anytime.';

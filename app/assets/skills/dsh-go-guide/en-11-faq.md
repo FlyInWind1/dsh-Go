@@ -42,6 +42,16 @@ Direct local engine launch is off by default; you turn it on under Developer opt
 
 After an upgrade from an earlier version, the first direct start tidies your plugin files once; the engine shows **Tidying plugin files** meanwhile. If the phone is short of space or the tidy-up doesn't finish, that start uses compatible launch, **Fallback reason** on the **Diagnostics** page says why, and the next start carries on. No files are lost.
 
+## The app can chat, but headless reports MISSING_CREDENTIAL
+
+`dsh --profile headless` starts a separate one-shot task. Its default profile disables the interactive credential store, authorization and DeepSeek account services, so it does not automatically use API keys or account sign-ins saved in the app. A working chat in the app does not mean this command has credentials configured.
+
+The default DeepSeek official API route needs `DEEPSEEK_API_KEY`. Supply it in the process environment that launches the command, or set your own API key as `DEEPSEEK_API_KEY=...` in the launch directory's `.env` or `$DSH_HOME/.env`. These are read in order: process environment, launch directory's `.env`, then `$DSH_HOME/.env`. An exported empty variable also shadows the `.env` fallback; unset that empty variable before using a file instead. Keep real keys out of chats, issue reports and source control.
+
+DeepSeek account sign-in and an official API key are different credentials. An account sign-in token cannot be used as `DEEPSEEK_API_KEY`. You can keep using the account in the app, or configure an API key separately for headless.
+
+Adding the app's sign-in patch alone does not enable the services that headless disables by default. Custom profiles and remote hosts may use different configurations; follow the configuration of that host.
+
 ## Phone control doesn't work
 
 The top of the phone control page says what's missing:
@@ -74,7 +84,7 @@ Check that the plugin is enabled, and restart the engine if asked. A plugin's na
 <!-- nav: commonSettings,hubPrivacy,usageStatsTitle -->
 `Settings › Privacy and sharing › Send anonymous usage stats` · [Open](dshgo://open/usage-stats)
 
-dsh-go’s own anonymous usage statistics are on by default; the switch is on the welcome screen the first time you open the app. If you updated from an earlier version, a one-time notice at the bottom of the home screen tells you, and can turn it off right there. While it's on, the app sends anonymous stats for the days before, at most once a day, and only this: app and Android version, CPU architecture, phone maker (not the model), app language, how the local engine was started, and that day's number of messages, voice inputs, phone control tasks, generations, shares and installed plugins. Devices are told apart by a random ID that changes every 90 days.
+dsh-go’s own anonymous usage statistics are on by default; the switch is on the welcome screen the first time you open the app. If you updated from an earlier version, a one-time notice at the bottom of the home screen tells you, and can turn it off right there. While it's on, the app sends anonymous stats for the days before, at most once a day, and only this: app and Android version, CPU architecture, phone maker and model (such as `V2405A`, from 1.0.15), the maker's system and its version (such as OriginOS 5.0, from 1.0.15), app language, how the local engine was started, and that day's number of messages, voice inputs, phone control tasks, generations, shares and installed plugins. Devices are told apart by a random ID that changes every 90 days.
 
 These statistics never include accounts, API keys, chats, files, prompts or host addresses, or device identifiers such as phone number or IMEI. Turning this switch off stops these dsh-go statistics; the random ID and the counts kept on the phone are deleted at once.
 
