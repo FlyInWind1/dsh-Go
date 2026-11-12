@@ -431,6 +431,49 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   };
   if(!window.getVariables)window.getVariables=getVariables;
   if(!window.replaceVariables)window.replaceVariables=replaceVariables;
+  // getChatMessages(range, option) as 酒馆助手's public page gives it:
+  // synchronous, from this page's copy; floors numbered along the whole
+  // chosen path before any filter; a floor number, 'a-b', negative from the
+  // end, or {{lastMessageId}}; only floors that exist, ascending. A floor
+  // whose data is not an object reads data: null, not {}.
+  function floor(s){
+    var t=String(s).trim().replace(/\\{\\{lastMessageId\\}\\}/g,String(msgs.length-1));
+    if(!/^-?\\d+\$/.test(t))throw new RangeError('Not a floor: '+s);
+    var n=parseInt(t,10);return n<0?msgs.length+n:n;
+  }
+  function getChatMessages(range,o){
+    o=o||{};
+    var a,b;
+    if(typeof range==='number'){if(range%1!==0)throw new RangeError('Not a floor: '+range);a=b=range<0?msgs.length+range:range;}
+    else{
+      var r=String(range).trim().replace(/\\{\\{lastMessageId\\}\\}/g,String(msgs.length-1));
+      var m=/^(-?\\d+)\\s*-\\s*(-?\\d+)\$/.exec(r);
+      if(m){a=floor(m[1]);b=floor(m[2]);}else{a=b=floor(r);}
+    }
+    var role=o.role||'all',hide=o.hide_state||'all',swipes=!!o.include_swipes;
+    var out=[];
+    for(var i=0;i<msgs.length;i++){
+      var x=msgs[i],id=x.messageId===undefined?i:x.messageId;
+      if(id<a||id>b)continue;
+      if(role!=='all'&&x.role!==role)continue;
+      if(hide==='hidden'&&!x.hidden)continue;
+      if(hide==='unhidden'&&x.hidden)continue;
+      var base={message_id:id,name:x.name,role:x.role,is_hidden:!!x.hidden};
+      if(swipes){
+        var ss=x.swipes&&x.swipes.length?x.swipes:[{text:x.message,data:x.data,info:{}}];
+        base.swipe_id=x.swipeId||0;
+        base.swipes=ss.map(function(s){return s.text;});
+        base.swipes_data=ss.map(function(s){return s.data===undefined?{}:s.data;});
+        base.swipes_info=ss.map(function(s){return s.info||{};});
+      }else{
+        base.message=x.message;base.data=x.data===undefined?{}:x.data;base.extra=x.extra||{};
+      }
+      out.push(clone(base));
+    }
+    return out;
+  }
+  dsh.scripts.getChatMessages=getChatMessages;
+  if(!window.getChatMessages)window.getChatMessages=getChatMessages;
   // Events (酒馆助手's eventOn and kin). The engine's events come with its
   // own names (MESSAGE_RECEIVED…); tavern_events gives them, and a name in
   // lower case is the same event (ST writes chat_id_changed for
