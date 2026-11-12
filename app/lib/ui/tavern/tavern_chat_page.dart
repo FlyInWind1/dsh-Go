@@ -1270,6 +1270,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       ? _QuickReplyRow(
                           directed: _directed,
                           onDirected: _suggest,
+                          onDirectedSend: _sendQuick,
                           replies: ref.watch(tavernQuickRepliesProvider),
                           onSend: _sendQuick,
                           onEdit: _editQuick,
@@ -1590,6 +1591,7 @@ class _QuickReplyRow extends StatelessWidget {
   const _QuickReplyRow({
     this.directed = const [],
     this.onDirected,
+    this.onDirectedSend,
     required this.replies,
     required this.onSend,
     required this.onEdit,
@@ -1597,9 +1599,11 @@ class _QuickReplyRow extends StatelessWidget {
     required this.onAll,
   });
 
-  /// The director's suggestions, first: a tap puts one in the box.
+  /// The director's suggestions, first: a tap puts one in the box; a long
+  /// press sends it as it is (docs/design/roleplay-ui.md §5).
   final List<String> directed;
   final ValueChanged<String>? onDirected;
+  final ValueChanged<String>? onDirectedSend;
 
   final List<String> replies;
   final ValueChanged<String> onSend;
@@ -1632,12 +1636,15 @@ class _QuickReplyRow extends StatelessWidget {
             ? TavernArrive(
                 key: ValueKey(('tavern-directed-arrive', at, directed[at])),
                 index: at,
-                child: CapsuleChoiceChip(
-                  key: ValueKey('tavern-directed-$at'),
-                  icon: AppIcons.askAi,
-                  label: _label(directed[at]),
-                  selected: false,
-                  onSelected: () => onDirected?.call(directed[at]),
+                child: GestureDetector(
+                  onLongPress: onDirectedSend == null ? null : () => onDirectedSend!(directed[at]),
+                  child: CapsuleChoiceChip(
+                    key: ValueKey('tavern-directed-$at'),
+                    icon: AppIcons.askAi,
+                    label: _label(directed[at]),
+                    selected: false,
+                    onSelected: () => onDirected?.call(directed[at]),
+                  ),
                 ),
               )
             : _item(context, at - directed.length),

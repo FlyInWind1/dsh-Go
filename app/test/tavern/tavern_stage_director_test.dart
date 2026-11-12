@@ -193,6 +193,22 @@ void main() {
     expect(find.byKey(const ValueKey('tavern-directed-0')), findsNothing);
   });
 
+  testWidgets("a long press on the director's suggestion sends it as it is", (tester) async {
+    final tavern = _Directed((chat) => _view(chat, success: _run('r0', beat: '让她提起楼上的客人')));
+    final chat = await _openChat(tester, tavern);
+    final before = (await tester.runAsync(() => tavern.path(chat)))!.length;
+    await tester.longPress(find.byKey(const ValueKey('tavern-directed-0')));
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+    final path = (await tester.runAsync(() => tavern.path(chat)))!;
+    expect(path.length, greaterThan(before));
+    expect(path.firstWhere((m) => m.role == TavernRole.user).text, '问她楼上那间房');
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty); // not left in the box
+  });
+
   testWidgets('the switch turns the director on for this chat only', (tester) async {
     final tavern = _Directed((chat) => _view(chat));
     final chat = await _openDirector(tester, tavern);
