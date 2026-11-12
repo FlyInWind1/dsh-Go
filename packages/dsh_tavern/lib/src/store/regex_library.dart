@@ -130,6 +130,31 @@ final class RegexLibrary {
     });
   }
 
+  Future<TavernRegexScript> updateScript(String id, Map<String, Object?> patch) {
+    final captured = jsonDecode(jsonEncode(patch)) as Map<String, Object?>;
+    return _exclusive(() async {
+      final original = _require(id);
+      final raw = _merge(original.raw, captured);
+      final diagnostic = await inspectRegexScript(raw, worker);
+      final report = assessImport(
+        kind: TavernImportKind.regex,
+        document: raw,
+        regexDiagnostics: [diagnostic],
+        checkedAt: _clock().toUtc(),
+      );
+      final updated = TavernRegexScript(
+        id: original.id,
+        sourceText: original.sourceText,
+        raw: raw,
+        importedAt: original.importedAt,
+        diagnostics: [diagnostic],
+        importReport: report,
+      );
+      await _save([for (final script in _scripts) script.id == id ? updated : script]);
+      return updated;
+    });
+  }
+
   Future<TavernRegexScript> setEnabled(String id, bool enabled) => _exclusive(() async {
     final original = _require(id);
     final updated = TavernRegexScript(
@@ -195,6 +220,18 @@ final class RegexLibrary {
       id = List.generate(16, (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
     } while (!reserved.add(id));
     return id;
+  }
+
+  Map<String, Object?> _merge(Map<String, Object?> original, Map<String, Object?> patch) {
+    final result = Map<String, Object?>.from(original);
+    for (final entry in patch.entries) {
+      final previous = result[entry.key];
+      final replacement = entry.value;
+      result[entry.key] = previous is Map<String, Object?> && replacement is Map<String, Object?>
+          ? _merge(previous, replacement)
+          : replacement;
+    }
+    return result;
   }
 
   Future<void> _save(List<TavernRegexScript> scripts) async {

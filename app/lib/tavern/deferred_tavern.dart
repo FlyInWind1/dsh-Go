@@ -4,6 +4,7 @@
 // applied straight away.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
@@ -312,6 +313,15 @@ class DeferredTavern implements Tavern {
 
   @override
   Future<TavernRegexImportResult> importRegexScripts(String text) async => (await _ready).importRegexScripts(text);
+
+  /// The edit as it is when called: copied before waiting for the engine, so
+  /// a caller changing its map afterwards does not change what is saved.
+  @override
+  Future<TavernRegexScript> updateRegexScript(String regexId, Map<String, Object?> patch) =>
+      Future<TavernRegexScript>.sync(() {
+        final captured = jsonDecode(jsonEncode(patch)) as Map<String, Object?>;
+        return _ready.then((tavern) => tavern.updateRegexScript(regexId, captured));
+      });
 
   @override
   Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) async =>

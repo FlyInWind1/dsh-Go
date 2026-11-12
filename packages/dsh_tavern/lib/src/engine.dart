@@ -1891,6 +1891,9 @@ class TavernEngine implements Tavern {
   Future<TavernRegexImportResult> importRegexScripts(String text) =>
       _operation(() => _regexLibrary.importScripts(text));
   @override
+  Future<TavernRegexScript> updateRegexScript(String regexId, Map<String, Object?> patch) =>
+      _operation(() => _regexLibrary.updateScript(regexId, patch));
+  @override
   Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled) =>
       _operation(() => _regexLibrary.setEnabled(regexId, enabled));
   @override

@@ -368,8 +368,8 @@ abstract interface class Tavern {
   /// The saved capability snapshot, or null for a missing/legacy asset.
   /// Reading compares the current inspection-input fingerprint with the saved
   /// fingerprint. Restoring a match can make stale false; checkedAt and findings
-  /// still describe the saved snapshot. Only explicit rechecking refreshes that
-  /// snapshot; reading does not run compatibility work.
+  /// still describe the saved snapshot. Explicit rechecking and
+  /// updateRegexScript refresh it; reading does not run compatibility work.
   Future<TavernImportReport?> readImportReport(TavernImportKind kind, String assetId);
 
   /// Explicitly inspects the current asset, including legacy imports, and
@@ -718,6 +718,17 @@ abstract interface class Tavern {
   /// and precedes preset and character scripts.
   Future<List<TavernRegexScript>> listRegexScripts();
   Future<TavernRegexImportResult> importRegexScripts(String text);
+
+  /// Edits the current ST raw object in place, retaining its internal id, order,
+  /// original sourceText and importedAt. The payload's raw id remains editable.
+  /// Captures a JSON deep copy of patch at call time, then merges into the latest
+  /// committed raw in the library queue. Objects merge recursively; arrays,
+  /// scalars and null replace, while omitted fields remain.
+  /// Refreshes compatibility diagnostics and the import report without expanding
+  /// macros. Incompatible raw remains saved but is disabled in execution views.
+  /// Await publication before starting work that must use the edited rules;
+  /// existing messages and already captured execution views are unchanged.
+  Future<TavernRegexScript> updateRegexScript(String regexId, Map<String, Object?> patch);
   Future<TavernRegexScript> setRegexEnabled(String regexId, bool enabled);
   Future<void> deleteRegex(String regexId);
 

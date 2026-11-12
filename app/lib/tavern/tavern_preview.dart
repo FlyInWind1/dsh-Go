@@ -993,6 +993,34 @@ class PreviewTavern implements Tavern, TavernPreview {
     );
   }
 
+  /// An edit in place, as the engine makes it: the patch copied when called,
+  /// merged into the rule (maps by key, the rest replaced, null kept), its
+  /// id, place and first source kept. The preview checks nothing: the rule
+  /// keeps the findings it had (none), not a fresh 「compatible」.
+  @override
+  Future<TavernRegexScript> updateRegexScript(String regexId, Map<String, Object?> patch) {
+    final captured = jsonDecode(jsonEncode(patch)) as Map<String, Object?>;
+    return Future.sync(() {
+      final old = _regex[regexId];
+      if (old == null) throw TavernImportError('No regex script $regexId');
+      Map<String, Object?> merge(Map<String, Object?> base, Map<String, Object?> edit) => {
+        ...base,
+        for (final MapEntry(:key, :value) in edit.entries)
+          key: switch ((base[key], value)) {
+            (final Map<String, Object?> was, final Map<String, Object?> now) => merge(was, now),
+            _ => value,
+          },
+      };
+      return _regex[regexId] = TavernRegexScript(
+        id: old.id,
+        sourceText: old.sourceText,
+        raw: merge(old.raw, captured),
+        importedAt: old.importedAt,
+        diagnostics: old.diagnostics,
+      );
+    });
+  }
+
   @override
   Future<void> deleteRegex(String regexId) async => _regex.remove(regexId);
 

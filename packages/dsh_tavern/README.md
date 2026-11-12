@@ -112,7 +112,11 @@ T20的结构化导入诊断供后续T22体检接入；T22统一持久体检接�
 
 新卡、预设、世界书及正则导入会试编译静态输入，动态宏只标deferred并延到运行检查；原始JSON不因诊断被改写。script历史flags fallback、native和V3方言分开。卡/预设/世界书的regexDiagnostics仅为导入回执；全局库诊断随记录保存，统一持久体检属于T22。
 
-全局库接口：listRegexScripts、importRegexScripts、setRegexEnabled、deleteRegex、exportRegex。单对象/数组均接收，内部ID独立于ST id；原文、未知字段、原开关及诊断保存。执行view跳过不兼容规则。顺序：旧inline global→管理库→preset→card；managedRegexScripts是设置合并后的只读投影，read→set不能重复或覆盖库。在途回合保留已捕获规则。
+全局库接口：listRegexScripts、importRegexScripts、updateRegexScript、setRegexEnabled、deleteRegex、exportRegex。单对象/数组均接收，内部ID独立于ST id；原文、未知字段、原开关及诊断保存。执行view跳过不兼容规则。顺序：旧inline global→管理库→preset→card；managedRegexScripts是设置合并后的只读投影，read→set不能重复或覆盖库。在途回合保留已捕获规则。
+
+`await tavern.updateRegexScript(script.id, {'findRegex': r'/(A!)/g', 'replaceString': r'$1', 'trimStrings': ['!'], 'minDepth': null, 'maxDepth': null})` 原位编辑 ST raw，返回当前诊断和新报告。内部 ID、顺序、首次 sourceText/importedAt 不变；raw.id 可编辑。调用时捕获 patch 的 JSON 深拷贝，队列内读取最新 raw：对象递归合并，数组/标量替换，null 明确存储，省略及未知字段保留。省略 disabled 即保留原开关。成功 await 后才开始需要新规则的业务；旧消息和已捕获环境不追溯改写。分享当前编辑结果使用 exportRegex，sourceText 仍为首次导入原文。
+
+更新复用导入检查及原文件发布点；静态不兼容 raw 可保存/导出，执行投影停用而不改 raw.disabled；动态模式只标 deferred，不在编辑时展开宏。空 patch 也刷新报告，setRegexEnabled 则保持旧报告及 stale 语义。缺失内部 ID 沿用 TavernImportError，检查或文件发布失败传播异常；正式文件发布前失败保留旧提交，后续队列仍可用。没有新增 schema、跨进程锁或断电事务承诺。
 
 世界书接口：listLorebooks、importLorebook、lorebook、putLorebook、exportLorebook、deleteLorebook、bindLorebooks。可绑定global、characterId、chatId、personaId。删除保留绑定，下轮记missing并跳过；已捕获书的回合继续。
 
@@ -138,7 +142,7 @@ kind为character / preset / lorebook / regex。报告包含version、checkedAt�
 
 每个finding单独带path、code、message、kind；可带identifier、原文行号及从零计的UTF-16 offset，conditional/fallback保留条件与后备路线。unsupported表示已知未实现，invalid表示该已知结构或模式无效，deferred表示需运行时上下文，unknown表示不解释的保留数据；条件性结果不冒充无条件失效。数量是声明及检查的数量，不能当作本次执行次数。原生书的存储条目、V3去重后的执行条目分别计数。
 
-报告是checkedAt时的快照。fingerprint对已检查的JSON、独立预设外壳和嵌入资源路径作规范化哈希；对象键序不影响，数组顺序有意义。此值用于检测编辑，不是签名，也不判断未读取的资源内容。编辑后保留旧报告；读取时根据当前检查输入的指纹是否与报告一致设置 stale。恢复为相同指纹时 stale 可回到 false，但 checkedAt、findings 等仍来自原快照；显式重检才刷新该快照。重检保留原文、当前raw、库名、选择和内容更新时间；不会趁机正规化宽容旧预设。引擎版本升级可能增加能力，旧报告仍是原检查时刻的记录，可显式刷新。
+报告是checkedAt时的快照。fingerprint对已检查的JSON、独立预设外壳和嵌入资源路径作规范化哈希；对象键序不影响，数组顺序有意义。此值用于检测编辑，不是签名，也不判断未读取的资源内容。一般编辑保留旧报告；读取时根据当前检查输入的指纹是否与报告一致设置 stale。恢复为相同指纹时 stale 可回到 false，但 checkedAt、findings 等仍来自原快照；显式重检或 updateRegexScript 刷新该快照。后者包含当前规则检查，setRegexEnabled 仍不自动刷新。重检保留原文、当前raw、库名、选择和内容更新时间；不会趁机正规化宽容旧预设。引擎版本升级可能增加能力，旧报告仍是原检查时刻的记录，可显式刷新。
 
 渲染级别仅是建议：0原生、1单消息WebView、2整页画布。2需要明确脚本、助手依赖或跨消息样式证据；说明里提到插件名称、普通HTML、CSS字符串或代码示例不足以判定。后端不启用任何WebView或脚本执行。静态未发现HTML不能证明运行时宏或正则结果不会生成HTML。
 

@@ -64,7 +64,7 @@ final class TavernImportFinding {
 /// Persisted capability snapshot. Asset reads compare the current inspection-input
 /// fingerprint with [fingerprint] to determine [stale]. Restoring a match can make
 /// [stale] false; [checkedAt] and [findings] still describe the saved snapshot.
-/// Only explicit rechecking refreshes the snapshot. Reading never executes
+/// Explicit rechecking and updateRegexScript refresh the snapshot. Reading never executes
 /// macros, scripts, or another compatibility probe.
 final class TavernImportReport {
   TavernImportReport({
