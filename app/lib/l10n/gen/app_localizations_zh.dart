@@ -20119,6 +20119,56 @@ class L10nZh extends L10n {
   String get tavernStateNoMatch => '没有符合的';
 
   @override
+  String get tavernRuns => '后台记录';
+
+  @override
+  String get tavernRunsNote => '你、模型和卡的规则改了状态，导演、卡事件和剧情每次跑过，都记在这里；最新的在上，最多 100 条。点一条看原始记录。';
+
+  @override
+  String get tavernRunsEmpty => '还没有记录';
+
+  @override
+  String get tavernRunsEmptyMessage => '改了状态，或者导演跑过以后，会记在这里。';
+
+  @override
+  String get tavernRunUser => '你改的';
+
+  @override
+  String get tavernRunModel => '模型改的';
+
+  @override
+  String get tavernRunRules => '卡的规则';
+
+  @override
+  String get tavernRunStopped => '回合中断';
+
+  @override
+  String get tavernRunDirector => '导演';
+
+  @override
+  String get tavernRunDirectorFailed => '导演没成';
+
+  @override
+  String get tavernRunEvent => '卡事件';
+
+  @override
+  String get tavernRunStory => '剧情';
+
+  @override
+  String get tavernRunSecret => '秘密';
+
+  @override
+  String get tavernRunNotKept => '没收下';
+
+  @override
+  String get tavernRunGone => '那条消息已删';
+
+  @override
+  String tavernRunMore(int count) {
+    return '等 $count 处';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

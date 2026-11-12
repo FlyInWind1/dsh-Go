@@ -37,6 +37,7 @@ import 'tavern_lorebooks_page.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
+import 'tavern_runs_page.dart';
 import 'tavern_search_page.dart';
 import 'tavern_storybook_page.dart';
 import 'tavern_widgets.dart';
@@ -885,6 +886,22 @@ class _StateViewState extends ConsumerState<_StateView> {
                   style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5),
                 ),
               ),
+            // Who changed what, and what ran behind the story. On a phone the
+            // panel is a drawer: closed on the way.
+            SettingsSection(
+              margin: const EdgeInsets.only(top: 16),
+              children: [
+                SettingsTile(
+                  key: const ValueKey('tavern-state-runs'),
+                  icon: AppIcons.history,
+                  title: l10n.tavernRuns,
+                  onTap: () {
+                    Scaffold.maybeOf(context)?.closeEndDrawer();
+                    unawaited(Navigator.of(context).push(TavernRunsPage.route(widget.chatId)));
+                  },
+                ),
+              ],
+            ),
           ],
         );
       },

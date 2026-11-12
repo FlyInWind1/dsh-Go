@@ -36698,6 +36698,102 @@ abstract class L10n {
   /// **'没有符合的'**
   String get tavernStateNoMatch;
 
+  /// No description provided for @tavernRuns.
+  ///
+  /// In zh, this message translates to:
+  /// **'后台记录'**
+  String get tavernRuns;
+
+  /// No description provided for @tavernRunsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'你、模型和卡的规则改了状态，导演、卡事件和剧情每次跑过，都记在这里；最新的在上，最多 100 条。点一条看原始记录。'**
+  String get tavernRunsNote;
+
+  /// No description provided for @tavernRunsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有记录'**
+  String get tavernRunsEmpty;
+
+  /// No description provided for @tavernRunsEmptyMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'改了状态，或者导演跑过以后，会记在这里。'**
+  String get tavernRunsEmptyMessage;
+
+  /// No description provided for @tavernRunUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'你改的'**
+  String get tavernRunUser;
+
+  /// No description provided for @tavernRunModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型改的'**
+  String get tavernRunModel;
+
+  /// No description provided for @tavernRunRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡的规则'**
+  String get tavernRunRules;
+
+  /// No description provided for @tavernRunStopped.
+  ///
+  /// In zh, this message translates to:
+  /// **'回合中断'**
+  String get tavernRunStopped;
+
+  /// No description provided for @tavernRunDirector.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演'**
+  String get tavernRunDirector;
+
+  /// No description provided for @tavernRunDirectorFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演没成'**
+  String get tavernRunDirectorFailed;
+
+  /// No description provided for @tavernRunEvent.
+  ///
+  /// In zh, this message translates to:
+  /// **'卡事件'**
+  String get tavernRunEvent;
+
+  /// No description provided for @tavernRunStory.
+  ///
+  /// In zh, this message translates to:
+  /// **'剧情'**
+  String get tavernRunStory;
+
+  /// No description provided for @tavernRunSecret.
+  ///
+  /// In zh, this message translates to:
+  /// **'秘密'**
+  String get tavernRunSecret;
+
+  /// No description provided for @tavernRunNotKept.
+  ///
+  /// In zh, this message translates to:
+  /// **'没收下'**
+  String get tavernRunNotKept;
+
+  /// No description provided for @tavernRunGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'那条消息已删'**
+  String get tavernRunGone;
+
+  /// No description provided for @tavernRunMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'等 {count} 处'**
+  String tavernRunMore(int count);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

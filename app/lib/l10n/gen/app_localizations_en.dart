@@ -21228,6 +21228,57 @@ class L10nEn extends L10n {
   String get tavernStateNoMatch => 'Nothing matches';
 
   @override
+  String get tavernRuns => 'Background log';
+
+  @override
+  String get tavernRunsNote =>
+      'Every change to the state by you, the model or the card\'s rules, and every run of the director, card events and the story; newest first, up to 100. Tap one for the raw record.';
+
+  @override
+  String get tavernRunsEmpty => 'Nothing yet';
+
+  @override
+  String get tavernRunsEmptyMessage => 'Changes to the state and director runs show up here.';
+
+  @override
+  String get tavernRunUser => 'You';
+
+  @override
+  String get tavernRunModel => 'The model';
+
+  @override
+  String get tavernRunRules => 'Card rules';
+
+  @override
+  String get tavernRunStopped => 'Turn cut off';
+
+  @override
+  String get tavernRunDirector => 'Director';
+
+  @override
+  String get tavernRunDirectorFailed => 'Director failed';
+
+  @override
+  String get tavernRunEvent => 'Card event';
+
+  @override
+  String get tavernRunStory => 'Story';
+
+  @override
+  String get tavernRunSecret => 'Secret';
+
+  @override
+  String get tavernRunNotKept => 'Not kept';
+
+  @override
+  String get tavernRunGone => 'Its message is gone';
+
+  @override
+  String tavernRunMore(int count) {
+    return 'and $count more';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

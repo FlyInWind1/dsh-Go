@@ -916,5 +916,22 @@
   "tavernStateItems": "{count} 项",
   "@tavernStateItems": {"placeholders": {"count": {"type": "int"}}},
   "tavernStateSearch": "搜变量",
-  "tavernStateNoMatch": "没有符合的"
+  "tavernStateNoMatch": "没有符合的",
+  "tavernRuns": "后台记录",
+  "tavernRunsNote": "你、模型和卡的规则改了状态，导演、卡事件和剧情每次跑过，都记在这里；最新的在上，最多 100 条。点一条看原始记录。",
+  "tavernRunsEmpty": "还没有记录",
+  "tavernRunsEmptyMessage": "改了状态，或者导演跑过以后，会记在这里。",
+  "tavernRunUser": "你改的",
+  "tavernRunModel": "模型改的",
+  "tavernRunRules": "卡的规则",
+  "tavernRunStopped": "回合中断",
+  "tavernRunDirector": "导演",
+  "tavernRunDirectorFailed": "导演没成",
+  "tavernRunEvent": "卡事件",
+  "tavernRunStory": "剧情",
+  "tavernRunSecret": "秘密",
+  "tavernRunNotKept": "没收下",
+  "tavernRunGone": "那条消息已删",
+  "tavernRunMore": "等 {count} 处",
+  "@tavernRunMore": {"placeholders": {"count": {"type": "int"}}}
 }
