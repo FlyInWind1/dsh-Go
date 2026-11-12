@@ -103,21 +103,23 @@ void main() {
   });
 
   test('the page has ST structure and colour variables, our script by nonce, and the chosen guards', () {
-    String page({bool noScripts = false, bool offline = false}) => tavernCanvasDocument(
-      text: const Color(0xff112233),
-      accent: const Color(0xff445566),
-      muted: const Color(0xff778899),
-      quote: const Color(0xffaa5500),
-      emphasis: const Color(0xff556677),
-      userTint: const Color(0x22445566),
-      fontSize: 15,
-      lineHeight: 1.65,
-      nonce: 'n0nce',
-      userLabel: '你',
-      labels: const TavernCanvasLabels(letterFrom: '{from}的信', taken: '获得'),
-      noScripts: noScripts,
-      offline: offline,
-    );
+    String page({bool noScripts = false, bool offline = false, List<String> libraries = const []}) =>
+        tavernCanvasDocument(
+          text: const Color(0xff112233),
+          accent: const Color(0xff445566),
+          muted: const Color(0xff778899),
+          quote: const Color(0xffaa5500),
+          emphasis: const Color(0xff556677),
+          userTint: const Color(0x22445566),
+          fontSize: 15,
+          lineHeight: 1.65,
+          nonce: 'n0nce',
+          userLabel: '你',
+          labels: const TavernCanvasLabels(letterFrom: '{from}的信', taken: '获得'),
+          noScripts: noScripts,
+          offline: offline,
+          libraries: libraries,
+        );
     final open = page();
     expect(open, contains('<div id="chat"></div>'));
     // A long story: only the latest messages are always laid out, and one
@@ -129,6 +131,13 @@ void main() {
     expect(open, contains('var runScripts=true'));
     expect(page(noScripts: true), contains('var runScripts=false'));
     expect(open, contains("if(at.name!=='nonce')"));
+    // The libraries card scripts expect go in first, under our nonce; not
+    // when card scripts do not run. A stray closing tag in one cannot end it.
+    final withLibs = page(libraries: ['window.__lib=1', 'var s="</script>"']);
+    expect(withLibs, contains('<script nonce="n0nce">window.__lib=1</script>'));
+    expect(withLibs, contains(r'var s="<\/script>"'));
+    expect(withLibs.indexOf('window.__lib=1'), lessThan(withLibs.indexOf('window.dsh={')));
+    expect(page(noScripts: true, libraries: ['window.__lib=1']), isNot(contains('window.__lib=1')));
     // 酒馆助手's page API, from the page's own copy (checked in Edge).
     for (final name in ['getVariables', 'replaceVariables', 'getChatMessages', 'eventOn', 'tavern_events']) {
       expect(open, contains('if(!window.$name)window.$name='));

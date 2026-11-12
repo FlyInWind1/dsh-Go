@@ -10,6 +10,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -33,6 +34,15 @@ typedef TavernCanvasBuilder = Widget Function({
   required void Function(String nodeId) onMenu,
   TavernCanvasCalls? calls,
 });
+
+/// The libraries card scripts find on the canvas page, as 酒馆助手's pages
+/// give them: jQuery and lodash (bundled; licences in THIRD_PARTY_NOTICES.md).
+final tavernCanvasLibrariesProvider = FutureProvider<List<String>>(
+  (ref) async => [
+    await rootBundle.loadString('assets/tavern/jquery-3.7.1.min.js'),
+    await rootBundle.loadString('assets/tavern/lodash-4.17.21.min.js'),
+  ],
+);
 
 /// Builds the canvas. Tests swap it.
 final tavernCanvasBuilderProvider = Provider<TavernCanvasBuilder>(
@@ -106,6 +116,16 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     final (noScripts, offline) = ref.read(tavernSettingsProvider.select((s) => (s.islandNoScripts, s.islandOffline)));
     final reading = ref.read(tavernSettingsProvider.select((s) => (s.textSize, s.lineHeight)));
     final text = theme.colorScheme.onSurface;
+    // Card scripts get their libraries first; the page waits for them (and
+    // goes without, should they not load) — not when scripts do not run.
+    final List<String> libraries;
+    if (noScripts) {
+      libraries = const [];
+    } else {
+      final loaded = ref.read(tavernCanvasLibrariesProvider);
+      if (loaded.isLoading) return;
+      libraries = loaded.value ?? const [];
+    }
     final key = (noScripts, offline, theme.brightness, ink?.dialogue, ink?.action, theme.colorScheme.primary, reading);
     if (key == _loaded) return;
     _loaded = key;
@@ -137,6 +157,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       ),
       noScripts: noScripts,
       offline: offline,
+      libraries: libraries,
     );
     final controller = _controller ??= WebViewController();
     final textZoom = MediaQuery.textScalerOf(context).scale(100).round().clamp(50, 300);
@@ -275,6 +296,9 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       tavernSettingsProvider.select((s) => (s.islandNoScripts, s.islandOffline, s.textSize, s.lineHeight)),
       (_, _) => _open(),
     );
+    ref.listen(tavernCanvasLibrariesProvider, (_, next) {
+      if (!next.isLoading) _open();
+    });
     final controller = _controller;
     if (controller == null) return const SizedBox.expand();
     return WebViewWidget(key: const ValueKey('tavern-canvas'), controller: controller);

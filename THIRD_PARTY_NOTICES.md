@@ -210,6 +210,32 @@ DS Bot 的 NOTICE 原文附在文末。
 | 用途 | 论坛表情的名称与别名表，只用数据，不含图片 |
 | 文件 | `app/lib/forum/emoji_data.g.dart`，由 `infra/forum/tools/gen_emoji_table.py` 从 `dist/emojis.json`、`dist/aliases.json` 生成 |
 
+### jQuery 3.7.1（MIT）
+
+| 项 | 内容 |
+|---|---|
+| 项目 | jQuery 3.7.1，https://jquery.com （npm 包 `jquery@3.7.1`） |
+| 版权人 | Copyright OpenJS Foundation and other contributors, https://openjsf.org/ |
+| 许可 | MIT（包内 `LICENSE.txt` 原文） |
+| 用途 | 酒馆整页画布里给卡脚本用的 `$`／`jQuery`，和酒馆助手页面一样预先放好；「不运行卡的脚本」开着时不载入 |
+
+- `app/assets/tavern/jquery-3.7.1.min.js`：包内 `dist/jquery.min.js` 原样，SHA256 `fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a`
+- `app/assets/licenses/jquery-3.7.1-LICENSE.txt`：包内 `LICENSE.txt` 原样，SHA256 `d4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d`
+- 来源：npm 镜像 registry.npmmirror.com 的 `jquery-3.7.1.tgz`，与 npm 公布的 integrity `sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==` 一致（2026-11-12 核对）
+
+### Lodash 4.17.21（MIT）
+
+| 项 | 内容 |
+|---|---|
+| 项目 | Lodash 4.17.21，https://lodash.com （npm 包 `lodash@4.17.21`） |
+| 版权人 | Copyright OpenJS Foundation and other contributors <https://openjsf.org/>；基于 Underscore.js（Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors） |
+| 许可 | MIT（包内 `LICENSE` 原文，含示例代码 CC0 一节） |
+| 用途 | 酒馆整页画布里给卡脚本用的 `_`，同上 |
+
+- `app/assets/tavern/lodash-4.17.21.min.js`：包内 `lodash.min.js` 原样，SHA256 `a9705dfc47c0763380d851ab1801be6f76019f6b67e40e9b873f8b4a0603f7a9`
+- `app/assets/licenses/lodash-4.17.21-LICENSE.txt`：包内 `LICENSE` 原样，SHA256 `f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc`
+- 来源：npm 镜像的 `lodash-4.17.21.tgz`，与 npm 公布的 integrity `sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==` 一致（2026-11-12 核对）
+
 ### JetBrains Mono（SIL OFL 1.1）
 
 | 项 | 内容 |

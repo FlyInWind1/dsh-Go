@@ -175,7 +175,7 @@ const tavernCanvasNear = 20;
 /// story's size and colours, and our script (allowed by [nonce]) that draws
 /// what render()/stream() hand it and reports a long press on a message to
 /// the `DshTavern` channel. [noScripts] and [offline] are 酒馆设置 › 安全's
-/// choices, as for islands.
+/// choices, as for islands. [libraries] are put in first, for card scripts.
 String tavernCanvasDocument({
   required Color text,
   required Color accent,
@@ -190,7 +190,14 @@ String tavernCanvasDocument({
   TavernCanvasLabels labels = const TavernCanvasLabels(),
   bool noScripts = false,
   bool offline = false,
+  List<String> libraries = const [],
 }) {
+  // The libraries card scripts expect on the page (jQuery, lodash), ours and
+  // so under the page's nonce; not there when card scripts do not run.
+  final preload = noScripts
+      ? ''
+      : [for (final code in libraries) '<script nonce="$nonce">${code.replaceAll('</script', r'<\/script')}</script>']
+            .join('\n');
   final policy = noScripts || offline
       ? [
           if (offline) "default-src 'none'",
@@ -235,6 +242,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
 .mes[data-streaming] .mes_text>:last-child::after,.mes[data-streaming] .mes_text:empty::after{content:"\\25CF";color:var(--dsh-muted);margin-left:3px;font-size:.6em;vertical-align:middle;}
 </style></head>
 <body><div id="chat"></div>
+$preload
 <script nonce="$nonce">
 (function(){
   var chat=document.getElementById('chat');

@@ -137,6 +137,8 @@ flutter:
     - assets/licenses/webrtc-150.7871.04.md
     # Unicode 15.0 tables used by pet archive filename normalization.
     - assets/licenses/unicode-15.0.txt
+    - assets/licenses/jquery-3.7.1-LICENSE.txt
+    - assets/licenses/lodash-4.17.21-LICENSE.txt
     # Phone layout for the embedded DSH Web (see lib/ui/web/web_view_page.dart).
     - assets/web/
     # Whale-tail activity sprites (lib/ui/chat/widgets/whale_tail.dart),

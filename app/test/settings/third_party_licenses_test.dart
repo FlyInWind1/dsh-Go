@@ -33,6 +33,8 @@ const _expected = <String, String>{
   'Material Icons': 'Google',
   'discourse-emojis': 'Joffrey Jaffeux',
   'JetBrains Mono': 'Copyright 2020 The JetBrains Mono Project Authors',
+  'jQuery': 'Copyright OpenJS Foundation and other contributors, https://openjsf.org/',
+  'Lodash': 'Copyright OpenJS Foundation and other contributors <https://openjsf.org/>',
 };
 
 const _mit = 'Permission is hereby granted, free of charge';
@@ -129,5 +131,28 @@ void main() {
     expect(textOf('XZ for Java'), contains('Permission to use, copy, modify, and/or distribute'));
     expect(textOf('JetBrains Mono'), contains('SIL OPEN FONT LICENSE Version 1.1'));
     expect(textOf('Unicode Character Database (15.0.0)'), File('tool/unicode-15.0-LICENSE.txt').readAsStringSync());
+    // The canvas libraries: their own LICENSE files, as published (npm tarball integrity in
+    // THIRD_PARTY_NOTICES.md), and the shipped builds those files go with.
+    for (final (package, license, build, licenseSha, buildSha) in [
+      (
+        'jQuery',
+        'assets/licenses/jquery-3.7.1-LICENSE.txt',
+        'assets/tavern/jquery-3.7.1.min.js',
+        'd4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d',
+        'fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a',
+      ),
+      (
+        'Lodash',
+        'assets/licenses/lodash-4.17.21-LICENSE.txt',
+        'assets/tavern/lodash-4.17.21.min.js',
+        'f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc',
+        'a9705dfc47c0763380d851ab1801be6f76019f6b67e40e9b873f8b4a0603f7a9',
+      ),
+    ]) {
+      expect(textOf(package), File(license).readAsStringSync(), reason: package);
+      expect(textOf(package), contains(_mit), reason: package);
+      expect(sha256.convert(File(license).readAsBytesSync()).toString(), licenseSha, reason: license);
+      expect(sha256.convert(File(build).readAsBytesSync()).toString(), buildSha, reason: build);
+    }
   });
 }
