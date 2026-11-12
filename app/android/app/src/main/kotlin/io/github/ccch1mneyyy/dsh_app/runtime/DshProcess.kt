@@ -346,7 +346,8 @@ class DshProcess(
                 if (node != null) signalOwned(node, OsConstants.SIGTERM)
                 else if ((direct || tawc) && p.isAlive) p.destroy() // loader/preload may fail before writing its pid file
                 if (!waitExit(p, 5000) && proot != null) signalOwned(proot, OsConstants.SIGQUIT)
-                waitExit(p, 2000)
+                // Tawcroot needs no extra QUIT grace; retain PRoot and Direct's existing wait.
+                if (!tawc) waitExit(p, 2000)
             } finally {
                 try {
                     if (p.isAlive) p.destroyForcibly()
