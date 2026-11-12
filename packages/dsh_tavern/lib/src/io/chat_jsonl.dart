@@ -800,9 +800,10 @@ final class _Variant {
     name = _text(original['name']);
     final user = original['is_user'] == true;
     final roleName = own['version'] == 1 ? own['role'] : null;
+    // A portable character/system role takes precedence over the ST type hint.
     role = user
         ? TavernRole.user
-        : extra['type'] == 'narrator' || roleName == 'narrator'
+        : roleName == 'narrator' || (extra['type'] == 'narrator' && roleName != 'character' && roleName != 'system')
         ? TavernRole.narrator
         : roleName == 'system'
         ? TavernRole.system

@@ -125,6 +125,10 @@ class CharacterLibrary {
   final DateTime Function() _now;
   Future<void> _queue = Future.value();
 
+  /// Internal synchronous notification of the authoritative card-file commit.
+  /// The observer must not throw, write, await, or depend on the derived index.
+  void Function(String id, Map<String, Object?> data)? cardCommitted;
+
   Directory get _characters => Directory('${root.path}/characters');
   Directory get _indexes => Directory('${root.path}/character-index');
   File _indexFile(String id) => File('${_indexes.path}/$id.json');
@@ -283,6 +287,37 @@ class CharacterLibrary {
     });
   }
 
+  /// Internal bridge persistence: only the two existing helper carriers may
+  /// change. Other card extensions, assets, original bytes and identity stay
+  /// intact. The engine supplies the latest detached extension document while
+  /// owning its character queue; this does not broaden updateFields.
+  Future<StoredCharacter> updateScriptStorage(String id, Map<String, Object?> extensions) {
+    _requireId(id);
+    final captured = jsonDecode(jsonEncode(extensions)) as Map<String, Object?>;
+    return _exclusive(() async {
+      await _tidy();
+      final record = await _read(id);
+      if (record == null) {
+        throw const TavernImportError('角色不存在。');
+      }
+      final json = jsonDecode(jsonEncode(record.card.json)) as Map<String, Object?>;
+      final data = json['data']! as Map<String, Object?>;
+      final previous = data['extensions'];
+      if (previous != null && previous is! Map<String, Object?>) {
+        throw const FormatException('Character extensions must be an object.');
+      }
+      final old = previous is Map<String, Object?> ? previous : <String, Object?>{};
+      final keys = {...old.keys, ...captured.keys}..removeAll(const {'tavern_helper', 'TavernHelper_scripts'});
+      for (final key in keys) {
+        if (old.containsKey(key) != captured.containsKey(key) || jsonEncode(old[key]) != jsonEncode(captured[key])) {
+          throw ArgumentError('Only helper storage can be changed by this operation.');
+        }
+      }
+      data['extensions'] = captured;
+      return _saveCard(record, json);
+    });
+  }
+
   /// Adds one CC book entry, assigning an unused integer id. Input is copied
   /// before queueing. The caller cannot supply `id`; omitted known fields use
   /// ordinary CC defaults. A missing book starts with an empty entries array.
@@ -391,6 +426,7 @@ class CharacterLibrary {
     try {
       await pending.writeAsString(jsonEncode(json), flush: true);
       await pending.rename(cardFile.path);
+      cardCommitted?.call(record.id, updated.card.data);
     } finally {
       try {
         if (await pending.exists()) {

@@ -37,6 +37,7 @@ import 'prompt/prompt_types.dart';
 import 'regex/regex_engine.dart';
 import 'regex/regex_worker.dart';
 import 'regex_library.dart';
+import 'scripts.dart';
 import 'state.dart';
 import 'state/state_engine.dart' as state_core;
 import 'story/story_engine.dart' as story_core;
@@ -53,6 +54,9 @@ part 'engine_story.dart';
 part 'engine_card_events.dart';
 part 'engine_secrets.dart';
 part 'engine_group.dart';
+part 'engine_scripts.dart';
+part 'engine_script_variables.dart';
+part 'engine_scripts_messages.dart';
 
 /// App convenience factory. [directory] is the actual tavern data directory,
 /// normally `<app support>/tavern`. No extra path component is appended.
@@ -131,11 +135,14 @@ class TavernEngine implements Tavern {
     this._regexWorker,
     this._regexLibrary,
   ) {
-    _globalVariables = _map(_document['globalVariables']);
+    _globalVariables = _NativeGlobals(_map(_document['globalVariables']));
+    _store.committedObserver = _scripts.storeCommitted;
+    _library.cardCommitted = _scripts.cardCommitted;
     _storeSubscription = _store.changes.listen((chatId) {
       if (_closed) return;
       _paths.add(chatId);
       _directors.changed(chatId);
+      _scripts.nativeChanged(chatId);
       if (!_mainBusy(chatId)) _notifyLists();
     });
     _personaSubscription = _personas.changes.listen((_) => _directors.changedAll());
@@ -243,7 +250,7 @@ class TavernEngine implements Tavern {
   late final _worldInfoEngine = WorldInfoEngine(worker: _keywordWorker);
   late final _chatCodec = ChatJsonlCodec(clock: _clock);
   final _presetCodec = const PresetCodec();
-  late final Map<String, Object?> _globalVariables;
+  late final _NativeGlobals _globalVariables;
   late final StreamSubscription<String> _storeSubscription;
   late final StreamSubscription<void> _personaSubscription;
   final _charactersChanged = StreamController<void>.broadcast();
@@ -251,6 +258,13 @@ class TavernEngine implements Tavern {
   final _paths = StreamController<String>.broadcast();
   final _turns = <String, _Turn>{};
   late final _GroupCoordinator _groups = _GroupCoordinator(this);
+  late final _ScriptCoordinator _scripts = _ScriptCoordinator(this);
+  @override
+  TavernScriptBridge get scripts {
+    _ensureOpen();
+    return _scripts;
+  }
+
   bool _mainBusy(String chatId) => _turns.containsKey(chatId) || _groups.rounds.containsKey(chatId);
   final _mutations = <String, Future<void>>{};
   final _deletingCharacters = <String>{};
@@ -410,6 +424,7 @@ class TavernEngine implements Tavern {
 
   void _notifyLists() {
     if (_closed || _closing) return;
+    _scripts.resourcesChanged();
     _charactersChanged.add(null);
     _chatsChanged.add(null);
   }
@@ -845,7 +860,7 @@ class TavernEngine implements Tavern {
       if (_deletingPersonas.contains(selection.persona?.id)) throw StateError('Persona deletion is running.');
       final settings = _personaSettings(_effectiveSettings(), selection);
       final variables = <String, Object?>{};
-      final beforeGlobals = _jsonString(_globalVariables);
+      final beforeGlobals = _globalVariables.revision;
       late final String id;
       try {
         id = _store.transaction(() {
@@ -899,7 +914,9 @@ class TavernEngine implements Tavern {
         // SQL is rolled back, but preparation follows ST/T8 global-variable
         // semantics: preserve and save effects that happened before the error.
         try {
-          if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
+          if (_globalVariables.changedSince(beforeGlobals)) {
+            await _saveDocument();
+          }
         } catch (saveError, saveStackTrace) {
           Error.throwWithStackTrace(
             _PreparationSaveFailure(createError, createStackTrace, saveError, saveStackTrace),
@@ -909,7 +926,9 @@ class TavernEngine implements Tavern {
         Error.throwWithStackTrace(createError, createStackTrace);
       }
       _liveVariables[id] = (leaf: _store.chat(id).currentLeafId, values: _runtimeCopy(variables));
-      if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
+      if (_globalVariables.changedSince(beforeGlobals)) {
+        await _saveDocument();
+      }
       _notifyLists();
       return id;
     }),
@@ -1585,7 +1604,7 @@ class TavernEngine implements Tavern {
           // This legacy mixed API has no transaction spanning a file and SQL.
           // Keep its established in-memory/file behavior, then commit selection.
           _document['settings'] = settings;
-          await _saveDocument();
+          await _saveDocument(writeGlobals: false);
           if (hasPreset) {
             _store.transaction(
               () => _selectLegacyPreset(
@@ -1638,12 +1657,13 @@ class TavernEngine implements Tavern {
     await _directors.settingsChanged(chatId);
   }
 
-  Future<void> setGlobalVariables(Map<String, Object?> variables) => _operation(() async {
-    final copy = _copy(variables);
-    _globalVariables
-      ..clear()
-      ..addAll(copy);
-    await _saveDocument();
+  Future<void> setGlobalVariables(Map<String, Object?> variables) => _operation(() {
+    final captured = _copy(variables);
+    final through = _globalVariables.revision;
+    return _settingsDocument((document) async {
+      final next = _copy(document)..['globalVariables'] = captured;
+      await _commitSettingsDocument(next, globals: (runtime: captured, through: through));
+    });
   });
 
   /// Reads the most recent real request. This has no variable/random effects.
@@ -2411,9 +2431,59 @@ class TavernEngine implements Tavern {
     return value;
   }
 
-  Future<void> _saveDocument() {
-    _document['globalVariables'] = _copy(_globalVariables);
-    return _writeJson(File('${directory.path}/settings.json'), _document);
+  Future<void> _saveDocument({bool writeGlobals = true}) {
+    final through = _globalVariables.revision;
+    return _settingsDocument((document) async {
+      if (!writeGlobals) {
+        await _commitSettingsDocument(document);
+        return;
+      }
+      // Claim only still-uncommitted native intent at this real queue position.
+      // An earlier flush may already have saved the same prefix.
+      if (!_globalVariables.hasThrough(through)) {
+        return;
+      }
+      final runtime = _globalVariables.project(through);
+      final persisted = _copy(runtime);
+      if (_jsonString({'value': document['globalVariables']}) == _jsonString({'value': persisted})) {
+        _adoptGlobals(runtime, through);
+        return;
+      }
+      document['globalVariables'] = persisted;
+      await _commitSettingsDocument(document, globals: (runtime: runtime, through: through));
+    });
+  }
+
+  void _adoptGlobals(Map<String, Object?> runtime, int through) {
+    _document['globalVariables'] = _copy(runtime);
+    _globalVariables.commit(runtime, through);
+  }
+
+  // Every writer of settings.json encodes while owning the same file queue.
+  // A native settings-only save must not carry globals captured before an
+  // earlier bridge variable write has committed.
+  Future<T> _settingsDocument<T>(Future<T> Function(Map<String, Object?> document) action) {
+    final result = _fileQueue.then((_) => action(_copy(_document)));
+    _fileQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  Future<void> _commitSettingsDocument(
+    Map<String, Object?> document, {
+    ({Map<String, Object?> runtime, int through})? globals,
+  }) async {
+    final file = File('${directory.path}/settings.json');
+    await file.parent.create(recursive: true);
+    final temporary = File('${file.path}.writing');
+    await temporary.writeAsString(jsonEncode(document), flush: true);
+    await temporary.rename(file.path);
+    if (globals != null) {
+      _adoptGlobals(globals.runtime, globals.through);
+    }
+    _scripts.documentCommitted(document);
+    if (globals != null) {
+      _scripts.resourcesChanged();
+    }
   }
 
   Future<void> _writeJson(File file, Map<String, Object?> json) {
@@ -2439,6 +2509,7 @@ class TavernEngine implements Tavern {
     // this same gate; none can enter while another affected chat is draining.
     for (final id in ids) {
       _mutations[id] = released.future;
+      _scripts.cancelChat(id);
       _groups.cancel(id);
       _turns[id]?.cancellation.cancel();
     }
@@ -2471,15 +2542,32 @@ class TavernEngine implements Tavern {
   }
 
   @override
-  Future<void> selectSibling(String chatId, String nodeId, int index) => _operation(
-    () => _withMutation(chatId, () {
+  Future<void> selectSibling(String chatId, String nodeId, int index) => _operation(() async {
+    String? previous;
+    late String selected;
+    await _withMutation(chatId, () {
       _store.transaction(() {
+        final parent = _store.node(chatId, nodeId).message.parentId;
+        previous = parent == null ? _store.chat(chatId).selectedRootId : _store.node(chatId, parent).selectedChildId;
         _store.selectSibling(chatId, nodeId, index);
+        selected = _store.children(chatId, parent)[index].message.nodeId;
         _restoreVariables(chatId);
       });
       _liveVariables.remove(chatId);
-    }),
-  );
+    });
+    await _scripts.nativeMutation(
+      chatId,
+      'MESSAGE_SWIPED',
+      nodeId: selected,
+      args: [
+        {
+          'oldRef': previous == null ? null : {'chatId': chatId, 'nodeId': previous},
+          'newRef': {'chatId': chatId, 'nodeId': selected},
+          'swipeId': index,
+        },
+      ],
+    );
+  });
 
   @override
   Future<void> selectNode(String chatId, String nodeId, {bool restoreDescendants = false}) => _operation(
@@ -2563,7 +2651,7 @@ class TavernEngine implements Tavern {
         groupNames: groupView?.names,
         groupNotMuted: groupView?.enabledNames,
       );
-      final globals = _runtimeCopy(_globalVariables);
+      final globals = _globalVariables.checkpoint();
       try {
         final placement = switch (target.message.role) {
           TavernRole.user => RegexPlacement.userInput,
@@ -2596,14 +2684,14 @@ class TavernEngine implements Tavern {
           }
         });
       } catch (_) {
-        _globalVariables
-          ..clear()
-          ..addAll(globals);
+        _globalVariables.rollback(globals);
         rethrow;
       }
       if (current) _liveVariables[chatId] = (leaf: leaf, values: _runtimeCopy(local));
-      if (_jsonString(globals) != _jsonString(_globalVariables)) await _saveDocument();
-    }),
+      if (_globalVariables.changedSince(globals.revision)) {
+        await _saveDocument();
+      }
+    }).then((_) => _scripts.nativeMutation(chatId, 'MESSAGE_EDITED', nodeId: nodeId)),
   );
 
   void _writeNodeState(String chatId, String nodeId, Map<String, Object?> state) {
@@ -2640,35 +2728,47 @@ class TavernEngine implements Tavern {
 
   @override
   Future<void> deleteMessage(String chatId, String nodeId) => _operation(
-    () => _withMutation(chatId, () {
-      final stored = _storedLatestInspection(_store.chat(chatId));
-      final latest = _latestInspections.containsKey(chatId) ? _latestInspections[chatId] : stored;
-      var clearLatest = false;
-      _store.transaction(() {
-        final chat = _store.chat(chatId);
-        _store.deleteMessage(
-          chatId,
-          nodeId,
-          capturePortableState: (child, physicalState) {
-            final override = _map(child.extra['dshgo'])['tavernState'];
-            final state = _copy(override is Map<String, Object?> ? override : physicalState);
-            // Resolve the child's own old source before any edge or current
-            // metadata changes. This callback never reads a hidden node via a
-            // visibility-filtered API, and never writes or evaluates macros.
-            return _withStateHash(chat, state);
-          },
-        );
-        _restoreVariables(chatId);
-        clearLatest = latest != null && !_inspectionAnchorExists(latest);
-        if (clearLatest || (stored != null && !_inspectionAnchorExists(stored))) {
-          _writeLatestInspection(chatId, null);
-        }
-      });
-      if (clearLatest) {
-        _latestInspections[chatId] = null;
-      }
-      _liveVariables.remove(chatId);
-    }),
+    () =>
+        _withMutation(chatId, () {
+          final stored = _storedLatestInspection(_store.chat(chatId));
+          final latest = _latestInspections.containsKey(chatId) ? _latestInspections[chatId] : stored;
+          var clearLatest = false;
+          _store.transaction(() {
+            final chat = _store.chat(chatId);
+            _store.deleteMessage(
+              chatId,
+              nodeId,
+              capturePortableState: (child, physicalState) {
+                final override = _map(child.extra['dshgo'])['tavernState'];
+                final state = _copy(override is Map<String, Object?> ? override : physicalState);
+                // Resolve the child's own old source before any edge or current
+                // metadata changes. This callback never reads a hidden node via a
+                // visibility-filtered API, and never writes or evaluates macros.
+                return _withStateHash(chat, state);
+              },
+            );
+            _restoreVariables(chatId);
+            clearLatest = latest != null && !_inspectionAnchorExists(latest);
+            if (clearLatest || (stored != null && !_inspectionAnchorExists(stored))) {
+              _writeLatestInspection(chatId, null);
+            }
+          });
+          if (clearLatest) {
+            _latestInspections[chatId] = null;
+          }
+          _liveVariables.remove(chatId);
+        }).then(
+          (_) => _scripts.nativeMutation(
+            chatId,
+            'MESSAGE_DELETED',
+            nodeId: nodeId,
+            args: [
+              {
+                'ref': {'chatId': chatId, 'nodeId': nodeId},
+              },
+            ],
+          ),
+        ),
   );
 
   @override
@@ -2727,7 +2827,7 @@ class TavernEngine implements Tavern {
         _store.updateMessage(chatId, nodeId, original: {...node.original, 'is_system': hidden});
         _store.setHidden(chatId, nodeId, hidden);
       });
-    }),
+    }).then((_) => _scripts.nativeMutation(chatId, 'MESSAGE_UPDATED', nodeId: nodeId)),
   );
 
   void _restoreVariables(String chatId) {
@@ -2768,8 +2868,19 @@ class TavernEngine implements Tavern {
   Future<TavernMessage> narrate(String chatId, String text, {String? speaker}) =>
       _operation(() => _appendManualMessage(chatId, text, narrator: true, speaker: speaker));
 
-  Future<TavernMessage> _appendManualMessage(String chatId, String text, {required bool narrator, String? speaker}) =>
-      _withMutation(chatId, () => _appendMessage(chatId, text, narrator: narrator, speaker: speaker));
+  Future<TavernMessage> _appendManualMessage(
+    String chatId,
+    String text, {
+    required bool narrator,
+    String? speaker,
+  }) async {
+    final message = await _withMutation(
+      chatId,
+      () => _appendMessage(chatId, text, narrator: narrator, speaker: speaker),
+    );
+    await _scripts.nativeMutation(chatId, 'MESSAGE_SENT', nodeId: message.nodeId);
+    return message;
+  }
 
   Future<TavernMessage> _appendMessage(
     String chatId,
@@ -2837,7 +2948,7 @@ class TavernEngine implements Tavern {
       groupNames: groupView?.names,
       groupNotMuted: groupView?.enabledNames,
     );
-    final beforeGlobals = _jsonString(_globalVariables);
+    final beforeGlobals = _globalVariables.revision;
     late final String expanded;
     try {
       // Adapted from SillyTavern (AGPL-3.0), commit
@@ -2854,7 +2965,7 @@ class TavernEngine implements Tavern {
       // Local state is detached, but preparation uses ST/T11's real globals.
       // Preserve both failures when those effects cannot be saved either.
       try {
-        if (beforeGlobals != _jsonString(_globalVariables)) {
+        if (_globalVariables.changedSince(beforeGlobals)) {
           await _saveDocument();
         }
       } catch (saveError, saveStackTrace) {
@@ -2874,7 +2985,7 @@ class TavernEngine implements Tavern {
     // Save preparation effects before SQL: a failed write must not append a
     // manual message. Later SQL failure rolls back local state and the tree,
     // while already saved global preparation effects remain committed.
-    if (beforeGlobals != _jsonString(_globalVariables)) {
+    if (_globalVariables.changedSince(beforeGlobals)) {
       await _saveDocument();
     }
     final nextState = <String, Object?>{
@@ -2932,9 +3043,7 @@ class TavernEngine implements Tavern {
           _ensureOpen();
           _store.chat(chatId);
           if (_groups.rounds.containsKey(chatId)) {
-            controller.add(
-              const TavernTurnFailed(TavernFailure.invalidParameters, detail: 'group_requires_resumeGroupTurn'),
-            );
+            controller.add(TavernTurnFailed(TavernFailure.invalidParameters, detail: 'group_requires_resumeGroupTurn'));
             unawaited(controller.close());
             return;
           }
@@ -2969,6 +3078,7 @@ class TavernEngine implements Tavern {
 
   @override
   void stop(String chatId) {
+    _scripts.cancelChat(chatId);
     _groups.cancel(chatId);
     _turns[chatId]?.cancellation.cancel();
   }
@@ -2981,13 +3091,13 @@ class TavernEngine implements Tavern {
         try {
           _ensureOpen();
           if (_capturingBackup) {
-            controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'backup_capture_in_progress'));
+            controller.add(TavernTurnFailed(TavernFailure.busy, detail: 'backup_capture_in_progress'));
             unawaited(controller.close());
             return;
           }
           final chat = _store.chat(chatId);
           if (_mainBusy(chatId) || _mutations.containsKey(chatId)) {
-            controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
+            controller.add(TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
             unawaited(controller.close());
             return;
           }
@@ -3008,9 +3118,7 @@ class TavernEngine implements Tavern {
             final targetId = nodeId == null ? null : _store.node(chatId, nodeId).message.speakerCharacterId;
             final member = group.members.where((item) => item.characterId == targetId).firstOrNull;
             if (member == null) {
-              controller.add(
-                const TavernTurnFailed(TavernFailure.invalidParameters, detail: 'group_actor_not_in_roster'),
-              );
+              controller.add(TavernTurnFailed(TavernFailure.invalidParameters, detail: 'group_actor_not_in_roster'));
               unawaited(controller.close());
               return;
             }
@@ -3027,7 +3135,7 @@ class TavernEngine implements Tavern {
               _deletingCharacters.contains(actorId) ||
               group?.members.any((member) => _deletingCharacters.contains(member.characterId)) == true ||
               _deletingPersonas.contains(selection.persona?.id)) {
-            controller.add(const TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
+            controller.add(TavernTurnFailed(TavernFailure.busy, detail: 'chat_busy'));
             unawaited(controller.close());
             return;
           }
@@ -3076,10 +3184,25 @@ class TavernEngine implements Tavern {
 
   Future<void> _run(_Turn turn) async {
     final chatId = turn.chat.id;
-    var beforeGlobals = '';
+    var beforeGlobals = _globalVariables.revision;
     try {
-      beforeGlobals = _jsonString(_globalVariables);
+      await _scripts.beforeTurn(turn);
+      turn.cancellation.check();
+      // Preparation handlers may write locals or message variables. Capture
+      // their committed state after their direct writes have drained. An
+      // explicit regenerate/continue target still owns its source branch,
+      // even while a different branch is selected in the chat.
+      turn.chat = _store.chat(chatId);
+      turn.metadata = _chatCodec.metadataForNode(_store, chatId, nodeId: turn.nodeId);
+      final savedSource =
+          _stateAt(chatId, turn.nodeId ?? turn.chat.currentLeafId)['chatJsonlSourceFile'] ??
+          _map(_map(turn.chat.metadata['dshgo'])['chatJsonl'])['rootFile'];
+      turn.sourceFile = savedSource is String ? savedSource : null;
+      beforeGlobals = _globalVariables.revision;
       turn.originalVariables = _runtimeCopy(_liveVariables[chatId]?.values ?? turn.chat.variables);
+      // Only native preparation owns this rollback baseline. A cancelled
+      // prepare handler may already have committed independent bridge writes.
+      turn.nativePreparationStarted = true;
       turn.secretCardRevision ??= _directors._cardRevisions[turn.chat.characterId] ?? 0;
       // Cancellation releases the turn, not its actual local file work.
       // Keep the original read owned until every character file has drained.
@@ -3201,6 +3324,7 @@ class TavernEngine implements Tavern {
         parent = message.nodeId;
         _liveVariables[chatId] = (leaf: parent, values: _runtimeCopy(local));
         history.add(_store.node(chatId, message.nodeId));
+        turn.sent = _scripts.captureSent(chatId, message.nodeId);
       }
       final prepared = prepareCharacterFields(data, persona: environment.persona, expand: environment.baseExpand);
       // ST expands chat[0].mes after eager card fields, before WI and before
@@ -3471,11 +3595,19 @@ class TavernEngine implements Tavern {
       if (turn.kind != _TurnKind.impersonate) {
         _liveVariables[chatId] = (leaf: reply.nodeId, values: _runtimeCopy(local));
       }
+      final requestBody = _copy(assembly.body);
       turn.emit(TavernTurnStarted(_buffered(turn)));
-      await _consume(turn, _copy(assembly.body));
+      _scripts.publishSent(
+        turn.sent ?? turn.groupRound?.sent,
+        generationId: turn.generationId,
+        cancellation: turn.cancellation,
+      );
+      await _consume(turn, requestBody);
       turn.cancellation.check();
       _finishRegex(turn);
-      if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
+      if (_globalVariables.changedSince(beforeGlobals)) {
+        await _saveDocument();
+      }
       turn.cancellation.check();
       final stateSettlement = _settleStateTurn(this, turn, successful: true);
       turn.stateAttempt = stateSettlement;
@@ -3489,83 +3621,110 @@ class TavernEngine implements Tavern {
         stateSettlement: stateSettlement,
         storySettlement: storySettlement,
       );
+      turn.modelCommitted = true;
+      if (!turn.modelDrained.isCompleted) {
+        turn.modelDrained.complete();
+      }
       _groups.actorCommitted(turn);
-      turn.emit(TavernTurnDone(_latest(turn), finishReason: turn.finishReason));
+      await _scripts.afterMessage(turn);
+      turn.emit(TavernTurnDone(turn.lastCommitted!, finishReason: turn.finishReason, hookIssues: turn.hookIssues));
       turn.terminal = true;
-      if (turn.groupRound == null) _directors.afterTurn(turn);
+      if (turn.groupRound == null && !turn.cancellation.isCancelled) {
+        _directors.afterTurn(turn);
+      }
     } catch (error) {
-      var failure = error is TavernModelException
-          ? error.kind
-          : error is PromptBudgetExceeded
-          ? TavernFailure.contextTooLong
-          : error is TavernImportError || error is FormatException
-          ? TavernFailure.invalidCard
-          : TavernFailure.server;
-      var detail = error is TavernModelException ? error.detail : _safeDetail(error);
-      TavernMessage? partial;
-      var inspection = turn.inspection.copyWith(
-        status: TavernInspectionStatus.failed,
-        finishedAt: _clock(),
-        failure: failure,
-        detail: detail,
-      );
-      try {
-        _finishRegex(turn);
-      } catch (writeError) {
-        failure = TavernFailure.server;
-        detail = 'writeback_failed (${writeError.runtimeType})';
-        inspection = inspection.copyWith(failure: failure, detail: detail);
-      }
-      // Resolve the asynchronous file result before publishing one SQL
-      // terminal snapshot. A file failure must not prevent an empty rollback.
-      try {
-        if (beforeGlobals != _jsonString(_globalVariables)) await _saveDocument();
-      } catch (fileError) {
-        failure = TavernFailure.server;
-        detail = 'turn_storage_failure (${fileError.runtimeType})';
-        inspection = inspection.copyWith(failure: failure, detail: detail);
-      }
-      try {
-        final stateSettlement = _failedStateSettlement(this, turn, inspection);
-        final storySettlement = _failedStorySettlement(turn, inspection);
-        if (stateSettlement != null) inspection = inspection.copyWith(state: stateSettlement.trace);
-        if (turn.hasOutput) {
-          _commitTurn(turn, inspection, stateSettlement: stateSettlement, storySettlement: storySettlement);
-          partial = _latest(turn);
-        } else {
-          inspection = inspection.copyWith(clearNodeId: true);
-          _rollbackEmpty(turn, inspection, stateSettlement: stateSettlement, storySettlement: storySettlement);
-          if (turn.kind == _TurnKind.continueReply) partial = turn.originalTarget?.message;
-        }
-        // Terminal storage has added the state/story/event failure traces.
-        // Keep that published snapshot instead of replacing it below with
-        // the pre-storage inspection captured by this catch block.
-        inspection = turn.inspection;
-      } catch (storageError) {
-        // Do not return partial=null after a failed rollback: that would invite
-        // the UI to reinsert a user line that might still be in the database.
-        failure = TavernFailure.server;
-        detail = 'turn_storage_failure (${storageError.runtimeType})';
-        partial = turn.lastCommitted;
-        if (partial == null && turn.newUserId != null) {
-          try {
-            partial = _store.message(chatId, turn.newUserId!);
-          } catch (_) {
-            /* Original failure is retained. */
-          }
-        }
-        inspection = inspection.copyWith(
+      if (turn.modelCommitted) {
+        // A hook or late anchor problem cannot re-enter model settlement or
+        // roll back a body that has already been committed.
+        turn.hookIssues.add(
+          TavernScriptIssue(
+            code: 'hookFailure',
+            message: 'Post-commit processing failed (${error.runtimeType}).',
+            committed: true,
+            generationId: turn.generationId,
+          ),
+        );
+        turn.emit(TavernTurnDone(turn.lastCommitted!, finishReason: turn.finishReason, hookIssues: turn.hookIssues));
+        turn.terminal = true;
+      } else {
+        var failure = error is TavernModelException
+            ? error.kind
+            : error is PromptBudgetExceeded
+            ? TavernFailure.contextTooLong
+            : error is TavernImportError || error is FormatException
+            ? TavernFailure.invalidCard
+            : TavernFailure.server;
+        var detail = error is TavernModelException ? error.detail : _safeDetail(error);
+        TavernMessage? partial;
+        var inspection = turn.inspection.copyWith(
           status: TavernInspectionStatus.failed,
           finishedAt: _clock(),
           failure: failure,
           detail: detail,
         );
+        try {
+          _finishRegex(turn);
+        } catch (writeError) {
+          failure = TavernFailure.server;
+          detail = 'writeback_failed (${writeError.runtimeType})';
+          inspection = inspection.copyWith(failure: failure, detail: detail);
+        }
+        // Resolve the asynchronous file result before publishing one SQL
+        // terminal snapshot. A file failure must not prevent an empty rollback.
+        try {
+          if (_globalVariables.changedSince(beforeGlobals)) {
+            await _saveDocument();
+          }
+        } catch (fileError) {
+          failure = TavernFailure.server;
+          detail = 'turn_storage_failure (${fileError.runtimeType})';
+          inspection = inspection.copyWith(failure: failure, detail: detail);
+        }
+        try {
+          final stateSettlement = turn.nativePreparationStarted ? _failedStateSettlement(this, turn, inspection) : null;
+          final storySettlement = turn.nativePreparationStarted ? _failedStorySettlement(turn, inspection) : null;
+          if (stateSettlement != null) inspection = inspection.copyWith(state: stateSettlement.trace);
+          if (turn.hasOutput) {
+            _commitTurn(turn, inspection, stateSettlement: stateSettlement, storySettlement: storySettlement);
+            partial = _latest(turn);
+          } else {
+            inspection = inspection.copyWith(clearNodeId: true);
+            _rollbackEmpty(turn, inspection, stateSettlement: stateSettlement, storySettlement: storySettlement);
+            if (turn.kind == _TurnKind.continueReply) partial = turn.originalTarget?.message;
+          }
+          // Terminal storage has added the state/story/event failure traces.
+          // Keep that published snapshot instead of replacing it below with
+          // the pre-storage inspection captured by this catch block.
+          inspection = turn.inspection;
+        } catch (storageError) {
+          // Do not return partial=null after a failed rollback: that would invite
+          // the UI to reinsert a user line that might still be in the database.
+          failure = TavernFailure.server;
+          detail = 'turn_storage_failure (${storageError.runtimeType})';
+          partial = turn.lastCommitted;
+          if (partial == null && turn.newUserId != null) {
+            try {
+              partial = _store.message(chatId, turn.newUserId!);
+            } catch (_) {
+              /* Original failure is retained. */
+            }
+          }
+          inspection = inspection.copyWith(
+            status: TavernInspectionStatus.failed,
+            finishedAt: _clock(),
+            failure: failure,
+            detail: detail,
+          );
+        }
+        _setInspection(turn, inspection);
+        turn.emit(TavernTurnFailed(failure, detail: detail, partial: partial, hookIssues: turn.hookIssues));
+        turn.terminal = true;
       }
-      _setInspection(turn, inspection);
-      turn.emit(TavernTurnFailed(failure, detail: detail, partial: partial));
-      turn.terminal = true;
     } finally {
       turn.flushTimer?.cancel();
+      if (!turn.modelDrained.isCompleted) {
+        turn.modelDrained.complete();
+      }
       turn.finished = true;
       if (identical(_turns[chatId], turn)) _turns.remove(chatId);
       if (!turn.done.isCompleted) turn.done.complete();
@@ -3575,6 +3734,12 @@ class TavernEngine implements Tavern {
         unawaited(observer.close());
       }
       turn.observers.clear();
+      _scripts.publishSent(
+        turn.sent ?? turn.groupRound?.sent,
+        generationId: turn.generationId,
+        cancellation: turn.cancellation,
+      );
+      _scripts.ended(turn);
       _notifyLists();
     }
   }
@@ -3730,7 +3895,7 @@ class TavernEngine implements Tavern {
     // before evaluating user scripts, including scripts that later throw.
     turn.writeBackAttempted = true;
     final local = _runtimeCopy(environment.local);
-    final global = _runtimeCopy(environment.global);
+    final global = _globalVariables.checkpoint();
     final history = List<StoredNode>.of(environment.history);
     final hash = environment.chatIdHash;
     final raw = _buffered(turn);
@@ -3764,9 +3929,7 @@ class TavernEngine implements Tavern {
       environment.local
         ..clear()
         ..addAll(local);
-      environment.global
-        ..clear()
-        ..addAll(global);
+      _globalVariables.rollback(global);
       environment.history
         ..clear()
         ..addAll(history);
@@ -3857,6 +4020,11 @@ class TavernEngine implements Tavern {
 
   TavernMessage _buffered(_Turn turn, {bool includeUsage = true}) {
     final reply = turn.reply!;
+    if (turn.modelCommitted && includeUsage && turn.kind != _TurnKind.impersonate) {
+      // A logical turn can still await RECEIVED after model SQL has drained.
+      // Resume must show a handler's committed edit, not the old model buffer.
+      return _store.message(turn.chat.id, reply.nodeId);
+    }
     final reasoning = turn.reasoning!.toString();
     return TavernMessage(
       nodeId: reply.nodeId,
@@ -3875,6 +4043,44 @@ class TavernEngine implements Tavern {
     );
   }
 
+  /// The batch tail follows script writes. It owns only this new story
+  /// settlement, never the prior actor's body/usage or stale inspection buffer.
+  void _commitGroupStory(_Turn turn, _StorySettlement settlement) {
+    final nodeId = turn.reply!.nodeId;
+    final chat = _store.chat(turn.chat.id);
+    if (chat.currentLeafId != nodeId || turn.groupRound!.cancellation.isCancelled) {
+      throw const TavernModelException(TavernFailure.cancelled, 'group_anchor_changed');
+    }
+    final currentInspection = _nodeInspection(chat.id, nodeId);
+    final inspection = currentInspection?.copyWith(
+      director: {...currentInspection.director, 'story': settlement.trace},
+    );
+    _store.transaction(() {
+      final extra = _store.rawNodeExtra(chat.id, nodeId);
+      final own = _map(extra['dshgo']);
+      extra['dshgo'] = {
+        ...own,
+        ...?settlement.ownAudit,
+        'tavernState': _copy(settlement.state),
+        'inspection': ?inspection?.toJson(),
+      };
+      turn.lastCommitted = _store.updateMessage(chat.id, nodeId, extra: extra);
+      _store.updateChat(
+        chat.id,
+        variables: _map(settlement.state['variables']),
+        metadata: _runtimeMetadata(_store.chat(chat.id).metadata, settlement.state),
+      );
+      _writeStoryRun(_store, turn, settlement, nodeId);
+    });
+    turn.storyRunWritten = true;
+    turn.state = _copy(settlement.state);
+    turn.variables = _runtimeCopy(_map(turn.state['variables']));
+    _liveVariables[chat.id] = (leaf: nodeId, values: _runtimeCopy(turn.variables));
+    if (inspection != null) {
+      _setInspection(turn, inspection);
+    }
+  }
+
   TavernMessage _latest(_Turn turn) =>
       turn.kind == _TurnKind.impersonate ? _buffered(turn) : _store.message(turn.chat.id, turn.reply!.nodeId);
 
@@ -3884,6 +4090,14 @@ class TavernEngine implements Tavern {
     _StateSettlement? stateSettlement,
     _StorySettlement? storySettlement,
   }) {
+    if (!turn.nativePreparationStarted) {
+      // No native message, selection, local state or runtime was prepared.
+      // Preserve successful handler writes and merge only this failure record
+      // into the current stored metadata.
+      _store.transaction(() => _writeLatestInspection(turn.chat.id, failed));
+      _setInspection(turn, failed);
+      return;
+    }
     if (stateSettlement != null) failed = failed.copyWith(state: stateSettlement.trace);
     final events = stateSettlement?.events;
     if (events != null) {
@@ -4085,6 +4299,7 @@ class TavernEngine implements Tavern {
 
   Future<void> _close() async {
     _closing = true;
+    _scripts.close();
     for (final group in _groups.rounds.values) {
       group.cancel();
     }
@@ -4180,6 +4395,103 @@ class _PreparationSaveFailure implements Exception {
       'Saving global variables also failed: $saveError';
 }
 
+class _GlobalWrite {
+  const _GlobalWrite(this.revision, this.key, this.present, this.value);
+  final int revision;
+  final String key;
+  final bool present;
+  final Object? value;
+}
+
+/// Native macros share a live Map, while persistence records their already
+/// computed root set/remove intent. File commits adopt only their own prefix;
+/// writes made while an earlier file operation awaited I/O remain visible.
+class _NativeGlobals extends MapBase<String, Object?> {
+  _NativeGlobals(Map<String, Object?> value) : _base = _runtimeCopy(value), _values = _runtimeCopy(value);
+
+  Map<String, Object?> _base;
+  final Map<String, Object?> _values;
+  final List<_GlobalWrite> _pending = [];
+  int revision = 0;
+
+  @override
+  Object? operator [](Object? key) => _values[key];
+
+  @override
+  void operator []=(String key, Object? value) {
+    // Same-value assignments are still intent: an earlier queued replace may
+    // change this key before this native operation reaches its own save.
+    _pending.add(_GlobalWrite(++revision, key, true, _runtimeValue(value)));
+    _values[key] = _runtimeValue(value);
+  }
+
+  @override
+  Object? remove(Object? key) {
+    if (key is! String) {
+      return null;
+    }
+    // An absent key must likewise retain its explicit delete intent.
+    _pending.add(_GlobalWrite(++revision, key, false, null));
+    return _values.remove(key);
+  }
+
+  @override
+  void clear() {
+    for (final key in _values.keys.toList()) {
+      remove(key);
+    }
+  }
+
+  @override
+  bool containsKey(Object? key) => _values.containsKey(key);
+
+  @override
+  Iterable<String> get keys => _values.keys;
+
+  bool changedSince(int before) => _pending.any((write) => write.revision > before);
+  bool hasThrough(int through) => _pending.any((write) => write.revision <= through);
+
+  Map<String, Object?> project(int through) {
+    final result = _runtimeCopy(_base);
+    for (final write in _pending) {
+      if (write.revision <= through) {
+        _apply(result, write);
+      }
+    }
+    return result;
+  }
+
+  void commit(Map<String, Object?> runtime, int through) {
+    _base = _runtimeCopy(runtime);
+    _pending.removeWhere((write) => write.revision <= through);
+    _values
+      ..clear()
+      ..addAll(_runtimeCopy(_base));
+    for (final write in _pending) {
+      _apply(_values, write);
+    }
+  }
+
+  ({int revision, Map<String, Object?> values}) checkpoint() => (revision: revision, values: _runtimeCopy(_values));
+
+  // Only the caller's synchronous edit/output-regex segment uses this. It
+  // cannot span an await or undo a successful file commit; serials never reset.
+  void rollback(({int revision, Map<String, Object?> values}) checkpoint) {
+    _pending.removeWhere((write) => write.revision > checkpoint.revision);
+    _values
+      ..clear()
+      ..addAll(_runtimeCopy(checkpoint.values));
+  }
+
+  static void _apply(Map<String, Object?> values, _GlobalWrite write) {
+    if (write.present) {
+      values[write.key] = _runtimeValue(write.value);
+    } else {
+      values.remove(write.key);
+    }
+  }
+}
+
 enum _TurnKind { send, regenerate, continueReply, impersonate }
 
 class _Turn {
@@ -4209,7 +4521,7 @@ class _Turn {
     );
   }
   late TavernTurnInspection inspection;
-  final StoredChat chat;
+  StoredChat chat;
   final _TurnKind kind;
   final String input;
   final String? nodeId;
@@ -4218,21 +4530,29 @@ class _Turn {
   final Map<String, Object?> settings;
   final DateTime at;
   final PersonaSelection personaSelection;
-  final Map<String, Object?> metadata;
-  final String? sourceFile;
+  Map<String, Object?> metadata;
+  String? sourceFile;
   final String? presetId;
   final String actorId;
   _GroupView? groupView;
   final _GroupRound? groupRound;
   void Function(TavernEvent)? onEvent;
   final cancellation = ModelCancellation();
+  final generationId = 'generation-${_newStateId()}';
+  final modelDrained = Completer<void>();
+  bool modelCommitted = false;
+  bool scriptWritesAllowed = false;
+  bool nativePreparationStarted = false;
+  final hookIssues = <TavernScriptIssue>[];
   final done = Completer<void>();
   bool finished = false;
   bool terminal = false;
+  TavernEvent? terminalEvent;
   bool hasOutput = false;
   bool receivedText = false;
   bool dirty = false;
   String? newUserId;
+  _ScriptSent? sent;
   StoredNode? originalTarget;
   StoredNode? originalFirstMessage;
   String? expandedFirstMessage;
@@ -4310,6 +4630,9 @@ class _Turn {
 
   void emit(TavernEvent event) {
     if (terminal) return;
+    if (event is TavernTurnDone || event is TavernTurnFailed) {
+      terminalEvent = event;
+    }
     onEvent?.call(event);
     for (final observer in observers) {
       if (!observer.isClosed) observer.add(event);
@@ -4904,7 +5227,7 @@ PromptHistoryMessage _promptHistory(StoredNode node) => PromptHistoryMessage(
   content: node.message.text,
   name: node.message.speaker,
   hidden: node.message.hidden,
-  isSystem: node.original['is_system'] == true,
+  isSystem: _systemMessage(node),
   forceAvatar: _jsTruthy(node.original['force_avatar']),
   toolCalls: node.original['tool_calls'] is List<Object?>
       ? (node.original['tool_calls'] as List<Object?>).whereType<Map<String, Object?>>().map(_copy).toList()

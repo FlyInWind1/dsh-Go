@@ -60,6 +60,23 @@ class StoredNode {
   final Map<String, Object?> original;
 }
 
+/// Identity-only graph used while preparing a structural bridge transaction.
+/// Message bodies and full states are read only for pages the plan changes.
+class StoredTreeLink {
+  const StoredTreeLink({
+    required this.nodeId,
+    required this.parentId,
+    required this.selectedChildId,
+    required this.sequence,
+    required this.deleted,
+  });
+  final String nodeId;
+  final String? parentId;
+  final String? selectedChildId;
+  final int sequence;
+  final bool deleted;
+}
+
 /// A saved preset and its original import text. JSON returned by the store is
 /// detached; execution uses [raw], never the archived [sourceText].
 class StoredPreset {
@@ -188,6 +205,12 @@ class ChatStore {
   var _closed = false;
   var _streamingWriters = 0;
   var _synchronous = 2;
+
+  /// Internal synchronous publication after an outer COMMIT and its memory
+  /// adoption, before asynchronous change notifications. The observer may read
+  /// registered targets; it must not throw, await, write SQL or call a host.
+  /// Rollbacks and nested savepoint releases never invoke it.
+  void Function(Set<String> chatIds, bool presetsChanged)? committedObserver;
 
   Stream<String> get changes => _changes.stream;
 
@@ -403,6 +426,7 @@ class ChatStore {
       final presetsChanged = _presetsChanged;
       _changedChats.clear();
       _presetsChanged = false;
+      committedObserver?.call(Set<String>.unmodifiable(changed), presetsChanged);
       for (final chatId in changed) {
         _changes.add(chatId);
       }
@@ -823,6 +847,17 @@ class ChatStore {
     );
   }
 
+  /// Revision of the committed tree/content/state view. Bridge tokens add an
+  /// engine epoch; this integer is never exposed to JavaScript as a Number.
+  int treeRevision(String chatId) => _chatRow(chatId)['tree_revision'] as int;
+
+  /// Allocates an identity without adding a row. A batch can prepare all state
+  /// reports against their actual node ids before its first INSERT.
+  String newNodeId() {
+    _ensureOpen();
+    return _createId();
+  }
+
   /// A group keeps its real host in chats.character_id. Library existence is
   /// projected by the engine; the SQL roster never guesses a card by name.
   TavernGroupChat? groupChat(String chatId) {
@@ -1117,6 +1152,39 @@ ORDER BY n.seq
     ];
   }
 
+  /// Structural edits retain pending-deletion branches as physical children.
+  /// This is deliberately separate from the visible swipe projection.
+  List<StoredNode> physicalChildren(String chatId, String? parentId) {
+    _chatRow(chatId);
+    if (parentId != null) {
+      _nodeRow(chatId, parentId, includeDeleted: true);
+    }
+    return [
+      for (final row in _db.select(
+        'SELECT $_nodeColumns, $_siblingColumns FROM nodes n WHERE n.chat_id = ? AND n.parent_id IS ? ORDER BY n.seq',
+        [chatId, parentId],
+      ))
+        _storedNode(row),
+    ];
+  }
+
+  Map<String, StoredTreeLink> treeLinks(String chatId) {
+    _chatRow(chatId);
+    return {
+      for (final row in _db.select(
+        'SELECT id, parent_id, selected_child_id, seq, deleted_by FROM nodes WHERE chat_id = ? ORDER BY seq',
+        [chatId],
+      ))
+        row['id'] as String: StoredTreeLink(
+          nodeId: row['id'] as String,
+          parentId: row['parent_id'] as String?,
+          selectedChildId: row['selected_child_id'] as String?,
+          sequence: row['seq'] as int,
+          deleted: row['deleted_by'] != null,
+        ),
+    };
+  }
+
   /// Reads at most [limit] ancestors, starting at the current leaf or just
   /// before a cursor on that path. The result is always oldest first.
   List<TavernMessage> path(String chatId, {int limit = 60, String? beforeNodeId}) {
@@ -1289,6 +1357,9 @@ ORDER BY n.seq
   TavernMessage updateMessage(
     String chatId,
     String nodeId, {
+    TavernRole? role,
+    String? speaker,
+    bool? hidden,
     String? text,
     String? reasoning,
     String? speakerCharacterId,
@@ -1310,6 +1381,15 @@ ORDER BY n.seq
         values.add(value);
       }
 
+      if (role != null) {
+        put('role', role.name);
+      }
+      if (speaker != null) {
+        put('speaker', speaker);
+      }
+      if (hidden != null) {
+        put('hidden', hidden ? 1 : 0);
+      }
       // UPDATE OF text drives the FTS trigger. Metadata-only writes must not
       // name text, and must not promote an in-progress body as a side effect.
       if (text != null || promote) put('text', text ?? _unguardText(row['stream_text']));
@@ -1630,6 +1710,203 @@ ORDER BY n.seq
   /// can use top-level RFC 6902 add/replace/remove operations without losing
   /// nested arrays or objects; a changed top-level value is replaced whole.
   Map<String, Object?> nodeState(String chatId, String nodeId) => _nodeStateSnapshot(chatId, nodeId).state;
+
+  /// Replaces this physical state only. Children become checkpoints of their
+  /// old physical state before the parent changes, including retained deleted
+  /// children. Portable overrides stay independent in raw extra; the caller
+  /// writes the target override/audit in the same outer transaction.
+  void writeNodeState(String chatId, String nodeId, Map<String, Object?> state) {
+    final encoded = jsonEncode(state);
+    transaction(() {
+      _nodeRow(chatId, nodeId);
+      final children = _db.select('SELECT id FROM nodes WHERE chat_id = ? AND parent_id = ?', [chatId, nodeId]);
+      final snapshots = <String, String>{
+        for (final child in children)
+          child['id'] as String: jsonEncode(
+            _nodeStateSnapshot(chatId, child['id'] as String, includeDeleted: true).state,
+          ),
+      };
+      for (final entry in snapshots.entries) {
+        _db.execute('UPDATE node_states SET delta_json = ?, full_json = ? WHERE node_id = ?', [
+          '[]',
+          entry.value,
+          entry.key,
+        ]);
+      }
+      _db.execute('UPDATE node_states SET delta_json = ?, full_json = ? WHERE node_id = ?', ['[]', encoded, nodeId]);
+      _touch(chatId, tree: true);
+    });
+  }
+
+  /// Reconnects an already prepared family plan without changing node ids or
+  /// seq (which is the FTS rowid and sibling order). Unmentioned parent edges
+  /// and attached branches remain. Every surviving child of a removed page
+  /// must have an explicit surviving parent in the plan.
+  ///
+  /// Only roots whose parent changes need new full physical checkpoints.
+  /// Their descendants continue from the identical physical base. A portable
+  /// snapshot is computed separately, before any edge or selection changes.
+  void rewriteTree(
+    String chatId, {
+    required Map<String, String?> parentByNode,
+    required List<String> selectedPath,
+    Map<String, String?> selectedChildren = const {},
+    Set<String> deleteNodeIds = const {},
+    Map<String, Object?> Function(StoredNode node, Map<String, Object?> physicalState)? capturePortableState,
+  }) {
+    final requestedParents = Map<String, String?>.of(parentByNode);
+    final requestedChoices = Map<String, String?>.of(selectedChildren);
+    final path = List<String>.of(selectedPath);
+    final removed = Set<String>.of(deleteNodeIds);
+    transaction(() {
+      final chat = _chatRow(chatId);
+      final rows = _db.select(
+        'SELECT id, parent_id, selected_child_id, depth, deleted_by FROM nodes WHERE chat_id = ? ORDER BY seq',
+        [chatId],
+      );
+      final byId = <String, Row>{for (final row in rows) row['id'] as String: row};
+      for (final id in {...requestedParents.keys, ...removed}) {
+        if (!byId.containsKey(id)) {
+          throw StateError('Tree plan contains a foreign or missing node: $id');
+        }
+      }
+      if (requestedParents.keys.any(removed.contains)) {
+        throw ArgumentError('A removed page cannot also be reparented.');
+      }
+      final parents = <String, String?>{
+        for (final row in rows)
+          if (!removed.contains(row['id']))
+            row['id'] as String: requestedParents.containsKey(row['id'])
+                ? requestedParents[row['id']]
+                : row['parent_id'] as String?,
+      };
+      for (final entry in parents.entries) {
+        if (entry.value != null && !parents.containsKey(entry.value)) {
+          throw ArgumentError('Tree plan leaves ${entry.key} under a missing parent.');
+        }
+      }
+
+      // Compute depths iteratively, so a long real chat does not recurse on
+      // the Dart stack. The identity graph also detects cycles before SQL.
+      final depths = <String, int>{};
+      for (final start in parents.keys) {
+        if (depths.containsKey(start)) {
+          continue;
+        }
+        final chain = <String>[];
+        final visiting = <String>{};
+        String? cursor = start;
+        while (cursor != null && !depths.containsKey(cursor)) {
+          if (!visiting.add(cursor)) {
+            throw ArgumentError('Tree plan contains a parent cycle.');
+          }
+          chain.add(cursor);
+          cursor = parents[cursor];
+        }
+        var depth = cursor == null ? 0 : depths[cursor]!;
+        for (final id in chain.reversed) {
+          depths[id] = ++depth;
+        }
+      }
+      final seen = <String>{};
+      String? previous;
+      for (final id in path) {
+        if (!seen.add(id) || !parents.containsKey(id) || byId[id]!['deleted_by'] != null || parents[id] != previous) {
+          throw ArgumentError('Selected path must be a visible, complete path of the planned tree.');
+        }
+        previous = id;
+      }
+
+      final choices = <String, String?>{};
+      for (final id in parents.keys) {
+        final child = byId[id]!['selected_child_id'] as String?;
+        choices[id] = child != null && parents.containsKey(child) && parents[child] == id ? child : null;
+      }
+      for (final entry in requestedChoices.entries) {
+        if (!parents.containsKey(entry.key) ||
+            entry.value != null &&
+                (!parents.containsKey(entry.value) ||
+                    parents[entry.value] != entry.key ||
+                    byId[entry.value]!['deleted_by'] != null)) {
+          throw ArgumentError('Remembered selection must identify a surviving direct child.');
+        }
+        choices[entry.key] = entry.value;
+      }
+      for (var index = 0; index < path.length; index++) {
+        choices[path[index]] = index + 1 < path.length ? path[index + 1] : null;
+      }
+      final changedParents = <String, String?>{
+        for (final entry in requestedParents.entries)
+          if (byId[entry.key]!['parent_id'] != entry.value) entry.key: entry.value,
+      };
+      final snapshots = <String, ({String physical, String? extra})>{};
+      for (final id in changedParents.keys) {
+        final row = _nodeRow(chatId, id, includeDeleted: true);
+        final state = _nodeStateSnapshot(chatId, id, includeDeleted: true).state;
+        final physical = jsonEncode(state);
+        String? encodedExtra;
+        if (capturePortableState != null) {
+          final portable = capturePortableState(_storedNode(row), state);
+          final extra = _map(row['extra']);
+          final own = extra['dshgo'];
+          if (extra.containsKey('dshgo') && own is! Map<String, Object?>) {
+            throw StateError('Cannot preserve a malformed internal dshgo container while moving a page.');
+          }
+          extra['dshgo'] = {if (own is Map<String, Object?>) ...own, 'tavernState': portable};
+          encodedExtra = jsonEncode(extra);
+        }
+        snapshots[id] = (physical: physical, extra: encodedExtra);
+      }
+
+      final root = path.isEmpty ? null : path.first;
+      final leaf = path.isEmpty ? null : path.last;
+      final changed =
+          changedParents.isNotEmpty ||
+          removed.isNotEmpty ||
+          chat['selected_root_id'] != root ||
+          chat['current_leaf_id'] != leaf ||
+          choices.entries.any((entry) => byId[entry.key]!['selected_child_id'] != entry.value);
+      if (!changed) {
+        return;
+      }
+
+      for (final entry in changedParents.entries) {
+        _db.execute('UPDATE nodes SET parent_id = ? WHERE chat_id = ? AND id = ?', [entry.value, chatId, entry.key]);
+      }
+      for (final entry in snapshots.entries) {
+        _db.execute('UPDATE node_states SET delta_json = ?, full_json = ? WHERE node_id = ?', [
+          '[]',
+          entry.value.physical,
+          entry.key,
+        ]);
+        if (entry.value.extra != null) {
+          _db.execute('UPDATE nodes SET extra = ? WHERE chat_id = ? AND id = ?', [
+            entry.value.extra,
+            chatId,
+            entry.key,
+          ]);
+        }
+      }
+      for (final id in removed) {
+        _db.execute('DELETE FROM nodes WHERE chat_id = ? AND id = ?', [chatId, id]);
+      }
+      for (final id in parents.keys) {
+        if (byId[id]!['depth'] != depths[id]) {
+          _db.execute('UPDATE nodes SET depth = ? WHERE chat_id = ? AND id = ?', [depths[id], chatId, id]);
+        }
+        if (byId[id]!['selected_child_id'] != choices[id]) {
+          _db.execute('UPDATE nodes SET selected_child_id = ? WHERE chat_id = ? AND id = ?', [choices[id], chatId, id]);
+        }
+      }
+      _db.execute('UPDATE chats SET selected_root_id = ?, current_leaf_id = ? WHERE id = ?', [root, leaf, chatId]);
+      _db.execute(
+        '''DELETE FROM deleted_subtrees WHERE chat_id = ? AND NOT EXISTS
+        (SELECT 1 FROM nodes n WHERE n.chat_id = deleted_subtrees.chat_id AND n.id = deleted_subtrees.root_node_id)''',
+        [chatId],
+      );
+      _touch(chatId, tree: true);
+    });
+  }
 
   ({Map<String, Object?> state, int deltas}) _nodeStateSnapshot(
     String chatId,

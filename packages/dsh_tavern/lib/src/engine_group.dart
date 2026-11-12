@@ -152,7 +152,7 @@ class _GroupCoordinator {
     }
     final settings = _personaSettings(engine._effectiveSettings(), selection);
     final variables = <String, Object?>{};
-    final beforeGlobals = _jsonString(engine._globalVariables);
+    final beforeGlobals = engine._globalVariables.revision;
     late final String id;
     try {
       id = engine._store.transaction(() {
@@ -247,7 +247,9 @@ class _GroupCoordinator {
       });
     } catch (createError, createStackTrace) {
       try {
-        if (beforeGlobals != _jsonString(engine._globalVariables)) await engine._saveDocument();
+        if (engine._globalVariables.changedSince(beforeGlobals)) {
+          await engine._saveDocument();
+        }
       } catch (saveError, saveStackTrace) {
         Error.throwWithStackTrace(
           _PreparationSaveFailure(
@@ -263,7 +265,9 @@ class _GroupCoordinator {
       Error.throwWithStackTrace(createError, createStackTrace);
     }
     engine._liveVariables[id] = (leaf: engine._store.chat(id).currentLeafId, values: _runtimeCopy(variables));
-    if (beforeGlobals != _jsonString(engine._globalVariables)) await engine._saveDocument();
+    if (engine._globalVariables.changedSince(beforeGlobals)) {
+      await engine._saveDocument();
+    }
     engine._notifyLists();
     return id;
   }
@@ -512,6 +516,7 @@ class _GroupCoordinator {
           cancellation: round.cancellation,
         );
         round.userNodeId = message.nodeId;
+        round.sent = engine._scripts.captureSent(round.group.chatId, message.nodeId);
       }
       round.cancellation.check();
       round.phase = TavernGroupPhase.ready;
@@ -522,6 +527,7 @@ class _GroupCoordinator {
       }
       for (final actorId in round.planned) {
         round.cancellation.check();
+        await engine._scripts.drainWrites(round.group.chatId, round.cancellation);
         final chat = engine._store.chat(round.group.chatId);
         final metadata = engine._chatCodec.metadataForNode(engine._store, chat.id);
         final source =
@@ -551,7 +557,7 @@ class _GroupCoordinator {
         child.secretCardRevision = round.hostRevision;
         round.child = child;
         round.current = actorId;
-        round.generationId = 'generation-${_newStateId()}';
+        round.generationId = child.generationId;
         round.remaining.removeAt(0);
         round.phase = TavernGroupPhase.speaking;
         round.failed = null;
@@ -583,13 +589,16 @@ class _GroupCoordinator {
         round.cancellation.check();
       }
       if (last != null) {
+        await engine._scripts.drainWrites(round.group.chatId, round.cancellation);
         // Only a complete batch advances the chapter and automatic helper tick.
         last.state = engine._stateAt(last.chat.id, last.reply!.nodeId);
         last.variables = _runtimeCopy(_map(last.state['variables']));
         final story = _settleStoryTurn(engine, last, last.currentState);
         last.storyAttempt = story;
-        if (story != null) engine._commitTurn(last, last.inspection, storySettlement: story);
+        if (story != null) engine._commitGroupStory(last, story);
         engine._directors.afterTurn(last);
+        await engine._scripts.groupSettled(round.group.chatId, round.cancellation);
+        round.cancellation.check();
       }
       _finish(round, TavernGroupEndReason.completed);
     } catch (error) {
@@ -613,6 +622,7 @@ class _GroupCoordinator {
         unawaited(observer.close());
       }
       round.observers.clear();
+      engine._scripts.publishSent(round.sent, cancellation: round.cancellation);
       engine._notifyLists();
     }
   }
@@ -893,6 +903,7 @@ class _GroupRound {
   String? current;
   String? generationId;
   String? userNodeId;
+  _ScriptSent? sent;
   bool finished = false;
   TavernGroupProgress get progress => TavernGroupProgress(
     chatId: group.chatId,

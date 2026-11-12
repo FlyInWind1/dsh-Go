@@ -16,6 +16,7 @@ import 'lorebook_library.dart';
 import 'persona.dart';
 import 'preset_library.dart';
 import 'regex_library.dart';
+import 'scripts.dart';
 import 'state.dart';
 import 'worldinfo/world_info.dart' show WorldInfoSource;
 
@@ -289,7 +290,8 @@ class TavernReasoningDelta extends TavernEvent {
 }
 
 class TavernTurnDone extends TavernEvent {
-  const TavernTurnDone(this.message, {this.finishReason});
+  TavernTurnDone(this.message, {this.finishReason, List<TavernScriptIssue> hookIssues = const []})
+    : hookIssues = List.unmodifiable(hookIssues);
 
   /// As stored: write-back regex applied, usage filled in.
   final TavernMessage message;
@@ -297,6 +299,7 @@ class TavernTurnDone extends TavernEvent {
   /// The provider's finish_reason, including length or content_filter. Null
   /// means the transport did not report one; unknown future values are kept.
   final String? finishReason;
+  final List<TavernScriptIssue> hookIssues;
 }
 
 enum TavernFailure {
@@ -313,7 +316,8 @@ enum TavernFailure {
 }
 
 class TavernTurnFailed extends TavernEvent {
-  const TavernTurnFailed(this.kind, {this.detail, this.partial});
+  TavernTurnFailed(this.kind, {this.detail, this.partial, List<TavernScriptIssue> hookIssues = const []})
+    : hookIssues = List.unmodifiable(hookIssues);
   final TavernFailure kind;
 
   /// For 「详情」: a status code, the first part of an error body.
@@ -322,6 +326,7 @@ class TavernTurnFailed extends TavernEvent {
   /// Whatever arrived before it failed or was stopped; null when nothing was
   /// stored (the user's line goes back into the composer).
   final TavernMessage? partial;
+  final List<TavernScriptIssue> hookIssues;
 }
 
 enum TavernCardFormat { png, json, charx }
@@ -375,6 +380,9 @@ class TavernModelConfig {
 
 /// The tavern. One per app; [open] it on the app's support directory.
 abstract interface class Tavern {
+  /// Persisted script data and awaited App lifecycle bridge. Capabilities
+  /// distinguish the implemented surface from later script/generation layers.
+  TavernScriptBridge get scripts;
   // Library ------------------------------------------------------------------
 
   /// The saved capability snapshot, or null for a missing/legacy asset.

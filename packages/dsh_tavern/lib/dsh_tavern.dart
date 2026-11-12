@@ -17,6 +17,7 @@ export 'src/macros/macro_engine.dart';
 export 'src/persona.dart';
 export 'src/preset_library.dart';
 export 'src/regex_library.dart';
+export 'src/scripts.dart';
 export 'src/state.dart';
 export 'src/io/preset_codec.dart';
 export 'src/prompt/character_fields.dart';

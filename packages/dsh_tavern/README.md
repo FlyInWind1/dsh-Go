@@ -1074,6 +1074,91 @@ SQLite 注册迁移升至 7：group_chats、group_members、nodes.speaker_charac
 
 App 的 `DeferredTavern` 要转发所有新群方法，Preview 由 owner 按完整群事件序列模拟。本层没有读取或修改 App。`TavernChatSummary` 增加 kind 与不可变 memberCharacterIds；为复制列表，构造器不再 const，既有 `const TavernChatSummary(...)` 调用应移除 const。其 characterId 在群里表示主持，消息演员应读 nullable speakerCharacterId。新 DTO 字段均有单聊默认值；不把主持头像当成每条消息的发言人。
 
-本层未实现 P2 B 的脚本注册、JS 宿主或 MVU：settling/generationId 是真实提交边界和后续接合点，当前不会制造成功 hook Ack。B 接入时必须在 child SQL 已提交之后完成宿主同步/handler 写确认，再发 Done；同 hook 目标变量短写不能排队等待自己的 outer.done，外部结构变化则取消剩余。批尾 story 当前复用已提交 child 的私有缓冲；B 若允许 hook 编辑正文/变量，必须先刷新或仅提交最新运行态，不能用旧缓冲覆盖 hook 写入。本层没有声称该未来 hook 合同已实测。
+群聊切片本身不运行 JS 或 MVU。下面的 B1 累计层已把 settling/generationId 接到真实的缓存和回复 handler 屏障；群尾只提交当前节点的新 story 状态与审计，不再把旧 child 正文、reasoning 或 inspection 缓冲写回。JS 执行器和固定 MVU 构建仍由 App/owner 接入验证，不能从 native hook 完成推断 MVU 已兼容。
 
 固定参考为 ST `7e8663cd9c184a550b37238218bdd32c6efc68e9` 的 [group-chats.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/group-chats.js)、[utils.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/utils.js)、[openai.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/openai.js) 及 [world-info.js](https://github.com/SillyTavern/SillyTavern/blob/7e8663cd9c184a550b37238218bdd32c6efc68e9/public/scripts/world-info.js)。这次只读源码，没有新增 ST probe；`p2_group_store_engine_test.dart`、`p2_group_turn_engine_test.dart` 和旧 schema 回归的实际运行由正式代跑给证据，不把静态源码审阅当作通过。
+
+# P2 B1：脚本数据桥与持久回复屏障
+
+`Tavern.scripts` 提供原生的 `TavernScriptBridge`。本增量实现 context/snapshot、消息与 swipe family、五个变量 scope、实际提交版本、可等待的主生命周期和 App host 接口。它不内置 JavaScript 引擎，不解析 MVU，不实现后继后台生成、注入、STscript 或 UI 命令。`capabilities.adapterVersion` 为 `p2-b1`，只列实际实现的方法；没有 host 时持久数据操作仍可使用，`hostAttached=false` 不伪造宿主成功 Ack。
+
+这些调用/事件边界遵循已交付 P2 API 和项目勘误，尤其派生通知、swipe 改长及主生命周期重入是项目协议，不声称它们都已由固定 helper 原件或实际 MVU 构建证明。当前作者只做源码实施与静态自读；本层 Dart 编译、analyze、测试、App 和 MVU 的实际结论以对应正式回件为准。
+
+## Context、消息身份与快照
+
+```dart
+final bridge = tavern.scripts;
+final context = await bridge.openContext(TavernScriptContextSpec(
+  instanceId: 'card-frame-1', chatId: chatId, characterId: characterId,
+));
+final page = await bridge.getChatMessages(
+  context.id, const TavernMessageRange(first: 0, last: -1),
+  includeSwipes: true,
+);
+final saved = await bridge.getVariables(context.id,
+  const TavernVariableTarget(scope: TavernVariableScope.chat));
+await bridge.replaceVariables(context.id,
+  const TavernVariableTarget(scope: TavernVariableScope.chat),
+  {...saved.value, 'visited': true}, expectedVersion: saved.version,
+);
+```
+
+context 是当前 engine epoch 下的运行身份；`instanceId` 不是持久 script 键。群 context 未明确 characterId 时不猜主持或首成员。消息真实身份是 `(chatId,nodeId)`；楼层号来自完整选中 ancestor path，包含 hidden/system，先编号后筛选，不受 native `path` 默认分页限制。范围两端为闭区间，负数从路径末尾计算。数字写入在调用时固定节点，之后的异步等待不重新解释同一数字；历史 swipe 的明确 ref 可直接指定非当前页。
+
+`snapshot` 是独立当前读取，不派发事件、不 Ack lifecycle、不改变已发布 delta 的比较基线，也不等待当前 cache Ack。各 scope 可经过不同文件队列，返回前会同步复验这次读到的每个目标 commit token 和路径修订；坏形状的观察也带当时 token，发生交错则重读，避免旧值配上较新 lastSeq。App 在安装 snapshot 前缓冲 cache delivery，随后按水位去重；仍待 Ack 的 lifecycle 不因 `seq <= lastSeq` 被丢弃。
+
+仅打开的 context 构造脚本路径/消息缓存；每个 token checkpoint 不把整个历史发到 iframe。cache delta 含实际变更的消息、删除 ref、楼层索引变化、变量快照与资源引用，namespace/name 为空。每 context 的 seq 在实际派发时递增；稳定 eventId、generationId 与 message ref 的职责不同。
+
+## 原始消息与 family 修改
+
+`setChatMessages`、`createChatMessages`、`deleteChatMessages`、`rotateChatMessages`、`selectSwipe` 都在完整预检后提交一笔 SQL；失败不留半批。raw setter 不运行宏或正则，默认不发送模型请求。extra 是用户投影，内部 `extra.dshgo` 保留且不可直接覆盖。显式 hidden 写同步已有历史 system 标记；raw `role=system` 是 comment/system，hidden=false 仍不进入模型；原 narrator 若只回写相同投影，不被改成 comment。
+
+读消息同时给 `hasData/rawData/dataIssue`：缺少 messageVariables 的 data 投影为 `{}`；历史 null/数组/其他非对象原样保留，data 为 null 并报告形状。`getVariables` 对后者报 shapeMismatch；明确整对象替换可以按统一状态通道修复，不能默默把坏形状当成空值。
+
+swipes 留存索引保留原 nodeId，至少一页。裁掉入场目标或选中页必须显式给保留的 swipeId；被删页的孩子转挂到保留选中页，后代 ID/有效状态保留，祖先前缀可改变。新页缺省 data 克隆入场目标的完整有效状态；既有页未给 data 不改。重复给 message/data/extra 与对应 selected swipe 值时必须一致，否则整批拒绝。新增页不复制伪造模型 inspection/usage。
+
+整楼删除移除该层所有可见 swipe 页，保留并重接后方分支；rotate 交换两段完整 family，不等于选页。物理 checkpoint 与 portable override 分开保存，重接前保全受影响状态；seq/FTS 身份不重新编号。返回 mutation 的 refs、indexChanges、stateEdits 和 actual upserts 来自本次真实提交。
+
+## 五 scope、JSON 与版本
+
+| scope | 持久目标 |
+| --- | --- |
+| global | settings.json 的 globalVariables，与 native 设置/宏保存共用实际文件队列 |
+| character | 卡 extensions.tavern_helper.variables，保留其他卡字段、媒体和原件 |
+| chat | chats.variables，并同步当前节点或群空路径 initial_state 的变量载体 |
+| message | 指定稳定页的有效 state.messageVariables，独立于 chat locals |
+| script | owner(kind,assetId)+scriptId 的 data；卡/预设保留原脚本树，全局为 settings.json 的 scriptData |
+
+卡/预设脚本定位支持公开 folder.scripts 结构，兼容已有 children 容器；同名或相同 scriptId 不跨 owner 合并。脚本数据与 iframe instance 无关。未知 JSON 字段保留，不扩成安装/执行脚本管理器。
+
+输入在调用时严格深拷贝，只接受 null、String、bool、有限 num、字符串键 Map 和 List；循环、自定义对象/函数、非字符串键、NaN/Infinity 报 invalidJson，不调用任意 `toJson`。replace 完整替换对象；对象成员 null 是值，只有 remove 才删除。mutate 使用已拆路径 token；insertIfAbsent 按存在性判断，null/false/0/空串均已存在；数组删除收缩数组，不制造稀疏洞。
+
+version 按具体持久目标独立计数，包含 engine epoch。settings/card 的成功 rename、外层 SQL COMMIT 与内存采用后，同步观察已登记目标；真实 A→B→A 两次提交也使旧 token 失效。回滚、失败 rename 和无实际值变化不提前推进版本；无关目标不会制造冲突。CAS 在最终实际队列内读取最新值并检查。`updateVariablesWith` 只在写队列外调用 updater 一次，返回后 CAS；冲突不重试函数。updater 可以 await engine.close，任意用户 Future 不会被当成必须排空的存储作业，关闭后迟到结果不提交。
+
+全局原生宏立即改变 live RAM，但保存只记录已计算的根 set/remove 意图；同值 set、删除当前不存在的键也保留顺序。实际文件队列从最新已提交基底合入本次 cutoff 内尚未提交的意图；若 JSON 有变化，成功 rename 后才确认，无 JSON 变化可确认日志而不追加 IO。不会重跑宏或 RNG，也不会用入队前的旧整对象覆盖其他写者。失败保留原生 RAM 效果与未提交意图，磁盘/bridge version 不前移；close 只排空已接纳 IO，不自动重试失败保存。普通 settings/scriptData 保存不领取这些原生意图。
+
+`setGlobalVariables`、bridge replace 和 updater 返回的整对象是明确全替换：真正接纳写入、进入文件队列之前捕获 native cutoff；成功时准确保存替换对象，覆盖 cutoff 之前的原生值，包括先前保存失败而留在 RAM 的值，并保留调用之后的 native 意图。updater 的 cutoff 在函数返回后的提交接纳时捕获。bridge path mutate 则先在队列检查已提交 CAS/形状，合入 cutoff 内 pending native 意图，再执行路径计划一次；未提到的 native 键保持。重叠操作期间，native getter 的 live 值可以短暂包含 bridge snapshot 尚未提交的后续意图；bridge 返回其实际持久提交对象，不把 pending 当作已提交版本。原生宏非有限 Number 继续留在 RAM，持久及 bridge JSON 投影为 null，未修改这些键的 path mutate 不把 RAM 强制改成 null；bridge 新输入仍严格拒绝非有限数。这些是本项目的并发提交合同，未宣称为固定 helper 实现对拍结论。
+
+文件与 SQL 不承诺跨资源原子。card.json 已 rename 但派生 summary 失败时，重新读取权威卡并以 committed=true 报告；成功提交后 host/cache 失败也不能说数据没保存。调用方应根据 committed 和实际读取决定恢复，不盲目重放写入。
+
+## 同一个 message data / DSH 通道
+
+变量 message scope、set/data、swipesData 和 create/data 共用状态准备与提交。普通 sibling（例如 stat_data）整对象替换不另解析 MVU；dshgo 没变就不执行 rules、不中断原 runtime/秘密/事件/故事账本。已有 schema 且 dshgo 改变时走 user/source=script 的真实 StateSession，新 invocation 进行校验、clamp/derive/rules 后返回 actual、收据、问题和审计。省略已存在的 dshgo 按 remove_root 校验，拒绝时整笔/整批都不提交；不会先保存普通 sibling。无 schema 的 dshgo 仍是普通 JSON。
+
+写历史页时先保全直接 physical children 的旧 checkpoint（含 retained deleted children），再写目标 state 和 portable/audit；不能用新父状态污染未修改子页。所有 DSH 文件准备在 chat gate 外，最终同步检查主持定义修订；SQL 内不等待角色文件队列。
+
+## Host、完成边界与群接合
+
+host 的 cache 通道必须可重入：RECEIVED handler 可以 await 变量或正文短写，而该写会先要求 App 应用真实 cache。普通 bridge 写 Future 只等待真实提交、actual 和 cache 确认；其产生的 EDITED/UPDATED/SWIPED/DELETED 与画布 refresh 独立调度，不纳入该写 Future 或 RECEIVED 的隐式传递闭包。raw create 只有 cache/refresh；纯 data 写只有 cache；正文变更 EDITED、其他显示字段 UPDATED、实际选页 SWIPED、真实移除 DELETED。
+
+主回合按 STARTED → AFTER_COMMANDS → 冻结本次请求 → 模型/regex/state/SQL → cache → awaited RECEIVED 及其直接写 flush → actual Done → ENDED。AFTER_COMMANDS 是可改本次准备的屏障。SENT 保留真实用户提交的 ref/楼层/修订，但在完整 body 深拷贝及 config 捕获后才异步派发，不等其 handler；准备失败/取消也只报告一次已发生的提交。群的用户 SENT 在首位演员的同一捕获边界发出，无演员则在批末报告。SENT 异步写不修改已冻结请求，也不保证赶上后续演员准备。
+
+主生命周期不排在派生通知队尾。App 可串行派生 listener，但单聊 ENDED handler 若启动并 await 下一代，必须允许新 generationId 的 STARTED/RECEIVED 重入；不能把全部生命周期锁在旧 ENDED 后。同 chat 在 RECEIVED 等待中仍 busy；群 actor ENDED 时 outer 仍占用，不能另起同群主生成。没有声称这些项目调度选择等于固定 ST listener 的全域行为。
+
+STOPPED/ENDED 的 args[0] 使用实际 Done/Failed 的 status、generationType、cancelled、committed、finishReason、modelFailure、replyRef、partialRef 与完整 hookIssues；dispatch 另有 generationId/nodeRef。committed 专指成功模型结算，失败保存的 partial 由 partialRef 明示；停止发生在已提交模型的 hook 等待期时，completed 与 cancelled=true 可以同时成立，不伪造 modelFailure。impersonate 临时消息不冒充持久 ref。模型已提交后的 resume 读取当前保存的回复，保留 handler 正文编辑。
+
+准备与模型提交后的数据短写不等自己的 turn.done/outer.done；模型写阶段未 drain 或结构/选路变动则先取消并排空。stop、detach、closeContext、engine.close 解除相应宿主等待，迟到 Ack 不转给新 host。已提交模型与短写不会因 hookFailure 回滚；Done/Failed 的 hookIssues 分开报告。群下一演员在 RECEIVED 明确屏障后读最新已提交数据；批尾只写新 story state/audit/cache，不覆盖 hook 已改正文，不重复 T17 结算。
+
+cache、lifecycle 和 refresh 的取消/失败通过 watchEvents 可观察；watchEvents 不承担 Ack，也不重新运行 JS。close 先取消回调 race，再排空实际 IO；不等待任意无响应 JS Promise或暂停的观察者。B1 没有新增 schema：继续使用 7 与现有备份/JSONL 的真实数据载体。
+
+App 的 DeferredTavern 需新增 scripts 转发或稳定代理；同步 getter 不能返回 Future，也不能返回一个假成功 bridge。Preview 由 owner 按实际能力模拟并设置 simulated=true，未实现的方法不放 capabilities。`TavernTurnDone` / `TavernTurnFailed` 新增不可变 hookIssues，构造器不再 const，既有 const 调用须移除；群消息仍透传 speakerCharacterId。这次没有读取/修改 App，没有执行固定 MVU 构建。
