@@ -791,14 +791,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     await _tavern.selectSibling(widget.chatId, message.nodeId, index);
     // An earlier message: everything after it is now another branch's.
     if (!later || !mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(l10n.tavernSwitchedBranch),
-        action: SnackBarAction(
-          label: l10n.tavernUndo,
-          onPressed: () => unawaited(_tavern.selectSibling(widget.chatId, message.nodeId, message.siblingIndex)),
-        ),
-      ),
+    messenger.showUndoNotice(
+      l10n.tavernSwitchedBranch,
+      undoLabel: l10n.tavernUndo,
+      window: tavernUndoWindow,
+      onUndo: () => unawaited(_tavern.selectSibling(widget.chatId, message.nodeId, message.siblingIndex)),
     );
   }
 
