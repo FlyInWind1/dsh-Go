@@ -21279,6 +21279,25 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernInspectCache => 'Cache';
+
+  @override
+  String get tavernInspectCacheKept => 'Same start as the last turn';
+
+  @override
+  String tavernInspectCacheBroken(int index) {
+    return 'Changed from part $index';
+  }
+
+  @override
+  String tavernInspectCacheMiss(int tokens) {
+    return 'This part and about $tokens tokens after it miss the cache; the parts before match the last turn. Usually a lorebook entry near the top changed this turn.';
+  }
+
+  @override
+  String get tavernInspectCacheBreak => 'The cache breaks here';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

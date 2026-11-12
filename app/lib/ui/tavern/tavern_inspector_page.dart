@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../tavern/tavern_cache_break.dart';
 import '../../tavern/tavern_provider.dart';
 import '../bots/bot_format.dart' show shortTime;
 import '../common/smooth_size.dart';
@@ -40,21 +41,32 @@ class TavernInspectorPage extends ConsumerStatefulWidget {
 }
 
 class _TavernInspectorPageState extends ConsumerState<TavernInspectorPage> {
-  late final Future<TavernTurnInspection?> _record = ref
-      .read(tavernProvider)
-      .inspectTurn(widget.chatId, nodeId: widget.nodeId);
+  late final Future<(TavernTurnInspection?, TavernTurnInspection?)> _records = _read();
+
+  /// This turn's record, and the turn before it to see where the cache broke
+  /// (none when it cannot be found: the page reads the same without it).
+  Future<(TavernTurnInspection?, TavernTurnInspection?)> _read() async {
+    final tavern = ref.read(tavernProvider);
+    final record = await tavern.inspectTurn(widget.chatId, nodeId: widget.nodeId);
+    if (record?.prompt == null) return (record, null);
+    try {
+      return (record, await tavernPreviousTurn(tavern, record!));
+    } on Object {
+      return (record, null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return FutureBuilder<TavernTurnInspection?>(
-      future: _record,
+    return FutureBuilder<(TavernTurnInspection?, TavernTurnInspection?)>(
+      future: _records,
       builder: (context, snapshot) {
         final title = l10n.tavernInspectTitle;
         if (snapshot.connectionState != ConnectionState.done) {
           return AppPage.list(title: title, children: const [QuietSpinner()]);
         }
-        final record = snapshot.data;
+        final (record, previous) = snapshot.data ?? (null, null);
         if (snapshot.hasError || record == null) {
           return AppPage.list(
             title: title,
@@ -70,7 +82,7 @@ class _TavernInspectorPageState extends ConsumerState<TavernInspectorPage> {
         }
         return AppPage.list(
           title: title,
-          children: [_Body(record: record)],
+          children: [_Body(record: record, previous: previous)],
         );
       },
     );
@@ -78,15 +90,22 @@ class _TavernInspectorPageState extends ConsumerState<TavernInspectorPage> {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.record});
+  const _Body({required this.record, this.previous});
 
   final TavernTurnInspection record;
+
+  /// The turn before, to compare prompts with; null when there is none.
+  final TavernTurnInspection? previous;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final prompt = record.prompt;
     final segments = prompt?.afterPostProcessing ?? const <PromptSegment>[];
+    final before = previous?.prompt?.afterPostProcessing;
+    // The first part that differs from the turn before: it and all after it
+    // miss DeepSeek's prefix cache.
+    final breakAt = before == null ? null : tavernCacheBreak(before, segments);
     final excluded = prompt?.excluded ?? const <PromptExclusion>[];
     final hits = [
       for (final hit in (record.worldInfo['activated'] as List?) ?? const [])
@@ -127,13 +146,23 @@ class _Body extends StatelessWidget {
                     : l10n.tavernInspectUsageValue(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens),
               ),
             ),
+            if (before != null && segments.isNotEmpty)
+              SettingsTile(
+                key: const ValueKey('tavern-inspect-cache'),
+                title: l10n.tavernInspectCache,
+                subtitle: breakAt == null ? null : l10n.tavernInspectCacheMiss(tavernTokensFrom(segments, breakAt)),
+                value: Text(
+                  breakAt == null ? l10n.tavernInspectCacheKept : l10n.tavernInspectCacheBroken(breakAt + 1),
+                  style: breakAt == null ? null : TextStyle(color: DshColors.of(context).warning),
+                ),
+              ),
           ],
         ),
         if (segments.isNotEmpty)
           SettingsSection(
             title: l10n.tavernInspectSegments(segments.length),
             footer: Text(l10n.tavernInspectSegmentsNote),
-            children: [for (final s in segments) _SegmentTile(segment: s)],
+            children: [for (final (i, s) in segments.indexed) _SegmentTile(segment: s, breaksCache: i == breakAt)],
           ),
         if (hits.isNotEmpty)
           SettingsSection(
@@ -161,9 +190,13 @@ class _Body extends StatelessWidget {
 /// One part of the prompt: who says it, where it came from, its tokens; a tap
 /// shows the text (long-press copies it).
 class _SegmentTile extends StatefulWidget {
-  const _SegmentTile({required this.segment});
+  const _SegmentTile({required this.segment, this.breaksCache = false});
 
   final PromptSegment segment;
+
+  /// The first part that differs from the turn before: marked, since the
+  /// cache stops here.
+  final bool breaksCache;
 
   @override
   State<_SegmentTile> createState() => _SegmentTileState();
@@ -185,7 +218,7 @@ class _SegmentTileState extends State<_SegmentTile> {
     final dsh = DshColors.of(context);
     final segment = widget.segment;
     final role = segment.message['role'] as String? ?? '';
-    return InkWell(
+    final tile = InkWell(
       key: ValueKey('tavern-inspect-segment-${segment.id}'),
       onTap: () => setState(() => _open = !_open),
       onLongPress: () {
@@ -198,6 +231,21 @@ class _SegmentTileState extends State<_SegmentTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.breaksCache)
+              Padding(
+                key: const ValueKey('tavern-inspect-cache-break'),
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Icon(AppIcons.warning, size: 14, color: dsh.warning),
+                    const SizedBox(width: 6),
+                    Text(
+                      l10n.tavernInspectCacheBreak,
+                      style: theme.textTheme.labelMedium?.copyWith(color: dsh.warning, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
             Row(
               children: [
                 _RoleTag(role: role),
@@ -249,6 +297,8 @@ class _SegmentTileState extends State<_SegmentTile> {
         ),
       ),
     );
+    if (!widget.breaksCache) return tile;
+    return ColoredBox(color: dsh.warningContainer.withValues(alpha: 0.45), child: tile);
   }
 }
 

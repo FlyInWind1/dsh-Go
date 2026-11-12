@@ -933,5 +933,12 @@
   "tavernRunNotKept": "Not kept",
   "tavernRunGone": "Its message is gone",
   "tavernRunMore": "and {count} more",
-  "@tavernRunMore": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernRunMore": {"placeholders": {"count": {"type": "int"}}},
+  "tavernInspectCache": "Cache",
+  "tavernInspectCacheKept": "Same start as the last turn",
+  "tavernInspectCacheBroken": "Changed from part {index}",
+  "@tavernInspectCacheBroken": {"placeholders": {"index": {"type": "int"}}},
+  "tavernInspectCacheMiss": "This part and about {tokens} tokens after it miss the cache; the parts before match the last turn. Usually a lorebook entry near the top changed this turn.",
+  "@tavernInspectCacheMiss": {"placeholders": {"tokens": {"type": "int"}}},
+  "tavernInspectCacheBreak": "The cache breaks here"
 }

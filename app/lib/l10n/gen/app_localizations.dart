@@ -36794,6 +36794,36 @@ abstract class L10n {
   /// **'等 {count} 处'**
   String tavernRunMore(int count);
 
+  /// No description provided for @tavernInspectCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存'**
+  String get tavernInspectCache;
+
+  /// No description provided for @tavernInspectCacheKept.
+  ///
+  /// In zh, this message translates to:
+  /// **'和上一回合同前缀'**
+  String get tavernInspectCacheKept;
+
+  /// No description provided for @tavernInspectCacheBroken.
+  ///
+  /// In zh, this message translates to:
+  /// **'从第 {index} 段起变了'**
+  String tavernInspectCacheBroken(int index);
+
+  /// No description provided for @tavernInspectCacheMiss.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一段和它后面约 {tokens} tokens 不会命中缓存，前面的和上一回合一样。常是靠前的世界书条目这回合换了。'**
+  String tavernInspectCacheMiss(int tokens);
+
+  /// No description provided for @tavernInspectCacheBreak.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存从这里断开'**
+  String get tavernInspectCacheBreak;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

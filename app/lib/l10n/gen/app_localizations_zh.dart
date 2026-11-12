@@ -20169,6 +20169,25 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernInspectCache => '缓存';
+
+  @override
+  String get tavernInspectCacheKept => '和上一回合同前缀';
+
+  @override
+  String tavernInspectCacheBroken(int index) {
+    return '从第 $index 段起变了';
+  }
+
+  @override
+  String tavernInspectCacheMiss(int tokens) {
+    return '这一段和它后面约 $tokens tokens 不会命中缓存，前面的和上一回合一样。常是靠前的世界书条目这回合换了。';
+  }
+
+  @override
+  String get tavernInspectCacheBreak => '缓存从这里断开';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

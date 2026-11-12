@@ -933,5 +933,12 @@
   "tavernRunNotKept": "没收下",
   "tavernRunGone": "那条消息已删",
   "tavernRunMore": "等 {count} 处",
-  "@tavernRunMore": {"placeholders": {"count": {"type": "int"}}}
+  "@tavernRunMore": {"placeholders": {"count": {"type": "int"}}},
+  "tavernInspectCache": "缓存",
+  "tavernInspectCacheKept": "和上一回合同前缀",
+  "tavernInspectCacheBroken": "从第 {index} 段起变了",
+  "@tavernInspectCacheBroken": {"placeholders": {"index": {"type": "int"}}},
+  "tavernInspectCacheMiss": "这一段和它后面约 {tokens} tokens 不会命中缓存，前面的和上一回合一样。常是靠前的世界书条目这回合换了。",
+  "@tavernInspectCacheMiss": {"placeholders": {"tokens": {"type": "int"}}},
+  "tavernInspectCacheBreak": "缓存从这里断开"
 }
