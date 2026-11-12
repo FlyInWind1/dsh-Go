@@ -129,6 +129,101 @@ class DeferredTavern implements Tavern {
   @override
   Stream<TavernEvent> send(String chatId, String text) => _stream((t) => t.send(chatId, text));
 
+  // Group chats (engine P2 125): the lists are copied as they are when called,
+  // before waiting for the engine.
+
+  @override
+  Future<String> createGroupChat(
+    List<String> characterIds, {
+    String? hostCharacterId,
+    String? title,
+    TavernGroupActivation activation = TavernGroupActivation.natural,
+    int maxSpeakersPerTurn = 3,
+    bool allowSelfResponses = false,
+    bool addGreetings = true,
+  }) {
+    final ids = List<String>.of(characterIds);
+    return _ready.then(
+      (t) => t.createGroupChat(
+        ids,
+        hostCharacterId: hostCharacterId,
+        title: title,
+        activation: activation,
+        maxSpeakersPerTurn: maxSpeakersPerTurn,
+        allowSelfResponses: allowSelfResponses,
+        addGreetings: addGreetings,
+      ),
+    );
+  }
+
+  @override
+  Future<TavernGroupChat?> groupChat(String chatId) async => (await _ready).groupChat(chatId);
+
+  @override
+  Stream<TavernGroupChat?> watchGroupChat(String chatId) => _stream((t) => t.watchGroupChat(chatId));
+
+  @override
+  Future<TavernGroupChat> addGroupMember(
+    String chatId,
+    String characterId, {
+    double? talkativeness,
+    bool muted = false,
+    TavernGroupModelRole? modelRole,
+  }) async => (await _ready).addGroupMember(
+    chatId,
+    characterId,
+    talkativeness: talkativeness,
+    muted: muted,
+    modelRole: modelRole,
+  );
+
+  @override
+  Future<TavernGroupChat> updateGroupMember(
+    String chatId,
+    String characterId, {
+    double? talkativeness,
+    bool? muted,
+    TavernGroupModelRole? modelRole,
+  }) async => (await _ready).updateGroupMember(
+    chatId,
+    characterId,
+    talkativeness: talkativeness,
+    muted: muted,
+    modelRole: modelRole,
+  );
+
+  @override
+  Future<TavernGroupChat> removeGroupMember(String chatId, String characterId) async =>
+      (await _ready).removeGroupMember(chatId, characterId);
+
+  @override
+  Future<TavernGroupChat> reorderGroupMembers(String chatId, List<String> characterIds) {
+    final ids = List<String>.of(characterIds);
+    return _ready.then((t) => t.reorderGroupMembers(chatId, ids));
+  }
+
+  @override
+  Future<TavernGroupChat> updateGroupChat(
+    String chatId, {
+    String? title,
+    TavernGroupActivation? activation,
+    int? maxSpeakersPerTurn,
+    bool? allowSelfResponses,
+  }) async => (await _ready).updateGroupChat(
+    chatId,
+    title: title,
+    activation: activation,
+    maxSpeakersPerTurn: maxSpeakersPerTurn,
+    allowSelfResponses: allowSelfResponses,
+  );
+
+  @override
+  Stream<TavernGroupEvent> sendGroup(String chatId, String text, {String? speakerCharacterId}) =>
+      _stream((t) => t.sendGroup(chatId, text, speakerCharacterId: speakerCharacterId));
+
+  @override
+  Stream<TavernGroupEvent> resumeGroupTurn(String chatId) => _stream((t) => t.resumeGroupTurn(chatId));
+
   @override
   Stream<TavernEvent> regenerate(String chatId, String nodeId) => _stream((t) => t.regenerate(chatId, nodeId));
 
