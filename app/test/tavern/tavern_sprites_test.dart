@@ -1,4 +1,5 @@
 import 'package:dsh_app/tavern/tavern_sprites.dart';
+import 'package:dsh_app/ui/companion/companion_log.dart';
 import 'package:dsh_app/ui/tavern/tavern_vn_view.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
@@ -28,6 +29,7 @@ Future<void> _show(
   List<TavernPage> pages,
   Map<String, String> sprites, {
   TavernVnCast? Function(String id)? castFor,
+  String name = '林晚',
 }) async {
   tester.view.physicalSize = const Size(390, 844) * 2;
   tester.view.devicePixelRatio = 2;
@@ -42,7 +44,7 @@ Future<void> _show(
         home: Scaffold(
           body: TavernVisualNovelView(
             pages: pages,
-            name: '林晚',
+            name: name,
             avatarPath: null,
             topInset: 60,
             onMenu: (_) {},
@@ -147,6 +149,44 @@ void main() {
     );
     expect(find.byKey(const ValueKey('tavern-vn-face')), findsOneWidget);
     expect(find.byKey(const ValueKey(('tavern-vn-cast', '路人'))), findsOneWidget);
+  });
+
+  testWidgets("a group's backlog names each line by who said it, not by the group", (tester) async {
+    TavernVnCast? cast(String id) => null;
+    await _show(
+      tester,
+      [
+        _page('a', TavernRole.character, '欢迎光临。', speakerId: 'lin'),
+        _page('b', TavernRole.character, '今晚有雨。', speaker: '星图', speakerId: 'star'),
+        _page('c', TavernRole.user, '那我留下。'),
+        _page('d', TavernRole.narrator, '门外响起了雷声。', speaker: ''),
+      ],
+      _sprites,
+      castFor: cast,
+      name: '林晚、星图',
+    );
+    await tester.tap(find.byKey(const ValueKey('tavern-vn-log')));
+    await tester.pumpAndSettle();
+    final log = tester.widget<CompanionLog>(find.byType(CompanionLog));
+    expect([for (final e in log.entries) e.who], ['林晚', '星图', null, '旁白']);
+    Finder inLog(String text) => find.descendant(of: find.byType(CompanionLog), matching: find.text(text));
+    expect(inLog('林晚、星图'), findsNothing);
+    expect(inLog('林晚'), findsOneWidget);
+    expect(inLog('星图'), findsOneWidget);
+    expect(inLog('旁白'), findsOneWidget);
+    // Each in the colour the chat gives them, not all in the one accent.
+    final tones = {
+      for (final e in log.entries)
+        if (e.who != null) e.who: e.tone,
+    };
+    expect(tones.values, everyElement(isNotNull));
+    expect(tones['林晚'], isNot(tones['星图']));
+
+    // One character: her lines are just hers, as before.
+    await _show(tester, [_page('e', TavernRole.character, '早。')], _sprites);
+    await tester.tap(find.byKey(const ValueKey('tavern-vn-log')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<CompanionLog>(find.byType(CompanionLog)).entries.single.who, isNull);
   });
 
   testWidgets('no sprites: the card face, as before', (tester) async {

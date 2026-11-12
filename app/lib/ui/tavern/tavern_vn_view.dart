@@ -619,7 +619,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
                           if (page.message.role == TavernRole.user)
                             CompanionLogEntry.you(_plain(page.text))
                           else
-                            CompanionLogEntry.her(_plain(page.text)),
+                            _logLine(context, page.message, _plain(page.text), lead: widget.name),
                       ],
                       name: widget.name,
                       onClose: () => setState(() => _log = false),
@@ -711,3 +711,16 @@ class _BoxKey extends StatelessWidget {
 
 /// A page as the backlog shows it: plain text, Markdown emphasis dropped.
 String _plain(String text) => text.replaceAll(RegExp(r'(\*\*|\*|__)'), '');
+
+/// A line not yours in the backlog, under whoever says it: in a group each
+/// member (the name over the story is the group's), the narrator as 旁白;
+/// named and coloured as in the chat.
+CompanionLogEntry _logLine(BuildContext context, TavernMessage message, String text, {required String lead}) {
+  final who = tavernSpeaker(context, message);
+  if (who.isEmpty || who == lead) return CompanionLogEntry.her(text);
+  return CompanionLogEntry.her(
+    text,
+    who: who,
+    tone: tavernNameColor(context, who, lead: lead),
+  );
+}
