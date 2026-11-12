@@ -296,6 +296,8 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
         if(at!==m)chat.insertBefore(m,at||null);
       }
       while(chat.children.length>list.length)chat.lastElementChild.remove();
+      // A message with a script in it: its getters will want the snapshot.
+      if(!loading)for(var j=0;j<list.length;j++)if(/<script/i.test(list[j].html||'')){dsh.scripts.ready().catch(function(){});break;}
       if(stay)toBottom();
     },
     stream:function(name,html){
@@ -307,6 +309,57 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       if(stay)toBottom();
     }
   };
+  // Card scripts' synchronous getters (酒馆助手's shape, P2 §4.3): a copy of
+  // what the engine had at the snapshot, written through with dsh.call. A
+  // write reads back at once, then settles to what the engine kept, or back
+  // to that if it was refused; only the latest write to a scope counts.
+  var vars={},msgs=[],loading=null;
+  function clone(v){return v===undefined?undefined:JSON.parse(JSON.stringify(v));}
+  function slot(o){
+    var type=(o&&o.type)||'chat';
+    if(type==='message'){
+      var id=o&&o.message_id;
+      if(id===undefined||id==='latest'||id===-1)return {key:'message'};
+      if(typeof id!=='number'||id%1!==0)throw new TypeError('message_id is a message number');
+      if(id<0)id=msgs.length+id;
+      return {key:'message:'+id,target:{scope:'message',messageId:id},id:id};
+    }
+    if(type==='global'||type==='chat'||type==='character')return {key:type,target:{scope:type}};
+    throw new TypeError('Variables of type '+type+' are not kept on this page');
+  }
+  function kept(s){
+    var e=vars[s.key];
+    if(e)return e;
+    var m=s.id===undefined?null:msgs[s.id];
+    return vars[s.key]={target:s.target||{scope:'message'},version:null,value:m&&m.data?m.data:{},seq:0};
+  }
+  function getVariables(o){var e=kept(slot(o));return clone(e.pending!==undefined?e.pending:e.value);}
+  function replaceVariables(variables,o){
+    var e=kept(slot(o)),mine=++e.seq;
+    e.pending=clone(variables)||{};
+    return dsh.call('replaceVariables',{target:e.target,value:variables}).then(function(r){
+      e.value=r.value;e.version=r.version;
+      if(e.seq===mine)e.pending=undefined;
+      return clone(r.value);
+    },function(x){if(e.seq===mine)e.pending=undefined;throw x;});
+  }
+  dsh.scripts={
+    ready:function(){
+      if(!loading)loading=dsh.call('snapshot').then(function(s){
+        msgs=s.messages||[];
+        (s.variables||[]).forEach(function(v){
+          var e=vars[v.target.scope]||(vars[v.target.scope]={seq:0});
+          e.target=v.target;e.version=v.version;e.value=v.value;
+        });
+        return true;
+      },function(x){loading=null;throw x;});
+      return loading;
+    },
+    getVariables:getVariables,
+    replaceVariables:replaceVariables
+  };
+  if(!window.getVariables)window.getVariables=getVariables;
+  if(!window.replaceVariables)window.replaceVariables=replaceVariables;
   var hold=null,from=null;
   function post(o){if(window.DshTavern)DshTavern.postMessage(JSON.stringify(o));}
   function owner(t){while(t&&t!==chat){if(t.classList&&t.classList.contains('mes'))return t;t=t.parentNode;}return null;}

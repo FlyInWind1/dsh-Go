@@ -160,6 +160,36 @@ void main() {
     expect(greeting.containsKey('speakerCharacterId'), isTrue);
   });
 
+  test('a snapshot: the path and every variable the context sees, as of its lastSeq', () async {
+    final card = await File('assets/tavern/sample_innkeeper.json').readAsBytes();
+    final character = await tavern.importCard(card, fileName: 'sample_innkeeper.json');
+    final chat = await tavern.createChat(character.id);
+    final context =
+        _result(await _ask(wire, 'openContext', {'instanceId': 'frame', 'chatId': chat, 'characterId': character.id}))!
+            as Map<String, Object?>;
+    _result(
+      await _ask(wire, 'replaceVariables', {
+        'contextId': context['id'],
+        'target': {'scope': 'chat'},
+        'value': {'met': true},
+      }),
+    );
+    final snapshot = _result(await _ask(wire, 'snapshot', {'contextId': context['id']}))! as Map<String, Object?>;
+    expect(snapshot['lastSeq'], isA<int>());
+    expect(snapshot['pathRevision'], isA<String>());
+    expect((snapshot['context']! as Map)['id'], context['id']);
+    expect(snapshot['messages'], isNotEmpty);
+    final variables = {
+      for (final v in (snapshot['variables']! as List).cast<Map<String, Object?>>()) (v['target']! as Map)['scope']: v,
+    };
+    expect(variables.keys, containsAll(['global', 'character', 'chat', 'message']));
+    expect(variables['chat']!['value'], {'met': true});
+    expect(variables['chat']!['version'], isA<String>());
+    // The latest message's own variables, named by its stable ref.
+    final latest = (snapshot['messages']! as List).last as Map;
+    expect((variables['message']!['target']! as Map)['messageRef'], latest['ref']);
+  });
+
   test('a wrong request is told why, as an error, not a broken channel', () async {
     final id =
         (_result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>)['id']! as String;

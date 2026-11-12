@@ -11,7 +11,8 @@
 // thrown at the call or later — comes back as a structured error, never as
 // a channel failure. This first part carries reading (capabilities,
 // contexts, messages) and variables; message writes need the host side and
-// come with it. updateVariablesWith is not a wire method: a script's
+// come with it. snapshot gives a page what its synchronous getters read.
+// updateVariablesWith is not a wire method: a script's
 // function stays in the page (read, call it once, replace with the version
 // it read).
 
@@ -67,6 +68,22 @@ class TavernScriptWire {
           ),
         );
         return _context(context);
+      case 'snapshot':
+        // What a page keeps for its synchronous getters (P2 §4.3): the
+        // path's messages and the variables the context sees, as of lastSeq.
+        final s = await bridge.snapshot(p.string('contextId'));
+        return {
+          'context': _context(s.context),
+          'engineEpoch': s.engineEpoch,
+          'lastSeq': s.lastSeq,
+          'pathRevision': s.pathRevision,
+          'messages': [for (final m in s.messages) _message(m)],
+          'variables': [for (final v in s.variableSnapshots) _snapshot(v)],
+          'presetId': s.presetId,
+          'personaId': s.personaId,
+          'memberCharacterIds': s.memberCharacterIds,
+          'resourceRefs': s.resourceRefs,
+        };
       case 'closeContext':
         await bridge.closeContext(p.string('contextId'));
         return null;
