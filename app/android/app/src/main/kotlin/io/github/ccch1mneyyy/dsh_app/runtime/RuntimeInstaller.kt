@@ -281,20 +281,23 @@ internal fun activateRootfs(
         home.deleteRecursivelySafely()
         if (!carry.renameTo(home)) throw IllegalStateException("could not restore the user's home")
     }
-    finishRootfsInstall(base, version, keep, dropKept, sync)
+    finishRootfsInstall(base, version, keep, dropKept, sync, syncDirectory)
     retired.deleteRecursivelySafely()
 }
 
-private fun finishRootfsInstall(base: File, version: String, keep: File?, dropKept: Boolean, sync: () -> Unit) {
+private fun finishRootfsInstall(
+    base: File, version: String, keep: File?, dropKept: Boolean, sync: () -> Unit,
+    syncDirectory: (File) -> Unit = ::syncDirectory,
+) {
     val rootfs = File(base, "rootfs")
     listOf("root", "root/workspace", "tmp", "dev", "proc", "sys").forEach { File(rootfs, it).mkdirs() }
     File(rootfs, "tmp").setWritable(true, false)
     // Before the version: until everything kept is back, the runtime reads as not installed.
     if (keep != null) restoreKept(keep, rootfs, dropKept)
-    // Everything the marker vouches for is on disk before it says ready. A marker torn by a
-    // power cut doesn't match the version, so the next start just installs again.
+    // Sync restored data before publishing a complete ready marker. An interrupted
+    // temporary write leaves the formal marker absent, so first-install resume can retry.
     sync()
-    File(base, "rootfs.version").writeText(version)
+    publishRuntimeVersion(base, version, syncDirectory)
 }
 
 internal fun syncDirectory(directory: File) {

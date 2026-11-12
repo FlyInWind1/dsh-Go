@@ -120,11 +120,7 @@ internal class EngineUpgrade(
         }
         sync()
         afterStep("data")
-        val temporary = File(base, "rootfs.version.next")
-        Files.deleteIfExists(temporary.toPath())
-        writeSynced(temporary, version)
-        Files.move(temporary.toPath(), marker.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
-        syncDirectory(base)
+        publishRuntimeVersion(base, version, syncDirectory)
         afterStep("marker")
         move(pending, done)
         afterStep("committed")
@@ -157,10 +153,6 @@ internal class EngineUpgrade(
         if (!version.matches(Regex("[A-Za-z0-9._-]+"))) throw RuntimeUpgradeBlocked("transaction")
     }
 
-    private fun writeSynced(file: File, text: String) {
-        FileOutputStream(file).use { out -> out.write(text.toByteArray(Charsets.UTF_8)); out.fd.sync() }
-    }
-
     private fun present(file: File): Boolean = Files.exists(file.toPath(), NOFOLLOW_LINKS)
 
     private fun safePath(tree: File, relative: String): File {
@@ -185,4 +177,17 @@ internal class EngineUpgrade(
         }
         Files.delete(file.toPath())
     }
+}
+
+/** Publish only a complete marker, after its caller has synced the runtime data. */
+internal fun publishRuntimeVersion(base: File, version: String, syncDirectory: (File) -> Unit) {
+    val temporary = File(base, "rootfs.version.next")
+    Files.deleteIfExists(temporary.toPath())
+    writeSynced(temporary, version)
+    Files.move(temporary.toPath(), File(base, "rootfs.version").toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+    syncDirectory(base)
+}
+
+private fun writeSynced(file: File, text: String) {
+    FileOutputStream(file).use { out -> out.write(text.toByteArray(Charsets.UTF_8)); out.fd.sync() }
 }
