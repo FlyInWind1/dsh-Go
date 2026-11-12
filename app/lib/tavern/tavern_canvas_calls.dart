@@ -83,11 +83,37 @@ class TavernCanvasCalls {
     }
     final reply = await _wire.handle({
       ...request,
-      'params': {...params, 'contextId': context},
+      'params': {...params, 'contextId': context, ..._filters(params, context)},
     });
     // The engine let it go (reopened, closed): the next call opens anew.
     if (reply['error'] case {'code': 'closedContext' || 'noContext'}) _forget();
     return reply;
+  }
+
+  /// A prompt's filter, as the page names it ({callbackId}: a function it
+  /// keeps), made the reference the engine calls back with: this context,
+  /// this instance. A filter the page did not name that way goes as it was.
+  Map<String, Object?> _filters(Map<Object?, Object?> params, String context) {
+    if (params['prompts'] case final List<Object?> prompts) {
+      return {
+        'prompts': [
+          for (final prompt in prompts)
+            if (prompt case {'filter': {'callbackId': final String callbackId}})
+              {
+                ...prompt,
+                'filter': {'contextId': context, 'instanceId': instanceId, 'callbackId': callbackId},
+              }
+            else
+              prompt,
+        ],
+      };
+    }
+    return const {};
+  }
+
+  /// The page's answer to a filter it ran ({requestId, status, value, …}).
+  void invoked(Map<Object?, Object?> answer) {
+    if (answer['requestId'] case final String id) pages?.invoked(id, answer);
   }
 
   /// The page's answer to a lifecycle event it ran ({eventId, status, issues}).

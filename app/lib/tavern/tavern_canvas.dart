@@ -497,6 +497,7 @@ $preload
     deliver:function(d){
       if(!d)return;
       if(d.kind==='lifecycle'){lifecycle(d);return;}
+      if(d.kind==='invoke'){invoke(d);return;}
       if(d.kind!=='cache')return;
       // Not asked for yet: a snapshot taken later covers what was dropped.
       if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}
@@ -752,6 +753,69 @@ $preload
   if(!window.eventRemoveListener)window.eventRemoveListener=eventRemoveListener;
   if(!window.eventEmit)window.eventEmit=eventEmit;
   if(!window.tavern_events)window.tavern_events=events;
+  // Prompt injections (酒馆助手's 注入提示词 page): injectPrompts(prompts,
+  // {once}) gives {uninject} at once while the engine is told (an event's
+  // answer waits for that, as for any write); uninjectPrompts(ids). Fields as
+  // the page gives them: position 'in_chat', or 'none' (scanned, not sent);
+  // should_scan; filter, a function kept here under a name of this page's
+  // own — the engine asks for it by that name when it prepares a prompt, and
+  // never sees it. A page drawn again knows none of the old names.
+  var filters={},filterOf={},filterSeq=0,pageKey=Math.random().toString(36).slice(2,10);
+  var positions={in_chat:'inChat',none:'scanOnly'};
+  function injection(p){
+    if(!p||typeof p.id!=='string'||!p.id)throw new TypeError('each prompt names its id');
+    var x={id:p.id,content:p.content==null?'':String(p.content)};
+    if(p.role!==undefined)x.role=p.role;
+    if(p.position!==undefined)x.position=positions[p.position]||p.position;
+    if(p.depth!==undefined)x.depth=p.depth;
+    if(p.should_scan!==undefined)x.scan=p.should_scan;
+    if(p.filter!=null){
+      if(typeof p.filter!=='function')throw new TypeError('a filter is a function');
+      var cb=pageKey+'-'+(++filterSeq);filters[cb]=p.filter;x.filter={callbackId:cb};
+    }
+    return x;
+  }
+  function forget(ids){ids.forEach(function(id){var cb=filterOf[id];if(cb){delete filters[cb];delete filterOf[id];}});}
+  function injectPrompts(prompts,o){
+    var list=[].concat(prompts||[]).map(injection);
+    var ids=list.map(function(x){return x.id;});
+    // The same id again: its new filter (or none) takes the old one's place.
+    forget(ids);
+    list.forEach(function(x){if(x.filter)filterOf[x.id]=x.filter.callbackId;});
+    var told=track(call('injectPrompts',{prompts:list,once:!!(o&&o.once)}));
+    var go=function(){uninjectPrompts(ids);};
+    return {uninject:function(){Promise.prototype.then.call(told,go,go);}};
+  }
+  function uninjectPrompts(ids){
+    ids=[].concat(ids||[]).map(String);
+    forget(ids);
+    track(call('uninjectPrompts',{ids:ids}));
+  }
+  // The engine asking for a filter's answer: true or false (anything else
+  // is no answer), given once the writes it started are back; one it threw
+  // says so, and one this page does not keep is not to be had.
+  function invoke(d){
+    function answer(o){o.type='invoked';o.requestId=d.requestId;post(o);}
+    var fn=filters[d.callbackId];
+    if(typeof fn!=='function'){answer({status:'failed',message:'This page keeps no filter '+d.callbackId});return;}
+    var w={entries:[]};watching.push(w);
+    var r;try{r=Promise.resolve(fn.apply(null,d.args||[]));}catch(e){r=Promise.reject(e);}
+    var value=null,error=null;
+    r.then(function(v){value=v;},function(e){error=e||new Error('failed');}).then(function(){
+      var at=watching.indexOf(w);if(at>=0)watching.splice(at,1);
+      return settle().then(function(){return Promise.all(w.entries.map(function(e){return e.done;}));});
+    }).then(function(){
+      var issues=[];
+      w.entries.forEach(function(e){
+        if(e.failed&&!e.seen)issues.push({code:e.failed.code||'hookFailure',message:'A write nobody waited for failed: '+String(e.failed.message||e.failed)});
+      });
+      if(error)answer({status:'failed',message:String(error&&error.message||error),issues:issues});
+      else answer({status:'completed',value:typeof value==='boolean'?value:null,issues:issues});
+    });
+  }
+  dsh.scripts.injectPrompts=injectPrompts;dsh.scripts.uninjectPrompts=uninjectPrompts;
+  if(!window.injectPrompts)window.injectPrompts=injectPrompts;
+  if(!window.uninjectPrompts)window.uninjectPrompts=uninjectPrompts;
   var hold=null,from=null;
   function post(o){if(window.DshTavern)DshTavern.postMessage(JSON.stringify(o));}
   function owner(t){while(t&&t!==chat){if(t.classList&&t.classList.contains('mes'))return t;t=t.parentNode;}return null;}

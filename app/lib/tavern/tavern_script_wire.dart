@@ -11,7 +11,8 @@
 // thrown at the call or later — comes back as a structured error, never as
 // a channel failure. This first part carries reading (capabilities,
 // contexts, messages), message writes (the engine's field names; a field it
-// does not know is refused by it, never dropped here) and variables.
+// does not know is refused by it, never dropped here), variables and prompt
+// injections (B2; a filter goes as the name of a function the page keeps).
 // snapshot gives a page what its synchronous getters read.
 // updateVariablesWith is not a wire method: a script's
 // function stays in the page (read, call it once, replace with the version
@@ -163,6 +164,36 @@ class TavernScriptWire {
               {'kind': r.kind.name, 'path': r.pathTokens, 'existed': r.existed, 'changed': r.changed},
           ],
         };
+      // Prompt injections (B2): the engine's field names; a filter is the
+      // reference to a function kept in the page, never the function.
+      case 'injectPrompts':
+        final lease = await bridge.injectPrompts(p.string('contextId'), [
+          for (final (i, x) in p.list('prompts').indexed)
+            TavernScriptInjection.fromJson(_asObject(x, 'prompts[$i]', p.method)),
+        ], once: p.boolOr('once', false));
+        return {
+          'leaseId': lease.leaseId,
+          'chatId': lease.chatId,
+          'ownerContextId': lease.ownerContextId,
+          'ownerInstanceId': lease.ownerInstanceId,
+          'registrations': [
+            for (final r in lease.registrations) {'id': r.id, 'registrationVersion': r.registrationVersion},
+          ],
+        };
+      case 'uninjectPrompts':
+        await bridge.uninjectPrompts(p.string('contextId'), [
+          for (final (i, id) in p.list('ids').indexed)
+            switch (id) {
+              final String s => s,
+              _ => throw _bad(p.method, 'An injection id is a string.', fieldPath: 'ids[$i]'),
+            },
+        ]);
+        return null;
+      case 'releaseInjectionLease':
+        await bridge.releaseInjectionLease(p.string('leaseId'));
+        return null;
+      case 'listInjections':
+        return [for (final v in await bridge.listInjections(p.string('contextId'))) tavernScriptInjectionViewJson(v)];
     }
     throw TavernScriptException(
       code: TavernScriptErrorCode.unsupportedCapability,
@@ -363,6 +394,48 @@ Map<String, Object?>? _ownerJson(TavernScriptOwner? o) =>
     o == null ? null : {'kind': o.kind.name, 'scriptId': o.scriptId, 'assetId': o.assetId};
 
 Map<String, Object?> tavernScriptRefJson(TavernScriptMessageRef r) => {'chatId': r.chatId, 'nodeId': r.nodeId};
+
+/// An injection as the engine lists it: where it comes from, as written, and
+/// as read (null when it could not be), its filter's state and its lease.
+Map<String, Object?> tavernScriptInjectionViewJson(TavernScriptInjectionView v) {
+  final i = v.injection;
+  return {
+    'source': v.source.name,
+    'sourceRef': v.sourceRef,
+    'raw': v.raw,
+    'injection': i == null
+        ? null
+        : {
+            'id': i.id,
+            'content': i.content,
+            'role': i.role.name,
+            'position': i.position.name,
+            'depth': i.depth,
+            'scan': i.scan,
+            'filter': i.filter == null
+                ? null
+                : {
+                    'contextId': i.filter!.contextId,
+                    'instanceId': i.filter!.instanceId,
+                    'callbackId': i.filter!.callbackId,
+                  },
+          },
+    'filterStatus': v.filterStatus,
+    'issues': [for (final x in v.issues) _issueJson(x)],
+    'ownerContextId': v.ownerContextId,
+    'ownerInstanceId': v.ownerInstanceId,
+    'registrationVersion': v.registrationVersion,
+    'once': v.once,
+    'claimed': v.claimed,
+    'leaseId': v.leaseId,
+  };
+}
+
+Map<String, Object?> _issueJson(TavernScriptIssue i) => {
+  'code': i.code,
+  'message': i.message,
+  'committed': i.committed,
+};
 
 Map<String, Object?> _context(TavernScriptContext c) => {
   'id': c.id,

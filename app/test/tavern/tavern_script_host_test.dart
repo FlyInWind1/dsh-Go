@@ -142,6 +142,132 @@ void main() {
     expect((await pages.dispatch(event('e4'), _Never())).status, TavernScriptAckStatus.completed);
   });
 
+  test("a prompt's filter is run by the page that keeps it: its true or false, cancelled, or not to be had", () async {
+    final pages = TavernScriptPages();
+    final delivered = <Map<String, Object?>>[];
+    var ready = true;
+    pages.add('ctx', (d) async {
+      delivered.add(d);
+      return ready;
+    });
+    TavernScriptCallbackRequest ask(String id, {String context = 'ctx'}) => TavernScriptCallbackRequest(
+      requestId: id,
+      ref: TavernScriptCallbackRef(contextId: context, instanceId: 'canvas', callbackId: 'k-1'),
+      kind: 'filter',
+    );
+
+    // Asked of the page by its name; answered with what the page said.
+    final first = pages.invoke(ask('r1'), _Never());
+    await pumpEventQueue();
+    expect(delivered.single['kind'], 'invoke');
+    expect(delivered.single['requestId'], 'r1');
+    expect(delivered.single['callbackId'], 'k-1');
+    expect(delivered.single['args'], isEmpty);
+    pages.invoked('r1', {'requestId': 'r1', 'status': 'completed', 'value': false, 'issues': <Object?>[]});
+    final r1 = await first;
+    expect((r1.requestId, r1.status, r1.value), ('r1', 'completed', false));
+    expect(r1.issues, isEmpty);
+
+    // Not true or false: no answer to take. A write that failed unwatched: said.
+    final second = pages.invoke(ask('r2'), _Never());
+    await pumpEventQueue();
+    pages.invoked('r2', {
+      'status': 'completed',
+      'value': 'yes',
+      'issues': [
+        {'code': 'storage', 'message': 'A write nobody waited for failed: disk'},
+      ],
+    });
+    final r2 = await second;
+    expect((r2.status, r2.value), ('completed', null));
+    expect(r2.issues.single.code, 'storage');
+
+    // It threw: failed, with why.
+    final third = pages.invoke(ask('r3'), _Never());
+    await pumpEventQueue();
+    pages.invoked('r3', {'status': 'failed', 'message': 'nope'});
+    final r3 = await third;
+    expect(r3.status, 'failed');
+    expect((r3.issues.single.code, r3.issues.single.message), ('hookFailure', 'nope'));
+
+    // The engine cancelling: cancelled, a late answer changes nothing.
+    final cancel = _Cancel();
+    final fourth = pages.invoke(ask('r4'), cancel);
+    await pumpEventQueue();
+    cancel.cancel();
+    expect((await fourth).status, 'cancelled');
+    pages.invoked('r4', {'status': 'completed', 'value': true});
+
+    // No page for it, a page not ready, a page gone while it ran: not to be had.
+    final unavailable = throwsA(
+      isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.callbackUnavailable),
+    );
+    await expectLater(pages.invoke(ask('r5', context: 'nobody'), _Never()), unavailable);
+    ready = false;
+    await expectLater(pages.invoke(ask('r6'), _Never()), unavailable);
+    ready = true;
+    final gone = pages.invoke(ask('r7'), _Never());
+    await pumpEventQueue();
+    pages.drop('ctx');
+    await expectLater(gone, unavailable);
+  });
+
+  test("an injection's filter goes as this page's context and instance; listed so, and taken out", () async {
+    final pages = TavernScriptPages();
+    final calls = TavernCanvasCalls(tavern.scripts, chatId: chat, characterId: () => character, pages: pages);
+    final reply = await calls.handle({
+      'id': 'i',
+      'method': 'injectPrompts',
+      'params': {
+        'prompts': [
+          {
+            'id': 'a',
+            'content': 'X',
+            'position': 'inChat',
+            'depth': 2,
+            'filter': {'callbackId': 'k-1'},
+          },
+          {'id': 'b', 'content': 'Y', 'position': 'scanOnly'},
+        ],
+        'once': false,
+      },
+    });
+    expect(reply['ok'], isTrue, reason: '${reply['error']}');
+    final lease = reply['result']! as Map;
+    expect([for (final r in lease['registrations']! as List) (r as Map)['id']], ['a', 'b']);
+    expect(lease['ownerInstanceId'], 'canvas');
+
+    List<Map<Object?, Object?>> listed(Map<String, Object?> reply) => [
+      for (final v in reply['result']! as List)
+        if (((v as Map)['injection'] as Map?)?['id'] case 'a' || 'b') v,
+    ];
+    final views = listed(await calls.handle({'id': 'l', 'method': 'listInjections', 'params': <String, Object?>{}}));
+    expect(views, hasLength(2));
+    final a = views.firstWhere((v) => (v['injection']! as Map)['id'] == 'a');
+    expect((a['injection']! as Map)['filter'], {
+      'contextId': lease['ownerContextId'],
+      'instanceId': 'canvas',
+      'callbackId': 'k-1',
+    });
+    expect((a['injection']! as Map)['position'], 'inChat');
+    final b = views.firstWhere((v) => (v['injection']! as Map)['id'] == 'b');
+    expect((b['injection']! as Map)['filter'], isNull);
+
+    final out = await calls.handle({
+      'id': 'u',
+      'method': 'uninjectPrompts',
+      'params': {
+        'ids': ['a', 'b'],
+      },
+    });
+    expect(out['ok'], isTrue, reason: '${out['error']}');
+    expect(
+      listed(await calls.handle({'id': 'l2', 'method': 'listInjections', 'params': <String, Object?>{}})),
+      isEmpty,
+    );
+    await calls.close();
+  });
+
   test('what the app does not do for scripts yet is refused, not faked', () async {
     final pages = TavernScriptPages();
     final cancel = _Never();

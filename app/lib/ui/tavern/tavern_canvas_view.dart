@@ -218,6 +218,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         if (data['node'] case final String node when node.isNotEmpty) widget.onMenu(node);
       case 'call':
         unawaited(_answer(data));
+      case 'invoked':
+        widget.calls?.invoked(data);
       case 'ack':
         widget.calls?.acknowledge(data);
       case 'toast':

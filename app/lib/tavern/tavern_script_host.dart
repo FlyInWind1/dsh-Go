@@ -9,8 +9,10 @@
 //   the writes they started, and says how it went; the engine is answered
 //   then — or when it cancels, or as failed when the page goes before
 //   answering. A page not ready yet has no handlers: nothing ran, said so.
-// - UI requests, callbacks and slash lookups are refused as unsupported,
-//   never answered with an empty success.
+// - invoke: a prompt's filter is a function the page keeps; the page runs it
+//   and says true or false (or how it failed), its writes back first.
+// - UI requests and slash lookups are refused as unsupported, never answered
+//   with an empty success.
 // - refresh: the chat page redraws from its own watch of the path.
 
 import 'dart:async';
@@ -30,6 +32,13 @@ class TavernScriptPages implements TavernScriptHost {
   /// Lifecycle events a page is running, by event: which context, and the
   /// answer the engine waits for.
   final _waiting = <String, ({String contextId, Completer<TavernScriptDispatchAck> answer})>{};
+
+  /// Filters a page is running, by request.
+  final _invoking =
+      <
+        String,
+        ({String contextId, TavernScriptCallbackRequest request, Completer<TavernScriptCallbackResult> answer})
+      >{};
 
   /// Becomes [bridge]'s host, once.
   void attach(TavernScriptBridge bridge) {
@@ -53,6 +62,13 @@ class TavernScriptPages implements TavernScriptHost {
       _waiting.remove(key);
       if (!value.answer.isCompleted) {
         value.answer.complete(_failed(key, contextId, 'pageGone', 'The page went before its handlers finished.'));
+      }
+    }
+    for (final MapEntry(:key, :value) in [..._invoking.entries]) {
+      if (value.contextId != contextId) continue;
+      _invoking.remove(key);
+      if (!value.answer.isCompleted) {
+        value.answer.completeError(_unavailable(value.request, 'The page went before its filter answered.'));
       }
     }
   }
@@ -127,11 +143,82 @@ class TavernScriptPages implements TavernScriptHost {
   Future<TavernScriptUiResult> interact(TavernScriptUiRequest request, TavernScriptCancellation cancellation) =>
       Future.error(_unsupported('interact'));
 
+  /// A prompt's filter, run by the page that keeps it: called with the
+  /// request's arguments; its true or false (anything else is not an answer),
+  /// once the writes it started are back. Its page gone or not there, the
+  /// function is not to be had; the engine cancelling, cancelled.
   @override
   Future<TavernScriptCallbackResult> invoke(
     TavernScriptCallbackRequest request,
     TavernScriptCancellation cancellation,
-  ) => Future.error(_unsupported('invoke'));
+  ) async {
+    final contextId = request.ref.contextId;
+    final page = _pages[contextId];
+    if (page == null) throw _unavailable(request, 'No page holds that context now.');
+    if (cancellation.isCancelled) return TavernScriptCallbackResult(requestId: request.requestId, status: 'cancelled');
+    final answer = Completer<TavernScriptCallbackResult>();
+    _invoking[request.requestId] = (contextId: contextId, request: request, answer: answer);
+    final bool delivered;
+    try {
+      delivered = await page({
+        'kind': 'invoke',
+        'requestId': request.requestId,
+        'contextId': contextId,
+        'instanceId': request.ref.instanceId,
+        'callbackId': request.ref.callbackId,
+        'callbackKind': request.kind,
+        'args': request.args,
+      });
+    } on Object {
+      _invoking.remove(request.requestId);
+      throw _unavailable(request, 'The page could not take the call.');
+    }
+    if (!delivered) {
+      _invoking.remove(request.requestId);
+      throw _unavailable(request, 'The page is not ready.');
+    }
+    final cancelled = cancellation.whenCancelled.then(
+      (_) => TavernScriptCallbackResult(requestId: request.requestId, status: 'cancelled'),
+    );
+    try {
+      return await Future.any([answer.future, cancelled]);
+    } finally {
+      _invoking.remove(request.requestId);
+    }
+  }
+
+  /// The page's answer to a filter: {status: completed, value} or {status:
+  /// failed, message}, with the issues of writes it started that failed
+  /// unwatched.
+  void invoked(String requestId, Map<Object?, Object?> answer) {
+    final waiting = _invoking.remove(requestId);
+    if (waiting == null || waiting.answer.isCompleted) return;
+    final ok = answer['status'] == 'completed';
+    TavernScriptIssue issue(Object? code, Object? message) => TavernScriptIssue(
+      code: '${code ?? 'hookFailure'}',
+      message: '${message ?? ''}',
+      committed: false,
+      contextId: waiting.contextId,
+      stage: 'filter',
+    );
+    waiting.answer.complete(
+      TavernScriptCallbackResult(
+        requestId: requestId,
+        status: ok ? 'completed' : 'failed',
+        value: ok
+            ? switch (answer['value']) {
+                final bool b => b,
+                _ => null,
+              }
+            : null,
+        issues: [
+          if (!ok) issue('hookFailure', answer['message']),
+          for (final x in (answer['issues'] as List?) ?? const [])
+            if (x is Map) issue(x['code'], x['message']),
+        ],
+      ),
+    );
+  }
 
   @override
   Future<TavernResolvedSlash?> resolveSlash(TavernSlashReference request, TavernScriptCancellation cancellation) =>
@@ -156,6 +243,13 @@ TavernScriptDispatchAck _failed(String eventId, String contextId, String code, S
         ),
       ],
     );
+
+TavernScriptException _unavailable(TavernScriptCallbackRequest request, String message) => TavernScriptException(
+  code: TavernScriptErrorCode.callbackUnavailable,
+  operation: 'invoke',
+  message: message,
+  contextId: request.ref.contextId,
+);
 
 TavernScriptException _unsupported(String operation) => TavernScriptException(
   code: TavernScriptErrorCode.unsupportedCapability,
