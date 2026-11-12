@@ -239,6 +239,26 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
 (function(){
   var chat=document.getElementById('chat');
   var userLabel=${jsonEncode(userLabel)};
+  // A card's scripts: off with 酒馆设置 › 安全 › 不运行卡的脚本 (the page's
+  // policy would refuse them too). Never given this page's own nonce.
+  var runScripts=${!noScripts},running=Promise.resolve();
+  function inert(s){var t=(s.getAttribute('type')||'').trim().toLowerCase();return t!==''&&!/^(text|application)[/](java|ecma)script\$|^module\$/.test(t);}
+  // innerHTML leaves <script> inert: each is rebuilt in place, one after
+  // another in document order (and after any earlier message's), an
+  // external one loaded before the next runs.
+  function runIn(els){
+    els.forEach(function(m){
+      [].slice.call(m.querySelectorAll('script')).forEach(function(old){
+        running=running.then(function(){return new Promise(function(done){
+          if(!m.isConnected||!old.parentNode||inert(old)){done();return;}
+          var s=document.createElement('script');
+          for(var a=0;a<old.attributes.length;a++){var at=old.attributes[a];if(at.name!=='nonce')s.setAttribute(at.name,at.value);}
+          if(old.hasAttribute('src')){s.async=false;s.onload=s.onerror=function(){done();};old.parentNode.replaceChild(s,old);}
+          else{s.text=old.text;old.parentNode.replaceChild(s,old);done();}
+        });});
+      });
+    });
+  }
   function nearBottom(){return window.innerHeight+window.scrollY>=document.body.scrollHeight-80;}
   function toBottom(){window.scrollTo(0,document.body.scrollHeight);}
   function sig(e){return JSON.stringify([e.name||'',!!e.user,!!e.system,e.html||'']);}
@@ -283,12 +303,12 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       if(stream){stream.remove();stream=null;}
       // A message drawn as it was is kept, not drawn again: its HTML (and
       // anything a card put in it) stays as it is.
-      var kept={};
+      var kept={},fresh=[];
       for(var c=chat.firstElementChild;c;c=c.nextElementSibling){if(c.dataset.node)kept[c.dataset.node]=c;}
       for(var i=0;i<list.length;i++){
         var e=list[i],key=sig(e),m=kept[e.node||''];
         if(m&&m._dsh===key){delete kept[e.node];m.setAttribute('mesid',String(e.mesid));}
-        else{m=mes(e);m._dsh=key;}
+        else{m=mes(e);m._dsh=key;fresh.push(m);}
         // Only the latest few are always laid out; older ones are skipped
         // while off screen.
         m.classList.toggle('far',i<list.length-$tavernCanvasNear);
@@ -296,8 +316,10 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
         if(at!==m)chat.insertBefore(m,at||null);
       }
       while(chat.children.length>list.length)chat.lastElementChild.remove();
-      // A message with a script in it: its getters will want the snapshot.
-      if(!loading)for(var j=0;j<list.length;j++)if(/<script/i.test(list[j].html||'')){dsh.scripts.ready().catch(function(){});break;}
+      // A newly drawn message's scripts run, once the page has the engine's
+      // snapshot for their getters (or has been told it cannot).
+      var scripted=fresh.filter(function(m){return m.querySelector('script');});
+      if(runScripts&&scripted.length){var go=function(){runIn(scripted);};dsh.scripts.ready().then(go,go);}
       if(stay)toBottom();
     },
     stream:function(name,html){

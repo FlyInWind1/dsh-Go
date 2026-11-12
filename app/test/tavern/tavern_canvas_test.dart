@@ -129,6 +129,10 @@ void main() {
     expect(open, contains('.mes.far{content-visibility:auto;'));
     expect(open, contains("m.classList.toggle('far',i<list.length-$tavernCanvasNear)"));
     expect(open, contains('if(m&&m._dsh===key)'));
+    // A card's scripts run unless 不运行卡的脚本 is on; never with our nonce.
+    expect(open, contains('var runScripts=true'));
+    expect(page(noScripts: true), contains('var runScripts=false'));
+    expect(open, contains("if(at.name!=='nonce')"));
     expect(open, contains('--SmartThemeQuoteColor:rgba(170,85,0,1.000)'));
     expect(open, contains('--SmartThemeEmColor:rgba(85,102,119,1.000)'));
     expect(open, contains('font:var(--mainFontSize)/1.65'));
