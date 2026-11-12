@@ -167,6 +167,10 @@ String tavernStoryHtml(String text) {
 String _css(Color c) =>
     'rgba(${(c.r * 255).round()},${(c.g * 255).round()},${(c.b * 255).round()},${c.a.toStringAsFixed(3)})';
 
+/// How many of the latest messages the canvas always lays out; older ones
+/// are skipped while off screen (CSS content-visibility).
+const tavernCanvasNear = 20;
+
 /// The page the canvas loads once: ST's structure and colour variables, the
 /// story's size and colours, and our script (allowed by [nonce]) that draws
 /// what render()/stream() hand it and reports a long press on a message to
@@ -213,6 +217,7 @@ html,body{margin:0;padding:0;background:transparent;}
 body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple-system,"Noto Sans CJK SC",sans-serif;overflow-wrap:anywhere;-webkit-text-size-adjust:100%;}
 #chat{display:flex;flex-direction:column;gap:14px;padding:12px 16px 24px;}
 .mes{display:flex;flex-direction:column;}
+.mes.far{content-visibility:auto;contain-intrinsic-size:auto 160px;}
 .mes .ch_name{font-size:.82em;font-weight:600;color:var(--dsh-accent);margin-bottom:2px;}
 .mes[is_user="true"] .ch_name{color:var(--dsh-muted);}
 .mes[is_user="true"] .mes_text{background:var(--dsh-user);border-radius:16px;padding:8px 12px;align-self:flex-end;max-width:85%;box-sizing:border-box;}
@@ -236,6 +241,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   var userLabel=${jsonEncode(userLabel)};
   function nearBottom(){return window.innerHeight+window.scrollY>=document.body.scrollHeight-80;}
   function toBottom(){window.scrollTo(0,document.body.scrollHeight);}
+  function sig(e){return JSON.stringify([e.name||'',!!e.user,!!e.system,e.html||'']);}
   function mes(e){
     var m=document.createElement('div');
     m.className='mes';
@@ -258,8 +264,22 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   window.dsh={
     render:function(list){
       var stay=nearBottom()||!chat.firstChild;
-      chat.textContent='';stream=null;
-      for(var i=0;i<list.length;i++){chat.appendChild(mes(list[i]));}
+      if(stream){stream.remove();stream=null;}
+      // A message drawn as it was is kept, not drawn again: its HTML (and
+      // anything a card put in it) stays as it is.
+      var kept={};
+      for(var c=chat.firstElementChild;c;c=c.nextElementSibling){if(c.dataset.node)kept[c.dataset.node]=c;}
+      for(var i=0;i<list.length;i++){
+        var e=list[i],key=sig(e),m=kept[e.node||''];
+        if(m&&m._dsh===key){delete kept[e.node];m.setAttribute('mesid',String(e.mesid));}
+        else{m=mes(e);m._dsh=key;}
+        // Only the latest few are always laid out; older ones are skipped
+        // while off screen.
+        m.classList.toggle('far',i<list.length-$tavernCanvasNear);
+        var at=chat.children[i];
+        if(at!==m)chat.insertBefore(m,at||null);
+      }
+      while(chat.children.length>list.length)chat.lastElementChild.remove();
       if(stay)toBottom();
     },
     stream:function(name,html){

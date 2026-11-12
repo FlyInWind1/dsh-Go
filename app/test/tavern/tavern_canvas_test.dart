@@ -117,6 +117,11 @@ void main() {
     );
     final open = page();
     expect(open, contains('<div id="chat"></div>'));
+    // A long story: only the latest messages are always laid out, and one
+    // drawn as it was is kept (the script itself was checked in Edge).
+    expect(open, contains('.mes.far{content-visibility:auto;'));
+    expect(open, contains("m.classList.toggle('far',i<list.length-$tavernCanvasNear)"));
+    expect(open, contains('if(m&&m._dsh===key)'));
     expect(open, contains('--SmartThemeQuoteColor:rgba(170,85,0,1.000)'));
     expect(open, contains('--SmartThemeEmColor:rgba(85,102,119,1.000)'));
     expect(open, contains('font:var(--mainFontSize)/1.65'));
