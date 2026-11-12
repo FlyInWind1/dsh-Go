@@ -59,7 +59,9 @@ class TawcrootLinks(
             if (!Files.exists(start, LinkOption.NOFOLLOW_LINKS)) continue
             Files.walkFileTree(start, object : SimpleFileVisitor<Path>() {
                 override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult {
-                    incomplete = true
+                    // A top-level directory of the rootfs that can't be read is a bind's mount point
+                    // (system, apex, sdcard, storage): tawcroot never stores links through a bind.
+                    if (file.parent != root) incomplete = true
                     return FileVisitResult.CONTINUE
                 }
 

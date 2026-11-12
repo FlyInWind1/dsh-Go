@@ -62,6 +62,18 @@ class TawcrootLinksTest {
         assertTrue(flushes > 0)
     }
 
+    @Test fun unreadableBindMountPointsDoNotKeepTheStore() {
+        obj("4", "x")
+        name("root/n", "4")
+        val system = File(root, "system").apply { mkdirs() }
+        Files.setPosixFilePermissions(system.toPath(), PosixFilePermissions.fromString("---------"))
+        try {
+            assertEquals(TawcrootLinks.Result.Done(1, true), migration().run())
+        } finally {
+            Files.setPosixFilePermissions(system.toPath(), PosixFilePermissions.fromString("rwx------"))
+        }
+    }
+
     @Test fun aLinkedSymlinkStaysASymlink() {
         File(store, "link").mkdirs()
         Files.createSymbolicLink(File(store, "link/77").toPath(), Paths.get("../lib/libz.so.1"))
