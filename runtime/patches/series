@@ -135,3 +135,4 @@ terminal-job-cancel.diff
 provider-discovery-headers.diff
 session-format-error.diff
 session-queue-steer-deletion.diff
+webserver-resource-abort.diff
