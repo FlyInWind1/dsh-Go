@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -47,7 +48,10 @@ void main() {
     final pages = TavernScriptPages();
     final seen = <Map<String, Object?>>[];
     final page = TavernCanvasCalls(tavern.scripts, chatId: chat, characterId: () => character, pages: pages)
-      ..deliver = (d) async => seen.add(jsonDecode(jsonEncode(d)) as Map<String, Object?>);
+      ..deliver = (d) async {
+        seen.add(jsonDecode(jsonEncode(d)) as Map<String, Object?>);
+        return true;
+      };
     final other = TavernCanvasCalls(
       tavern.scripts,
       chatId: chat,
@@ -80,6 +84,64 @@ void main() {
     await other.close();
   });
 
+  test("a lifecycle event waits for the page's handlers, and says how they went", () async {
+    final pages = TavernScriptPages();
+    final put = <Map<String, Object?>>[];
+    var ready = true;
+    pages.add('ctx', (d) async {
+      put.add(d);
+      return ready;
+    });
+    TavernScriptDispatch event(String id) => TavernScriptDispatch(
+      kind: TavernScriptDispatchKind.lifecycle,
+      eventId: id,
+      contextId: 'ctx',
+      seq: 1,
+      namespace: 'tavern',
+      name: 'MESSAGE_RECEIVED',
+      args: [3, 'normal'],
+    );
+
+    // Held until the page answers; its failure comes back as an issue.
+    var answered = false;
+    final first = pages.dispatch(event('e1'), _Never())..then((_) => answered = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(answered, isFalse);
+    expect(put.single, containsPair('name', 'MESSAGE_RECEIVED'));
+    expect(put.single['args'], [3, 'normal']);
+    pages.acknowledge('e1', {
+      'status': 'failed',
+      'issues': [
+        {'code': 'hookFailure', 'message': 'boom'},
+      ],
+    });
+    final ack = await first;
+    expect((ack.eventId, ack.status), ('e1', TavernScriptAckStatus.failed));
+    expect(
+      (ack.issues.single.code, ack.issues.single.message, ack.issues.single.eventId),
+      ('hookFailure', 'boom', 'e1'),
+    );
+
+    // The engine cancels: answered as cancelled; a late answer changes nothing.
+    final cancel = _Cancel();
+    final second = pages.dispatch(event('e2'), cancel);
+    await Future<void>.delayed(Duration.zero);
+    cancel.cancel();
+    expect((await second).status, TavernScriptAckStatus.cancelled);
+    pages.acknowledge('e2', {'status': 'completed'});
+
+    // The page goes before answering: failed, said why.
+    final third = pages.dispatch(event('e3'), _Never());
+    await Future<void>.delayed(Duration.zero);
+    pages.drop('ctx');
+    final lost = await third;
+    expect((lost.status, lost.issues.single.code), (TavernScriptAckStatus.failed, 'pageGone'));
+
+    // Not ready yet: no handlers ran, and that is the answer.
+    ready = false;
+    expect((await pages.dispatch(event('e4'), _Never())).status, TavernScriptAckStatus.completed);
+  });
+
   test('what the app does not do for scripts yet is refused, not faked', () async {
     final pages = TavernScriptPages();
     final cancel = _Never();
@@ -95,6 +157,17 @@ void main() {
     expect((ack.eventId, ack.status), ('ev', TavernScriptAckStatus.completed));
     expect(ack.issues, isEmpty);
   });
+}
+
+class _Cancel implements TavernScriptCancellation {
+  final _done = Completer<void>();
+  void cancel() => _done.complete();
+
+  @override
+  bool get isCancelled => _done.isCompleted;
+
+  @override
+  Future<void> get whenCancelled => _done.future;
 }
 
 class _Never implements TavernScriptCancellation {

@@ -50,7 +50,7 @@ class TavernCanvasCalls {
       TavernScriptContextSpec(instanceId: instanceId, chatId: chatId, characterId: characterId()),
     )).id;
     _registered = id;
-    pages?.add(id, (delivery) => deliver?.call(delivery) ?? Future<void>.value());
+    pages?.add(id, (delivery) => deliver?.call(delivery) ?? Future.value(false));
     return id;
   }
 
@@ -88,6 +88,17 @@ class TavernCanvasCalls {
     // The engine let it go (reopened, closed): the next call opens anew.
     if (reply['error'] case {'code': 'closedContext' || 'noContext'}) _forget();
     return reply;
+  }
+
+  /// The page's answer to a lifecycle event it ran ({eventId, status, issues}).
+  void acknowledge(Map<Object?, Object?> answer) {
+    if (answer['eventId'] case final String id) pages?.acknowledge(id, answer);
+  }
+
+  /// The page itself went (its renderer was lost): what it was running did
+  /// not finish; the context stays for the page that replaces it.
+  void pageLost() {
+    if (_registered case final id?) pages?.drop(id);
   }
 
   /// The page is gone: its context goes with it.

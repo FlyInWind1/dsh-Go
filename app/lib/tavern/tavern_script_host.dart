@@ -5,23 +5,31 @@
 //   for its own copy, at once; it never waits on any script's handler, as the
 //   engine's notes require (a handler awaiting a write needs that write's
 //   cache to get through).
-// - lifecycle: the page has no event handlers yet, so each is acknowledged
-//   as completed with nothing run — which is what happened. Handlers
-//   (eventOn) come next and will then hold the acknowledgement.
+// - lifecycle: the page runs its handlers (eventOn), waits for them and for
+//   the writes they started, and says how it went; the engine is answered
+//   then — or when it cancels, or as failed when the page goes before
+//   answering. A page not ready yet has no handlers: nothing ran, said so.
 // - UI requests, callbacks and slash lookups are refused as unsupported,
 //   never answered with an empty success.
 // - refresh: the chat page redraws from its own watch of the path.
+
+import 'dart:async';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 
 import 'tavern_script_wire.dart';
 
-/// Puts one delivery (JSON) into a page.
-typedef TavernScriptPage = Future<void> Function(Map<String, Object?> delivery);
+/// Puts one delivery (JSON) into a page; false when there was no page ready
+/// to take it.
+typedef TavernScriptPage = Future<bool> Function(Map<String, Object?> delivery);
 
 class TavernScriptPages implements TavernScriptHost {
   final _pages = <String, TavernScriptPage>{};
   TavernScriptBridge? _attached;
+
+  /// Lifecycle events a page is running, by event: which context, and the
+  /// answer the engine waits for.
+  final _waiting = <String, ({String contextId, Completer<TavernScriptDispatchAck> answer})>{};
 
   /// Becomes [bridge]'s host, once.
   void attach(TavernScriptBridge bridge) {
@@ -32,20 +40,87 @@ class TavernScriptPages implements TavernScriptHost {
 
   void add(String contextId, TavernScriptPage page) => _pages[contextId] = page;
 
-  void remove(String contextId) => _pages.remove(contextId);
+  void remove(String contextId) {
+    _pages.remove(contextId);
+    drop(contextId);
+  }
+
+  /// The page for [contextId] went (closed, or its renderer was lost):
+  /// what it was running did not finish.
+  void drop(String contextId) {
+    for (final MapEntry(:key, :value) in [..._waiting.entries]) {
+      if (value.contextId != contextId) continue;
+      _waiting.remove(key);
+      if (!value.answer.isCompleted) {
+        value.answer.complete(_failed(key, contextId, 'pageGone', 'The page went before its handlers finished.'));
+      }
+    }
+  }
+
+  /// The page's answer for a lifecycle event: {status, issues}.
+  void acknowledge(String eventId, Map<Object?, Object?> answer) {
+    final waiting = _waiting.remove(eventId);
+    if (waiting == null || waiting.answer.isCompleted) return;
+    final status = switch (answer['status']) {
+      'failed' => TavernScriptAckStatus.failed,
+      'cancelled' => TavernScriptAckStatus.cancelled,
+      _ => TavernScriptAckStatus.completed,
+    };
+    waiting.answer.complete(
+      TavernScriptDispatchAck(
+        eventId: eventId,
+        status: status,
+        issues: [
+          for (final issue in (answer['issues'] as List?) ?? const [])
+            if (issue is Map)
+              TavernScriptIssue(
+                code: '${issue['code'] ?? 'hookFailure'}',
+                message: '${issue['message'] ?? ''}',
+                committed: false,
+                contextId: waiting.contextId,
+                eventId: eventId,
+                stage: 'handler',
+              ),
+        ],
+      ),
+    );
+  }
 
   @override
   Future<TavernScriptDispatchAck> dispatch(TavernScriptDispatch request, TavernScriptCancellation cancellation) async {
     final page = _pages[request.contextId];
-    if (page != null && request.kind == TavernScriptDispatchKind.cache && !cancellation.isCancelled) {
+    final done = TavernScriptDispatchAck(eventId: request.eventId);
+    if (page == null || cancellation.isCancelled) return done;
+    if (request.kind == TavernScriptDispatchKind.cache) {
       try {
         await page(tavernScriptDeliveryJson(request));
       } on Object {
         // The page went (its renderer, the screen): it reloads a snapshot
         // when it comes back. The engine's write is not undone by that.
       }
+      return done;
     }
-    return TavernScriptDispatchAck(eventId: request.eventId);
+    final answer = Completer<TavernScriptDispatchAck>();
+    _waiting[request.eventId] = (contextId: request.contextId, answer: answer);
+    final bool delivered;
+    try {
+      delivered = await page(tavernScriptDeliveryJson(request));
+    } on Object {
+      _waiting.remove(request.eventId);
+      return _failed(request.eventId, request.contextId, 'pageGone', 'The page could not take the event.');
+    }
+    if (!delivered) {
+      _waiting.remove(request.eventId);
+      return done;
+    }
+    final cancelled = cancellation.whenCancelled.then(
+      (_) => TavernScriptDispatchAck(eventId: request.eventId, status: TavernScriptAckStatus.cancelled),
+    );
+    try {
+      return await Future.any([answer.future, cancelled]);
+    } finally {
+      _waiting.remove(request.eventId);
+    }
   }
 
   @override
@@ -66,6 +141,22 @@ class TavernScriptPages implements TavernScriptHost {
   Future<void> refresh(TavernScriptRefreshRequest request) async {}
 }
 
+TavernScriptDispatchAck _failed(String eventId, String contextId, String code, String message) =>
+    TavernScriptDispatchAck(
+      eventId: eventId,
+      status: TavernScriptAckStatus.failed,
+      issues: [
+        TavernScriptIssue(
+          code: code,
+          message: message,
+          committed: false,
+          contextId: contextId,
+          eventId: eventId,
+          stage: 'handler',
+        ),
+      ],
+    );
+
 TavernScriptException _unsupported(String operation) => TavernScriptException(
   code: TavernScriptErrorCode.unsupportedCapability,
   operation: operation,
@@ -81,7 +172,13 @@ Map<String, Object?> tavernScriptDeliveryJson(TavernScriptDispatch d) {
     'eventId': d.eventId,
     'contextId': d.contextId,
     'seq': d.seq,
+    'namespace': d.namespace,
     'name': d.name,
+    'args': d.args,
+    'generationId': d.generationId,
+    'nodeRef': d.nodeRef == null ? null : tavernScriptRefJson(d.nodeRef!),
+    'messageId': d.messageId,
+    'swipeId': d.swipeId,
     'pathRevision': d.pathRevision,
     'delta': delta == null
         ? null

@@ -286,10 +286,16 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   var calls={},callSeq=0;
   window.dsh={
     call:function(method,params){
-      return new Promise(function(ok,no){
+      var p=new Promise(function(ok,no){
         var id=++callSeq;calls[id]={ok:ok,no:no};
         post({type:'call',id:id,method:method,params:params===undefined?{}:params});
       });
+      // Kept until answered: an event's answer waits for the writes its
+      // handlers started.
+      inflight.push(p);
+      var gone=function(){var at=inflight.indexOf(p);if(at>=0)inflight.splice(at,1);};
+      p.then(gone,gone);
+      return p;
     },
     answer:function(r){
       var c=r&&calls[r.id];if(!c)return;delete calls[r.id];
@@ -413,7 +419,9 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
       return loading;
     },
     deliver:function(d){
-      if(!d||d.kind!=='cache')return;
+      if(!d)return;
+      if(d.kind==='lifecycle'){lifecycle(d);return;}
+      if(d.kind!=='cache')return;
       // Not asked for yet: a snapshot taken later covers what was dropped.
       if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}
       apply(d);
@@ -423,6 +431,56 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   };
   if(!window.getVariables)window.getVariables=getVariables;
   if(!window.replaceVariables)window.replaceVariables=replaceVariables;
+  // Events (酒馆助手's eventOn and kin). The engine's events come with its
+  // own names (MESSAGE_RECEIVED…); tavern_events gives them, and a name in
+  // lower case is the same event (ST writes chat_id_changed for
+  // CHAT_CHANGED). An event from the engine is answered once its handlers
+  // are done and every engine call made meanwhile has come back.
+  var on={},inflight=[];
+  function evName(n){var u=String(n).toUpperCase();return u==='CHAT_ID_CHANGED'?'CHAT_CHANGED':u;}
+  function listen(n,fn,once){
+    if(typeof fn!=='function')throw new TypeError('a listener is a function');
+    var k=evName(n);(on[k]||(on[k]=[])).push({fn:fn,once:once});
+    return {stop:function(){eventRemoveListener(n,fn);}};
+  }
+  function eventOn(n,fn){return listen(n,fn,false);}
+  function eventOnce(n,fn){return listen(n,fn,true);}
+  function eventRemoveListener(n,fn){var k=evName(n);on[k]=(on[k]||[]).filter(function(h){return h.fn!==fn;});}
+  function fire(k,args){
+    var hs=(on[k]||[]).slice();
+    on[k]=(on[k]||[]).filter(function(h){return !h.once;});
+    return Promise.all(hs.map(function(h){
+      return new Promise(function(ok){ok(h.fn.apply(null,args));}).then(function(){return null;},function(e){return e||new Error('failed');});
+    }));
+  }
+  function settle(){
+    if(!inflight.length)return Promise.resolve();
+    var now=inflight.map(function(p){return p.then(null,function(){});});
+    return Promise.all(now).then(settle);
+  }
+  function eventEmit(n){return fire(evName(n),[].slice.call(arguments,1)).then(function(){});}
+  function lifecycle(d){
+    // Its handlers read what the engine had: after the snapshot, if one
+    // is on its way.
+    var first=loaded||!loading?Promise.resolve():loading.then(null,function(){});
+    first.then(function(){return fire(evName(d.name||''),d.args||[]);}).then(function(results){
+      return settle().then(function(){
+        var bad=results.filter(Boolean);
+        post({type:'ack',eventId:d.eventId,status:bad.length?'failed':'completed',
+          issues:bad.map(function(e){return {code:'hookFailure',message:String(e&&e.message||e)};})});
+      });
+    });
+  }
+  var names=['MESSAGE_SENT','MESSAGE_RECEIVED','MESSAGE_EDITED','MESSAGE_UPDATED','MESSAGE_SWIPED','MESSAGE_DELETED',
+    'GENERATION_STARTED','GENERATION_AFTER_COMMANDS','GENERATION_STOPPED','GENERATION_ENDED','CHAT_CHANGED'];
+  var events={};names.forEach(function(n){events[n]=n;});
+  dsh.scripts.eventOn=eventOn;dsh.scripts.eventOnce=eventOnce;
+  dsh.scripts.eventRemoveListener=eventRemoveListener;dsh.scripts.eventEmit=eventEmit;dsh.scripts.events=events;
+  if(!window.eventOn)window.eventOn=eventOn;
+  if(!window.eventOnce)window.eventOnce=eventOnce;
+  if(!window.eventRemoveListener)window.eventRemoveListener=eventRemoveListener;
+  if(!window.eventEmit)window.eventEmit=eventEmit;
+  if(!window.tavern_events)window.tavern_events=events;
   var hold=null,from=null;
   function post(o){if(window.DshTavern)DshTavern.postMessage(JSON.stringify(o));}
   function owner(t){while(t&&t!==chat){if(t.classList&&t.classList.contains('mes'))return t;t=t.parentNode;}return null;}

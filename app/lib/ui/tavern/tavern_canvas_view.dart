@@ -71,10 +71,11 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
 
   /// The engine's delivery for this page's script context, into its copy;
   /// not before the page is ready (it takes a snapshot then anyway).
-  Future<void> _deliver(Map<String, Object?> delivery) async {
+  Future<bool> _deliver(Map<String, Object?> delivery) async {
     final controller = _controller;
-    if (!mounted || !_ready || controller == null) return;
+    if (!mounted || !_ready || controller == null) return false;
     await controller.runJavaScript('window.dsh&&dsh.scripts.deliver(${jsonEncode(delivery)})');
+    return true;
   }
 
   @override
@@ -178,6 +179,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         if (data['node'] case final String node when node.isNotEmpty) widget.onMenu(node);
       case 'call':
         unawaited(_answer(data));
+      case 'ack':
+        widget.calls?.acknowledge(data);
     }
   }
 
@@ -244,6 +247,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     final old = _guard;
     WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(old.destroy()));
     ScaffoldMessenger.maybeOf(context)?.showBriefNotice(context.l10n.tavernCanvasReloaded);
+    // The handlers the lost page was running will not answer.
+    widget.calls?.pageLost();
     setState(() {
       _guard = WebViewGuard(onGone: _onGone);
       _controller = null;
@@ -254,7 +259,10 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
 
   @override
   void dispose() {
-    if (widget.calls?.deliver == _deliver) widget.calls?.deliver = null;
+    if (widget.calls?.deliver == _deliver) {
+      widget.calls?.deliver = null;
+      widget.calls?.pageLost();
+    }
     widget.streaming.removeListener(_onStream);
     _streamTimer?.cancel();
     _guard.dispose();
