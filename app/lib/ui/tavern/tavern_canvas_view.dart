@@ -129,16 +129,21 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     final List<String> libraries;
     // So with the card's own scripts (none for a group, or when they do not run).
     final List<TavernCardScript> cardScripts;
+    // And the card itself, for the scripts that ask about the character.
+    final Map<String, Object?>? card;
     final character = widget.calls?.characterId();
     if (noScripts) {
       libraries = const [];
       cardScripts = const [];
+      card = null;
     } else {
       final loaded = ref.read(tavernCanvasLibrariesProvider);
       final scripts = character == null ? null : ref.read(tavernCardScriptsProvider(character));
-      if (loaded.isLoading || (scripts?.isLoading ?? false)) return;
+      final data = character == null ? null : ref.read(tavernCardDataProvider(character));
+      if (loaded.isLoading || (scripts?.isLoading ?? false) || (data?.isLoading ?? false)) return;
       libraries = loaded.value ?? const [];
       cardScripts = scripts?.value ?? const [];
+      card = data?.value;
     }
     final key = (
       noScripts,
@@ -150,6 +155,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       reading,
       themeCss,
       Object.hashAll(cardScripts),
+      card,
     );
     if (key == _loaded) return;
     _loaded = key;
@@ -185,6 +191,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       libraries: libraries,
       themeCss: themeCss,
       cardScripts: [for (final s in cardScripts) s.toJson()],
+      card: card,
+      characterId: character,
     );
     final controller = _controller ??= WebViewController();
     final textZoom = MediaQuery.textScalerOf(context).scale(100).round().clamp(50, 300);
@@ -331,6 +339,9 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     );
     ref.listen(tavernStThemeProvider, (_, _) => _open());
     if (widget.calls?.characterId() case final character?) {
+      ref.listen(tavernCardDataProvider(character), (_, next) {
+        if (!next.isLoading) _open();
+      });
       ref.listen(tavernCardScriptsProvider(character), (_, next) {
         if (!next.isLoading) _open();
       });

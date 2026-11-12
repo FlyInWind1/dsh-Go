@@ -260,6 +260,8 @@ void main() {
       cardScripts: const [
         {'id': 's1', 'name': '状态栏', 'content': "x = '</script>';", 'buttons': <String>[]},
       ],
+      card: const {'name': '林晚', 'description': '店主</script>'},
+      characterId: 'char-1',
     );
     expect(
       withScripts(),
@@ -271,6 +273,11 @@ void main() {
     );
     expect(withScripts(), isNot(contains("x = '</script>'")));
     expect(withScripts(noScripts: true), contains('var cardScripts=[],'));
+    // The chat's card likewise (its questions checked in Edge); none for a
+    // group, or when scripts do not run.
+    expect(withScripts(), contains(r'var card={"name":"林晚","description":"店主<\/script>"},cardId="char-1";'));
+    expect(withScripts(noScripts: true), contains('var card=null,cardId=null;'));
+    expect(open, contains('var card=null,cardId=null;'));
     expect(open, contains(r"el.textContent=s.content+'\n//# sourceURL=dsh-script-'+n+'.js';"));
     expect(page(noScripts: true), contains("script-src 'nonce-n0nce'"));
     expect(page(offline: true), contains("default-src 'none'"));

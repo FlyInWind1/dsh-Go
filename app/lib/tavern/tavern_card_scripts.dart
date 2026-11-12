@@ -91,16 +91,35 @@ List<TavernCardScript> tavernCardScripts(Object? card) {
   return out;
 }
 
-/// The scripts a character's card carries, read from the card as the engine
-/// exports it; none when it cannot be read.
-final tavernCardScriptsProvider = FutureProvider.autoDispose.family<List<TavernCardScript>, String>((
+/// A character's card as the engine exports it, its fields (V2/V3 data, or a
+/// V1 card's top level); null when it cannot be read.
+final tavernCardDataProvider = FutureProvider.autoDispose.family<Map<String, Object?>?, String>((
   ref,
   characterId,
 ) async {
   try {
     final bytes = await ref.watch(tavernProvider).exportCard(characterId, format: TavernCardFormat.json);
-    return tavernCardScripts(jsonDecode(utf8.decode(bytes)));
+    return tavernCardData(jsonDecode(utf8.decode(bytes)));
   } on Object {
-    return const [];
+    return null;
   }
+});
+
+/// [card]'s fields: under data for V2/V3, else its top level; null for
+/// something that is not a card.
+Map<String, Object?>? tavernCardData(Object? card) {
+  if (card is! Map<String, Object?>) return null;
+  return switch (card['data']) {
+    final Map<String, Object?> data => data,
+    _ => card,
+  };
+}
+
+/// The scripts a character's card carries; none when it cannot be read.
+final tavernCardScriptsProvider = FutureProvider.autoDispose.family<List<TavernCardScript>, String>((
+  ref,
+  characterId,
+) async {
+  final data = await ref.watch(tavernCardDataProvider(characterId).future);
+  return data == null ? const [] : tavernCardScripts({'data': data});
 });

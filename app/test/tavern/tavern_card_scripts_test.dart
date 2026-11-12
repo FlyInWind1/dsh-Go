@@ -154,6 +154,19 @@ void main() {
     addTearDown(sub.close);
     final scripts = await container.read(tavernCardScriptsProvider(id).future);
     expect(scripts, [const TavernCardScript(id: 's1', name: '变量初始化', content: 'await initVars();')]);
+    // The card's fields themselves, for the page's character questions.
+    final dataSub = container.listen(tavernCardDataProvider(id), (_, _) {});
+    addTearDown(dataSub.close);
+    final data = (await container.read(tavernCardDataProvider(id).future))!;
+    expect((data['name'], data['first_mes']), ('林晚', '进来吧。'));
+    expect(((data['extensions']! as Map)['tavern_helper']! as Map)['variables'], {'hp': 10});
+  });
+
+  test("a card's fields: under data for V2/V3, the top level for V1, none for what is not a card", () {
+    expect(tavernCardData(_card({}))!['name'], '林晚');
+    expect(tavernCardData({'name': 'v1', 'description': 'x'}), {'name': 'v1', 'description': 'x'});
+    expect(tavernCardData('not a card'), isNull);
+    expect(tavernCardData(null), isNull);
   });
 
   test(

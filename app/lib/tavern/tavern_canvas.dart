@@ -214,6 +214,8 @@ const tavernToastMax = 300;
 /// where both say something, as it does in ST. [cardScripts] ({id, name,
 /// content}, tavern_card_scripts.dart) are the card's own scripts, each run
 /// in a hidden frame once the story is drawn; not when scripts do not run.
+/// [card] (its fields) and [characterId] are the chat's character, for the
+/// scripts that ask about it; none for a group.
 String tavernCanvasDocument({
   required Color text,
   required Color accent,
@@ -231,7 +233,12 @@ String tavernCanvasDocument({
   List<String> libraries = const [],
   String themeCss = '',
   List<Map<String, Object?>> cardScripts = const [],
+  Map<String, Object?>? card,
+  String? characterId,
 }) {
+  // The card goes in as JSON too, a closing tag in it not ending our script.
+  final cardJson = noScripts || card == null ? 'null' : jsonEncode(card).replaceAll('</', r'<\/');
+  final cardIdJson = noScripts ? 'null' : jsonEncode(characterId);
   // The card's scripts go in as JSON; a closing tag in one cannot end ours.
   final cardScriptsJson = noScripts ? '[]' : jsonEncode(cardScripts).replaceAll('</', r'<\/');
   // The libraries card scripts expect on the page (jQuery, lodash), ours and
@@ -697,6 +704,37 @@ $preload
   };
   Object.defineProperty(SillyTavern,'chat',{get:function(){return msgs.map(stMessage);},enumerable:true});
   Object.defineProperty(SillyTavern,'chatId',{get:function(){return SillyTavern.getCurrentChatId();},enumerable:true});
+  // The chat's character card (酒馆助手's 获取角色卡 pages): this chat's own
+  // card, by 'current', its name or its id; another character's is not on
+  // this page, and is not found (getCharacter throws, getCharData gives
+  // null), as the page says of one missing. A group has no one card.
+  var card=$cardJson,cardId=$cardIdJson;
+  function isCurrent(n){return !!card&&(n==null||n==='current'||n===card.name||n===cardId);}
+  function getCurrentCharacterName(){return card?card.name||null:null;}
+  function getCurrentCharacterId(){return card?cardId:null;}
+  function getCharacter(n){
+    return attempt(function(){
+      if(!isCurrent(n===undefined?'current':n))throw new Error('No such character here: '+n);
+      var x=card.extensions||{};
+      return Promise.resolve(clone({name:card.name,version:card.character_version||'',creator:card.creator||'',
+        creator_notes:card.creator_notes||'',description:card.description||'',worldbook:x.world||null,
+        first_messages:[card.first_mes||''].concat(card.alternate_greetings||[]),extensions:x}));
+    });
+  }
+  // The older v1 shape: its own fields, and the card's whole data under data.
+  function getCharData(n){
+    if(!isCurrent(n))return Promise.resolve(null);
+    var x=card.extensions||{};
+    return Promise.resolve(clone({name:card.name,description:card.description||'',personality:card.personality||'',
+      scenario:card.scenario||'',first_mes:card.first_mes||'',mes_example:card.mes_example||'',
+      creator_notes:card.creator_notes||'',tags:card.tags||[],talkativeness:x.talkativeness!=null?x.talkativeness:0.5,
+      fav:x.fav!=null?x.fav:false,data:card}));
+  }
+  Object.defineProperty(SillyTavern,'name2',{get:function(){return getCurrentCharacterName()||undefined;},enumerable:true});
+  [['getCurrentCharacterName',getCurrentCharacterName],['getCurrentCharacterId',getCurrentCharacterId],
+   ['getCharacter',watched(getCharacter)],['getCharData',getCharData]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   dsh.scripts.SillyTavern=SillyTavern;
   if(!window.SillyTavern)window.SillyTavern=SillyTavern;
   // The message the caller is in: the nearest named script on the stack;
@@ -1130,7 +1168,8 @@ $preload
     'getCurrentMessageId','getIframeName','getMessageId','toastr','injectPrompts','uninjectPrompts','generate',
     'generateRaw','stopGenerationById','stopAllGeneration','getScriptId','getScriptName','getButtonEvent',
     'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
-    'retrieveDisplayedMessage','renderOneMessage','SillyTavern',
+    'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
+    'getCharacter','getCharData',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
