@@ -52,6 +52,7 @@ import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import '../wallpaper/wallpaper_backdrop.dart';
+import 'tavern_arrive.dart';
 import 'tavern_character_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
@@ -1625,13 +1626,19 @@ class _QuickReplyRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         itemCount: directed.length + replies.length + (replies.isEmpty ? 1 : 2),
         separatorBuilder: (_, _) => const SizedBox(width: 8),
+        // The director's suggestions arrive whenever it has them: each new
+        // one fades in, a beat after the one before it.
         itemBuilder: (context, at) => at < directed.length
-            ? CapsuleChoiceChip(
-                key: ValueKey('tavern-directed-$at'),
-                icon: AppIcons.askAi,
-                label: _label(directed[at]),
-                selected: false,
-                onSelected: () => onDirected?.call(directed[at]),
+            ? TavernArrive(
+                key: ValueKey(('tavern-directed-arrive', at, directed[at])),
+                index: at,
+                child: CapsuleChoiceChip(
+                  key: ValueKey('tavern-directed-$at'),
+                  icon: AppIcons.askAi,
+                  label: _label(directed[at]),
+                  selected: false,
+                  onSelected: () => onDirected?.call(directed[at]),
+                ),
               )
             : _item(context, at - directed.length),
       ),

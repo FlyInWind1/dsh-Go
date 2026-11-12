@@ -28,6 +28,7 @@ import '../features/feature_kit.dart' show QuietSpinner;
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_arrive.dart';
 import 'tavern_bookmarks_page.dart';
 import 'tavern_branches_page.dart';
 import 'tavern_character_page.dart';
@@ -847,12 +848,17 @@ class _StateViewState extends ConsumerState<_StateView> {
                                 ),
                                 if (_mark(state, row.path, l10n) case final mark?) ...[
                                   const SizedBox(width: 6),
-                                  Text(
-                                    mark,
-                                    key: ValueKey('tavern-state-change-${row.title}'),
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.w700,
+                                  // Fades in as the turn brings it; a new
+                                  // change fades in afresh.
+                                  TavernArrive(
+                                    key: ValueKey(('tavern-state-change-arrive', state.nodeId, row.path, mark)),
+                                    child: Text(
+                                      mark,
+                                      key: ValueKey('tavern-state-change-${row.title}'),
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ],
