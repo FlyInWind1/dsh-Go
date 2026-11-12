@@ -210,6 +210,9 @@ void promptText() {
 
     await tester.tap(find.descendant(of: main, matching: find.text('主提示')));
     await tester.pumpAndSettle();
+    // The prompt's sheet; its text opens in the whole-page editor.
+    await tester.tap(find.byKey(const ValueKey('tavern-prompt-content')));
+    await tester.pumpAndSettle();
     expect(find.byType(TavernMessageEditPage), findsOneWidget);
     expect(find.text('主提示'), findsWidgets); // the editor's title
     await tester.enterText(find.byKey(const ValueKey('tavern-message-field')), '你是林晚，旅店的老板娘。\n只说一半。');
@@ -219,7 +222,77 @@ void promptText() {
     final raw = await _raw(tester, tavern, id);
     expect(tavernPresetPrompts(raw).map((p) => p.content), ['你是林晚，旅店的老板娘。\n只说一半。', null, '保持角色。']);
     expect(tavernPresetPrompts(raw).first.enabled, isTrue); // the switch untouched
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('tavern-prompt-content')), matching: find.text('你是林晚，旅店的老板娘。')),
+      findsOneWidget,
+    );
+    await tester.tapAt(const Offset(195, 60)); // the sheet away
+    await tester.pumpAndSettle();
     expect(find.descendant(of: main, matching: find.text('你是林晚，旅店的老板娘。')), findsOneWidget);
+  });
+
+  testWidgets("a prompt's sheet sets who says it and where it goes, as ST's prompt manager does", (tester) async {
+    final (tavern, id) = await _open(tester);
+    final main = find.byKey(const ValueKey('tavern-preset-prompt-main'));
+    await _center(tester, main);
+    await tester.tap(find.descendant(of: main, matching: find.text('主提示')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-prompt-depth')), findsNothing); // in order: no depth
+
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-prompt-role')), matching: find.text('用户')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-prompt-position')), matching: find.text('对话中')),
+    );
+    await tester.pumpAndSettle();
+    final depth = find.byKey(const ValueKey('tavern-prompt-depth-value'));
+    expect(tester.widget<Text>(depth).data, '4'); // ST's depth until set
+    await tester.tap(find.byKey(const ValueKey('tavern-prompt-depth-up')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(depth).data, '5');
+
+    final saved = ((await _raw(tester, tavern, id))['prompts'] as List).first as Map<String, Object?>;
+    expect((saved['role'], saved['injection_position'], saved['injection_depth']), ('user', 1, 5));
+    final prompt = tavernPresetPrompts(await _raw(tester, tavern, id)).first;
+    expect((prompt.role, prompt.inChat, prompt.depth), ('user', true, 5));
+
+    // Back on the page, the row says where it goes.
+    await tester.tapAt(const Offset(195, 60));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: main, matching: find.text('对话中 · 深度 5 · 你是林晚。')), findsOneWidget);
+
+    // Back in order: the depth is kept but no longer shown.
+    await tester.tap(find.descendant(of: main, matching: find.text('主提示')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-prompt-position')), matching: find.text('按顺序')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-prompt-depth')), findsNothing);
+    final back = tavernPresetPrompts(await _raw(tester, tavern, id)).first;
+    expect((back.inChat, back.depth), (false, 5));
+  });
+
+  test('where a prompt goes reads as the engine reads it', () {
+    TavernPresetPrompt only(Map<String, Object?> fields) => tavernPresetPrompts({
+      'prompts': [
+        {'identifier': 'x', 'name': 'X', 'content': 'c', ...fields},
+      ],
+      'prompt_order': [
+        {
+          'character_id': 100001,
+          'order': [
+            {'identifier': 'x', 'enabled': true},
+          ],
+        },
+      ],
+    }).single;
+    expect((only({}).role, only({}).inChat, only({}).depth), ('system', false, 4));
+    expect(only({'injection_position': 1, 'injection_depth': '2'}).depth, 2);
+    expect(only({'injection_position': 1}).inChat, isTrue);
+    expect(only({'injection_position': '1'}).inChat, isFalse); // the engine wants the number
+    expect(only({'role': 'narrator'}).role, 'system');
+    expect(only({'injection_depth': -3}).depth, 4);
   });
 
   testWidgets('the switch on a prompt with text turns it off without opening it', (tester) async {

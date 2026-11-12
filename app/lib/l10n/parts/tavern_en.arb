@@ -951,5 +951,19 @@
   "tavernStThemeImported": "Now using the colours of the ST theme “{name}”",
   "@tavernStThemeImported": {"placeholders": {"name": {"type": "String"}}},
   "tavernStThemeNoColors": "“{name}” has no quote or italics colour to use",
-  "@tavernStThemeNoColors": {"placeholders": {"name": {"type": "String"}}}
+  "@tavernStThemeNoColors": {"placeholders": {"name": {"type": "String"}}},
+  "tavernPromptContent": "Content",
+  "tavernPromptRole": "Spoken as",
+  "tavernPromptRoleSystem": "System",
+  "tavernPromptRoleUser": "User",
+  "tavernPromptRoleAssistant": "Assistant",
+  "tavernPromptPosition": "Position",
+  "tavernPromptRelative": "In order",
+  "tavernPromptInChat": "In chat",
+  "tavernPromptDepth": "Depth",
+  "tavernPromptDepthNote": "Goes into the chat history, {depth} messages up from the end (0 is the very end), as ST's In-Chat does.",
+  "@tavernPromptDepthNote": {"placeholders": {"depth": {"type": "int"}}},
+  "tavernPromptRelativeNote": "Sent where the preset's order puts it, as ST's Relative does.",
+  "tavernPromptPlace": "In chat · depth {depth}",
+  "@tavernPromptPlace": {"placeholders": {"depth": {"type": "int"}}}
 }

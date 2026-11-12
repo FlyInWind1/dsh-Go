@@ -32,7 +32,22 @@ final tavernPresetProvider = FutureProvider.autoDispose.family<TavernPreset?, St
 });
 
 /// A prompt as the order sends it; [content] is null for a placeholder.
-typedef TavernPresetPrompt = ({String id, String name, bool marker, bool enabled, String? content});
+/// [role] is who says it (system, user or assistant); [inChat] puts it into
+/// the chat history [depth] messages up from the end (ST's In-Chat), rather
+/// than where the order has it.
+typedef TavernPresetPrompt = ({
+  String id,
+  String name,
+  bool marker,
+  bool enabled,
+  String? content,
+  String role,
+  bool inChat,
+  int depth,
+});
+
+/// The roles a prompt can speak as, as ST's prompt manager offers them.
+const tavernPromptRoles = ['system', 'user', 'assistant'];
 
 /// [raw]'s prompts in the order they are sent: the 100001 group's order, else
 /// the first group with one, as the engine picks it.
@@ -54,6 +69,18 @@ List<TavernPresetPrompt> tavernPresetPrompts(Map<String, Object?> raw) {
           marker: prompts['$id']?['marker'] == true,
           enabled: entry['enabled'] != false,
           content: prompts['$id']?['marker'] == true ? null : _contentOf(raw, prompts['$id'], '$id'),
+          role: switch (prompts['$id']?['role']) {
+            final String role when tavernPromptRoles.contains(role) => role,
+            _ => 'system',
+          },
+          // As the engine reads them: 1 is in the chat; the depth a number or
+          // a number's text, 4 (ST's) when neither.
+          inChat: prompts['$id']?['injection_position'] == 1,
+          depth: switch (prompts['$id']?['injection_depth']) {
+            final num n when n >= 0 => n.toInt(),
+            final String s when (int.tryParse(s) ?? -1) >= 0 => int.parse(s),
+            _ => 4,
+          },
         ),
   ];
 }
@@ -103,12 +130,6 @@ class TavernPresetPage extends ConsumerWidget {
         },
       }),
     );
-    Future<void> editPrompt(TavernPresetPrompt prompt) async {
-      final text = await Navigator.of(context)
-          .push(TavernMessageEditPage.route(speaker: preset.name, text: prompt.content ?? '', title: prompt.name));
-      if (text != null) await tavern.updatePresetPrompt(presetId, prompt.id, {'content': text});
-    }
-
     Future<void> editPrefill() async {
       final text = await Navigator.of(context)
           .push(TavernMessageEditPage.route(speaker: preset.name, text: prefillText, title: l10n.tavernPrefill));
@@ -196,13 +217,17 @@ class TavernPresetPage extends ConsumerWidget {
               ),
             for (final prompt in prompts)
               if (prompt.content case final content?)
-                // A prompt with text: the row opens it, the switch turns it on or off.
+                // A prompt with text: the row opens it (its text, who says it
+                // and where it goes), the switch turns it on or off.
                 MergeSemantics(
                   key: ValueKey('tavern-preset-prompt-${prompt.id}'),
                   child: SettingsTile(
                     title: prompt.name,
-                    subtitle: content.trim().isEmpty ? l10n.tavernPresetPromptEmpty : _line(content),
-                    onTap: () => unawaited(editPrompt(prompt)),
+                    subtitle: [
+                      if (prompt.inChat) l10n.tavernPromptPlace(prompt.depth),
+                      content.trim().isEmpty ? l10n.tavernPresetPromptEmpty : _line(content),
+                    ].join(' · '),
+                    onTap: () => unawaited(showTavernPromptSheet(context, preset.name, presetId, prompt)),
                     trailing: Switch(
                       value: prompt.enabled,
                       onChanged: (on) => unawaited(tavern.setPresetPromptEnabled(presetId, prompt.id, on)),
@@ -236,6 +261,158 @@ class TavernPresetPage extends ConsumerWidget {
 String _line(String text) {
   final first = text.trim().split('\n').first.trim();
   return first.length > 40 ? '${first.substring(0, 40)}…' : first;
+}
+
+/// One prompt as ST's prompt manager edits it (docs/design/roleplay-ui.md
+/// §9): its text (in the whole-page editor), who says it, and where it goes —
+/// in the preset's order, or into the chat history at a depth. Each change is
+/// saved as it is made.
+Future<void> showTavernPromptSheet(
+  BuildContext context,
+  String presetName,
+  String presetId,
+  TavernPresetPrompt prompt,
+) => showAppSheet<void>(
+  context,
+  isScrollControlled: true,
+  builder: (_) => _PromptSheet(presetName: presetName, presetId: presetId, prompt: prompt),
+);
+
+class _PromptSheet extends ConsumerStatefulWidget {
+  const _PromptSheet({required this.presetName, required this.presetId, required this.prompt});
+
+  final String presetName;
+  final String presetId;
+  final TavernPresetPrompt prompt;
+
+  @override
+  ConsumerState<_PromptSheet> createState() => _PromptSheetState();
+}
+
+class _PromptSheetState extends ConsumerState<_PromptSheet> {
+  late String _content = widget.prompt.content ?? '';
+  late String _role = widget.prompt.role;
+  late bool _inChat = widget.prompt.inChat;
+  late int _depth = widget.prompt.depth;
+
+  /// The deepest a prompt goes here; ST sets no bound, chats rarely need more.
+  static const _maxDepth = 100;
+
+  Future<void> _save(Map<String, Object?> patch) async {
+    try {
+      await ref.read(tavernProvider).updatePresetPrompt(widget.presetId, widget.prompt.id, patch);
+    } on Object catch (e) {
+      if (mounted) ScaffoldMessenger.maybeOf(context)?.showBriefNotice('$e'.split('\n').first);
+    }
+  }
+
+  Future<void> _editContent() async {
+    final text = await Navigator.of(context)
+        .push(TavernMessageEditPage.route(speaker: widget.presetName, text: _content, title: widget.prompt.name));
+    if (text == null || !mounted) return;
+    setState(() => _content = text);
+    await _save({'content': text});
+  }
+
+  void _setDepth(int depth) {
+    setState(() => _depth = depth);
+    unawaited(_save({'injection_depth': depth}));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final quiet = theme.textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary, height: 1.5);
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetTitleBar(widget.prompt.name),
+            SheetGroup(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              children: [
+                SettingsTile(
+                  key: const ValueKey('tavern-prompt-content'),
+                  icon: AppIcons.edit,
+                  tinted: false,
+                  title: l10n.tavernPromptContent,
+                  subtitle: _content.trim().isEmpty ? l10n.tavernPresetPromptEmpty : _line(_content),
+                  onTap: () => unawaited(_editContent()),
+                ),
+                SettingsSegmentTile<String>(
+                  key: const ValueKey('tavern-prompt-role'),
+                  title: l10n.tavernPromptRole,
+                  segments: [
+                    PillSegment('system', l10n.tavernPromptRoleSystem),
+                    PillSegment('user', l10n.tavernPromptRoleUser),
+                    PillSegment('assistant', l10n.tavernPromptRoleAssistant),
+                  ],
+                  selected: _role,
+                  onChanged: (role) {
+                    setState(() => _role = role);
+                    unawaited(_save({'role': role}));
+                  },
+                ),
+                SettingsSegmentTile<bool>(
+                  key: const ValueKey('tavern-prompt-position'),
+                  title: l10n.tavernPromptPosition,
+                  segments: [PillSegment(false, l10n.tavernPromptRelative), PillSegment(true, l10n.tavernPromptInChat)],
+                  selected: _inChat,
+                  onChanged: (inChat) {
+                    setState(() => _inChat = inChat);
+                    // The depth goes with it, so the engine reads the one shown.
+                    unawaited(_save({'injection_position': inChat ? 1 : 0, if (inChat) 'injection_depth': _depth}));
+                  },
+                ),
+                if (_inChat)
+                  SettingsTile(
+                    key: const ValueKey('tavern-prompt-depth'),
+                    title: l10n.tavernPromptDepth,
+                    value: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          key: const ValueKey('tavern-prompt-depth-down'),
+                          icon: const Icon(AppIcons.decrement, size: 18),
+                          onPressed: _depth > 0 ? () => _setDepth(_depth - 1) : null,
+                        ),
+                        SizedBox(
+                          width: 32,
+                          child: Text(
+                            '$_depth',
+                            key: const ValueKey('tavern-prompt-depth-value'),
+                            textAlign: TextAlign.center,
+                            style: AppType.tabular(theme.textTheme.titleMedium!),
+                          ),
+                        ),
+                        IconButton(
+                          key: const ValueKey('tavern-prompt-depth-up'),
+                          icon: const Icon(AppIcons.increment, size: 18),
+                          onPressed: _depth < _maxDepth ? () => _setDepth(_depth + 1) : null,
+                        ),
+                      ],
+                    ),
+                    chevron: false,
+                  ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
+              child: Text(
+                _inChat ? l10n.tavernPromptDepthNote(_depth) : l10n.tavernPromptRelativeNote,
+                key: const ValueKey('tavern-prompt-note'),
+                style: quiet,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// [prompts] in order, each with a handle to drag it; every drop is saved

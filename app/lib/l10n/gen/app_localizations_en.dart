@@ -21330,6 +21330,46 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernPromptContent => 'Content';
+
+  @override
+  String get tavernPromptRole => 'Spoken as';
+
+  @override
+  String get tavernPromptRoleSystem => 'System';
+
+  @override
+  String get tavernPromptRoleUser => 'User';
+
+  @override
+  String get tavernPromptRoleAssistant => 'Assistant';
+
+  @override
+  String get tavernPromptPosition => 'Position';
+
+  @override
+  String get tavernPromptRelative => 'In order';
+
+  @override
+  String get tavernPromptInChat => 'In chat';
+
+  @override
+  String get tavernPromptDepth => 'Depth';
+
+  @override
+  String tavernPromptDepthNote(int depth) {
+    return 'Goes into the chat history, $depth messages up from the end (0 is the very end), as ST\'s In-Chat does.';
+  }
+
+  @override
+  String get tavernPromptRelativeNote => 'Sent where the preset\'s order puts it, as ST\'s Relative does.';
+
+  @override
+  String tavernPromptPlace(int depth) {
+    return 'In chat · depth $depth';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

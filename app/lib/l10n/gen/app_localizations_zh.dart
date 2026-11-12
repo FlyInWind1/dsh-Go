@@ -20218,6 +20218,46 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernPromptContent => '内容';
+
+  @override
+  String get tavernPromptRole => '谁说';
+
+  @override
+  String get tavernPromptRoleSystem => '系统';
+
+  @override
+  String get tavernPromptRoleUser => '用户';
+
+  @override
+  String get tavernPromptRoleAssistant => '助手';
+
+  @override
+  String get tavernPromptPosition => '位置';
+
+  @override
+  String get tavernPromptRelative => '按顺序';
+
+  @override
+  String get tavernPromptInChat => '对话中';
+
+  @override
+  String get tavernPromptDepth => '深度';
+
+  @override
+  String tavernPromptDepthNote(int depth) {
+    return '插进聊天记录，从最后往前数第 $depth 条之前（0 是最末尾），和 ST 的「对话中」一样。';
+  }
+
+  @override
+  String get tavernPromptRelativeNote => '照预设的顺序放，和 ST 的「相对」一样。';
+
+  @override
+  String tavernPromptPlace(int depth) {
+    return '对话中 · 深度 $depth';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

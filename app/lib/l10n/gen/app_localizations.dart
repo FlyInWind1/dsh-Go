@@ -36872,6 +36872,78 @@ abstract class L10n {
   /// **'「{name}」里没有能用的引号或斜体颜色'**
   String tavernStThemeNoColors(String name);
 
+  /// No description provided for @tavernPromptContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容'**
+  String get tavernPromptContent;
+
+  /// No description provided for @tavernPromptRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'谁说'**
+  String get tavernPromptRole;
+
+  /// No description provided for @tavernPromptRoleSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get tavernPromptRoleSystem;
+
+  /// No description provided for @tavernPromptRoleUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户'**
+  String get tavernPromptRoleUser;
+
+  /// No description provided for @tavernPromptRoleAssistant.
+  ///
+  /// In zh, this message translates to:
+  /// **'助手'**
+  String get tavernPromptRoleAssistant;
+
+  /// No description provided for @tavernPromptPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'位置'**
+  String get tavernPromptPosition;
+
+  /// No description provided for @tavernPromptRelative.
+  ///
+  /// In zh, this message translates to:
+  /// **'按顺序'**
+  String get tavernPromptRelative;
+
+  /// No description provided for @tavernPromptInChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话中'**
+  String get tavernPromptInChat;
+
+  /// No description provided for @tavernPromptDepth.
+  ///
+  /// In zh, this message translates to:
+  /// **'深度'**
+  String get tavernPromptDepth;
+
+  /// No description provided for @tavernPromptDepthNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'插进聊天记录，从最后往前数第 {depth} 条之前（0 是最末尾），和 ST 的「对话中」一样。'**
+  String tavernPromptDepthNote(int depth);
+
+  /// No description provided for @tavernPromptRelativeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'照预设的顺序放，和 ST 的「相对」一样。'**
+  String get tavernPromptRelativeNote;
+
+  /// No description provided for @tavernPromptPlace.
+  ///
+  /// In zh, this message translates to:
+  /// **'对话中 · 深度 {depth}'**
+  String tavernPromptPlace(int depth);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

@@ -951,5 +951,19 @@
   "tavernStThemeImported": "换成了 ST 主题「{name}」的配色",
   "@tavernStThemeImported": {"placeholders": {"name": {"type": "String"}}},
   "tavernStThemeNoColors": "「{name}」里没有能用的引号或斜体颜色",
-  "@tavernStThemeNoColors": {"placeholders": {"name": {"type": "String"}}}
+  "@tavernStThemeNoColors": {"placeholders": {"name": {"type": "String"}}},
+  "tavernPromptContent": "内容",
+  "tavernPromptRole": "谁说",
+  "tavernPromptRoleSystem": "系统",
+  "tavernPromptRoleUser": "用户",
+  "tavernPromptRoleAssistant": "助手",
+  "tavernPromptPosition": "位置",
+  "tavernPromptRelative": "按顺序",
+  "tavernPromptInChat": "对话中",
+  "tavernPromptDepth": "深度",
+  "tavernPromptDepthNote": "插进聊天记录，从最后往前数第 {depth} 条之前（0 是最末尾），和 ST 的「对话中」一样。",
+  "@tavernPromptDepthNote": {"placeholders": {"depth": {"type": "int"}}},
+  "tavernPromptRelativeNote": "照预设的顺序放，和 ST 的「相对」一样。",
+  "tavernPromptPlace": "对话中 · 深度 {depth}",
+  "@tavernPromptPlace": {"placeholders": {"depth": {"type": "int"}}}
 }
