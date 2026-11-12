@@ -21298,6 +21298,38 @@ class L10nEn extends L10n {
   String get tavernInspectCacheBreak => 'The cache breaks here';
 
   @override
+  String get tavernPaletteSt => 'ST';
+
+  @override
+  String tavernStTheme(String name) {
+    return 'ST theme: $name';
+  }
+
+  @override
+  String get tavernStThemeNote =>
+      'With 「ST」 as the colours, quotes and *actions* take its colours; one too faint to read here is adjusted until it reads.';
+
+  @override
+  String get tavernStThemeImport => 'Import an ST theme';
+
+  @override
+  String get tavernStThemeImportNote =>
+      'Takes the quote and italics colours from a theme file exported from SillyTavern.';
+
+  @override
+  String get tavernStThemeRemove => 'Remove';
+
+  @override
+  String tavernStThemeImported(String name) {
+    return 'Now using the colours of the ST theme “$name”';
+  }
+
+  @override
+  String tavernStThemeNoColors(String name) {
+    return '“$name” has no quote or italics colour to use';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

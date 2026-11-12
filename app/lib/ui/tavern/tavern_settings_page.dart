@@ -15,6 +15,7 @@ import '../../tavern/tavern_generation.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_st_theme.dart';
 import '../../tavern/tavern_storage.dart';
 import '../chat/render/markdown_body.dart';
 import '../common/app_sheet.dart';
@@ -26,6 +27,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_backup.dart';
+import 'tavern_import_files.dart';
 import 'tavern_personas.dart';
 import 'tavern_preset_page.dart';
 import 'tavern_presets_page.dart';
@@ -47,6 +49,7 @@ class TavernSettingsPage extends ConsumerWidget {
 List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
   final l10n = context.l10n;
   final settings = ref.watch(tavernSettingsProvider);
+  final stTheme = ref.watch(tavernStThemeProvider);
   final hasKey = ref.watch(settingsProvider.select((s) => s.hasApiKey));
   final startup = ref.watch(appModeProvider.select((s) => s.startup));
   final controller = ref.read(tavernSettingsProvider.notifier);
@@ -234,10 +237,38 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           PillSegment(TavernPalette.ember, l10n.tavernPaletteEmber),
           PillSegment(TavernPalette.ocean, l10n.tavernPaletteOcean),
           PillSegment(TavernPalette.rose, l10n.tavernPaletteRose),
+          if (stTheme != null) PillSegment(TavernPalette.st, l10n.tavernPaletteSt),
         ],
-        selected: settings.palette,
+        // ST with its theme gone reads as 暖, as it is drawn.
+        selected: settings.palette == TavernPalette.st && stTheme == null ? TavernPalette.ember : settings.palette,
         onChanged: (palette) => unawaited(controller.setPalette(palette)),
       ),
+      // The ST theme the colours can come from: taken in through 导入, like
+      // every other file; here to see which, or to let it go.
+      if (stTheme != null)
+        SettingsTile(
+          key: const ValueKey('tavern-st-theme'),
+          icon: AppIcons.file,
+          title: l10n.tavernStTheme(stTheme.name),
+          subtitle: l10n.tavernStThemeNote,
+          value: TextButton(
+            key: const ValueKey('tavern-st-theme-remove'),
+            onPressed: () async {
+              await ref.read(tavernStThemeProvider.notifier).clear();
+              if (settings.palette == TavernPalette.st) await controller.setPalette(TavernPalette.ember);
+            },
+            child: Text(l10n.tavernStThemeRemove),
+          ),
+          chevron: false,
+        )
+      else
+        SettingsTile(
+          key: const ValueKey('tavern-st-theme-import'),
+          icon: AppIcons.file,
+          title: l10n.tavernStThemeImport,
+          subtitle: l10n.tavernStThemeImportNote,
+          onTap: () => unawaited(importTavernFiles(context, ref)),
+        ),
       // What a reply will look like.
       Padding(
         key: const ValueKey('tavern-reading-preview'),

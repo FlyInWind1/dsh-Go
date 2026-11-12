@@ -5,7 +5,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-enum TavernFileKind { card, preset, lorebook, regex, quickReplies, chat, unknown }
+import 'tavern_st_theme.dart';
+
+enum TavernFileKind { card, preset, lorebook, regex, quickReplies, chat, stTheme, unknown }
 
 /// What [bytes] (a file named [name]) is.
 TavernFileKind tavernFileKindOf(String name, Uint8List bytes) {
@@ -31,6 +33,7 @@ TavernFileKind _kindOfMap(Map<String, Object?> map) {
     return TavernFileKind.card;
   }
   if (map['format'] == 'dsh-preset-enhance') return TavernFileKind.preset;
+  if (tavernIsStTheme(map)) return TavernFileKind.stTheme;
   if (map.containsKey('qrList')) return TavernFileKind.quickReplies;
   if (map.containsKey('findRegex')) return TavernFileKind.regex;
   if (spec == 'lorebook_v3' || map['entries'] is Map || map['entries'] is List) return TavernFileKind.lorebook;

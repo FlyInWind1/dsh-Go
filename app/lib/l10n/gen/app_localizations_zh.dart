@@ -20188,6 +20188,36 @@ class L10nZh extends L10n {
   String get tavernInspectCacheBreak => '缓存从这里断开';
 
   @override
+  String get tavernPaletteSt => 'ST';
+
+  @override
+  String tavernStTheme(String name) {
+    return 'ST 主题：$name';
+  }
+
+  @override
+  String get tavernStThemeNote => '配色选「ST」时，引号里的话和 *动作* 用它的颜色；太浅或太深看不清的，会调到看得清。';
+
+  @override
+  String get tavernStThemeImport => '导入 ST 主题';
+
+  @override
+  String get tavernStThemeImportNote => '从 SillyTavern 导出的主题文件里取引号和斜体的颜色。';
+
+  @override
+  String get tavernStThemeRemove => '移除';
+
+  @override
+  String tavernStThemeImported(String name) {
+    return '换成了 ST 主题「$name」的配色';
+  }
+
+  @override
+  String tavernStThemeNoColors(String name) {
+    return '「$name」里没有能用的引号或斜体颜色';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

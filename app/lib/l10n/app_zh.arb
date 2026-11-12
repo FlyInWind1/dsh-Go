@@ -12502,6 +12502,35 @@
     }
   },
   "tavernInspectCacheBreak": "缓存从这里断开",
+  "tavernPaletteSt": "ST",
+  "tavernStTheme": "ST 主题：{name}",
+  "@tavernStTheme": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStThemeNote": "配色选「ST」时，引号里的话和 *动作* 用它的颜色；太浅或太深看不清的，会调到看得清。",
+  "tavernStThemeImport": "导入 ST 主题",
+  "tavernStThemeImportNote": "从 SillyTavern 导出的主题文件里取引号和斜体的颜色。",
+  "tavernStThemeRemove": "移除",
+  "tavernStThemeImported": "换成了 ST 主题「{name}」的配色",
+  "@tavernStThemeImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStThemeNoColors": "「{name}」里没有能用的引号或斜体颜色",
+  "@tavernStThemeNoColors": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

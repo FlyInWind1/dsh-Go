@@ -4,6 +4,7 @@
 // character it names — and one non-card file opens its 体检.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,8 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_file_kind.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
+import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_st_theme.dart';
 import '../common/brief_notice.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_lorebooks_page.dart';
@@ -70,6 +73,17 @@ Future<TavernCharacter?> importTavernFiles(BuildContext context, WidgetRef ref) 
               : l10n.tavernQuickRepliesAddedSkipped(added.length, skipped);
         case TavernFileKind.chat:
           notice = await _importChat(ref, tavern, file, l10n);
+        case TavernFileKind.stTheme:
+          // Its quote and italics colours become the story's (配色 › ST).
+          final map = jsonDecode(tavernTextOf(file.bytes).replaceFirst('﻿', '')) as Map<String, Object?>;
+          final theme = tavernStThemeOf(map, fileName: file.fileName);
+          if (theme == null) {
+            notice = l10n.tavernStThemeNoColors(file.fileName);
+          } else {
+            await ref.read(tavernStThemeProvider.notifier).set(theme);
+            await ref.read(tavernSettingsProvider.notifier).setPalette(TavernPalette.st);
+            notice = l10n.tavernStThemeImported(theme.name);
+          }
         case TavernFileKind.unknown:
           notice = l10n.tavernImportUnknown(file.fileName);
       }

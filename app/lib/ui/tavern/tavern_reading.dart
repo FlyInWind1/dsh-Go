@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_st_theme.dart';
 import '../chat/render/markdown_body.dart';
 import 'tavern_ink.dart';
 
@@ -61,9 +62,10 @@ class TavernReading extends ConsumerWidget {
     final (size, height, palette) = ref.watch(
       tavernSettingsProvider.select((s) => (s.textSize, s.lineHeight, s.palette)),
     );
+    final st = palette == TavernPalette.st ? ref.watch(tavernStThemeProvider) : null;
     final accent = this.accent;
     final theme = accent == null ? Theme.of(context) : tavernAccentTheme(Theme.of(context), accent);
-    final ink = TavernInk.of(palette, theme.brightness);
+    final ink = st == null ? TavernInk.of(palette, theme.brightness) : TavernInk.st(st, theme.colorScheme.surface);
     final read = Theme(
       data: tavernReadingTheme(theme, size: size, height: height, font: bodyFont),
       child: names.isEmpty && nameFont == null ? child : TavernNameColors(names: names, font: nameFont, child: child),
@@ -73,7 +75,7 @@ class TavernReading extends ConsumerWidget {
       child: MarkdownPatterns(
         patterns: _inkPatterns,
         // Drawn afresh in other colours: the text keeps the spans it made.
-        child: KeyedSubtree(key: ValueKey((palette, theme.brightness, accent)), child: read),
+        child: KeyedSubtree(key: ValueKey((palette, st, theme.brightness, accent)), child: read),
       ),
     );
   }

@@ -23,8 +23,9 @@ const tavernTextSizes = [14.0, 15.0, 16.0, 18.0];
 const tavernLineHeights = [1.5, 1.65, 1.8];
 
 /// The story's colours (tavern_ink.dart): 素 leaves the text as the app draws
-/// it; the others colour what is said and what is done.
-enum TavernPalette { plain, ember, ocean, rose }
+/// it; the others colour what is said and what is done. [st] takes them from
+/// an ST theme taken in (tavern_st_theme.dart); with none, 暖's.
+enum TavernPalette { plain, ember, ocean, rose, st }
 
 /// How fast 视觉小说 types out a page (docs/design/roleplay-ui.md §4); 立即
 /// shows each page whole.

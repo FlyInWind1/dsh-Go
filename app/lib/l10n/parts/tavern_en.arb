@@ -940,5 +940,16 @@
   "@tavernInspectCacheBroken": {"placeholders": {"index": {"type": "int"}}},
   "tavernInspectCacheMiss": "This part and about {tokens} tokens after it miss the cache; the parts before match the last turn. Usually a lorebook entry near the top changed this turn.",
   "@tavernInspectCacheMiss": {"placeholders": {"tokens": {"type": "int"}}},
-  "tavernInspectCacheBreak": "The cache breaks here"
+  "tavernInspectCacheBreak": "The cache breaks here",
+  "tavernPaletteSt": "ST",
+  "tavernStTheme": "ST theme: {name}",
+  "@tavernStTheme": {"placeholders": {"name": {"type": "String"}}},
+  "tavernStThemeNote": "With 「ST」 as the colours, quotes and *actions* take its colours; one too faint to read here is adjusted until it reads.",
+  "tavernStThemeImport": "Import an ST theme",
+  "tavernStThemeImportNote": "Takes the quote and italics colours from a theme file exported from SillyTavern.",
+  "tavernStThemeRemove": "Remove",
+  "tavernStThemeImported": "Now using the colours of the ST theme “{name}”",
+  "@tavernStThemeImported": {"placeholders": {"name": {"type": "String"}}},
+  "tavernStThemeNoColors": "“{name}” has no quote or italics colour to use",
+  "@tavernStThemeNoColors": {"placeholders": {"name": {"type": "String"}}}
 }

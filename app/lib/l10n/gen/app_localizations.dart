@@ -36824,6 +36824,54 @@ abstract class L10n {
   /// **'缓存从这里断开'**
   String get tavernInspectCacheBreak;
 
+  /// No description provided for @tavernPaletteSt.
+  ///
+  /// In zh, this message translates to:
+  /// **'ST'**
+  String get tavernPaletteSt;
+
+  /// No description provided for @tavernStTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'ST 主题：{name}'**
+  String tavernStTheme(String name);
+
+  /// No description provided for @tavernStThemeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'配色选「ST」时，引号里的话和 *动作* 用它的颜色；太浅或太深看不清的，会调到看得清。'**
+  String get tavernStThemeNote;
+
+  /// No description provided for @tavernStThemeImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入 ST 主题'**
+  String get tavernStThemeImport;
+
+  /// No description provided for @tavernStThemeImportNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 SillyTavern 导出的主题文件里取引号和斜体的颜色。'**
+  String get tavernStThemeImportNote;
+
+  /// No description provided for @tavernStThemeRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get tavernStThemeRemove;
+
+  /// No description provided for @tavernStThemeImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'换成了 ST 主题「{name}」的配色'**
+  String tavernStThemeImported(String name);
+
+  /// No description provided for @tavernStThemeNoColors.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」里没有能用的引号或斜体颜色'**
+  String tavernStThemeNoColors(String name);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

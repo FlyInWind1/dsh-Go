@@ -10,6 +10,8 @@ import 'package:gpt_markdown/gpt_markdown.dart' show InlinePattern;
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_settings.dart';
+import '../../tavern/tavern_st_theme.dart';
+import '../chat/dsh_ui/dsh_ui_model.dart' show dshUiReadableColor;
 
 /// The colours for one set and brightness; null leaves that part as it is.
 @immutable
@@ -28,10 +30,21 @@ class TavernInk {
     Color pick(int light, int night) => Color(dark ? night : light);
     return switch (palette) {
       TavernPalette.plain => const TavernInk(),
-      TavernPalette.ember => TavernInk(dialogue: pick(0xFF9A5508, 0xFFF0B868), action: pick(0xFF5F6577, 0xFFA5ABBD)),
+      // ST without a theme taken in: 暖's (TavernInk.st draws one that is).
+      TavernPalette.ember ||
+      TavernPalette.st => TavernInk(dialogue: pick(0xFF9A5508, 0xFFF0B868), action: pick(0xFF5F6577, 0xFFA5ABBD)),
       TavernPalette.ocean => TavernInk(dialogue: pick(0xFF1C5FA8, 0xFF8CC2F5), action: pick(0xFF56676C, 0xFF9FB2B8)),
       TavernPalette.rose => TavernInk(dialogue: pick(0xFFAA2E66, 0xFFF29BC0), action: pick(0xFF6A55A3, 0xFFB9A8EE)),
     };
+  }
+
+  /// An ST theme's quote and italics colours on a page of [background]: an ST
+  /// theme is mostly made for a dark page, so a colour too faint to read here
+  /// is moved toward black or white until it reads (4.5:1), hue kept.
+  factory TavernInk.st(TavernStTheme theme, Color background) {
+    final page = background.toARGB32() & 0xFFFFFF;
+    Color? readable(int? rgb) => rgb == null ? null : Color(0xFF000000 | dshUiReadableColor(rgb, page));
+    return TavernInk(dialogue: readable(theme.quote), action: readable(theme.italics));
   }
 }
 
