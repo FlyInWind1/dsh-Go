@@ -83,6 +83,33 @@ class WorkshopClient {
     return run;
   }
 
+  /// Returns a usable cached view without contacting the Worker. A caller must
+  /// still refresh before treating it as current or allowing an installation.
+  Future<WorkshopCatalogSnapshot?> cachedCatalog() {
+    final state = _state;
+    final run = state.queue.then<WorkshopCatalogSnapshot?>((_) async {
+      _selectOrigin(state);
+      await _loadCache(state);
+      final copy = state.copy;
+      if (copy == null) {
+        return null;
+      }
+      return WorkshopCatalogSnapshot(catalog: copy.catalog, fetchedAt: copy.fetchedAt,
+        stale: true, cacheIssue: state.issue);
+    });
+    state.queue = run.then<void>((_) {}, onError: (_) {});
+    return run;
+  }
+
+  void _selectOrigin(_CatalogState state) {
+    if (state.origin != origin) {
+      state.origin = origin;
+      state.copy = null;
+      state.loaded = false;
+      state.issue = null;
+    }
+  }
+
   Future<void> _loadCache(_CatalogState state) async {
     // A failed first disk read may retry, but a newer accepted memory copy
     // must not be replaced by old disk bytes after its own save failed.
@@ -121,12 +148,7 @@ class WorkshopClient {
   }
 
   Future<WorkshopCatalogSnapshot> _catalog(bool requireFresh, _CatalogState state) async {
-    if (state.origin != origin) {
-      state.origin = origin;
-      state.copy = null;
-      state.loaded = false;
-      state.issue = null;
-    }
+    _selectOrigin(state);
     await _loadCache(state);
     try {
       final response = await http.get(origin.resolve('/market/workshop.json'), headers: {
@@ -174,7 +196,7 @@ class WorkshopClient {
     if (credential.worker != origin) workshopInvalid('workshop_consent_required');
     final caps = capabilities ?? await this.capabilities();
     if (caps.forumOrigin != credential.forum) workshopInvalid('workshop_forum_origin');
-    return {'User-Api-Key': credential._key};
+    return {'User-Api-Key': credential._key, 'X-Workshop-Forum-Origin': credential.forum.toString()};
   }
 
   Future<Object?> _json(String method, String path, {Map<String, String> headers = const {}, Object? body,
@@ -207,14 +229,22 @@ class WorkshopClient {
   }
 
   Future<WorkshopSubmission> createSubmission(WorkshopMetadata metadata, {required String requestId, required bool rightsConfirmed, required WorkshopCredential credential}) async {
-    if (!rightsConfirmed) workshopInvalid('workshop_rights_required');
-    if (!RegExp(r'^[A-Za-z0-9_-]{16,128}$').hasMatch(requestId)) workshopInvalid('workshop_bad_request_id');
-    final caps = await capabilities();
-    if (!caps.features.uploads) workshopInvalid('workshop_upload_disabled');
-    if (metadata.kind == 'companion' && !caps.features.companion) workshopInvalid('workshop_companion_disabled');
-    if (!caps.kinds.contains(metadata.kind) || !metadata.supported) workshopInvalid('workshop_unsupported_kind');
-    if (!caps.licenses.contains(metadata.license) || metadata.size > caps.archiveBytes) workshopInvalid('workshop_bad_metadata');
-    final result = await _json('POST', '/api/workshop/v1/submissions', headers: await _identity(credential, capabilities: caps),
+    final Map<String, String> headers;
+    try {
+      if (!rightsConfirmed) workshopInvalid('workshop_rights_required');
+      if (!RegExp(r'^[A-Za-z0-9_-]{16,128}$').hasMatch(requestId)) workshopInvalid('workshop_bad_request_id');
+      final caps = await capabilities();
+      if (!caps.features.uploads) workshopInvalid('workshop_upload_disabled');
+      if (metadata.kind == 'companion' && !caps.features.companion) workshopInvalid('workshop_companion_disabled');
+      if (!caps.kinds.contains(metadata.kind) || !metadata.supported) workshopInvalid('workshop_unsupported_kind');
+      if (!caps.licenses.contains(metadata.license) || metadata.size > caps.archiveBytes) workshopInvalid('workshop_bad_metadata');
+      headers = await _identity(credential, capabilities: caps);
+    } on Object catch (error) {
+      final failure = workshopTransportError(error);
+      throw WorkshopException(failure.code, status: failure.status, retryAfter: failure.retryAfter,
+        mutationNotSent: true);
+    }
+    final result = await _json('POST', '/api/workshop/v1/submissions', headers: headers,
       body: {'requestId': requestId, ...metadata.toJson()});
     return _mutationResult(() => _submission(result, credential));
   }
@@ -240,13 +270,23 @@ class WorkshopClient {
 
   /// Verifies and holds the exact bounded byte snapshot that is sent. A file
   /// changing after export cannot substitute different bytes after hashing.
-  Future<WorkshopSubmission> upload(WorkshopSubmission draft, File archive, {required WorkshopCredential credential}) async {
+  Future<WorkshopSubmission> upload(WorkshopSubmission draft, File archive, {required WorkshopCredential credential,
+    void Function(int sent, int total)? onProgress}) async {
     _submissionId(draft.id);
     final bytes = await workshopArchiveSnapshot(archive, draft.metadata);
     final headers = await _identity(credential);
     try {
-      final response = await http.request('PUT', origin.resolve('/api/workshop/v1/submissions/${draft.id}/archive'),
-        headers: {...headers, 'content-type': 'application/zip'}, body: bytes);
+      final transport = http;
+      final url = origin.resolve('/api/workshop/v1/submissions/${draft.id}/archive');
+      final uploadHeaders = {...headers, 'content-type': 'application/zip'};
+      final UpdateHttpResponse response;
+      if (transport case final WorkshopUploadHttp uploader) {
+        response = await uploader.upload(url, headers: uploadHeaders, body: bytes, onProgress: onProgress);
+      } else {
+        onProgress?.call(0, bytes.length);
+        response = await transport.request('PUT', url, headers: uploadHeaders, body: bytes);
+        onProgress?.call(bytes.length, bytes.length);
+      }
       if (response.status != 200) throw await workshopResponseError(response, mutation: true);
       final result = await workshopResponseJson(response);
       return _mutationResult<WorkshopSubmission>(() => _submission(result, credential));
@@ -255,7 +295,8 @@ class WorkshopClient {
 
   /// The caller persists this non-secret requestId before beginning, and can
   /// repeat the call after a lost response without creating a second draft.
-  Future<WorkshopSubmission> submit(WorkshopMetadata metadata, File archive, {required String requestId, required bool rightsConfirmed, required WorkshopCredential credential}) async {
+  Future<WorkshopSubmission> submit(WorkshopMetadata metadata, File archive, {required String requestId, required bool rightsConfirmed,
+    required WorkshopCredential credential, void Function(int sent, int total)? onProgress}) async {
     if (!rightsConfirmed) workshopInvalid('workshop_rights_required');
     await workshopArchiveSnapshot(archive, metadata);
     final draft = await createSubmission(metadata, requestId: requestId, rightsConfirmed: rightsConfirmed, credential: credential);
@@ -263,7 +304,7 @@ class WorkshopClient {
       throw const WorkshopException('workshop_bad_response', resultUnknown: true);
     }
     if (draft.status != WorkshopSubmissionStatus.draft) return draft;
-    return upload(draft, archive, credential: credential);
+    return upload(draft, archive, credential: credential, onProgress: onProgress);
   }
 
   Future<WorkshopSubmission> withdraw(String id, String reason, {required WorkshopCredential credential}) async {

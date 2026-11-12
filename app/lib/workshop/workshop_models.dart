@@ -10,12 +10,16 @@ const workshopLicenses = {
 
 /// Stable codes only: never put a key, server body or local path in an error.
 class WorkshopException implements Exception {
-  const WorkshopException(this.code, {this.status, this.retryAfter, this.resultUnknown = false});
+  const WorkshopException(this.code, {this.status, this.retryAfter, this.resultUnknown = false,
+    this.mutationNotSent = false});
   final String code;
   final int? status;
   final Duration? retryAfter;
   /// A write may have reached the server. Reconcile before claiming failure.
   final bool resultUnknown;
+  /// Preflight proved this mutation call did not reach the HTTP transport.
+  /// Earlier attempts with the same requestId may still have reached the server.
+  final bool mutationNotSent;
   @override
   String toString() => 'WorkshopException($code)';
 }
@@ -33,7 +37,37 @@ Uri workshopOrigin(Uri value) {
       value.hasQuery || value.hasFragment || value.path.isNotEmpty && value.path != '/') {
     workshopInvalid('workshop_untrusted_origin');
   }
-  return Uri(scheme: 'https', host: value.host, port: value.hasPort ? value.port : null);
+  return Uri(scheme: 'https', host: _workshopOriginHost(value.host), port: value.hasPort ? value.port : null);
+}
+
+String _workshopOriginHost(String host) {
+  // Uri already validated the host. Normalize ordinary IPv6 by value; zone
+  // identifiers and IPvFuture keep their existing handling and support limits.
+  if (!host.contains(':') || host.contains('%') || host.startsWith('[')) {
+    return host;
+  }
+  final bytes = Uri.parseIPv6Address(host);
+  final pieces = List<int>.generate(8, (i) => (bytes[i * 2] << 8) | bytes[i * 2 + 1], growable: false);
+  var longestStart = -1, longestLength = 1;
+  for (var i = 0; i < pieces.length;) {
+    if (pieces[i] != 0) {
+      i++;
+      continue;
+    }
+    final start = i;
+    while (i < pieces.length && pieces[i] == 0) {
+      i++;
+    }
+    if (i - start > longestLength) {
+      longestStart = start;
+      longestLength = i - start;
+    }
+  }
+  final words = pieces.map((piece) => piece.toRadixString(16)).toList(growable: false);
+  if (longestStart < 0) {
+    return words.join(':');
+  }
+  return '${words.take(longestStart).join(':')}::${words.skip(longestStart + longestLength).join(':')}';
 }
 
 bool workshopSource(Object? value) {
@@ -113,10 +147,13 @@ class WorkshopMetadata {
     : kind = value['kind'] as String, id = value['id'] as String, version = value['version'] as String,
       minApp = value['minApp'] as String, title = Map.unmodifiable((value['title'] as Map).cast<String, String>()),
       author = value['author'] as String, license = value['license'] as String, source = value['source'] as String,
-      sha256 = value['sha256'] as String, size = value['size'] as int;
+      sha256 = value['sha256'] as String, size = value['size'] as int, description = value['description'] as String,
+      tags = List.unmodifiable((value['tags'] as List).cast<String>());
 
   factory WorkshopMetadata.fromJson(Object? value, {bool submission = true}) {
     final m = workshopMap(value), title = m['title'];
+    final description = m.containsKey('description') ? m['description'] : '';
+    final tags = m.containsKey('tags') ? m['tags'] : const <String>[];
     final supported = const {'pet', 'companion'}.contains(m['kind']);
     if (!workshopId(m['kind']) || !workshopId(m['id']) || WorkshopVersion.tryParse(m['version']) == null ||
         WorkshopVersion.tryParse(m['minApp']) == null || title is! Map ||
@@ -125,13 +162,16 @@ class WorkshopMetadata {
         !workshopHash(m['sha256']) || m['size'] is! int || (m['size'] as int) < 1 ||
         (m['size'] as int) > 9007199254740991 || supported &&
         (!workshopLicenses.contains(m['license']) || (m['size'] as int) > workshopArchiveBytes) || submission &&
-        (m['rightsConfirmed'] != true || !supported)) {
+        (m['rightsConfirmed'] != true || !supported) ||
+        description != '' && !workshopText(description, 512) || tags is! List || tags.length > 8 ||
+        tags.any((tag) => !workshopText(tag, 32)) || tags.toSet().length != tags.length) {
       workshopInvalid(submission ? 'workshop_bad_metadata' : 'workshop_bad_catalog');
     }
-    return WorkshopMetadata._({...m, 'title': {'zh': title['zh'], 'en': title['en']}});
+    return WorkshopMetadata._({...m, 'title': {'zh': title['zh'], 'en': title['en']}, 'description': description, 'tags': tags});
   }
-  final String kind, id, version, minApp, author, license, source, sha256;
+  final String kind, id, version, minApp, author, license, source, sha256, description;
   final Map<String, String> title;
+  final List<String> tags;
   final int size;
   String get identity => '$kind/$id';
   String get release => '$identity/$version';
@@ -140,6 +180,8 @@ class WorkshopMetadata {
   Map<String, Object?> toJson({bool submission = true}) => {
     'kind': kind, 'id': id, 'version': version, 'minApp': minApp, 'title': title,
     'author': author, 'license': license, 'source': source, 'sha256': sha256, 'size': size,
+    if (description.isNotEmpty) 'description': description,
+    if (tags.isNotEmpty) 'tags': tags,
     if (submission) 'rightsConfirmed': true,
   };
 }
