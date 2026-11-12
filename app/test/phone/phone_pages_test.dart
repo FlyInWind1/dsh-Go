@@ -139,7 +139,7 @@ void main() {
 
       h.native!.push(phoneStatus(shizukuInstalled: true, shizukuRunning: true, shizukuGranted: true));
       await settlePhone(tester);
-      expect(find.text('Shizuku 这边准备好了。'), findsOneWidget);
+      expect(find.text('Shizuku 已启动并授权，接下来连接后台屏。'), findsOneWidget);
       await tester.tap(find.text('用 Shizuku 开启'));
       await tester.pumpAndSettle();
       expect(h.native!.callsOf('setBackgroundMode').single.arguments, {'mode': 'shizuku'});
@@ -168,7 +168,7 @@ void main() {
 
       h.native!.push(privilegedStatus(provider: 'sui', running: true, granted: true));
       await settlePhone(tester);
-      expect(find.text('Sui 这边准备好了。'), findsOneWidget);
+      expect(find.text('Sui 已启动并授权，接下来连接后台屏。'), findsOneWidget);
       await tester.tap(find.text('用 Sui 开启'));
       await tester.pumpAndSettle();
       expect(h.native!.callsOf('setBackgroundMode').single.arguments, {'mode': 'sui'});

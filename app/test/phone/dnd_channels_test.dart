@@ -181,13 +181,13 @@ void main() {
     expect(find.text('装了 Shizuku App 的手机'), findsNothing);
     expect(acting(h.native!), isEmpty);
     await open(tester, 'Shizuku');
-    expect(find.text('Shizuku 这边准备好了。'), findsOneWidget);
+    expect(find.text('Shizuku 已启动并授权，接下来连接后台屏。'), findsOneWidget);
     expect(acting(h.native!), isEmpty);
     await tester.tap(find.text('用 Shizuku 开启'));
     await tester.pumpAndSettle();
     expect(h.native!.callsOf('setBackgroundMode').single.arguments, {'mode': 'shizuku'});
     expect(find.text('正在使用：Shizuku'), findsOneWidget);
-    expect(find.text('Shizuku 这边准备好了。'), findsNothing);
+    expect(find.text('Shizuku 已启动并授权，接下来连接后台屏。'), findsNothing);
     expect(find.text('自连 ADB'), findsNothing);
   });
 
