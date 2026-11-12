@@ -12,6 +12,8 @@
 import 'dart:convert';
 import 'dart:ui' show Color;
 
+import 'package:dsh_tavern/dsh_tavern.dart' show PersonaSelection, TavernPersona;
+
 /// One message on the canvas.
 final class TavernCanvasEntry {
   const TavernCanvasEntry({
@@ -176,6 +178,18 @@ String _css(Color c) =>
 /// How many of the latest messages the canvas always lays out; older ones
 /// are skipped while off screen (CSS content-visibility).
 const tavernCanvasNear = 20;
+
+/// The user's personas as the page is told them (dsh.setPersonas): each one's
+/// id, name, description and its position (ST's own numbers); which this
+/// chat uses, and which is the default.
+Map<String, Object?> tavernCanvasPersonas(List<TavernPersona> personas, PersonaSelection? selection) => {
+  'list': [
+    for (final p in personas)
+      {'id': p.id, 'name': p.name, 'description': p.description, 'position': p.descriptionPosition},
+  ],
+  'current': selection?.persona?.id,
+  'default': selection?.defaultPersonaId,
+};
 
 /// The most of a card's toastr notice shown, in characters: its title, its
 /// text.
@@ -735,6 +749,35 @@ $preload
    ['getCharacter',watched(getCharacter)],['getCharData',getCharData]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
+  // The user's personas (酒馆助手's 获取用户人设 page), as the app tells this
+  // page (dsh.setPersonas) and keeps telling it as they change. A persona
+  // carries what is kept of it here — id, name, description, position (ST's
+  // numbers), whether it is the default; nothing more is made up.
+  var personas={list:[],current:null,'default':null};
+  dsh.setPersonas=function(p){personas=p&&Array.isArray(p.list)?p:{list:[],current:null,'default':null};};
+  function getPersonaNames(){return personas.list.map(function(p){return p.name;});}
+  function getPersonaIds(){return personas.list.map(function(p){return p.id;});}
+  function personaById(id){for(var i=0;i<personas.list.length;i++)if(personas.list[i].id===id)return personas.list[i];return null;}
+  function getCurrentPersonaId(){return personaById(personas.current)?personas.current:null;}
+  function getCurrentPersonaName(){var p=personaById(personas.current);return p?p.name:null;}
+  // By 'current', its id, or a name only one persona has; else it throws.
+  function getPersona(which){
+    var key=which===undefined?'current':String(which);
+    var p=key==='current'?personaById(personas.current):personaById(key);
+    if(!p){
+      var named=personas.list.filter(function(x){return x.name===key;});
+      if(named.length>1)throw new Error('More than one persona is called '+key);
+      p=named[0]||null;
+    }
+    if(!p)throw new Error('No such persona: '+key);
+    return clone({avatar_id:p.id,name:p.name,title:'',description:p.description||'',position:p.position,
+      is_default:p.id===personas['default']});
+  }
+  Object.defineProperty(SillyTavern,'name1',{get:function(){return getCurrentPersonaName()||undefined;},enumerable:true});
+  [['getPersonaNames',getPersonaNames],['getPersonaIds',getPersonaIds],['getCurrentPersonaName',getCurrentPersonaName],
+   ['getCurrentPersonaId',getCurrentPersonaId],['getPersona',getPersona]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   dsh.scripts.SillyTavern=SillyTavern;
   if(!window.SillyTavern)window.SillyTavern=SillyTavern;
   // The message the caller is in: the nearest named script on the stack;
@@ -1169,7 +1212,8 @@ $preload
     'generateRaw','stopGenerationById','stopAllGeneration','getScriptId','getScriptName','getButtonEvent',
     'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
-    'getCharacter','getCharData',
+    'getCharacter','getCharData','getPersonaNames','getPersonaIds','getCurrentPersonaName','getCurrentPersonaId',
+    'getPersona',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;

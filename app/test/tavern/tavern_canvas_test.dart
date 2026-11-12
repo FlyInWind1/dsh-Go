@@ -85,6 +85,34 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
 }
 
 void main() {
+  test(
+    "the personas as the page is told them: each one's id, name, description, position; this chat's, the default",
+    () {
+      final traveller = TavernPersona(id: 'p1', name: '旅人', description: '背着包');
+      final quiet = TavernPersona(id: 'p2', name: '阿青', descriptionPosition: PersonaDescriptionPosition.atDepth);
+      expect(
+        tavernCanvasPersonas(
+          [traveller, quiet],
+          PersonaSelection(
+            persona: traveller,
+            source: PersonaSelectionSource.chat,
+            boundPersonaId: 'p1',
+            defaultPersonaId: 'p2',
+          ),
+        ),
+        {
+          'list': [
+            {'id': 'p1', 'name': '旅人', 'description': '背着包', 'position': 0},
+            {'id': 'p2', 'name': '阿青', 'description': '', 'position': 4},
+          ],
+          'current': 'p1',
+          'default': 'p2',
+        },
+      );
+      expect(tavernCanvasPersonas(const [], null), {'list': <Object?>[], 'current': null, 'default': null});
+    },
+  );
+
   test("a card's toastr reads title over text, cut when long, up longer for more and for trouble", () {
     expect(tavernToast({'type': 'toast', 'level': 'info', 'title': '', 'message': '  '}), isNull);
     expect(tavernToast({'type': 'toast'}), isNull);

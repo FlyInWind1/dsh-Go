@@ -19,6 +19,7 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_canvas_calls.dart';
 import '../../tavern/tavern_card_scripts.dart';
+import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_settings.dart';
 import '../../tavern/tavern_st_theme.dart';
 import '../common/brief_notice.dart';
@@ -229,6 +230,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _ready = true;
         _rendered = null;
         _streamSent = null;
+        _pushPersonas();
         _render();
         _onStream();
       case 'menu':
@@ -259,6 +261,19 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         : await calls.handle(request);
     if (!mounted || controller == null || !identical(controller, _controller)) return;
     await controller.runJavaScript('window.dsh&&dsh.answer(${jsonEncode(reply)})').catchError((_) {});
+  }
+
+  /// The user's personas and this chat's, for the card scripts that ask
+  /// (getPersona …); once the page is ready, and again as they change.
+  void _pushPersonas() {
+    final controller = _controller;
+    final chat = widget.calls?.chatId;
+    if (!_ready || controller == null || chat == null) return;
+    final json = tavernCanvasPersonas(
+      ref.read(tavernPersonasProvider).value ?? const [],
+      ref.read(tavernPersonaSelectionProvider(chat)).value,
+    );
+    unawaited(controller.runJavaScript('window.dsh&&dsh.setPersonas(${jsonEncode(json)})').catchError((_) {}));
   }
 
   /// The messages, when they differ from what the page shows.
@@ -338,6 +353,11 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       (_, _) => _open(),
     );
     ref.listen(tavernStThemeProvider, (_, _) => _open());
+    // The user's personas, told to the page as they change (no reload).
+    ref.listen(tavernPersonasProvider, (_, _) => _pushPersonas());
+    if (widget.calls?.chatId case final chat?) {
+      ref.listen(tavernPersonaSelectionProvider(chat), (_, _) => _pushPersonas());
+    }
     if (widget.calls?.characterId() case final character?) {
       ref.listen(tavernCardDataProvider(character), (_, next) {
         if (!next.isLoading) _open();
