@@ -208,7 +208,7 @@ class WorkshopItemRow extends ConsumerWidget {
     final description = meta.description.trim();
     void open() => unawaited(showWorkshopItemSheet(context, item, onReport: onReport));
     return ListPageRow(
-      leading: WorkshopAvatar(meta),
+      leading: WorkshopEntryAvatar(item.entry),
       leadingWidth: 40,
       title: workshopTitleOf(meta, locale),
       subtitle: [meta.author, if (description.isNotEmpty) description.split('\n').first].join(' · '),

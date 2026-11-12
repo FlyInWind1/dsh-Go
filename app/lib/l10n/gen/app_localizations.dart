@@ -43064,6 +43064,12 @@ abstract class L10n {
   /// **'已卸载，但有些地方没能跟着更新，重新打开 App 就好。'**
   String get workshopInstalledRemovedLocalIssue;
 
+  /// No description provided for @workshopInstalledDismissFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get workshopInstalledDismissFailure;
+
   /// No description provided for @workshopMinePublish.
   ///
   /// In zh, this message translates to:
@@ -43921,6 +43927,180 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'现在还不能重新投稿。'**
   String get workshopPublishErrorAgain;
+
+  /// No description provided for @workshopPublishSectionPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览图'**
+  String get workshopPublishSectionPreview;
+
+  /// No description provided for @workshopPublishPreviewSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'在工坊里显示预览图'**
+  String get workshopPublishPreviewSwitch;
+
+  /// No description provided for @workshopPublishPreviewIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用待机动画的第一帧'**
+  String get workshopPublishPreviewIdle;
+
+  /// No description provided for @workshopPublishSectionCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面（选填）'**
+  String get workshopPublishSectionCover;
+
+  /// No description provided for @workshopPublishCoverPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选一张封面'**
+  String get workshopPublishCoverPick;
+
+  /// No description provided for @workshopPublishCoverHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。'**
+  String get workshopPublishCoverHelper;
+
+  /// No description provided for @workshopPublishCoverChosen.
+  ///
+  /// In zh, this message translates to:
+  /// **'自选封面'**
+  String get workshopPublishCoverChosen;
+
+  /// No description provided for @workshopPublishCoverReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一张'**
+  String get workshopPublishCoverReplace;
+
+  /// No description provided for @workshopPublishCoverRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get workshopPublishCoverRemove;
+
+  /// No description provided for @workshopPublishCoverBadSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图是空的或超过 2 MB，换一张试试。'**
+  String get workshopPublishCoverBadSize;
+
+  /// No description provided for @workshopPublishCoverBadPng.
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是一张完整的 PNG 图片，换一张试试。'**
+  String get workshopPublishCoverBadPng;
+
+  /// No description provided for @workshopPublishCoverBadDimensions.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图太大了，每边最多 512 像素。缩小后再选。'**
+  String get workshopPublishCoverBadDimensions;
+
+  /// No description provided for @workshopPublishCoverUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能读出这张图，换一张试试。'**
+  String get workshopPublishCoverUnreadable;
+
+  /// No description provided for @workshopPublishReviewPreviewIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待机动画第一帧'**
+  String get workshopPublishReviewPreviewIdle;
+
+  /// No description provided for @workshopPublishReviewPreviewNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不带预览图'**
+  String get workshopPublishReviewPreviewNone;
+
+  /// No description provided for @workshopPublishErrorPreviewPet.
+  ///
+  /// In zh, this message translates to:
+  /// **'这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。'**
+  String get workshopPublishErrorPreviewPet;
+
+  /// No description provided for @workshopPublishErrorPreviewConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。'**
+  String get workshopPublishErrorPreviewConflict;
+
+  /// No description provided for @workshopPublishErrorPreviewMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没找到要用的预览图。重新选一次，或者去掉预览图再投稿。'**
+  String get workshopPublishErrorPreviewMissing;
+
+  /// No description provided for @workshopPublishErrorPreviewUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个工坊现在不收预览图。去掉预览图可以照常投稿。'**
+  String get workshopPublishErrorPreviewUnsupported;
+
+  /// No description provided for @workshopPublishLetGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下这条记录'**
+  String get workshopPublishLetGo;
+
+  /// No description provided for @workshopPublishLetGoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下本机的这条记录？'**
+  String get workshopPublishLetGoTitle;
+
+  /// No description provided for @workshopPublishLetGoAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'只删除这台手机上，论坛 {forum} 的账号在工坊 {worker} 的这条未完成记录。'**
+  String workshopPublishLetGoAccount(String forum, String worker);
+
+  /// No description provided for @workshopPublishLetGoAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是论坛 {forum} 在工坊 {worker} 的这一条。'**
+  String workshopPublishLetGoAll(String forum, String worker);
+
+  /// No description provided for @workshopPublishLetGoFacts.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。'**
+  String get workshopPublishLetGoFacts;
+
+  /// No description provided for @workshopPublishLetGoFactsKnown.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。'**
+  String get workshopPublishLetGoFactsKnown;
+
+  /// No description provided for @workshopPublishLetGoConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下记录'**
+  String get workshopPublishLetGoConfirm;
+
+  /// No description provided for @workshopPublishLetGoDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已放下本机的记录'**
+  String get workshopPublishLetGoDone;
+
+  /// No description provided for @workshopPublishLetGoStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录刚刚有变化，再点一次重新确认。'**
+  String get workshopPublishLetGoStale;
+
+  /// No description provided for @workshopPublishLetGoUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个版本没法在这里放下记录。'**
+  String get workshopPublishLetGoUnsupported;
 
   /// No description provided for @workspaceRecoveryTitle.
   ///

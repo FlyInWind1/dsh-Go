@@ -135,6 +135,20 @@ class WorkshopInstalledController extends Notifier<WorkshopInstalledListState> {
   }
   bool _currentRead(int generation, int read) => _current(generation) && read == _read;
 
+  /// Clears a displayed terminal result without starting or changing a mutation.
+  bool acknowledgeRemoval() {
+    if (!ref.mounted) {
+      return false;
+    }
+    final current = state;
+    if (current.removal.phase != WorkshopRemovalPhase.succeeded &&
+        current.removal.phase != WorkshopRemovalPhase.failed) {
+      return false;
+    }
+    state = current.copyWith(removal: const WorkshopRemovalState());
+    return true;
+  }
+
   Future<void> refresh() {
     if (!ref.mounted) return Future.value();
     final _ = state;

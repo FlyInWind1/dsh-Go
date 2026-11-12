@@ -53,11 +53,21 @@ class _WorkshopScreenState extends ConsumerState<WorkshopScreen> {
         case WorkshopTab.browse:
           await ref.read(workshopCatalogProvider.notifier).refresh();
         case WorkshopTab.installed:
+          // The result on screen when the pull began; one that arrives during
+          // it is news and stays.
+          final shown = ref.read(workshopInstalledProvider).removal;
           // Updates and withdrawals come from the catalogue: ask it first, then
           // have the rows take what it brought.
           await ref.read(workshopCatalogProvider.notifier).refresh();
           if (!mounted) return;
           await ref.read(workshopInstalledProvider.notifier).refresh();
+          if (!mounted) return;
+          // The pull read the phone again. If that worked, what the rows say
+          // is current and the last uninstall's result has nothing to add.
+          final now = ref.read(workshopInstalledProvider);
+          if (now.loadError == null && identical(now.removal, shown)) {
+            ref.read(workshopInstalledProvider.notifier).acknowledgeRemoval();
+          }
         case WorkshopTab.mine:
           await refreshWorkshopMine(ref);
       }

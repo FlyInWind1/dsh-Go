@@ -24989,6 +24989,9 @@ class L10nEn extends L10n {
       'Uninstalled, but some places didn\'t catch up. Reopen the app to bring them up to date.';
 
   @override
+  String get workshopInstalledDismissFailure => 'Got it';
+
+  @override
   String get workshopMinePublish => 'Submit';
 
   @override
@@ -25438,6 +25441,105 @@ class L10nEn extends L10n {
 
   @override
   String get workshopPublishErrorAgain => 'It can\'t be submitted again right now.';
+
+  @override
+  String get workshopPublishSectionPreview => 'Preview';
+
+  @override
+  String get workshopPublishPreviewSwitch => 'Show a preview in the Workshop';
+
+  @override
+  String get workshopPublishPreviewIdle => 'The first frame of the idle animation';
+
+  @override
+  String get workshopPublishSectionCover => 'Cover (optional)';
+
+  @override
+  String get workshopPublishCoverPick => 'Choose a cover';
+
+  @override
+  String get workshopPublishCoverHelper =>
+      'PNG, up to 512 px a side and 2 MB. Without one, the first letter of the name is shown.';
+
+  @override
+  String get workshopPublishCoverChosen => 'Your cover';
+
+  @override
+  String get workshopPublishCoverReplace => 'Replace';
+
+  @override
+  String get workshopPublishCoverRemove => 'Remove';
+
+  @override
+  String get workshopPublishCoverBadSize => 'This image is empty or larger than 2 MB. Try another.';
+
+  @override
+  String get workshopPublishCoverBadPng => 'This isn\'t an intact PNG image. Try another.';
+
+  @override
+  String get workshopPublishCoverBadDimensions =>
+      'This image is too large: 512 px a side at most. Shrink it and choose again.';
+
+  @override
+  String get workshopPublishCoverUnreadable => 'Couldn\'t read this image. Try another.';
+
+  @override
+  String get workshopPublishReviewPreviewIdle => 'First idle frame';
+
+  @override
+  String get workshopPublishReviewPreviewNone => 'No preview';
+
+  @override
+  String get workshopPublishErrorPreviewPet =>
+      'This pet\'s frame is larger than 512 px, so it can\'t have a preview. Turn the preview off to submit as usual.';
+
+  @override
+  String get workshopPublishErrorPreviewConflict =>
+      'The companion\'s package already has a preview.png, so the cover can\'t be added. Remove the cover to submit as usual.';
+
+  @override
+  String get workshopPublishErrorPreviewMissing =>
+      'The preview to use wasn\'t found. Choose it again, or submit without one.';
+
+  @override
+  String get workshopPublishErrorPreviewUnsupported =>
+      'This Workshop isn\'t taking previews right now. Submit without one as usual.';
+
+  @override
+  String get workshopPublishLetGo => 'Let go of this record';
+
+  @override
+  String get workshopPublishLetGoTitle => 'Let go of this phone\'s record?';
+
+  @override
+  String workshopPublishLetGoAccount(String forum, String worker) {
+    return 'Only this phone\'s unfinished record for the account on forum $forum at Workshop $worker is removed.';
+  }
+
+  @override
+  String workshopPublishLetGoAll(String forum, String worker) {
+    return 'The submission records on this phone can\'t be read as a whole. Letting go removes the unfinished-submission records of every account on this phone, not just the one for forum $forum at Workshop $worker.';
+  }
+
+  @override
+  String get workshopPublishLetGoFacts =>
+      'The Workshop isn\'t told to cancel: if it already received this submission, it stays there and shows under My uploads. If it didn\'t, you\'ll need to submit again, and if it did arrive after all there will be two.';
+
+  @override
+  String get workshopPublishLetGoFactsKnown =>
+      'The Workshop isn\'t told to cancel: its result stays as it is, and this submission is still under My uploads.';
+
+  @override
+  String get workshopPublishLetGoConfirm => 'Let go';
+
+  @override
+  String get workshopPublishLetGoDone => 'This phone\'s record was let go';
+
+  @override
+  String get workshopPublishLetGoStale => 'The record just changed. Tap again to confirm it anew.';
+
+  @override
+  String get workshopPublishLetGoUnsupported => 'This version can\'t let go of the record here.';
 
   @override
   String get workspaceRecoveryTitle => 'Workspace index recovery';

@@ -170,7 +170,7 @@ class _WorkshopItemSheetState extends ConsumerState<WorkshopItemSheet> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
             children: [
               PluginHero(
-                avatar: WorkshopAvatar(meta, size: 64),
+                avatar: WorkshopEntryAvatar(item.entry, size: 64),
                 title: title,
                 subtitle: l10n.workshopByAuthor(meta.author),
                 badges: [
@@ -178,6 +178,7 @@ class _WorkshopItemSheetState extends ConsumerState<WorkshopItemSheet> {
                   if (installed != null && !item.updateAvailable) PluginBadge(l10n.commonInstalled),
                 ],
               ),
+              WorkshopPreviewPanel(item.entry),
               const SizedBox(height: 20),
               PluginStats([
                 (meta.version, l10n.workshopStatVersion),

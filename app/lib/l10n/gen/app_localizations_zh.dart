@@ -23679,6 +23679,9 @@ class L10nZh extends L10n {
   String get workshopInstalledRemovedLocalIssue => '已卸载，但有些地方没能跟着更新，重新打开 App 就好。';
 
   @override
+  String get workshopInstalledDismissFailure => '知道了';
+
+  @override
   String get workshopMinePublish => '投稿';
 
   @override
@@ -24116,6 +24119,97 @@ class L10nZh extends L10n {
 
   @override
   String get workshopPublishErrorAgain => '现在还不能重新投稿。';
+
+  @override
+  String get workshopPublishSectionPreview => '预览图';
+
+  @override
+  String get workshopPublishPreviewSwitch => '在工坊里显示预览图';
+
+  @override
+  String get workshopPublishPreviewIdle => '用待机动画的第一帧';
+
+  @override
+  String get workshopPublishSectionCover => '封面（选填）';
+
+  @override
+  String get workshopPublishCoverPick => '选一张封面';
+
+  @override
+  String get workshopPublishCoverHelper => 'PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。';
+
+  @override
+  String get workshopPublishCoverChosen => '自选封面';
+
+  @override
+  String get workshopPublishCoverReplace => '换一张';
+
+  @override
+  String get workshopPublishCoverRemove => '移除';
+
+  @override
+  String get workshopPublishCoverBadSize => '这张图是空的或超过 2 MB，换一张试试。';
+
+  @override
+  String get workshopPublishCoverBadPng => '这不是一张完整的 PNG 图片，换一张试试。';
+
+  @override
+  String get workshopPublishCoverBadDimensions => '这张图太大了，每边最多 512 像素。缩小后再选。';
+
+  @override
+  String get workshopPublishCoverUnreadable => '没能读出这张图，换一张试试。';
+
+  @override
+  String get workshopPublishReviewPreviewIdle => '待机动画第一帧';
+
+  @override
+  String get workshopPublishReviewPreviewNone => '不带预览图';
+
+  @override
+  String get workshopPublishErrorPreviewPet => '这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewConflict => '伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewMissing => '没找到要用的预览图。重新选一次，或者去掉预览图再投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewUnsupported => '这个工坊现在不收预览图。去掉预览图可以照常投稿。';
+
+  @override
+  String get workshopPublishLetGo => '放下这条记录';
+
+  @override
+  String get workshopPublishLetGoTitle => '放下本机的这条记录？';
+
+  @override
+  String workshopPublishLetGoAccount(String forum, String worker) {
+    return '只删除这台手机上，论坛 $forum 的账号在工坊 $worker 的这条未完成记录。';
+  }
+
+  @override
+  String workshopPublishLetGoAll(String forum, String worker) {
+    return '这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是论坛 $forum 在工坊 $worker 的这一条。';
+  }
+
+  @override
+  String get workshopPublishLetGoFacts => '工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。';
+
+  @override
+  String get workshopPublishLetGoFactsKnown => '工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。';
+
+  @override
+  String get workshopPublishLetGoConfirm => '放下记录';
+
+  @override
+  String get workshopPublishLetGoDone => '已放下本机的记录';
+
+  @override
+  String get workshopPublishLetGoStale => '记录刚刚有变化，再点一次重新确认。';
+
+  @override
+  String get workshopPublishLetGoUnsupported => '这个版本没法在这里放下记录。';
 
   @override
   String get workspaceRecoveryTitle => '工作区索引救援';

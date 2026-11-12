@@ -87,5 +87,54 @@
   "workshopPublishErrorTooLarge": "The package is larger than the Workshop accepts.",
   "workshopPublishErrorMetadata": "The Workshop didn't accept these details. Change them and try again.",
   "workshopPublishErrorNotReady": "Not ready yet. Try again in a moment.",
-  "workshopPublishErrorAgain": "It can't be submitted again right now."
+  "workshopPublishErrorAgain": "It can't be submitted again right now.",
+  "workshopPublishSectionPreview": "Preview",
+  "workshopPublishPreviewSwitch": "Show a preview in the Workshop",
+  "workshopPublishPreviewIdle": "The first frame of the idle animation",
+  "workshopPublishSectionCover": "Cover (optional)",
+  "workshopPublishCoverPick": "Choose a cover",
+  "workshopPublishCoverHelper": "PNG, up to 512 px a side and 2 MB. Without one, the first letter of the name is shown.",
+  "workshopPublishCoverChosen": "Your cover",
+  "workshopPublishCoverReplace": "Replace",
+  "workshopPublishCoverRemove": "Remove",
+  "workshopPublishCoverBadSize": "This image is empty or larger than 2 MB. Try another.",
+  "workshopPublishCoverBadPng": "This isn't an intact PNG image. Try another.",
+  "workshopPublishCoverBadDimensions": "This image is too large: 512 px a side at most. Shrink it and choose again.",
+  "workshopPublishCoverUnreadable": "Couldn't read this image. Try another.",
+  "workshopPublishReviewPreviewIdle": "First idle frame",
+  "workshopPublishReviewPreviewNone": "No preview",
+  "workshopPublishErrorPreviewPet": "This pet's frame is larger than 512 px, so it can't have a preview. Turn the preview off to submit as usual.",
+  "workshopPublishErrorPreviewConflict": "The companion's package already has a preview.png, so the cover can't be added. Remove the cover to submit as usual.",
+  "workshopPublishErrorPreviewMissing": "The preview to use wasn't found. Choose it again, or submit without one.",
+  "workshopPublishErrorPreviewUnsupported": "This Workshop isn't taking previews right now. Submit without one as usual.",
+  "workshopPublishLetGo": "Let go of this record",
+  "workshopPublishLetGoTitle": "Let go of this phone's record?",
+  "workshopPublishLetGoAccount": "Only this phone's unfinished record for the account on forum {forum} at Workshop {worker} is removed.",
+  "@workshopPublishLetGoAccount": {
+    "placeholders": {
+      "forum": {
+        "type": "String"
+      },
+      "worker": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopPublishLetGoAll": "The submission records on this phone can't be read as a whole. Letting go removes the unfinished-submission records of every account on this phone, not just the one for forum {forum} at Workshop {worker}.",
+  "@workshopPublishLetGoAll": {
+    "placeholders": {
+      "forum": {
+        "type": "String"
+      },
+      "worker": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopPublishLetGoFacts": "The Workshop isn't told to cancel: if it already received this submission, it stays there and shows under My uploads. If it didn't, you'll need to submit again, and if it did arrive after all there will be two.",
+  "workshopPublishLetGoFactsKnown": "The Workshop isn't told to cancel: its result stays as it is, and this submission is still under My uploads.",
+  "workshopPublishLetGoConfirm": "Let go",
+  "workshopPublishLetGoDone": "This phone's record was let go",
+  "workshopPublishLetGoStale": "The record just changed. Tap again to confirm it anew.",
+  "workshopPublishLetGoUnsupported": "This version can't let go of the record here."
 }
