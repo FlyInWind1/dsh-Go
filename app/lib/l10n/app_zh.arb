@@ -12557,6 +12557,11 @@
       }
     }
   },
+  "tavernPromptOrder": "同深度的先后",
+  "tavernPromptOrderNote": "同一深度有几条时，数字小的在前（默认 100）。",
+  "tavernPromptForbid": "不让角色卡覆盖",
+  "tavernPromptForbidMain": "角色卡自带的系统提示词不会替换这一条。",
+  "tavernPromptForbidJailbreak": "角色卡自带的历史后指令不会替换这一条。",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

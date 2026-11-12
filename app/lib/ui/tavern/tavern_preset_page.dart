@@ -44,7 +44,13 @@ typedef TavernPresetPrompt = ({
   String role,
   bool inChat,
   int depth,
+  int order,
+  bool forbidOverrides,
 });
+
+/// The prompts a card's own fields can replace (main ← its system prompt,
+/// jailbreak ← its post-history instructions), unless forbid_overrides.
+const tavernOverridablePrompts = {'main', 'jailbreak'};
 
 /// The roles a prompt can speak as, as ST's prompt manager offers them.
 const tavernPromptRoles = ['system', 'user', 'assistant'];
@@ -81,6 +87,14 @@ List<TavernPresetPrompt> tavernPresetPrompts(Map<String, Object?> raw) {
             final String s when (int.tryParse(s) ?? -1) >= 0 => int.parse(s),
             _ => 4,
           },
+          // A number or a number's text; 100 when neither, as the engine sorts.
+          order: switch (prompts['$id']?['injection_order']) {
+            final num n when n.isFinite => n.round(),
+            final String s when num.tryParse(s)?.isFinite ?? false => num.parse(s).round(),
+            _ => 100,
+          },
+          // Only a real true locks it, as the engine reads it.
+          forbidOverrides: prompts['$id']?['forbid_overrides'] == true,
         ),
   ];
 }
@@ -294,16 +308,63 @@ class _PromptSheetState extends ConsumerState<_PromptSheet> {
   late String _role = widget.prompt.role;
   late bool _inChat = widget.prompt.inChat;
   late int _depth = widget.prompt.depth;
+  late int _order = widget.prompt.order;
+  late bool _forbid = widget.prompt.forbidOverrides;
 
-  /// The deepest a prompt goes here; ST sets no bound, chats rarely need more.
+  /// The deepest a prompt goes from here (the engine takes up to 10000; chats
+  /// rarely need more), and the order's range.
   static const _maxDepth = 100;
+  static const _maxOrder = 1000;
 
+  /// Saves [patch]; what the engine says about this prompt (a warning kept
+  /// with the save, or why it was refused) is shown.
   Future<void> _save(Map<String, Object?> patch) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final id = widget.prompt.id;
     try {
-      await ref.read(tavernProvider).updatePresetPrompt(widget.presetId, widget.prompt.id, patch);
+      final result = await ref.read(tavernProvider).updatePresetPrompt(widget.presetId, id, patch);
+      if (result.issues.where((issue) => issue.identifier == id).firstOrNull case final issue?) {
+        messenger?.showBriefNotice(issue.message);
+      }
+    } on TavernPresetImportError catch (e) {
+      messenger?.showBriefNotice(e.issues.map((issue) => issue.message).join('；'));
     } on Object catch (e) {
-      if (mounted) ScaffoldMessenger.maybeOf(context)?.showBriefNotice('$e'.split('\n').first);
+      messenger?.showBriefNotice('$e'.split('\n').first);
     }
+  }
+
+  /// A number the person steps up and down, saved under [key] as it changes.
+  Widget _stepper({
+    required String name,
+    required int value,
+    required int max,
+    required void Function(int value) onChanged,
+  }) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          key: ValueKey('tavern-prompt-$name-down'),
+          icon: const Icon(AppIcons.decrement, size: 18),
+          onPressed: value > 0 ? () => onChanged(value - 1) : null,
+        ),
+        SizedBox(
+          width: 40,
+          child: Text(
+            '$value',
+            key: ValueKey('tavern-prompt-$name-value'),
+            textAlign: TextAlign.center,
+            style: AppType.tabular(theme.textTheme.titleMedium!),
+          ),
+        ),
+        IconButton(
+          key: ValueKey('tavern-prompt-$name-up'),
+          icon: const Icon(AppIcons.increment, size: 18),
+          onPressed: value < max ? () => onChanged(value + 1) : null,
+        ),
+      ],
+    );
   }
 
   Future<void> _editContent() async {
@@ -368,42 +429,52 @@ class _PromptSheetState extends ConsumerState<_PromptSheet> {
                     unawaited(_save({'injection_position': inChat ? 1 : 0, if (inChat) 'injection_depth': _depth}));
                   },
                 ),
-                if (_inChat)
+                if (_inChat) ...[
                   SettingsTile(
                     key: const ValueKey('tavern-prompt-depth'),
                     title: l10n.tavernPromptDepth,
-                    value: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          key: const ValueKey('tavern-prompt-depth-down'),
-                          icon: const Icon(AppIcons.decrement, size: 18),
-                          onPressed: _depth > 0 ? () => _setDepth(_depth - 1) : null,
-                        ),
-                        SizedBox(
-                          width: 32,
-                          child: Text(
-                            '$_depth',
-                            key: const ValueKey('tavern-prompt-depth-value'),
-                            textAlign: TextAlign.center,
-                            style: AppType.tabular(theme.textTheme.titleMedium!),
-                          ),
-                        ),
-                        IconButton(
-                          key: const ValueKey('tavern-prompt-depth-up'),
-                          icon: const Icon(AppIcons.increment, size: 18),
-                          onPressed: _depth < _maxDepth ? () => _setDepth(_depth + 1) : null,
-                        ),
-                      ],
+                    value: _stepper(name: 'depth', value: _depth, max: _maxDepth, onChanged: _setDepth),
+                    chevron: false,
+                  ),
+                  // Several at one depth: the smaller number comes first.
+                  SettingsTile(
+                    key: const ValueKey('tavern-prompt-order'),
+                    title: l10n.tavernPromptOrder,
+                    value: _stepper(
+                      name: 'order',
+                      value: _order,
+                      max: _maxOrder,
+                      onChanged: (order) {
+                        setState(() => _order = order);
+                        unawaited(_save({'injection_order': order}));
+                      },
                     ),
                     chevron: false,
+                  ),
+                ],
+                // main and jailbreak: a card's own fields replace them unless
+                // this is on (a real true, as the engine reads it).
+                if (tavernOverridablePrompts.contains(widget.prompt.id))
+                  SettingsSwitchTile(
+                    key: const ValueKey('tavern-prompt-forbid'),
+                    title: l10n.tavernPromptForbid,
+                    subtitle: widget.prompt.id == 'main'
+                        ? l10n.tavernPromptForbidMain
+                        : l10n.tavernPromptForbidJailbreak,
+                    value: _forbid,
+                    onChanged: (forbid) {
+                      setState(() => _forbid = forbid);
+                      unawaited(_save({'forbid_overrides': forbid}));
+                    },
                   ),
               ],
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
               child: Text(
-                _inChat ? l10n.tavernPromptDepthNote(_depth) : l10n.tavernPromptRelativeNote,
+                _inChat
+                    ? '${l10n.tavernPromptDepthNote(_depth)}${l10n.tavernPromptOrderNote}'
+                    : l10n.tavernPromptRelativeNote,
                 key: const ValueKey('tavern-prompt-note'),
                 style: quiet,
               ),

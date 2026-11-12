@@ -36944,6 +36944,36 @@ abstract class L10n {
   /// **'对话中 · 深度 {depth}'**
   String tavernPromptPlace(int depth);
 
+  /// No description provided for @tavernPromptOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'同深度的先后'**
+  String get tavernPromptOrder;
+
+  /// No description provided for @tavernPromptOrderNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'同一深度有几条时，数字小的在前（默认 100）。'**
+  String get tavernPromptOrderNote;
+
+  /// No description provided for @tavernPromptForbid.
+  ///
+  /// In zh, this message translates to:
+  /// **'不让角色卡覆盖'**
+  String get tavernPromptForbid;
+
+  /// No description provided for @tavernPromptForbidMain.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色卡自带的系统提示词不会替换这一条。'**
+  String get tavernPromptForbidMain;
+
+  /// No description provided for @tavernPromptForbidJailbreak.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色卡自带的历史后指令不会替换这一条。'**
+  String get tavernPromptForbidJailbreak;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

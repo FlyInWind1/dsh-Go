@@ -965,5 +965,10 @@
   "@tavernPromptDepthNote": {"placeholders": {"depth": {"type": "int"}}},
   "tavernPromptRelativeNote": "Sent where the preset's order puts it, as ST's Relative does.",
   "tavernPromptPlace": "In chat · depth {depth}",
-  "@tavernPromptPlace": {"placeholders": {"depth": {"type": "int"}}}
+  "@tavernPromptPlace": {"placeholders": {"depth": {"type": "int"}}},
+  "tavernPromptOrder": "Order at this depth",
+  "tavernPromptOrderNote": "When several sit at one depth, the smaller number comes first (100 by default).",
+  "tavernPromptForbid": "Keep the card from replacing it",
+  "tavernPromptForbidMain": "A card's own system prompt won't replace this one.",
+  "tavernPromptForbidJailbreak": "A card's own post-history instructions won't replace this one."
 }

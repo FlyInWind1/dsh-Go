@@ -21370,6 +21370,21 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernPromptOrder => 'Order at this depth';
+
+  @override
+  String get tavernPromptOrderNote => 'When several sit at one depth, the smaller number comes first (100 by default).';
+
+  @override
+  String get tavernPromptForbid => 'Keep the card from replacing it';
+
+  @override
+  String get tavernPromptForbidMain => 'A card\'s own system prompt won\'t replace this one.';
+
+  @override
+  String get tavernPromptForbidJailbreak => 'A card\'s own post-history instructions won\'t replace this one.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

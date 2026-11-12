@@ -8,6 +8,7 @@ import 'package:dsh_app/ui/tavern/tavern_preset_page.dart';
 import 'package:dsh_app/ui/tavern/tavern_presets_page.dart';
 import 'package:dsh_app/ui/theme/app_icons.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
+import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,9 +45,13 @@ final _preset = jsonEncode({
   ],
 });
 
-Future<(PreviewTavern, String)> _open(WidgetTester tester, {Widget Function(String id)? home}) async {
+Future<(PreviewTavern, String)> _open(
+  WidgetTester tester, {
+  Widget Function(String id)? home,
+  PreviewTavern? using,
+}) async {
   SharedPreferences.setMockInitialValues({});
-  final tavern = PreviewTavern(tick: Duration.zero);
+  final tavern = using ?? PreviewTavern(tick: Duration.zero);
   final id = (await tester.runAsync(() => tavern.importPreset(_preset, fileName: '长篇小说.json')))!.preset.id;
   tester.view.physicalSize = const Size(390, 844) * 2;
   tester.view.devicePixelRatio = 2;
@@ -65,6 +70,19 @@ Future<(PreviewTavern, String)> _open(WidgetTester tester, {Widget Function(Stri
   );
   await tester.pumpAndSettle();
   return (tavern, id);
+}
+
+/// The preview, refusing every prompt edit as the engine would a bad value.
+class _Refusing extends PreviewTavern {
+  _Refusing() : super(tick: Duration.zero);
+
+  @override
+  Future<TavernPresetImportResult> updatePresetPrompt(String presetId, String identifier, Map<String, Object?> patch) =>
+      Future.error(
+        TavernPresetImportError([
+          TavernPresetIssue(path: 'prompts[0].role', code: 'role', message: '这一条暂时不能改', identifier: identifier),
+        ]),
+      );
 }
 
 Future<Map<String, Object?>> _raw(WidgetTester tester, PreviewTavern tavern, String id) async =>
@@ -271,6 +289,67 @@ void promptText() {
     expect(find.byKey(const ValueKey('tavern-prompt-depth')), findsNothing);
     final back = tavernPresetPrompts(await _raw(tester, tavern, id)).first;
     expect((back.inChat, back.depth), (false, 5));
+  });
+
+  testWidgets("in the chat a prompt's order at its depth is set too; main can be kept from the card", (tester) async {
+    final (tavern, id) = await _open(tester);
+    final main = find.byKey(const ValueKey('tavern-preset-prompt-main'));
+    await _center(tester, main);
+    await tester.tap(find.descendant(of: main, matching: find.text('主提示')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-prompt-order')), findsNothing); // in order: none
+    await tester.tap(
+      find.descendant(of: find.byKey(const ValueKey('tavern-prompt-position')), matching: find.text('对话中')),
+    );
+    await tester.pumpAndSettle();
+    final order = find.byKey(const ValueKey('tavern-prompt-order-value'));
+    expect(tester.widget<Text>(order).data, '100'); // the engine's when unset
+    await tester.tap(find.byKey(const ValueKey('tavern-prompt-order-down')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(order).data, '99');
+
+    // main (and jailbreak) can be kept from the card's own system prompt.
+    final forbid = find.byKey(const ValueKey('tavern-prompt-forbid'));
+    await tester.ensureVisible(forbid);
+    await tester.tap(find.descendant(of: forbid, matching: find.byType(Switch)));
+    await tester.pumpAndSettle();
+
+    final saved = ((await _raw(tester, tavern, id))['prompts'] as List).first as Map<String, Object?>;
+    expect((saved['injection_order'], saved['forbid_overrides']), (99, true));
+    final prompt = tavernPresetPrompts(await _raw(tester, tavern, id)).first;
+    expect((prompt.order, prompt.forbidOverrides), (99, true));
+  });
+
+  testWidgets("the engine's word on a save is shown, kept or refused", (tester) async {
+    final (_, _) = await _open(tester, using: _Refusing());
+    final main = find.byKey(const ValueKey('tavern-preset-prompt-main'));
+    await _center(tester, main);
+    await tester.tap(find.descendant(of: main, matching: find.text('主提示')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('tavern-prompt-role')), matching: find.text('助手')));
+    await tester.pumpAndSettle();
+    expect(find.text('这一条暂时不能改'), findsOneWidget);
+  });
+
+  test('order and the lock read as the engine reads them', () {
+    TavernPresetPrompt only(Map<String, Object?> fields) => tavernPresetPrompts({
+      'prompts': [
+        {'identifier': 'x', 'name': 'X', 'content': 'c', ...fields},
+      ],
+      'prompt_order': [
+        {
+          'character_id': 100001,
+          'order': [
+            {'identifier': 'x', 'enabled': true},
+          ],
+        },
+      ],
+    }).single;
+    expect((only({}).order, only({}).forbidOverrides), (100, false));
+    expect(only({'injection_order': '7'}).order, 7);
+    expect(only({'injection_order': 'NaN'}).order, 100);
+    expect(only({'forbid_overrides': 'true'}).forbidOverrides, isFalse); // only a real true
+    expect(only({'forbid_overrides': true}).forbidOverrides, isTrue);
   });
 
   test('where a prompt goes reads as the engine reads it', () {

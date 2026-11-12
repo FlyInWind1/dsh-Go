@@ -20258,6 +20258,21 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernPromptOrder => '同深度的先后';
+
+  @override
+  String get tavernPromptOrderNote => '同一深度有几条时，数字小的在前（默认 100）。';
+
+  @override
+  String get tavernPromptForbid => '不让角色卡覆盖';
+
+  @override
+  String get tavernPromptForbidMain => '角色卡自带的系统提示词不会替换这一条。';
+
+  @override
+  String get tavernPromptForbidJailbreak => '角色卡自带的历史后指令不会替换这一条。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

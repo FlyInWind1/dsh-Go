@@ -965,5 +965,10 @@
   "@tavernPromptDepthNote": {"placeholders": {"depth": {"type": "int"}}},
   "tavernPromptRelativeNote": "照预设的顺序放，和 ST 的「相对」一样。",
   "tavernPromptPlace": "对话中 · 深度 {depth}",
-  "@tavernPromptPlace": {"placeholders": {"depth": {"type": "int"}}}
+  "@tavernPromptPlace": {"placeholders": {"depth": {"type": "int"}}},
+  "tavernPromptOrder": "同深度的先后",
+  "tavernPromptOrderNote": "同一深度有几条时，数字小的在前（默认 100）。",
+  "tavernPromptForbid": "不让角色卡覆盖",
+  "tavernPromptForbidMain": "角色卡自带的系统提示词不会替换这一条。",
+  "tavernPromptForbidJailbreak": "角色卡自带的历史后指令不会替换这一条。"
 }
