@@ -96,8 +96,6 @@ class _PhoneSelfCheckPanelState extends State<PhoneSelfCheckPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l10n.phoneSelfCheckPartial),
-                  const SizedBox(height: 8),
                   Text(l10n.phoneSelfCheckRunState(snapshot.state), key: const ValueKey('self-check-state')),
                   if (reason != 'none') ...[const SizedBox(height: 4), Text(l10n.phoneSelfCheckReason(reason))],
                   const SizedBox(height: 12),
@@ -141,6 +139,8 @@ class _PhoneSelfCheckPanelState extends State<PhoneSelfCheckPanel> {
                         l10n.phoneSelfCheckReportProfile(snapshot.profile ?? 'unknown'),
                         key: const ValueKey('self-check-report-profile'),
                       ),
+                      Text(l10n.phoneSelfCheckPartial),
+                      const SizedBox(height: 4),
                       Text(
                         snapshot.profile == 'target_c2'
                             ? l10n.phoneSelfCheckTargetC2Scope
