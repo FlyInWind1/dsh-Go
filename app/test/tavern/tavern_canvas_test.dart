@@ -222,6 +222,23 @@ void main() {
     expect(open, contains("['custom_api','tools','tool_choice','json_schema','image']"));
     expect(open, contains('if(!window.iframe_events)window.iframe_events=iframe_events;'));
     expect(open, contains('if(!window.injectPrompts)window.injectPrompts=injectPrompts;'));
+    // The rest of 酒馆助手's events and its displayed messages (their
+    // behaviour checked in Edge); floors numbered as ST numbers them; a
+    // message's script gone from it once run.
+    for (final name in [
+      'eventMakeFirst',
+      'eventMakeLast',
+      'eventEmitAndWait',
+      'eventClearEvent',
+      'eventClearListener',
+      'eventClearAll',
+      'retrieveDisplayedMessage',
+      'renderOneMessage',
+    ]) {
+      expect(open, contains("['$name',$name]"));
+    }
+    expect(open, contains('if(loaded)renumber();'));
+    expect(open, contains('var gone=function(){s.remove();};'));
     // A card's own scripts go in as JSON, a closing tag in one not ending
     // ours; each runs in a hidden frame named for it (checked in Edge). None
     // when scripts do not run.

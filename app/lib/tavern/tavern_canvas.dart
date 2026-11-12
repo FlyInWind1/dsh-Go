@@ -313,8 +313,14 @@ $preload
           if(!m.isConnected||!old.parentNode||inert(old)){done();return;}
           var s=document.createElement('script');
           for(var a=0;a<old.attributes.length;a++){var at=old.attributes[a];if(at.name!=='nonce')s.setAttribute(at.name,at.value);}
-          if(old.hasAttribute('src')){s.async=false;s.onload=s.onerror=function(){done();};old.parentNode.replaceChild(s,old);}
-          else{s.text=old.text+'\\n//# sourceURL=dsh-mes-'+mark(m)+'.js';old.parentNode.replaceChild(s,old);done();}
+          // Once run, it leaves the message (a started script runs on): the
+          // message's text is its words, as in ST, not the code.
+          var gone=function(){s.remove();};
+          if(old.hasAttribute('src')){s.async=false;s.onload=s.onerror=function(){gone();done();};old.parentNode.replaceChild(s,old);}
+          else if((s.getAttribute('type')||'').trim().toLowerCase()==='module'){
+            s.text=old.text+'\\n//# sourceURL=dsh-mes-'+mark(m)+'.js';s.onload=s.onerror=gone;old.parentNode.replaceChild(s,old);done();
+          }
+          else{s.text=old.text+'\\n//# sourceURL=dsh-mes-'+mark(m)+'.js';old.parentNode.replaceChild(s,old);gone();done();}
         });});
       });
     });
@@ -393,6 +399,8 @@ $preload
         if(at!==m)chat.insertBefore(m,at||null);
       }
       while(chat.children.length>list.length)chat.lastElementChild.remove();
+      lastList=list;
+      if(loaded)renumber();
       // A newly drawn message's scripts run, once the page has the engine's
       // snapshot for their getters (or has been told it cannot).
       var scripted=fresh.filter(function(m){return m.querySelector('script');});
@@ -506,6 +514,7 @@ $preload
           e.target=v.target;e.version=v.version;e.value=v.value;
         });
         lastSeq=s.lastSeq||0;pathRev=s.pathRevision||null;loaded=true;
+        renumber();
         var waiting=held;held=[];waiting.forEach(apply);
         return true;
       },function(x){loading=null;throw x;});
@@ -620,6 +629,56 @@ $preload
     return -1;
   }
   function getLastMessageId(){return msgs.length-1;}
+  // ST numbers .mes[mesid] by floor, and cards find a floor so: once this
+  // page has the path, its messages carry their true floors (a long chat is
+  // drawn from partway along).
+  function renumber(){
+    for(var c=chat.firstElementChild;c;c=c.nextElementSibling){
+      if(!c.dataset.node)continue;
+      var f=floorOf(c.dataset.node);if(f>=0)c.setAttribute('mesid',String(f));
+    }
+  }
+  // Displayed messages (酒馆助手's 渲染楼层 page).
+  var lastList=[];
+  function displayed(id){
+    if(typeof id!=='number'||id%1!==0)throw new TypeError('message_id is a floor number');
+    for(var c=chat.firstElementChild;c;c=c.nextElementSibling){
+      if(c.dataset.node&&!c.dataset.streaming&&c.getAttribute('mesid')===String(id))return c;
+    }
+    return null;
+  }
+  // The floor's shown text (.mes_text), as jQuery; none when it is not shown.
+  function retrieveDisplayedMessage(id){
+    var m=displayed(id),t=m&&m.querySelector('.mes_text');
+    return window.jQuery?jQuery(t?[t]:[]):t;
+  }
+  // The floor drawn again as it was given (a card's changes to it gone, its
+  // scripts run anew); with \$mes, its words shown in that floor's place
+  // instead, nothing kept. A floor not shown: nothing.
+  function renderOneMessage(id,\$mes){
+    return attempt(function(){
+      var m=displayed(id),e=null;
+      if(!m)return Promise.resolve();
+      for(var i=0;i<lastList.length;i++)if(lastList[i].node===m.dataset.node)e=lastList[i];
+      if(!e)return Promise.resolve();
+      var fresh=mes(e);fresh._dsh=sig(e);fresh.className=m.className;fresh.setAttribute('mesid',m.getAttribute('mesid'));
+      var target=\$mes&&(\$mes.jquery?\$mes[0]:\$mes);
+      if(target&&target!==m){
+        var t=target.classList&&target.classList.contains('mes_text')?target:target.querySelector&&target.querySelector('.mes_text');
+        if(t){
+          t.innerHTML=fresh.querySelector('.mes_text').innerHTML;
+          [].forEach.call(t.querySelectorAll('script'),function(x){if(!inert(x))x.remove();});
+        }
+        return Promise.resolve();
+      }
+      m.parentNode.replaceChild(fresh,m);
+      if(runScripts&&fresh.querySelector('script')){var go=function(){runIn([fresh]);};return dsh.scripts.ready().then(go,go);}
+      return Promise.resolve();
+    });
+  }
+  [['retrieveDisplayedMessage',retrieveDisplayedMessage],['renderOneMessage',renderOneMessage]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   // The message the caller is in: the nearest named script on the stack;
   // else a src script while it first runs; else an inline handler's event.
   function callerMessage(){
@@ -711,14 +770,29 @@ $preload
   // are done and every engine call made meanwhile has come back.
   var on={},inflight=[];
   function evName(n){var u=String(n).toUpperCase();return u==='CHAT_ID_CHANGED'?'CHAT_CHANGED':u;}
-  function listen(n,fn,once){
+  // A listener already there for the event is not added again (酒馆助手's
+  // 监听和发送事件 page); first and last move it to that end.
+  function listen(n,fn,once,where){
     if(typeof fn!=='function')throw new TypeError('a listener is a function');
-    var k=evName(n);(on[k]||(on[k]=[])).push({fn:fn,once:once});
+    var k=evName(n),list=on[k]||(on[k]=[]);
+    var at=-1;for(var i=0;i<list.length;i++)if(list[i].fn===fn)at=i;
+    if(at>=0&&!where)return {stop:function(){eventRemoveListener(n,fn);}};
+    var h=at>=0?list.splice(at,1)[0]:{fn:fn,once:once,owner:listenerOwner()};
+    if(where==='first')list.unshift(h);else list.push(h);
     return {stop:function(){eventRemoveListener(n,fn);}};
   }
+  // Whose a listener is: a card script's (each its own frame there), or this
+  // page's; clearing reaches only the caller's own, as one frame's would.
+  function listenerOwner(){var s=callerScript();return s?'script:'+s.id:'page';}
+  function others(h){return h.owner!==listenerOwner();}
   function eventOn(n,fn){return listen(n,fn,false);}
   function eventOnce(n,fn){return listen(n,fn,true);}
+  function eventMakeFirst(n,fn){return listen(n,fn,false,'first');}
+  function eventMakeLast(n,fn){return listen(n,fn,false,'last');}
   function eventRemoveListener(n,fn){var k=evName(n);on[k]=(on[k]||[]).filter(function(h){return h.fn!==fn;});}
+  function eventClearEvent(n){var k=evName(n);on[k]=(on[k]||[]).filter(others);}
+  function eventClearListener(fn){for(var k in on)on[k]=on[k].filter(function(h){return h.fn!==fn;});}
+  function eventClearAll(){for(var k in on)on[k]=on[k].filter(others);}
   function fire(k,args){
     var hs=(on[k]||[]).slice();
     on[k]=(on[k]||[]).filter(function(h){return !h.once;});
@@ -732,6 +806,8 @@ $preload
     return Promise.all(now).then(settle);
   }
   function eventEmit(n){return fire(evName(n),[].slice.call(arguments,1)).then(function(){});}
+  // As the page has it, nothing to wait on: each listener called in turn.
+  function eventEmitAndWait(n){fire(evName(n),[].slice.call(arguments,1));}
   function lifecycle(d){
     // Its handlers read what the engine had: after the snapshot, if one
     // is on its way.
@@ -775,6 +851,9 @@ $preload
   if(!window.eventOnce)window.eventOnce=eventOnce;
   if(!window.eventRemoveListener)window.eventRemoveListener=eventRemoveListener;
   if(!window.eventEmit)window.eventEmit=eventEmit;
+  [['eventMakeFirst',eventMakeFirst],['eventMakeLast',eventMakeLast],['eventEmitAndWait',eventEmitAndWait],
+   ['eventClearEvent',eventClearEvent],['eventClearListener',eventClearListener],['eventClearAll',eventClearAll]]
+    .forEach(function(f){dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];});
   if(!window.tavern_events)window.tavern_events=events;
   // Prompt injections (酒馆助手's 注入提示词 page): injectPrompts(prompts,
   // {once}) gives {uninject} at once while the engine is told (an event's
@@ -1030,6 +1109,8 @@ $preload
     'eventOn','eventOnce','eventRemoveListener','eventEmit','tavern_events','iframe_events','getLastMessageId',
     'getCurrentMessageId','getIframeName','getMessageId','toastr','injectPrompts','uninjectPrompts','generate',
     'generateRaw','stopGenerationById','stopAllGeneration','getScriptId','getScriptName','getButtonEvent',
+    'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
+    'retrieveDisplayedMessage','renderOneMessage',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
