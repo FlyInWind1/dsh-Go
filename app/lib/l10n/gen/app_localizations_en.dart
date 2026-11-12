@@ -22227,6 +22227,152 @@ class L10nEn extends L10n {
   String get tavernCanvasReloaded => 'The page reloaded';
 
   @override
+  String tavernGroupSpeaking(String name) {
+    return '$name is speaking';
+  }
+
+  @override
+  String tavernGroupThen(String names) {
+    return 'then $names';
+  }
+
+  @override
+  String get tavernGroupNoSpeakers => 'No one took this turn. Tap a name above to have them speak.';
+
+  @override
+  String get tavernGroupSpeakNext => 'Let them go on';
+
+  @override
+  String get tavernGroupNew => 'New group chat';
+
+  @override
+  String get tavernGroupMembers => 'Who\'s in it';
+
+  @override
+  String get tavernGroupMembersNote =>
+      'In the order picked; the first hosts it, and the story\'s shared state lives on that card.';
+
+  @override
+  String get tavernGroupHost => 'Host';
+
+  @override
+  String get tavernGroupTitle => 'Name';
+
+  @override
+  String get tavernGroupActivation => 'Taking turns';
+
+  @override
+  String get tavernGroupNatural => 'Natural';
+
+  @override
+  String get tavernGroupListOrder => 'In order';
+
+  @override
+  String get tavernGroupRandom => 'Random';
+
+  @override
+  String get tavernGroupManual => 'Manual';
+
+  @override
+  String get tavernGroupDirector => 'Director';
+
+  @override
+  String get tavernGroupNaturalNote =>
+      'As SillyTavern does: whoever is named speaks first, the rest by how talkative each is; the most per turn is in the group\'s settings.';
+
+  @override
+  String get tavernGroupListOrderNote => 'Each turn goes down the list from the top (the muted are skipped).';
+
+  @override
+  String get tavernGroupRandomNote => 'Each turn picks one who hasn\'t spoken since your last line.';
+
+  @override
+  String get tavernGroupManualNote => 'No one speaks on their own; tap a name above the box to have them speak.';
+
+  @override
+  String get tavernGroupDirectorNote => 'The director picks who speaks next, as the story goes.';
+
+  @override
+  String get tavernGroupPickTwo => 'Pick at least two';
+
+  @override
+  String tavernGroupCreate(int count) {
+    return 'Create ($count)';
+  }
+
+  @override
+  String tavernGroupCreateFailed(String reason) {
+    return 'Couldn\'t create the group: $reason';
+  }
+
+  @override
+  String get tavernGroupTag => 'Group';
+
+  @override
+  String tavernGroupMemberCount(int count) {
+    return '$count members';
+  }
+
+  @override
+  String get tavernGroupSettings => 'Group settings';
+
+  @override
+  String get tavernGroupMaxSpeakers => 'Most to speak each turn';
+
+  @override
+  String get tavernGroupSelfResponses => 'May answer themselves';
+
+  @override
+  String get tavernGroupSelfResponsesNote => 'Whoever spoke last may still go first this turn.';
+
+  @override
+  String tavernGroupHostNote(String name) {
+    return 'Hosted by $name: the story\'s shared state, director and secrets live on that card; the host need not be among the speakers.';
+  }
+
+  @override
+  String get tavernGroupMuted => 'Muted';
+
+  @override
+  String get tavernGroupMutedNote => 'Won\'t speak on their own; still speaks when named.';
+
+  @override
+  String get tavernGroupTalkativeness => 'Talkativeness';
+
+  @override
+  String get tavernGroupTalkativenessNote => 'In natural turns, the higher, the likelier to speak.';
+
+  @override
+  String get tavernGroupHelperModel => 'Helper model';
+
+  @override
+  String get tavernGroupHelperModelNote =>
+      'Speaks with the cheaper, faster model (DeepSeek flash, no thinking): for side characters.';
+
+  @override
+  String get tavernGroupMoveUp => 'Move up';
+
+  @override
+  String get tavernGroupMoveDown => 'Move down';
+
+  @override
+  String get tavernGroupRemove => 'Remove from the group';
+
+  @override
+  String get tavernGroupAdd => 'Add a character';
+
+  @override
+  String get tavernGroupNoOthers => 'Everyone on the shelf is in it';
+
+  @override
+  String get tavernGroupUnavailable => 'Card missing';
+
+  @override
+  String tavernGroupSaveFailed(String reason) {
+    return 'Couldn\'t save: $reason';
+  }
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -21066,6 +21066,149 @@ class L10nZh extends L10n {
   String get tavernCanvasReloaded => '画面重新加载了';
 
   @override
+  String tavernGroupSpeaking(String name) {
+    return '$name 在说';
+  }
+
+  @override
+  String tavernGroupThen(String names) {
+    return '接着是 $names';
+  }
+
+  @override
+  String get tavernGroupNoSpeakers => '这一轮没人接话。点上面的名字，让谁来说。';
+
+  @override
+  String get tavernGroupSpeakNext => '让大家接着说';
+
+  @override
+  String get tavernGroupNew => '新建群聊';
+
+  @override
+  String get tavernGroupMembers => '谁在里面';
+
+  @override
+  String get tavernGroupMembersNote => '按点选的顺序排；第一个是主持，故事共用的状态记在它的卡上。';
+
+  @override
+  String get tavernGroupHost => '主持';
+
+  @override
+  String get tavernGroupTitle => '群名';
+
+  @override
+  String get tavernGroupActivation => '怎么轮流说';
+
+  @override
+  String get tavernGroupNatural => '自然';
+
+  @override
+  String get tavernGroupListOrder => '按顺序';
+
+  @override
+  String get tavernGroupRandom => '随机';
+
+  @override
+  String get tavernGroupManual => '手动';
+
+  @override
+  String get tavernGroupDirector => '导演';
+
+  @override
+  String get tavernGroupNaturalNote => '像 SillyTavern：被点到名的先说，其余看各自的话多话少；每轮最多几个人说在群设置里改。';
+
+  @override
+  String get tavernGroupListOrderNote => '每轮按名单从头轮一遍（静音的跳过）。';
+
+  @override
+  String get tavernGroupRandomNote => '每轮随机挑一个这轮还没说过的人。';
+
+  @override
+  String get tavernGroupManualNote => '谁也不自己开口；点输入框上面的名字，让谁说谁说。';
+
+  @override
+  String get tavernGroupDirectorNote => '由导演按剧情点名下一位。';
+
+  @override
+  String get tavernGroupPickTwo => '至少选两个角色';
+
+  @override
+  String tavernGroupCreate(int count) {
+    return '建群（$count 人）';
+  }
+
+  @override
+  String tavernGroupCreateFailed(String reason) {
+    return '没能建群：$reason';
+  }
+
+  @override
+  String get tavernGroupTag => '群';
+
+  @override
+  String tavernGroupMemberCount(int count) {
+    return '$count 人';
+  }
+
+  @override
+  String get tavernGroupSettings => '群聊设置';
+
+  @override
+  String get tavernGroupMaxSpeakers => '每轮最多几人说';
+
+  @override
+  String get tavernGroupSelfResponses => '可以接着自己说';
+
+  @override
+  String get tavernGroupSelfResponsesNote => '上一句是谁说的，这一轮还能先轮到他。';
+
+  @override
+  String tavernGroupHostNote(String name) {
+    return '主持是「$name」：故事共用的状态、导演和秘密记在它的卡上；它可以不在发言名单里。';
+  }
+
+  @override
+  String get tavernGroupMuted => '静音';
+
+  @override
+  String get tavernGroupMutedNote => '不会自己开口；点名时照样说。';
+
+  @override
+  String get tavernGroupTalkativeness => '话多话少';
+
+  @override
+  String get tavernGroupTalkativenessNote => '「自然」轮流时，越高越容易开口。';
+
+  @override
+  String get tavernGroupHelperModel => '用辅助模型';
+
+  @override
+  String get tavernGroupHelperModelNote => '用便宜快的模型说（DeepSeek 是 flash、不思考），适合配角。';
+
+  @override
+  String get tavernGroupMoveUp => '往前挪';
+
+  @override
+  String get tavernGroupMoveDown => '往后挪';
+
+  @override
+  String get tavernGroupRemove => '移出群聊';
+
+  @override
+  String get tavernGroupAdd => '加一个角色';
+
+  @override
+  String get tavernGroupNoOthers => '书架上的角色都在群里了';
+
+  @override
+  String get tavernGroupUnavailable => '角色卡不在了';
+
+  @override
+  String tavernGroupSaveFailed(String reason) {
+    return '没能保存：$reason';
+  }
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

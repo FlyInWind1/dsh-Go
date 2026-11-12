@@ -38492,6 +38492,264 @@ abstract class L10n {
   /// **'画面重新加载了'**
   String get tavernCanvasReloaded;
 
+  /// No description provided for @tavernGroupSpeaking.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 在说'**
+  String tavernGroupSpeaking(String name);
+
+  /// No description provided for @tavernGroupThen.
+  ///
+  /// In zh, this message translates to:
+  /// **'接着是 {names}'**
+  String tavernGroupThen(String names);
+
+  /// No description provided for @tavernGroupNoSpeakers.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一轮没人接话。点上面的名字，让谁来说。'**
+  String get tavernGroupNoSpeakers;
+
+  /// No description provided for @tavernGroupSpeakNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'让大家接着说'**
+  String get tavernGroupSpeakNext;
+
+  /// No description provided for @tavernGroupNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建群聊'**
+  String get tavernGroupNew;
+
+  /// No description provided for @tavernGroupMembers.
+  ///
+  /// In zh, this message translates to:
+  /// **'谁在里面'**
+  String get tavernGroupMembers;
+
+  /// No description provided for @tavernGroupMembersNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'按点选的顺序排；第一个是主持，故事共用的状态记在它的卡上。'**
+  String get tavernGroupMembersNote;
+
+  /// No description provided for @tavernGroupHost.
+  ///
+  /// In zh, this message translates to:
+  /// **'主持'**
+  String get tavernGroupHost;
+
+  /// No description provided for @tavernGroupTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'群名'**
+  String get tavernGroupTitle;
+
+  /// No description provided for @tavernGroupActivation.
+  ///
+  /// In zh, this message translates to:
+  /// **'怎么轮流说'**
+  String get tavernGroupActivation;
+
+  /// No description provided for @tavernGroupNatural.
+  ///
+  /// In zh, this message translates to:
+  /// **'自然'**
+  String get tavernGroupNatural;
+
+  /// No description provided for @tavernGroupListOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'按顺序'**
+  String get tavernGroupListOrder;
+
+  /// No description provided for @tavernGroupRandom.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机'**
+  String get tavernGroupRandom;
+
+  /// No description provided for @tavernGroupManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动'**
+  String get tavernGroupManual;
+
+  /// No description provided for @tavernGroupDirector.
+  ///
+  /// In zh, this message translates to:
+  /// **'导演'**
+  String get tavernGroupDirector;
+
+  /// No description provided for @tavernGroupNaturalNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'像 SillyTavern：被点到名的先说，其余看各自的话多话少；每轮最多几个人说在群设置里改。'**
+  String get tavernGroupNaturalNote;
+
+  /// No description provided for @tavernGroupListOrderNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'每轮按名单从头轮一遍（静音的跳过）。'**
+  String get tavernGroupListOrderNote;
+
+  /// No description provided for @tavernGroupRandomNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'每轮随机挑一个这轮还没说过的人。'**
+  String get tavernGroupRandomNote;
+
+  /// No description provided for @tavernGroupManualNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'谁也不自己开口；点输入框上面的名字，让谁说谁说。'**
+  String get tavernGroupManualNote;
+
+  /// No description provided for @tavernGroupDirectorNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'由导演按剧情点名下一位。'**
+  String get tavernGroupDirectorNote;
+
+  /// No description provided for @tavernGroupPickTwo.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少选两个角色'**
+  String get tavernGroupPickTwo;
+
+  /// No description provided for @tavernGroupCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'建群（{count} 人）'**
+  String tavernGroupCreate(int count);
+
+  /// No description provided for @tavernGroupCreateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能建群：{reason}'**
+  String tavernGroupCreateFailed(String reason);
+
+  /// No description provided for @tavernGroupTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'群'**
+  String get tavernGroupTag;
+
+  /// No description provided for @tavernGroupMemberCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 人'**
+  String tavernGroupMemberCount(int count);
+
+  /// No description provided for @tavernGroupSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'群聊设置'**
+  String get tavernGroupSettings;
+
+  /// No description provided for @tavernGroupMaxSpeakers.
+  ///
+  /// In zh, this message translates to:
+  /// **'每轮最多几人说'**
+  String get tavernGroupMaxSpeakers;
+
+  /// No description provided for @tavernGroupSelfResponses.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以接着自己说'**
+  String get tavernGroupSelfResponses;
+
+  /// No description provided for @tavernGroupSelfResponsesNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一句是谁说的，这一轮还能先轮到他。'**
+  String get tavernGroupSelfResponsesNote;
+
+  /// No description provided for @tavernGroupHostNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'主持是「{name}」：故事共用的状态、导演和秘密记在它的卡上；它可以不在发言名单里。'**
+  String tavernGroupHostNote(String name);
+
+  /// No description provided for @tavernGroupMuted.
+  ///
+  /// In zh, this message translates to:
+  /// **'静音'**
+  String get tavernGroupMuted;
+
+  /// No description provided for @tavernGroupMutedNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'不会自己开口；点名时照样说。'**
+  String get tavernGroupMutedNote;
+
+  /// No description provided for @tavernGroupTalkativeness.
+  ///
+  /// In zh, this message translates to:
+  /// **'话多话少'**
+  String get tavernGroupTalkativeness;
+
+  /// No description provided for @tavernGroupTalkativenessNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'「自然」轮流时，越高越容易开口。'**
+  String get tavernGroupTalkativenessNote;
+
+  /// No description provided for @tavernGroupHelperModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'用辅助模型'**
+  String get tavernGroupHelperModel;
+
+  /// No description provided for @tavernGroupHelperModelNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'用便宜快的模型说（DeepSeek 是 flash、不思考），适合配角。'**
+  String get tavernGroupHelperModelNote;
+
+  /// No description provided for @tavernGroupMoveUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'往前挪'**
+  String get tavernGroupMoveUp;
+
+  /// No description provided for @tavernGroupMoveDown.
+  ///
+  /// In zh, this message translates to:
+  /// **'往后挪'**
+  String get tavernGroupMoveDown;
+
+  /// No description provided for @tavernGroupRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移出群聊'**
+  String get tavernGroupRemove;
+
+  /// No description provided for @tavernGroupAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'加一个角色'**
+  String get tavernGroupAdd;
+
+  /// No description provided for @tavernGroupNoOthers.
+  ///
+  /// In zh, this message translates to:
+  /// **'书架上的角色都在群里了'**
+  String get tavernGroupNoOthers;
+
+  /// No description provided for @tavernGroupUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色卡不在了'**
+  String get tavernGroupUnavailable;
+
+  /// No description provided for @tavernGroupSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能保存：{reason}'**
+  String tavernGroupSaveFailed(String reason);
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
