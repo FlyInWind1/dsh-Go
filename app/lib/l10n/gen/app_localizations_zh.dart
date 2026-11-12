@@ -20961,6 +20961,102 @@ class L10nZh extends L10n {
   String get tavernGameHere => '这里有一个小游戏，现在还不能在这里玩';
 
   @override
+  String get tavernRegexEdit => '编辑规则';
+
+  @override
+  String get tavernRegexFieldName => '名字';
+
+  @override
+  String get tavernRegexFieldFindHelp => 'SillyTavern 的写法：/规则/标志，比如 /(早安|晚安)/gi';
+
+  @override
+  String get tavernRegexFieldReplaceHelp => '\$1 是第一组，{{match}} 是整段匹配';
+
+  @override
+  String get tavernRegexFieldTrim => '先去掉的字';
+
+  @override
+  String get tavernRegexFieldTrimHelp => '每行一个；替换之前先从匹配到的字里删掉';
+
+  @override
+  String get tavernRegexPlacement => '用在';
+
+  @override
+  String get tavernRegexPlaceUser => '你的话';
+
+  @override
+  String get tavernRegexPlaceAi => '回复';
+
+  @override
+  String get tavernRegexPlaceSlash => '斜杠命令';
+
+  @override
+  String get tavernRegexPlaceWorld => '世界书';
+
+  @override
+  String get tavernRegexPlaceReasoning => '思考';
+
+  @override
+  String get tavernRegexPhase => '改哪一份';
+
+  @override
+  String get tavernRegexPhaseWrite => '原文';
+
+  @override
+  String get tavernRegexPhaseDisplay => '只改显示';
+
+  @override
+  String get tavernRegexPhasePrompt => '只改发出';
+
+  @override
+  String get tavernRegexPhaseBoth => '显示和发出';
+
+  @override
+  String get tavernRegexPhaseNote => '原文：直接改写存下来的消息。只改显示：存档不变，只是看起来不同。只改发出：只改发给模型的那一份。';
+
+  @override
+  String get tavernRegexMinDepth => '最浅';
+
+  @override
+  String get tavernRegexMaxDepth => '最深';
+
+  @override
+  String get tavernRegexDepthHelp => '空着就是不限；0 是最新一条';
+
+  @override
+  String get tavernRegexSubstitute => '查找里的宏';
+
+  @override
+  String get tavernRegexSubstituteNone => '不展开';
+
+  @override
+  String get tavernRegexSubstituteRaw => '原样展开';
+
+  @override
+  String get tavernRegexSubstituteEscaped => '转义后展开';
+
+  @override
+  String get tavernRegexRunOnEdit => '编辑消息时也跑';
+
+  @override
+  String get tavernRegexFieldEnabled => '启用这条规则';
+
+  @override
+  String get tavernRegexSavedIncompatible => '已保存。这条规则在这里跑不了，用的时候会跳过';
+
+  @override
+  String get tavernRegexGone => '这条规则已经不在了，回列表刷新一下';
+
+  @override
+  String get tavernRegexDeferred => '用到了宏，要到运行时才知道能不能跑';
+
+  @override
+  String get tavernRegexTryDraft => '用现在填的试一下';
+
+  @override
+  String get tavernRegexDepthAny => '不限';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

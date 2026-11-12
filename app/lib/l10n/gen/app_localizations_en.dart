@@ -22120,6 +22120,103 @@ class L10nEn extends L10n {
   String get tavernGameHere => 'A mini-game goes here; it can\'t be played here yet';
 
   @override
+  String get tavernRegexEdit => 'Edit rule';
+
+  @override
+  String get tavernRegexFieldName => 'Name';
+
+  @override
+  String get tavernRegexFieldFindHelp => 'SillyTavern\'s form: /pattern/flags, e.g. /(hi|bye)/gi';
+
+  @override
+  String get tavernRegexFieldReplaceHelp => '\$1 is the first group; {{match}} is the whole match';
+
+  @override
+  String get tavernRegexFieldTrim => 'Trim out first';
+
+  @override
+  String get tavernRegexFieldTrimHelp => 'One per line, cut from the match before it is replaced';
+
+  @override
+  String get tavernRegexPlacement => 'Applies to';
+
+  @override
+  String get tavernRegexPlaceUser => 'Your messages';
+
+  @override
+  String get tavernRegexPlaceAi => 'Replies';
+
+  @override
+  String get tavernRegexPlaceSlash => 'Slash commands';
+
+  @override
+  String get tavernRegexPlaceWorld => 'World info';
+
+  @override
+  String get tavernRegexPlaceReasoning => 'Reasoning';
+
+  @override
+  String get tavernRegexPhase => 'Changes';
+
+  @override
+  String get tavernRegexPhaseWrite => 'The text';
+
+  @override
+  String get tavernRegexPhaseDisplay => 'Display';
+
+  @override
+  String get tavernRegexPhasePrompt => 'Prompt';
+
+  @override
+  String get tavernRegexPhaseBoth => 'Both';
+
+  @override
+  String get tavernRegexPhaseNote =>
+      'The text: rewrites the saved message. Display: the saved text stays; only what you see changes. Prompt: only what is sent to the model.';
+
+  @override
+  String get tavernRegexMinDepth => 'From depth';
+
+  @override
+  String get tavernRegexMaxDepth => 'To depth';
+
+  @override
+  String get tavernRegexDepthHelp => 'Empty means any; 0 is the newest message';
+
+  @override
+  String get tavernRegexSubstitute => 'Macros in the pattern';
+
+  @override
+  String get tavernRegexSubstituteNone => 'Leave';
+
+  @override
+  String get tavernRegexSubstituteRaw => 'Expand';
+
+  @override
+  String get tavernRegexSubstituteEscaped => 'Expand escaped';
+
+  @override
+  String get tavernRegexRunOnEdit => 'Also when a message is edited';
+
+  @override
+  String get tavernRegexFieldEnabled => 'Use this rule';
+
+  @override
+  String get tavernRegexSavedIncompatible => 'Saved. This rule can\'t run here, so it is skipped';
+
+  @override
+  String get tavernRegexGone => 'This rule is gone; go back to the list';
+
+  @override
+  String get tavernRegexDeferred => 'It uses macros; whether it runs is known only when it does';
+
+  @override
+  String get tavernRegexTryDraft => 'Try it as filled in';
+
+  @override
+  String get tavernRegexDepthAny => 'Any';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

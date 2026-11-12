@@ -1,6 +1,6 @@
 // 资源库 › 正则 (docs/design/roleplay-roadmap.md P0, engine T21): global regex
 // scripts, exported from SillyTavern one by one or as a list, imported as
-// they are; each on or off, exported or deleted. A script the engine cannot
+// they are; each on or off, edited in place, exported or deleted. A script the engine cannot
 // run here (a JavaScript feature Dart's regex lacks) says so and is skipped.
 // The regex a card or a preset brings goes with it, not here.
 
@@ -23,6 +23,7 @@ import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_chat_files.dart';
 import 'tavern_presets_page.dart' show tavernTextOf;
+import 'tavern_regex_edit_page.dart';
 import 'tavern_regex_test_page.dart';
 import 'tavern_report_page.dart';
 import 'tavern_widgets.dart';
@@ -126,6 +127,11 @@ class TavernRegexPage extends ConsumerWidget {
                           script.enabled ? AppIcons.remove : AppIcons.selected,
                           script.enabled ? l10n.tavernRegexDisable : l10n.tavernRegexEnable,
                           () => unawaited(_toggle(ref, script)),
+                        ),
+                        (
+                          AppIcons.edit,
+                          l10n.tavernRegexEdit,
+                          () => unawaited(Navigator.of(context).push(TavernRegexEditPage.route(script))),
                         ),
                         (
                           AppIcons.play,

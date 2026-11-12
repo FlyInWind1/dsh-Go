@@ -38282,6 +38282,198 @@ abstract class L10n {
   /// **'这里有一个小游戏，现在还不能在这里玩'**
   String get tavernGameHere;
 
+  /// No description provided for @tavernRegexEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑规则'**
+  String get tavernRegexEdit;
+
+  /// No description provided for @tavernRegexFieldName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名字'**
+  String get tavernRegexFieldName;
+
+  /// No description provided for @tavernRegexFieldFindHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'SillyTavern 的写法：/规则/标志，比如 /(早安|晚安)/gi'**
+  String get tavernRegexFieldFindHelp;
+
+  /// No description provided for @tavernRegexFieldReplaceHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'\$1 是第一组，{{match}} 是整段匹配'**
+  String get tavernRegexFieldReplaceHelp;
+
+  /// No description provided for @tavernRegexFieldTrim.
+  ///
+  /// In zh, this message translates to:
+  /// **'先去掉的字'**
+  String get tavernRegexFieldTrim;
+
+  /// No description provided for @tavernRegexFieldTrimHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'每行一个；替换之前先从匹配到的字里删掉'**
+  String get tavernRegexFieldTrimHelp;
+
+  /// No description provided for @tavernRegexPlacement.
+  ///
+  /// In zh, this message translates to:
+  /// **'用在'**
+  String get tavernRegexPlacement;
+
+  /// No description provided for @tavernRegexPlaceUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'你的话'**
+  String get tavernRegexPlaceUser;
+
+  /// No description provided for @tavernRegexPlaceAi.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复'**
+  String get tavernRegexPlaceAi;
+
+  /// No description provided for @tavernRegexPlaceSlash.
+  ///
+  /// In zh, this message translates to:
+  /// **'斜杠命令'**
+  String get tavernRegexPlaceSlash;
+
+  /// No description provided for @tavernRegexPlaceWorld.
+  ///
+  /// In zh, this message translates to:
+  /// **'世界书'**
+  String get tavernRegexPlaceWorld;
+
+  /// No description provided for @tavernRegexPlaceReasoning.
+  ///
+  /// In zh, this message translates to:
+  /// **'思考'**
+  String get tavernRegexPlaceReasoning;
+
+  /// No description provided for @tavernRegexPhase.
+  ///
+  /// In zh, this message translates to:
+  /// **'改哪一份'**
+  String get tavernRegexPhase;
+
+  /// No description provided for @tavernRegexPhaseWrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'原文'**
+  String get tavernRegexPhaseWrite;
+
+  /// No description provided for @tavernRegexPhaseDisplay.
+  ///
+  /// In zh, this message translates to:
+  /// **'只改显示'**
+  String get tavernRegexPhaseDisplay;
+
+  /// No description provided for @tavernRegexPhasePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'只改发出'**
+  String get tavernRegexPhasePrompt;
+
+  /// No description provided for @tavernRegexPhaseBoth.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示和发出'**
+  String get tavernRegexPhaseBoth;
+
+  /// No description provided for @tavernRegexPhaseNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'原文：直接改写存下来的消息。只改显示：存档不变，只是看起来不同。只改发出：只改发给模型的那一份。'**
+  String get tavernRegexPhaseNote;
+
+  /// No description provided for @tavernRegexMinDepth.
+  ///
+  /// In zh, this message translates to:
+  /// **'最浅'**
+  String get tavernRegexMinDepth;
+
+  /// No description provided for @tavernRegexMaxDepth.
+  ///
+  /// In zh, this message translates to:
+  /// **'最深'**
+  String get tavernRegexMaxDepth;
+
+  /// No description provided for @tavernRegexDepthHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'空着就是不限；0 是最新一条'**
+  String get tavernRegexDepthHelp;
+
+  /// No description provided for @tavernRegexSubstitute.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找里的宏'**
+  String get tavernRegexSubstitute;
+
+  /// No description provided for @tavernRegexSubstituteNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不展开'**
+  String get tavernRegexSubstituteNone;
+
+  /// No description provided for @tavernRegexSubstituteRaw.
+  ///
+  /// In zh, this message translates to:
+  /// **'原样展开'**
+  String get tavernRegexSubstituteRaw;
+
+  /// No description provided for @tavernRegexSubstituteEscaped.
+  ///
+  /// In zh, this message translates to:
+  /// **'转义后展开'**
+  String get tavernRegexSubstituteEscaped;
+
+  /// No description provided for @tavernRegexRunOnEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑消息时也跑'**
+  String get tavernRegexRunOnEdit;
+
+  /// No description provided for @tavernRegexFieldEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用这条规则'**
+  String get tavernRegexFieldEnabled;
+
+  /// No description provided for @tavernRegexSavedIncompatible.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存。这条规则在这里跑不了，用的时候会跳过'**
+  String get tavernRegexSavedIncompatible;
+
+  /// No description provided for @tavernRegexGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条规则已经不在了，回列表刷新一下'**
+  String get tavernRegexGone;
+
+  /// No description provided for @tavernRegexDeferred.
+  ///
+  /// In zh, this message translates to:
+  /// **'用到了宏，要到运行时才知道能不能跑'**
+  String get tavernRegexDeferred;
+
+  /// No description provided for @tavernRegexTryDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'用现在填的试一下'**
+  String get tavernRegexTryDraft;
+
+  /// No description provided for @tavernRegexDepthAny.
+  ///
+  /// In zh, this message translates to:
+  /// **'不限'**
+  String get tavernRegexDepthAny;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:
