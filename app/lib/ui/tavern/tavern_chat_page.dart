@@ -1252,7 +1252,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
 
     // Read here, not in the 视觉小说 builder below, which reruns on every
     // piece of the reply.
-    final live2d = layout != TavernLayout.visualNovel || characterId == null || _stageFailed
+    // A group's stage shows whoever speaks, in their own picture: no one
+    // member's Live2D model stands for all of them.
+    final live2d = layout != TavernLayout.visualNovel || characterId == null || _stageFailed || group != null
         ? null
         : ref.watch(tavernLive2dProvider(characterId)).value;
     final revealRate = ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond));
@@ -1366,6 +1368,12 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     name: name,
                     avatarPath: character?.avatarPath,
                     sprites: tavernSprites(character?.assets),
+                    castFor: group == null
+                        ? null
+                        : (id) => switch (characters?.where((c) => c.id == id).firstOrNull) {
+                            final c? => (name: c.name, avatarPath: c.avatarPath, sprites: tavernSprites(c.assets)),
+                            null => null,
+                          },
                     stage: switch (live2d) {
                       final store? => CompanionStage(
                         key: ValueKey(store.root.path),

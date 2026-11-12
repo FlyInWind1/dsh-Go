@@ -11,18 +11,24 @@ import '../support/test_fonts.dart';
 
 const _sprites = {'joy': '/s/joy.png', 'sadness': '/s/sad.png', 'neutral': '/s/neutral.png'};
 
-TavernPage _page(String id, TavernRole role, String text) => TavernPage(
+TavernPage _page(String id, TavernRole role, String text, {String speaker = '林晚', String? speakerId}) => TavernPage(
   TavernMessage(
     nodeId: id,
     role: role,
-    speaker: role == TavernRole.user ? 'User' : '林晚',
+    speaker: role == TavernRole.user ? 'User' : speaker,
     text: text,
     at: DateTime(2026),
+    speakerCharacterId: speakerId,
   ),
   text,
 );
 
-Future<void> _show(WidgetTester tester, List<TavernPage> pages, Map<String, String> sprites) async {
+Future<void> _show(
+  WidgetTester tester,
+  List<TavernPage> pages,
+  Map<String, String> sprites, {
+  TavernVnCast? Function(String id)? castFor,
+}) async {
   tester.view.physicalSize = const Size(390, 844) * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -42,6 +48,7 @@ Future<void> _show(WidgetTester tester, List<TavernPage> pages, Map<String, Stri
             onMenu: (_) {},
             footer: (_, _) => null,
             sprites: sprites,
+            castFor: castFor,
           ),
         ),
       ),
@@ -105,6 +112,41 @@ void main() {
     await _back(tester);
     expect(find.text('1/3'), findsOneWidget);
     expect(find.byKey(const ValueKey('/s/joy.png')), findsOneWidget);
+  });
+
+  testWidgets('a group: the stage shows whoever spoke, in their own sprites; back, the one before', (tester) async {
+    TavernVnCast? cast(String id) => switch (id) {
+      'lin' => (name: '林晚', avatarPath: null, sprites: _sprites),
+      'star' => (name: '星图', avatarPath: null, sprites: const {'joy': '/t/joy.png', 'neutral': '/t/neutral.png'}),
+      _ => null,
+    };
+    await _show(
+      tester,
+      [
+        _page('a', TavernRole.character, '她低下头，眼泪掉了下来。', speakerId: 'lin'),
+        _page('b', TavernRole.character, '他笑着递过来一杯茶。', speaker: '星图', speakerId: 'star'),
+        _page('c', TavernRole.user, '你们俩怎么了？'),
+      ],
+      _sprites,
+      castFor: cast,
+    );
+    // Your page keeps the last speaker on stage: 星图, smiling.
+    expect(find.byKey(const ValueKey('/t/joy.png')), findsOneWidget);
+    await _back(tester);
+    expect(find.byKey(const ValueKey('/t/joy.png')), findsOneWidget);
+    await _back(tester);
+    expect(find.byKey(const ValueKey('/s/sad.png')), findsOneWidget);
+    expect(find.byKey(const ValueKey('/t/joy.png')), findsNothing);
+
+    // Someone with no sprites stands as their card face.
+    await _show(
+      tester,
+      [_page('d', TavernRole.character, '风停了。', speaker: '路人', speakerId: 'nobody')],
+      const {},
+      castFor: (id) => (name: '路人', avatarPath: null, sprites: const <String, String>{}),
+    );
+    expect(find.byKey(const ValueKey('tavern-vn-face')), findsOneWidget);
+    expect(find.byKey(const ValueKey(('tavern-vn-cast', '路人'))), findsOneWidget);
   });
 
   testWidgets('no sprites: the card face, as before', (tester) async {
