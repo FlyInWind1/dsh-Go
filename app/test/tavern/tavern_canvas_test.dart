@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dsh_app/tavern/tavern_canvas.dart';
 import 'package:dsh_app/tavern/tavern_canvas_calls.dart';
+import 'package:dsh_app/tavern/tavern_card_scripts.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_app/tavern/tavern_settings.dart';
@@ -14,6 +15,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,6 +35,7 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
   Map<String, Object> prefs = const {},
   bool group = false,
   Duration tick = Duration.zero,
+  List<Override> overrides = const [],
 }) async {
   SharedPreferences.setMockInitialValues({TavernSettingsController.canvasKey: true, ...prefs});
   final tavern = PreviewTavern(tick: tick);
@@ -57,6 +60,7 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
     ProviderScope(
       overrides: [
         tavernProvider.overrideWith((ref) => tavern),
+        ...overrides,
         tavernCanvasBuilderProvider.overrideWithValue(({required entries, required streaming, required onMenu, calls}) {
           canvas
             ..entries = entries
@@ -358,6 +362,52 @@ void main() {
     await _chat(tester, prefs: {TavernSettingsController.canvasKey: false});
     expect(find.byKey(const ValueKey('fake-canvas')), findsNothing);
     expect(find.byKey(const ValueKey('tavern-transcript')), findsOneWidget);
+  });
+
+  testWidgets("the card's script buttons sit above the composer, before 掷骰; a tap is pressed in the page", (
+    tester,
+  ) async {
+    final scripts = [
+      const TavernCardScript(id: 's1', name: '地图', content: 'x', buttons: ['前往', '查看背包']),
+      const TavernCardScript(id: 's2', name: '无按钮', content: 'y'),
+    ];
+    final (_, _, canvas) = await _chat(
+      tester,
+      overrides: [tavernCardScriptsProvider('sample-innkeeper').overrideWith((ref) async => scripts)],
+    );
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('tavern-quick-replies'));
+    expect(find.descendant(of: row, matching: find.text('前往')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('查看背包')), findsOneWidget);
+    // In order: the script buttons, then 掷骰.
+    final first = tester.getTopLeft(find.byKey(const ValueKey('tavern-script-button-0'))).dx;
+    final second = tester.getTopLeft(find.byKey(const ValueKey('tavern-script-button-1'))).dx;
+    final dice = tester.getTopLeft(find.byKey(const ValueKey('tavern-dice'))).dx;
+    expect(first < second && second < dice, isTrue);
+
+    final pressed = <Map<String, Object?>>[];
+    canvas.calls!.deliver = (d) async {
+      pressed.add(d);
+      return true;
+    };
+    await tester.tap(find.byKey(const ValueKey('tavern-script-button-1')));
+    await tester.pump();
+    expect(pressed, [
+      {'kind': 'button', 'scriptId': 's1', 'name': '查看背包'},
+    ]);
+  });
+
+  testWidgets('no script buttons where the scripts do not run: 不运行卡的脚本 on, or the native list', (tester) async {
+    final scripts = [
+      const TavernCardScript(id: 's1', name: '地图', content: 'x', buttons: ['前往']),
+    ];
+    final override = tavernCardScriptsProvider('sample-innkeeper').overrideWith((ref) async => scripts);
+    await _chat(tester, prefs: {TavernSettingsController.islandNoScriptsKey: true}, overrides: [override]);
+    expect(find.byKey(const ValueKey('tavern-script-button-0')), findsNothing);
+    expect(find.byKey(const ValueKey('tavern-dice')), findsOneWidget);
+
+    await _chat(tester, prefs: {TavernSettingsController.canvasKey: false}, overrides: [override]);
+    expect(find.byKey(const ValueKey('tavern-script-button-0')), findsNothing);
   });
 
   test('the setting is off until chosen, and kept', () async {

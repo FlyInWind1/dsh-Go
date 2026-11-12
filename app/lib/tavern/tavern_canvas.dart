@@ -509,6 +509,8 @@ $preload
       if(d.kind==='lifecycle'){lifecycle(d);return;}
       if(d.kind==='invoke'){invoke(d);return;}
       if(d.kind==='generation'){generationEvent(d);return;}
+      // A script's button pressed in the app: the event getButtonEvent names.
+      if(d.kind==='button'){fire(evName('dsh_button__'+d.scriptId+'__'+d.name),[]);return;}
       if(d.kind!=='cache')return;
       // Not asked for yet: a snapshot taken later covers what was dropped.
       if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}

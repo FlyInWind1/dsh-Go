@@ -26,6 +26,7 @@ import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_canvas_calls.dart';
+import '../../tavern/tavern_card_scripts.dart';
 import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
@@ -829,6 +830,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   /// A quick reply sends as it is; on failure it waits in the box.
+  /// A card script's button: pressed in the page, where the script listens
+  /// for it (eventOn(getButtonEvent(name))).
+  void _pressScriptButton(String scriptId, String name) {
+    unawaited(HapticFeedback.selectionClick());
+    final deliver = _canvasCalls.deliver;
+    if (deliver != null) unawaited(deliver({'kind': 'button', 'scriptId': scriptId, 'name': name}));
+  }
+
   void _sendQuick(String text) {
     if (_running) return;
     unawaited(HapticFeedback.selectionClick());
@@ -1290,6 +1299,16 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _canvasNames = names;
     _canvasCharacter = group == null ? characterId : null;
     if (canvas) _feedCanvas();
+    // The buttons the card's own scripts show: only where those scripts run
+    // (the canvas, scripts on, one character).
+    final scriptCharacter = _canvasCharacter;
+    final scriptButtons =
+        canvas && scriptCharacter != null && !ref.watch(tavernSettingsProvider.select((s) => s.islandNoScripts))
+        ? [
+            for (final s in ref.watch(tavernCardScriptsProvider(scriptCharacter)).value ?? const <TavernCardScript>[])
+              for (final b in s.buttons) (s.id, b),
+          ]
+        : const <(String, String)>[];
     // The pages and the canvas read each message as shown, through the
     // display regex; the bubble and novel rows ask for their own.
     final shownText = layout == TavernLayout.visualNovel || canvas
@@ -1549,6 +1568,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                           replies: ref.watch(tavernQuickRepliesProvider),
                           onSend: _sendQuick,
                           onEdit: _editQuick,
+                          scriptButtons: scriptButtons,
+                          onScriptButton: _pressScriptButton,
                           onDice: () => unawaited(_dice()),
                           onAll: () => unawaited(_allQuick()),
                         )
@@ -1878,7 +1899,7 @@ class _SlashRow extends StatelessWidget {
 }
 
 /// The capsules above the composer (§6): 快速回复 (tap sends, long-press puts
-/// it in the box), then 掷骰.
+/// it in the box), the card's script buttons, then 掷骰.
 class _QuickReplyRow extends StatelessWidget {
   const _QuickReplyRow({
     this.members = const [],
@@ -1889,9 +1910,15 @@ class _QuickReplyRow extends StatelessWidget {
     required this.replies,
     required this.onSend,
     required this.onEdit,
+    this.scriptButtons = const [],
+    this.onScriptButton,
     required this.onDice,
     required this.onAll,
   });
+
+  /// The buttons the card's own scripts show, by script and name, as given.
+  final List<(String, String)> scriptButtons;
+  final void Function(String scriptId, String name)? onScriptButton;
 
   /// A group's members, before all else: a tap has that one speak next.
   final List<(String, String)> members;
@@ -1926,7 +1953,7 @@ class _QuickReplyRow extends StatelessWidget {
         key: const ValueKey('tavern-quick-replies'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: members.length + directed.length + replies.length + (replies.isEmpty ? 1 : 2),
+        itemCount: members.length + directed.length + replies.length + scriptButtons.length + (replies.isEmpty ? 1 : 2),
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         // The director's suggestions arrive whenever it has them: each new
         // one fades in, a beat after the one before it.
@@ -1960,25 +1987,39 @@ class _QuickReplyRow extends StatelessWidget {
         )
       : _item(context, at - directed.length);
 
-  Widget _item(BuildContext context, int i) => i > replies.length
-      ? CapsuleChoiceChip(
-          key: const ValueKey('tavern-qr-all'),
-          label: context.l10n.tavernQuickRepliesAll,
-          selected: false,
-          onSelected: onAll,
-        )
-      : i == replies.length
-      ? CapsuleChoiceChip(
-          key: const ValueKey('tavern-dice'),
-          label: context.l10n.tavernDice,
-          selected: false,
-          onSelected: onDice,
-        )
-      : GestureDetector(
-          key: ValueKey('tavern-qr-$i'),
-          onLongPress: () => onEdit(replies[i]),
-          child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
-        );
+  Widget _item(BuildContext context, int i) {
+    if (i < replies.length) {
+      return GestureDetector(
+        key: ValueKey('tavern-qr-$i'),
+        onLongPress: () => onEdit(replies[i]),
+        child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
+      );
+    }
+    final at = i - replies.length;
+    if (at < scriptButtons.length) {
+      final (script, name) = scriptButtons[at];
+      return CapsuleChoiceChip(
+        key: ValueKey('tavern-script-button-$at'),
+        icon: AppIcons.code,
+        label: _label(name),
+        selected: false,
+        onSelected: () => onScriptButton?.call(script, name),
+      );
+    }
+    return at == scriptButtons.length
+        ? CapsuleChoiceChip(
+            key: const ValueKey('tavern-dice'),
+            label: context.l10n.tavernDice,
+            selected: false,
+            onSelected: onDice,
+          )
+        : CapsuleChoiceChip(
+            key: const ValueKey('tavern-qr-all'),
+            label: context.l10n.tavernQuickRepliesAll,
+            selected: false,
+            onSelected: onAll,
+          );
+  }
 }
 
 /// Swiping a reply sideways steps through its alternatives: left for the next
