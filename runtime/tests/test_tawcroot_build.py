@@ -146,6 +146,24 @@ class TawcrootBuildTests(unittest.TestCase):
         with mock.patch.dict(BUILD.os.environ, {"ANDROID_NDK_HOME": "/ndk"}, clear=True):
             self.assertEqual(BUILD.default_ndk(self.runtime), "/ndk")
 
+    def test_default_ndk_decodes_local_properties_unicode(self):
+        sdk = self.root / "Android SDK 用户 🐳"
+        ndk = sdk / "ndk" / self.source["ndkVersion"]
+        ndk.parent.mkdir(parents=True)
+        self.ndk.rename(ndk)
+        props = self.runtime.parent / "app/android/local.properties"
+        props.parent.mkdir(parents=True)
+        plain_unicode = str(sdk).replace("\\", "\\\\")
+        escaped = plain_unicode.replace(":", "\\:").replace("用户 🐳", r"\u7528\u6237 \uD83D\uDC33")
+        for label, value in (("plain Unicode", plain_unicode), ("Properties.store", escaped)):
+            with self.subTest(source=label):
+                props.write_text("sdk.dir=" + value + "\n", encoding="utf-8")
+                with mock.patch.dict(BUILD.os.environ, {}, clear=True), \
+                        mock.patch.object(BUILD.subprocess, "run", side_effect=AssertionError("no compiler")):
+                    selected = BUILD.default_ndk(self.runtime)
+                    self.assertEqual(Path(selected), ndk)
+                    BUILD.toolchain(selected, self.source)
+
 
 if __name__ == "__main__":
     unittest.main()
