@@ -19703,7 +19703,7 @@ class L10nZh extends L10n {
   String get tavernBranches => '分支';
 
   @override
-  String get tavernBranchesNote => '每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去，或者给它起名。';
+  String get tavernBranchesNote => '每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去、给它起名；没在走的那条也能删掉。';
 
   @override
   String get tavernBranchesEmpty => '这段对话还没有消息。';
@@ -20334,6 +20334,17 @@ class L10nZh extends L10n {
 
   @override
   String get tavernLibraryBookNote => '改动写回这本书；绑定了它的地方，下一回合就用新内容。';
+
+  @override
+  String get tavernBranchDelete => '删掉这条分支';
+
+  @override
+  String get tavernBranchDeleteTitle => '删掉这条分支？';
+
+  @override
+  String tavernBranchDeleteMessage(int count) {
+    return '这条分支上的 $count 条消息，连同从它分出去的，都会删掉；删了之后几秒内可以撤销。正在走的这条不受影响。';
+  }
 
   @override
   String get updateCheck => '检查更新';

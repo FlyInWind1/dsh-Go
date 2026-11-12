@@ -771,7 +771,7 @@
   "tavernLoreOrder": "Order {order}",
   "@tavernLoreOrder": {"placeholders": {"order": {"type": "String"}}},
   "tavernBranches": "Branches",
-  "tavernBranchesNote": "Each row is a stretch with no fork. An indented row is another way the story went from the end of the row above. Tap a row to switch to it or name it.",
+  "tavernBranchesNote": "Each row is a stretch with no fork. An indented row is another way out of the end of the row above. Tap a row to switch to it or name it; one the story is not on can also be deleted.",
   "tavernBranchesEmpty": "No messages in this chat yet.",
   "tavernBranchCount": "{count} messages",
   "@tavernBranchCount": {"placeholders": {"count": {"type": "int"}}},
@@ -991,5 +991,9 @@
   "tavernLoreNo": "No",
   "tavernLorePosDepth": "At depth",
   "tavernLibraryBookOpen": "Entries",
-  "tavernLibraryBookNote": "Changes are written back to this book; wherever it is bound uses them from the next turn."
+  "tavernLibraryBookNote": "Changes are written back to this book; wherever it is bound uses them from the next turn.",
+  "tavernBranchDelete": "Delete this branch",
+  "tavernBranchDeleteTitle": "Delete this branch?",
+  "tavernBranchDeleteMessage": "Its {count} messages, and every branch that grew from it, will go; you can take it back for a few seconds. The way the story is on now is not touched.",
+  "@tavernBranchDeleteMessage": {"placeholders": {"count": {"type": "int"}}}
 }

@@ -156,6 +156,41 @@ void main() {
     expect(now.last.nodeId, old.nodeId);
   });
 
+  testWidgets('a branch the story is not on can go, asked first, and come back with 撤销', (tester) async {
+    final (tavern, chat, tree) = await _forked(tester);
+    final yours = tree.firstWhere((n) => n.role == TavernRole.user);
+    final old = tree.firstWhere((n) => n.parentId == yours.nodeId && !n.isCurrentPath);
+    final reply = tree.firstWhere((n) => n.parentId == yours.nodeId && n.isCurrentPath);
+    await _pump(tester, tavern, TavernBranchesPage(chatId: chat));
+
+    // The current way offers no delete.
+    await tester.tap(_row(reply.nodeId));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tavern-branch-delete')), findsNothing);
+    await tester.tapAt(const Offset(195, 60));
+    await tester.pumpAndSettle();
+
+    await tester.tap(_row(old.nodeId));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tavern-branch-delete')));
+    await tester.pumpAndSettle();
+    expect(find.text('删掉这条分支？'), findsOneWidget);
+    expect(find.textContaining('这条分支上的 1 条消息'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.pumpAndSettle();
+    expect(_row(old.nodeId), findsNothing);
+    expect((await tester.runAsync(() => tavern.tree(chat)))!.any((n) => n.nodeId == old.nodeId), isFalse);
+    expect((await tester.runAsync(() => tavern.path(chat)))!.last.nodeId, reply.nodeId); // the story untouched
+
+    await tester.tap(find.text('撤销'));
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+    expect(_row(old.nodeId), findsOneWidget);
+  });
+
   testWidgets('the current row only takes a name; a name shows, and an empty one clears it', (tester) async {
     final (tavern, chat, tree) = await _forked(tester);
     final yours = tree.firstWhere((n) => n.role == TavernRole.user);

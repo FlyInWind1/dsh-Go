@@ -35957,7 +35957,7 @@ abstract class L10n {
   /// No description provided for @tavernBranchesNote.
   ///
   /// In zh, this message translates to:
-  /// **'每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去，或者给它起名。'**
+  /// **'每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去、给它起名；没在走的那条也能删掉。'**
   String get tavernBranchesNote;
 
   /// No description provided for @tavernBranchesEmpty.
@@ -37099,6 +37099,24 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'改动写回这本书；绑定了它的地方，下一回合就用新内容。'**
   String get tavernLibraryBookNote;
+
+  /// No description provided for @tavernBranchDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删掉这条分支'**
+  String get tavernBranchDelete;
+
+  /// No description provided for @tavernBranchDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删掉这条分支？'**
+  String get tavernBranchDeleteTitle;
+
+  /// No description provided for @tavernBranchDeleteMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条分支上的 {count} 条消息，连同从它分出去的，都会删掉；删了之后几秒内可以撤销。正在走的这条不受影响。'**
+  String tavernBranchDeleteMessage(int count);
 
   /// No description provided for @updateCheck.
   ///

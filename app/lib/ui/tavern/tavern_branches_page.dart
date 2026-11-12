@@ -3,7 +3,8 @@
 // row; where the story forks, the way it is going now carries on unindented
 // and every other way hangs indented under the fork. The current path is
 // marked. A row switches the story to that branch (its remembered path below
-// comes along) or takes a name.
+// comes along), takes a name, or — one the story is not on — goes, for a few
+// seconds to take back.
 
 import 'dart:async';
 
@@ -21,6 +22,8 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import '../workspace/text_prompt.dart';
+import 'tavern_chat_page.dart' show tavernUndoWindow;
+import 'tavern_widgets.dart' show confirmTavernDelete;
 
 /// A stretch of the tree: [nodes], each the only child of the one before,
 /// from a fork (or a root) down to the next fork or a leaf. [level] is how
@@ -104,8 +107,12 @@ class TavernBranchesPage extends ConsumerStatefulWidget {
   ConsumerState<TavernBranchesPage> createState() => _TavernBranchesPageState();
 }
 
+/// What a branch's sheet was asked for.
+enum _BranchAction { switchTo, name, delete }
+
 class _TavernBranchesPageState extends ConsumerState<TavernBranchesPage> {
   List<TavernBranch>? _rows;
+  List<TavernTreeNode> _tree = const [];
   StreamSubscription<void>? _changes;
   int _ticket = 0;
 
@@ -128,13 +135,16 @@ class _TavernBranchesPageState extends ConsumerState<TavernBranchesPage> {
     final ticket = ++_ticket;
     final tree = await _tavern.tree(widget.chatId);
     if (!mounted || ticket != _ticket) return;
-    setState(() => _rows = tavernBranches(tree));
+    setState(() {
+      _tree = tree;
+      _rows = tavernBranches(tree);
+    });
   }
 
   Future<void> _choose(TavernBranch branch) async {
     final l10n = context.l10n;
     final named = branch.first.branchName != null;
-    final switching = await showAppSheet<bool>(
+    final action = await showAppSheet<_BranchAction>(
       context,
       builder: (sheet) => SafeArea(
         top: false,
@@ -148,25 +158,83 @@ class _TavernBranchesPageState extends ConsumerState<TavernBranchesPage> {
                 tinted: false,
                 title: l10n.tavernBranchSwitch,
                 subtitle: l10n.tavernBranchSwitchSubtitle,
-                onTap: () => Navigator.of(sheet).pop(true),
+                onTap: () => Navigator.of(sheet).pop(_BranchAction.switchTo),
               ),
             SettingsTile(
               key: const ValueKey('tavern-branch-name'),
               icon: AppIcons.rename,
               tinted: false,
               title: named ? l10n.tavernBranchRename : l10n.tavernBranchName,
-              onTap: () => Navigator.of(sheet).pop(false),
+              onTap: () => Navigator.of(sheet).pop(_BranchAction.name),
             ),
+            // The story's own way is deleted in the chat (删除这条及以后);
+            // here, only a way it is not on.
+            if (!branch.current)
+              SettingsTile(
+                key: const ValueKey('tavern-branch-delete'),
+                icon: AppIcons.delete,
+                danger: true,
+                tinted: false,
+                title: l10n.tavernBranchDelete,
+                chevron: false,
+                onTap: () => Navigator.of(sheet).pop(_BranchAction.delete),
+              ),
           ],
         ),
       ),
     );
-    if (!mounted || switching == null) return;
-    if (switching) {
-      await _switch(branch);
-    } else {
-      await _name(branch);
+    if (!mounted) return;
+    switch (action) {
+      case _BranchAction.switchTo:
+        await _switch(branch);
+      case _BranchAction.name:
+        await _name(branch);
+      case _BranchAction.delete:
+        await _delete(branch);
+      case null:
     }
+  }
+
+  /// How many messages go with [nodeId]: it and everything below it.
+  int _subtree(String nodeId) {
+    final parents = {for (final n in _tree) n.nodeId: n.parentId};
+    bool under(String? id) {
+      for (var at = id; at != null; at = parents[at]) {
+        if (at == nodeId) return true;
+      }
+      return false;
+    }
+
+    return _tree.where((n) => under(n.nodeId)).length;
+  }
+
+  /// Asks, then the branch and all that grew from it go; 撤销 brings them back.
+  Future<void> _delete(TavernBranch branch) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final count = _subtree(branch.first.nodeId);
+    final ok = await confirmTavernDelete(
+      context,
+      title: l10n.tavernBranchDeleteTitle,
+      message: l10n.tavernBranchDeleteMessage(count),
+    );
+    if (!ok || !mounted) return;
+    final String token;
+    try {
+      token = await _tavern.deleteFrom(widget.chatId, branch.first.nodeId);
+    } on Object catch (e) {
+      messenger?.showBriefNotice(l10n.tavernBranchFailed('$e'));
+      return;
+    }
+    await _load();
+    messenger?.showUndoNotice(
+      l10n.tavernDeletedCount(count),
+      undoLabel: l10n.tavernUndo,
+      window: tavernUndoWindow,
+      onUndo: () => unawaited(
+        _tavern.undoDeleteFrom(widget.chatId, token).then((_) => mounted ? _load() : null, onError: (Object _) {}),
+      ),
+    );
   }
 
   Future<void> _switch(TavernBranch branch) async {

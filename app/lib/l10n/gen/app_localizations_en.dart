@@ -20784,7 +20784,7 @@ class L10nEn extends L10n {
 
   @override
   String get tavernBranchesNote =>
-      'Each row is a stretch with no fork. An indented row is another way the story went from the end of the row above. Tap a row to switch to it or name it.';
+      'Each row is a stretch with no fork. An indented row is another way out of the end of the row above. Tap a row to switch to it or name it; one the story is not on can also be deleted.';
 
   @override
   String get tavernBranchesEmpty => 'No messages in this chat yet.';
@@ -21447,6 +21447,17 @@ class L10nEn extends L10n {
   @override
   String get tavernLibraryBookNote =>
       'Changes are written back to this book; wherever it is bound uses them from the next turn.';
+
+  @override
+  String get tavernBranchDelete => 'Delete this branch';
+
+  @override
+  String get tavernBranchDeleteTitle => 'Delete this branch?';
+
+  @override
+  String tavernBranchDeleteMessage(int count) {
+    return 'Its $count messages, and every branch that grew from it, will go; you can take it back for a few seconds. The way the story is on now is not touched.';
+  }
 
   @override
   String get updateCheck => 'Check for updates';
