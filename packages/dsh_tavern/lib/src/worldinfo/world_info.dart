@@ -1427,9 +1427,10 @@ Future<void> _filterGroups(
     if (priority.isNotEmpty) {
       winner = priority.first;
     } else {
-      final weight = group.fold<num>(0, (sum, item) => sum + item.entry.groupWeight);
+      // ST accumulates both totals as Number; native integer sums can wrap.
+      final weight = group.fold<double>(0.0, (sum, item) => sum + item.entry.groupWeight);
       final roll = _random(input) * weight;
-      num current = 0;
+      var current = 0.0;
       for (final item in group) {
         current += item.entry.groupWeight;
         if (roll <= current) {

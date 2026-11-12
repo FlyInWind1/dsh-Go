@@ -121,7 +121,7 @@ class _LegacyEvaluation {
       _legacyPass(r'<CHAR>', (_) => env['char']!()),
       _legacyPass(r'<CHARIFNOTGROUP>', (_) => env['group']!()),
       _legacyPass(r'<GROUP>', (_) => env['group']!()),
-      _legacyPass(r'{{roll[ : ]([^}]+)}}', (match) => common._roll(match[1]!.trim())),
+      _legacyPass(r'{{roll[ : ]([^}]+)}}', (match) => common._roll(trimJsWhitespace(match[1]!))),
       ..._instructPasses(env),
       ..._variablePasses(context.localVariables, global: false),
       ..._variablePasses(context.globalVariables, global: true),

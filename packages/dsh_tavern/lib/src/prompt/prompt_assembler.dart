@@ -1245,17 +1245,17 @@ List<List<Map<String, Object?>>> parseDialogueExamples(
   List<String> groupNames = const [],
 }) {
   if (text.isEmpty || text == '<START>') return [];
-  if (!text.startsWith('<START>')) text = '<START>\n${text.trim()}';
+  if (!text.startsWith('<START>')) text = '<START>\n${trimJsWhitespace(text)}';
   final blocks = text.split(RegExp('<START>', caseSensitive: false)).skip(1);
   final result = <List<Map<String, Object?>>>[];
   for (final block in blocks) {
-    final lines = '${block.trim()}\n'.replaceAll('\r', '').split('\n');
+    final lines = '${trimJsWhitespace(block)}\n'.replaceAll('\r', '').split('\n');
     final messages = <Map<String, Object?>>[];
     var buffer = <String>[];
     String? mode;
     var botName = characterName;
     void flush(String name, String marker) {
-      var content = buffer.join('\n').replaceFirst('$name:', '').trim();
+      var content = trimJsWhitespace(buffer.join('\n').replaceFirst('$name:', ''));
       if (groupNames.isNotEmpty) content = '$name: $content';
       messages.add({'role': 'system', 'content': content, 'name': marker});
       buffer = [];
