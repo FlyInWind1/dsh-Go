@@ -10,8 +10,9 @@
 // an object reads data: null with its raw value beside it; every refusal —
 // thrown at the call or later — comes back as a structured error, never as
 // a channel failure. This first part carries reading (capabilities,
-// contexts, messages) and variables; message writes need the host side and
-// come with it. snapshot gives a page what its synchronous getters read.
+// contexts, messages), message writes (the engine's field names; a field it
+// does not know is refused by it, never dropped here) and variables.
+// snapshot gives a page what its synchronous getters read.
 // updateVariablesWith is not a wire method: a script's
 // function stays in the page (read, call it once, replace with the version
 // it read).
@@ -103,6 +104,41 @@ class TavernScriptWire {
           'totalPathLength': page.totalPathLength,
           'messages': [for (final m in page.messages) tavernScriptMessageJson(m)],
         };
+      case 'setChatMessages':
+        return _mutation(
+          await bridge.setChatMessages(p.string('contextId'), [
+            for (final (i, x) in p.list('patches').indexed) _patch(x, i, p.method),
+          ], options: _write(p)),
+        );
+      case 'createChatMessages':
+        return _mutation(
+          await bridge.createChatMessages(
+            p.string('contextId'),
+            [for (final (i, x) in p.list('messages').indexed) _draft(x, i, p.method)],
+            insertBefore: _intOrNull(p._map.cast<String, Object?>(), 'insertBefore', p.method),
+            options: _write(p),
+          ),
+        );
+      case 'deleteChatMessages':
+        return _mutation(
+          await bridge.deleteChatMessages(p.string('contextId'), [
+            for (final id in p.list('messageIds'))
+              switch (id) {
+                final int n => n,
+                _ => throw _bad(p.method, 'A floor is a whole number.', fieldPath: 'messageIds'),
+              },
+          ], options: _write(p)),
+        );
+      case 'rotateChatMessages':
+        return _mutation(
+          await bridge.rotateChatMessages(
+            p.string('contextId'),
+            p.integer('begin'),
+            p.integer('middle'),
+            p.integer('end'),
+            options: _write(p),
+          ),
+        );
       case 'getVariables':
         return tavernScriptVariablesJson(
           await bridge.getVariables(p.string('contextId'), _target(p.object('target'), p.method)),
@@ -178,6 +214,11 @@ class _Params {
     null => null,
     final String s => s,
     _ => throw _bad(method, '$key is a string.', fieldPath: key),
+  };
+
+  int integer(String key) => switch (_need(key)) {
+    final int n => n,
+    _ => throw _bad(method, '$key is a whole number.', fieldPath: key),
   };
 
   bool boolOr(String key, bool otherwise) => switch (_map[key]) {
@@ -260,6 +301,63 @@ TavernVariableChange _change(Object? json, int at, String method) {
       ? TavernVariableChange(kind: kind, pathTokens: path, value: change['value'])
       : TavernVariableChange(kind: kind, pathTokens: path);
 }
+
+/// A write's options: the path revision it expects (opaque) and what to redraw.
+TavernScriptWriteOptions _write(_Params p) {
+  final options = p.has('options') ? p.object('options') : const <String, Object?>{};
+  final o = _Params(p.method, options);
+  return TavernScriptWriteOptions(
+    expectedPathRevision: o.stringOrNull('expectedPathRevision'),
+    refresh: o.has('refresh')
+        ? _enum(TavernScriptRefresh.values, o.string('refresh'), 'options.refresh', p.method)
+        : TavernScriptRefresh.affected,
+  );
+}
+
+/// One message to change: by floor or by stable ref, and the fields as the
+/// engine names them (the engine checks them all).
+TavernScriptMessagePatch _patch(Object? json, int at, String method) {
+  final patch = _asObject(json, 'patches[$at]', method);
+  final p = _Params(method, patch);
+  return TavernScriptMessagePatch(
+    messageId: _intOrNull(patch, 'messageId', method),
+    ref: p.has('ref') ? _ref(p.object('ref'), method) : null,
+    fields: p.object('fields'),
+  );
+}
+
+/// One message to create. data given as null is refused (absent is none).
+TavernScriptMessageDraft _draft(Object? json, int at, String method) {
+  final draft = _asObject(json, 'messages[$at]', method);
+  final p = _Params(method, draft);
+  if (draft.containsKey('data') && draft['data'] == null) {
+    throw _bad(method, 'data is an object when given.', fieldPath: 'messages[$at].data');
+  }
+  return TavernScriptMessageDraft(
+    role: _enum(TavernScriptRole.values, p.string('role'), 'messages[$at].role', method),
+    message: p.string('message'),
+    name: p.stringOrNull('name'),
+    speakerCharacterId: p.stringOrNull('speakerCharacterId'),
+    hidden: p.boolOr('hidden', false),
+    data: draft.containsKey('data') ? p.object('data') : null,
+    extra: p.has('extra') ? p.object('extra') : const {},
+  );
+}
+
+/// What a write did, as the page reads it; a floor whose message went is
+/// kept as null.
+Map<String, Object?> _mutation(TavernScriptMutation m) => {
+  'oldRevision': m.oldRevision,
+  'pathRevision': m.pathRevision,
+  'upsertMessages': [for (final x in m.upsertMessages) tavernScriptMessageJson(x)],
+  'affectedRefs': [for (final r in m.affectedRefs) tavernScriptRefJson(r)],
+  'removedRefs': [for (final r in m.removedRefs) tavernScriptRefJson(r)],
+  'indexChanges': {
+    for (final MapEntry(:key, :value) in m.indexChanges.entries)
+      '$key': value == null ? null : tavernScriptRefJson(value),
+  },
+  'refresh': m.refresh.name,
+};
 
 Map<String, Object?>? _ownerJson(TavernScriptOwner? o) =>
     o == null ? null : {'kind': o.kind.name, 'scriptId': o.scriptId, 'assetId': o.assetId};

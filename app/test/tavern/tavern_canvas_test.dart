@@ -133,6 +133,9 @@ void main() {
     for (final name in ['getVariables', 'replaceVariables', 'getChatMessages', 'eventOn', 'tavern_events']) {
       expect(open, contains('if(!window.$name)window.$name='));
     }
+    for (final name in ['setChatMessages', 'createChatMessages', 'deleteChatMessages', 'rotateChatMessages']) {
+      expect(open, contains("['$name',$name]"));
+    }
     expect(open, contains('--SmartThemeQuoteColor:rgba(170,85,0,1.000)'));
     expect(open, contains('--SmartThemeEmColor:rgba(85,102,119,1.000)'));
     expect(open, contains('font:var(--mainFontSize)/1.65'));

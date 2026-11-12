@@ -190,6 +190,115 @@ void main() {
     expect((variables['message']!['target']! as Map)['messageRef'], latest['ref']);
   });
 
+  test('messages written over the channel: created, changed, hidden, moved, deleted', () async {
+    final card = await File('assets/tavern/sample_innkeeper.json').readAsBytes();
+    final character = await tavern.importCard(card, fileName: 'sample_innkeeper.json');
+    final chat = await tavern.createChat(character.id);
+    final id =
+        (_result(await _ask(wire, 'openContext', {'instanceId': 'frame', 'chatId': chat}))! as Map)['id']! as String;
+    Future<List<String>> texts() async {
+      final page = _result(await _ask(wire, 'getChatMessages', {'contextId': id})) as Map;
+      return [for (final m in page['messages'] as List) (m as Map)['message'] as String];
+    }
+
+    final greeting = (await texts()).single;
+    final made =
+        _result(
+              await _ask(wire, 'createChatMessages', {
+                'contextId': id,
+                'messages': [
+                  {'role': 'user', 'message': '一'},
+                  {
+                    'role': 'assistant',
+                    'message': '二',
+                    'data': {'hp': 1},
+                  },
+                ],
+              }),
+            )!
+            as Map;
+    expect(made['pathRevision'], isA<String>());
+    expect(made['upsertMessages'], hasLength(2));
+    expect(await texts(), [greeting, '一', '二']);
+    _result(
+      await _ask(wire, 'createChatMessages', {
+        'contextId': id,
+        'messages': [
+          {'role': 'system', 'message': '零'},
+        ],
+        'insertBefore': 1,
+      }),
+    );
+    expect(await texts(), [greeting, '零', '一', '二']);
+
+    // Changed and hidden by floor; the engine's own field names.
+    _result(
+      await _ask(wire, 'setChatMessages', {
+        'contextId': id,
+        'patches': [
+          {
+            'messageId': 2,
+            'fields': {'message': '一改'},
+          },
+          {
+            'messageId': -1,
+            'fields': {'hidden': true},
+          },
+        ],
+        'options': {'refresh': 'none'},
+      }),
+    );
+    final page = _result(await _ask(wire, 'getChatMessages', {'contextId': id})) as Map;
+    final rows = [for (final m in page['messages'] as List) m as Map];
+    expect([for (final m in rows) m['message']], [greeting, '零', '一改', '二']);
+    expect(rows.last['hidden'], isTrue);
+    expect(rows.last['data'], {'hp': 1});
+
+    // [1,3) and [3,4) swap places; then floors 1 and 2 go.
+    _result(await _ask(wire, 'rotateChatMessages', {'contextId': id, 'begin': 1, 'middle': 3, 'end': 4}));
+    expect(await texts(), [greeting, '二', '零', '一改']);
+    _result(
+      await _ask(wire, 'deleteChatMessages', {
+        'contextId': id,
+        'messageIds': [1, 2],
+      }),
+    );
+    expect(await texts(), [greeting, '一改']);
+
+    // Refused, and named: data given as null; a field the engine does not know.
+    final nullData = _error(
+      await _ask(wire, 'createChatMessages', {
+        'contextId': id,
+        'messages': [
+          {'role': 'user', 'message': 'x', 'data': null},
+        ],
+      }),
+    );
+    expect((nullData['code'], nullData['fieldPath']), ('invalidArgument', 'messages[0].data'));
+    final unknown = _error(
+      await _ask(wire, 'setChatMessages', {
+        'contextId': id,
+        'patches': [
+          {
+            'messageId': 1,
+            'fields': {'is_hidden': true},
+          },
+        ],
+      }),
+    );
+    expect(unknown['code'], 'invalidArgument');
+    expect(unknown['fieldPath'], '/is_hidden');
+    final badRefresh = _error(
+      await _ask(wire, 'deleteChatMessages', {
+        'contextId': id,
+        'messageIds': [1],
+        'options': {'refresh': 'sometimes'},
+      }),
+    );
+    expect(badRefresh['fieldPath'], 'options.refresh');
+    expect(await texts(), [greeting, '一改']);
+  });
+
   test('a wrong request is told why, as an error, not a broken channel', () async {
     final id =
         (_result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>)['id']! as String;

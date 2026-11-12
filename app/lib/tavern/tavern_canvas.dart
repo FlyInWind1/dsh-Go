@@ -474,6 +474,38 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   }
   dsh.scripts.getChatMessages=getChatMessages;
   if(!window.getChatMessages)window.getChatMessages=getChatMessages;
+  // Writing messages (酒馆助手's set/create/delete/rotateChatMessages, as its
+  // public pages give them): each a Promise of nothing. The page's own field
+  // names are the engine's but for four; every other field goes as written,
+  // and one the engine does not know is refused there, not dropped here.
+  // Done means the engine kept it and this page's copy has caught up.
+  var renames={is_hidden:'hidden',swipe_id:'swipeId',swipes_data:'swipesData',swipes_info:'swipesInfo'};
+  function attempt(f){try{return f();}catch(e){return Promise.reject(e);}}
+  function renamed(m){var x={};for(var k in m)if(k!=='message_id')x[renames[k]||k]=m[k];return x;}
+  function refreshOf(o){return {refresh:(o&&o.refresh)||'affected'};}
+  function caughtUp(p){return p.then(function(){if(!loaded&&loading)return loading.then(function(){},function(){});});}
+  function setChatMessages(list,o){return attempt(function(){
+    var patches=[].concat(list||[]).map(function(m){
+      if(!m||typeof m.message_id!=='number')throw new TypeError('each message names its message_id');
+      return {messageId:m.message_id,fields:renamed(m)};
+    });
+    return caughtUp(dsh.call('setChatMessages',{patches:patches,options:refreshOf(o)}));
+  });}
+  function createChatMessages(list,o){return attempt(function(){
+    var at=o&&o.insert_before;
+    return caughtUp(dsh.call('createChatMessages',{messages:[].concat(list||[]).map(renamed),
+      insertBefore:at===undefined||at==='end'?null:at,options:refreshOf(o)}));
+  });}
+  function deleteChatMessages(ids,o){return attempt(function(){
+    return caughtUp(dsh.call('deleteChatMessages',{messageIds:[].concat(ids||[]),options:refreshOf(o)}));
+  });}
+  function rotateChatMessages(begin,middle,end,o){return attempt(function(){
+    return caughtUp(dsh.call('rotateChatMessages',{begin:begin,middle:middle,end:end,options:refreshOf(o)}));
+  });}
+  [['setChatMessages',setChatMessages],['createChatMessages',createChatMessages],
+   ['deleteChatMessages',deleteChatMessages],['rotateChatMessages',rotateChatMessages]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   // Events (酒馆助手's eventOn and kin). The engine's events come with its
   // own names (MESSAGE_RECEIVED…); tavern_events gives them, and a name in
   // lower case is the same event (ST writes chat_id_changed for
