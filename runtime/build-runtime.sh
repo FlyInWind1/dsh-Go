@@ -318,7 +318,9 @@ install_dsh() {  # $1 = npm cpu, $2 = prefix dir
       PATH="$bin:$PATH" npm install "${npm_flags[@]}" --save-exact "@deepseek-ai/dsh@$DSH_VERSION" "${hoist[@]}"
     fi
     mkdir -p "$lockdir"
-    cp "$prefix/package.json" "$prefix/package-lock.json" "$lockdir/"
+    cp "$prefix/package.json" "$lockdir/"
+    cp "$prefix/package-lock.json" "$lockdir/package-lock.json.tmp"
+    mv "$lockdir/package-lock.json.tmp" "$lockdir/package-lock.json"
   fi
   local got; got="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
     "$prefix/node_modules/@deepseek-ai/dsh/package.json")"
@@ -341,7 +343,9 @@ install_pnpm() {  # $1 = npm cpu, $2 = prefix dir
     log "npm install pnpm@$PNPM_VERSION — first run, will pin the lock"
     PATH="$bin:$PATH" npm install "${npm_flags[@]}" --save-exact "pnpm@$PNPM_VERSION"
     mkdir -p "$lockdir"
-    cp "$prefix/package.json" "$prefix/package-lock.json" "$lockdir/"
+    cp "$prefix/package.json" "$lockdir/"
+    cp "$prefix/package-lock.json" "$lockdir/package-lock.json.tmp"
+    mv "$lockdir/package-lock.json.tmp" "$lockdir/package-lock.json"
   fi
   python3 -I - "$prefix" "$PNPM_VERSION" "$PNPM_INTEGRITY" <<'PYEOF' || die "pnpm lock/install does not match the pins"
 import json, os, sys
