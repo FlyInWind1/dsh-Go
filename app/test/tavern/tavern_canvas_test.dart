@@ -239,6 +239,9 @@ void main() {
     }
     expect(open, contains('if(loaded)renumber();'));
     expect(open, contains('var gone=function(){s.remove();};'));
+    // SillyTavern: only what the page can truly give (checked in Edge).
+    expect(open, contains("Object.defineProperty(SillyTavern,'chat',{get:function(){return msgs.map(stMessage);}"));
+    expect(open, contains('if(!window.SillyTavern)window.SillyTavern=SillyTavern;'));
     // A card's own scripts go in as JSON, a closing tag in one not ending
     // ours; each runs in a hidden frame named for it (checked in Edge). None
     // when scripts do not run.

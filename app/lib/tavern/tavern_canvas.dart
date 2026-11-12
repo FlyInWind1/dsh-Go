@@ -679,6 +679,26 @@ $preload
   [['retrieveDisplayedMessage',retrieveDisplayedMessage],['renderOneMessage',renderOneMessage]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
+  // SillyTavern (酒馆助手's 访问酒馆接口 page: the context ST gives its
+  // extensions): what this page can truly give — the chat as ST keeps it
+  // (name, is_user, is_system for a hidden one, mes, its swipes and their
+  // variables), fresh from this page's copy at each reading; getContext();
+  // the chat's id. The rest of ST's interface is not here, rather than faked.
+  function stMessage(x){
+    var ss=x.swipes&&x.swipes.length?x.swipes:null;
+    var out={name:x.name,is_user:x.role==='user',is_system:!!x.hidden,mes:x.message,extra:x.extra||{},
+      swipe_id:x.swipeId||0,variables:ss?ss.map(function(s){return s.data||{};}):[x.data||{}]};
+    if(ss)out.swipes=ss.map(function(s){return s.text;});
+    return clone(out);
+  }
+  var SillyTavern={
+    getContext:function(){return SillyTavern;},
+    getCurrentChatId:function(){var m=msgs[0];return m&&m.ref?m.ref.chatId:undefined;}
+  };
+  Object.defineProperty(SillyTavern,'chat',{get:function(){return msgs.map(stMessage);},enumerable:true});
+  Object.defineProperty(SillyTavern,'chatId',{get:function(){return SillyTavern.getCurrentChatId();},enumerable:true});
+  dsh.scripts.SillyTavern=SillyTavern;
+  if(!window.SillyTavern)window.SillyTavern=SillyTavern;
   // The message the caller is in: the nearest named script on the stack;
   // else a src script while it first runs; else an inline handler's event.
   function callerMessage(){
@@ -1110,7 +1130,7 @@ $preload
     'getCurrentMessageId','getIframeName','getMessageId','toastr','injectPrompts','uninjectPrompts','generate',
     'generateRaw','stopGenerationById','stopAllGeneration','getScriptId','getScriptName','getButtonEvent',
     'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
-    'retrieveDisplayedMessage','renderOneMessage',
+    'retrieveDisplayedMessage','renderOneMessage','SillyTavern',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
