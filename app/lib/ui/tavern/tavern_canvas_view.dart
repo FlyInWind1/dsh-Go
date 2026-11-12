@@ -23,27 +23,36 @@ import '../web/web_view_guard.dart';
 import 'tavern_ink.dart';
 
 /// What the canvas is handed: the shown messages; the reply being written
-/// (its speaker's name and its HTML, null when none) as it changes; and what
-/// to do when a message is held.
+/// (its speaker's name and its HTML, null when none) as it changes; what to
+/// do when a message is held; and who answers the page's dsh.call (a JSON
+/// request in, a JSON reply out), if anyone.
 typedef TavernCanvasBuilder = Widget Function({
   required List<TavernCanvasEntry> entries,
   required ValueListenable<(String, String)?> streaming,
   required void Function(String nodeId) onMenu,
+  Future<Map<String, Object?>> Function(Object? request)? onCall,
 });
 
 /// Builds the canvas. Tests swap it.
 final tavernCanvasBuilderProvider = Provider<TavernCanvasBuilder>(
   (ref) =>
-      ({required entries, required streaming, required onMenu}) =>
-          TavernCanvasView(entries: entries, streaming: streaming, onMenu: onMenu),
+      ({required entries, required streaming, required onMenu, onCall}) =>
+          TavernCanvasView(entries: entries, streaming: streaming, onMenu: onMenu, onCall: onCall),
 );
 
 class TavernCanvasView extends ConsumerStatefulWidget {
-  const TavernCanvasView({super.key, required this.entries, required this.streaming, required this.onMenu});
+  const TavernCanvasView({
+    super.key,
+    required this.entries,
+    required this.streaming,
+    required this.onMenu,
+    this.onCall,
+  });
 
   final List<TavernCanvasEntry> entries;
   final ValueListenable<(String, String)?> streaming;
   final void Function(String nodeId) onMenu;
+  final Future<Map<String, Object?>> Function(Object? request)? onCall;
 
   @override
   ConsumerState<TavernCanvasView> createState() => _TavernCanvasViewState();
@@ -159,7 +168,25 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _onStream();
       case 'menu':
         if (data['node'] case final String node when node.isNotEmpty) widget.onMenu(node);
+      case 'call':
+        unawaited(_answer(data));
     }
+  }
+
+  /// A dsh.call from the page, answered to the page that asked (not to one
+  /// built since, after the renderer went).
+  Future<void> _answer(Map<Object?, Object?> request) async {
+    final controller = _controller;
+    final call = widget.onCall;
+    final reply = call == null
+        ? {
+            'id': request['id'],
+            'ok': false,
+            'error': {'code': 'unsupportedCapability', 'message': 'Nothing answers here.', 'committed': false},
+          }
+        : await call(request);
+    if (!mounted || controller == null || !identical(controller, _controller)) return;
+    await controller.runJavaScript('window.dsh&&dsh.answer(${jsonEncode(reply)})').catchError((_) {});
   }
 
   /// The messages, when they differ from what the page shows.

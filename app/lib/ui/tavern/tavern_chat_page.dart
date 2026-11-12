@@ -25,6 +25,7 @@ import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_canvas.dart';
+import '../../tavern/tavern_canvas_calls.dart';
 import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
@@ -154,6 +155,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   final _canvasStream = ValueNotifier<(String, String)?>(null);
   bool _canvasOn = false;
 
+  /// A card's script on the canvas asking the engine (dsh.call): in this
+  /// chat's own script context, opened on its first call.
+  TavernCanvasCalls? _calls;
+  String? _canvasCharacter;
+  TavernCanvasCalls get _canvasCalls =>
+      _calls ??= TavernCanvasCalls(_tavern.scripts, chatId: widget.chatId, characterId: () => _canvasCharacter);
+
   /// The chat's character (or a group's title), and the names of all.
   String _canvasSpeaker = '';
   Map<String, String> _canvasNames = const {};
@@ -248,6 +256,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _live.removeListener(_feedCanvas);
     _live.dispose();
     _canvasStream.dispose();
+    unawaited(_calls?.close());
     _stopThinking();
     _thinking.dispose();
     _voice.removeListener(_reportVoice);
@@ -1275,6 +1284,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _canvasOn = canvas;
     _canvasSpeaker = name;
     _canvasNames = names;
+    _canvasCharacter = group == null ? characterId : null;
     if (canvas) _feedCanvas();
     // The pages and the canvas read each message as shown, through the
     // display regex; the bubble and novel rows ask for their own.
@@ -1433,6 +1443,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     final m = messages?.where((m) => m.nodeId == node).firstOrNull;
                     if (m != null) unawaited(_menu(m, last: m.nodeId == lastCharacter));
                   },
+                  onCall: _canvasCalls.handle,
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: (n) {

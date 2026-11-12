@@ -34,7 +34,7 @@ class TavernScriptWire {
       final p = _Params(method, params);
       return {'id': id, 'ok': true, 'result': await _call(method, p)};
     } on TavernScriptException catch (e) {
-      return {'id': id, 'ok': false, 'error': _error(e)};
+      return {'id': id, 'ok': false, 'error': tavernScriptErrorJson(e)};
     } on Object catch (e) {
       // Not the engine's own refusal: said as such, not dressed as one.
       return {
@@ -124,7 +124,8 @@ TavernScriptException _bad(String operation, String message, {String? fieldPath}
   fieldPath: fieldPath,
 );
 
-Map<String, Object?> _error(TavernScriptException e) => {
+/// A refusal as the page reads it.
+Map<String, Object?> tavernScriptErrorJson(TavernScriptException e) => {
   'code': e.code.name,
   'operation': e.operation,
   'message': e.message,

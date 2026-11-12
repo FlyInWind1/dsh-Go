@@ -23,6 +23,7 @@ class _Canvas {
   List<TavernCanvasEntry> entries = const [];
   ValueListenable<(String, String)?>? streaming;
   void Function(String nodeId)? onMenu;
+  Future<Map<String, Object?>> Function(Object? request)? onCall;
   var builds = 0;
 }
 
@@ -55,11 +56,17 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
     ProviderScope(
       overrides: [
         tavernProvider.overrideWith((ref) => tavern),
-        tavernCanvasBuilderProvider.overrideWithValue(({required entries, required streaming, required onMenu}) {
+        tavernCanvasBuilderProvider.overrideWithValue(({
+          required entries,
+          required streaming,
+          required onMenu,
+          onCall,
+        }) {
           canvas
             ..entries = entries
             ..streaming = streaming
             ..onMenu = onMenu
+            ..onCall = onCall
             ..builds += 1;
           return const SizedBox.expand(key: ValueKey('fake-canvas'));
         }),
@@ -164,6 +171,20 @@ void main() {
     expect(narration.name, '旁白');
     expect(narration.html, '<p><em>雨停了。</em></p>\n<p><q>"进来吧，"</q> 她说。</p>');
     expect(canvas.streaming!.value, isNull);
+
+    // The page's dsh.call is answered: here the preview, which says it
+    // simulates no card scripts.
+    final reply = (await tester.runAsync(
+      () => canvas.onCall!({
+        'id': 1,
+        'method': 'getVariables',
+        'params': {
+          'target': {'scope': 'chat'},
+        },
+      }),
+    ))!;
+    expect(reply['id'], 1);
+    expect((reply['error']! as Map)['code'], 'unsupportedCapability');
 
     // Holding a message on the canvas opens the app's own menu for it.
     canvas.onMenu!(narration.nodeId);

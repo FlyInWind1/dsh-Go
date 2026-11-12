@@ -261,7 +261,23 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
     return m;
   }
   var stream=null;
+  // dsh.call(method, params): a Promise of what the engine answers (the
+  // result, or an Error carrying code/committed/fieldPath).
+  var calls={},callSeq=0;
   window.dsh={
+    call:function(method,params){
+      return new Promise(function(ok,no){
+        var id=++callSeq;calls[id]={ok:ok,no:no};
+        post({type:'call',id:id,method:method,params:params===undefined?{}:params});
+      });
+    },
+    answer:function(r){
+      var c=r&&calls[r.id];if(!c)return;delete calls[r.id];
+      if(r.ok){c.ok(r.result);return;}
+      var x=r.error||{};var e=new Error(x.message||x.code||'failed');
+      e.code=x.code;e.committed=!!x.committed;e.fieldPath=x.fieldPath==null?null:x.fieldPath;
+      c.no(e);
+    },
     render:function(list){
       var stay=nearBottom()||!chat.firstChild;
       if(stream){stream.remove();stream=null;}
