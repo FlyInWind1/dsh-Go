@@ -10389,6 +10389,27 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get modeSheetTitle => 'Mode';
+
+  @override
+  String get modeKeyTooltip => 'Switch mode';
+
+  @override
+  String get modeWork => 'Work';
+
+  @override
+  String get modeWorkSubtitle => 'Get things done with DSH';
+
+  @override
+  String get modeCompanionShort => 'Companion';
+
+  @override
+  String get modeTavernSubtitle => 'Import a character card and start a story';
+
+  @override
+  String get modeStartup => 'Open on launch';
+
+  @override
   String get nearbyThisChat => 'This chat';
 
   @override
@@ -19689,6 +19710,2521 @@ class L10nEn extends L10n {
 
   @override
   String get appSlogan => 'Anytime, anywhere. Just Go!';
+
+  @override
+  String get tavernTitle => 'Tavern';
+
+  @override
+  String get tavernImport => 'Import';
+
+  @override
+  String get tavernEmptyTitle => 'No characters yet';
+
+  @override
+  String get tavernEmptyMessage => 'Import a character card: PNG, JSON or CHARX';
+
+  @override
+  String get tavernContinue => 'Continue';
+
+  @override
+  String get tavernCharacters => 'Characters';
+
+  @override
+  String tavernImported(String name) {
+    return 'Imported “$name”';
+  }
+
+  @override
+  String get tavernImportLorebook => 'This is a lorebook, not a character card';
+
+  @override
+  String get tavernImportFailed => 'Couldn\'t read this card';
+
+  @override
+  String get tavernCharacterGone => 'This character is gone';
+
+  @override
+  String get tavernDeleteCharacter => 'Delete character';
+
+  @override
+  String tavernDeleteCharacterTitle(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get tavernDeleteCharacterMessage => 'Its chats are deleted too.';
+
+  @override
+  String get tavernGreeting => 'Greeting';
+
+  @override
+  String tavernGreetingOf(int index, int count) {
+    return 'Greeting $index/$count';
+  }
+
+  @override
+  String get tavernStart => 'Start';
+
+  @override
+  String get tavernContinueLast => 'Continue where you left off';
+
+  @override
+  String get tavernStartNew => 'New chat from this greeting';
+
+  @override
+  String get tavernChats => 'Chats';
+
+  @override
+  String tavernMessageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count messages', one: '1 message');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernCreatorNotes => 'Creator\'s notes';
+
+  @override
+  String get tavernDefinition => 'Definition';
+
+  @override
+  String tavernComposerHint(String name) {
+    return 'Say something to $name…';
+  }
+
+  @override
+  String get tavernReplying => 'Replying…';
+
+  @override
+  String get tavernReady => 'Ready';
+
+  @override
+  String get tavernPreviewStatus => 'Preview · sample replies, no model yet';
+
+  @override
+  String get tavernRegenerate => 'Regenerate';
+
+  @override
+  String get tavernContinueReply => 'Continue writing';
+
+  @override
+  String get tavernDeleteFrom => 'Delete this and everything after';
+
+  @override
+  String get tavernPrevious => 'Previous reply';
+
+  @override
+  String get tavernNext => 'Next reply';
+
+  @override
+  String get tavernErrorNoKey => 'Add a DeepSeek API key in Settings first';
+
+  @override
+  String get tavernKeyMissing => 'Add your DeepSeek API key, and the story can start.';
+
+  @override
+  String get tavernKeyMissingAction => 'Add key';
+
+  @override
+  String get tavernErrorBadKey => 'The API key was refused; check it in Settings';
+
+  @override
+  String get tavernErrorBusy => 'The model is busy; try again in a moment';
+
+  @override
+  String get tavernErrorNetwork => 'Can\'t connect; check the network and retry';
+
+  @override
+  String get tavernErrorTooLong => 'The chat is longer than the model\'s context';
+
+  @override
+  String get tavernCutShort =>
+      'The reply reached the reply limit and stopped here. Continue it, or raise the limit in Tavern settings › Generation.';
+
+  @override
+  String get tavernFiltered => 'The model\'s content filter stopped part of this reply.';
+
+  @override
+  String get tavernErrorBalance => 'Your DeepSeek balance is too low. Top up, then try again';
+
+  @override
+  String get tavernErrorParameters => 'The model didn\'t accept this request\'s parameters';
+
+  @override
+  String tavernErrorParametersDetail(String detail) {
+    return 'The model didn\'t accept this request\'s parameters: $detail';
+  }
+
+  @override
+  String tavernErrorDetail(String detail) {
+    return 'Something went wrong: $detail';
+  }
+
+  @override
+  String get tavernSettings => 'Tavern settings';
+
+  @override
+  String get tavernSettingsModel => 'Model';
+
+  @override
+  String get tavernModelFlash => 'Flash';
+
+  @override
+  String get tavernModelPro => 'V4 Pro';
+
+  @override
+  String get tavernThinking => 'Thinking';
+
+  @override
+  String get tavernThinkingSubtitle => 'Think before replying';
+
+  @override
+  String get tavernApiKey => 'DeepSeek API key';
+
+  @override
+  String get tavernApiKeySet => 'Set';
+
+  @override
+  String get tavernApiKeyMissing => 'Not set';
+
+  @override
+  String get tavernDeleteChat => 'Delete chat';
+
+  @override
+  String get tavernDeleteChatTitle => 'Delete this chat?';
+
+  @override
+  String get tavernDeleteChatMessage => 'It can\'t be brought back.';
+
+  @override
+  String tavernDeleteFromTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Delete these $count messages?',
+      one: 'Delete this message?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromMessage =>
+      'From this one to the latest, with their alternative replies and branches. They can\'t be brought back.';
+
+  @override
+  String get tavernSwitchedBranch => 'Switched to another branch';
+
+  @override
+  String get tavernUndo => 'Undo';
+
+  @override
+  String get tavernSettingsDisplay => 'Display';
+
+  @override
+  String get tavernPresets => 'Presets';
+
+  @override
+  String get tavernPresetImport => 'Import preset';
+
+  @override
+  String get tavernPresetStDefault => 'SillyTavern default';
+
+  @override
+  String get tavernPresetStDefaultNote => 'Used when no preset is chosen';
+
+  @override
+  String get tavernPresetDefault => 'Default';
+
+  @override
+  String get tavernPresetSetDefault => 'Make default';
+
+  @override
+  String get tavernPresetUnsetDefault => 'Stop using as default';
+
+  @override
+  String get tavernPresetExport => 'Export preset';
+
+  @override
+  String get tavernPresetDelete => 'Delete preset';
+
+  @override
+  String tavernPresetDeleteTitle(String name) {
+    return 'Delete the preset “$name”?';
+  }
+
+  @override
+  String get tavernPresetDeleteMessage => 'Chats that use it switch to the default preset. It can\'t be brought back.';
+
+  @override
+  String tavernPresetImported(String name) {
+    return 'Imported “$name”';
+  }
+
+  @override
+  String tavernPresetImportedWithIssues(String name, int count) {
+    return 'Imported “$name”, with $count notes';
+  }
+
+  @override
+  String tavernPresetImportFailed(String reason) {
+    return 'Couldn\'t import: $reason';
+  }
+
+  @override
+  String get tavernPresetNotText => 'This file isn\'t text';
+
+  @override
+  String get tavernPresetsEmpty => 'No presets yet';
+
+  @override
+  String get tavernPresetsEmptyMessage =>
+      'Presets exported from SillyTavern as JSON, and dsh-preset-enhance share packages, can be imported.';
+
+  @override
+  String get tavernPresetEnvelope => 'Share package';
+
+  @override
+  String tavernPresetCount(int count) {
+    return '$count';
+  }
+
+  @override
+  String get tavernRegex => 'Regex';
+
+  @override
+  String get tavernRegexImport => 'Import regex';
+
+  @override
+  String get tavernRegexOn => 'On';
+
+  @override
+  String get tavernRegexOff => 'Off';
+
+  @override
+  String get tavernRegexEnable => 'Turn on';
+
+  @override
+  String get tavernRegexDisable => 'Turn off';
+
+  @override
+  String get tavernRegexExport => 'Export regex';
+
+  @override
+  String get tavernRegexDelete => 'Delete regex';
+
+  @override
+  String tavernRegexDeleteTitle(String name) {
+    return 'Delete the regex “$name”?';
+  }
+
+  @override
+  String tavernRegexImported(int count) {
+    return 'Imported $count regex scripts';
+  }
+
+  @override
+  String get tavernRegexIncompatible => 'Can\'t run here; skipped';
+
+  @override
+  String get tavernRegexEmpty => 'No global regex yet';
+
+  @override
+  String get tavernRegexEmptyMessage =>
+      'Regex JSON exported from SillyTavern, one script or a list, can be imported. Global regex applies to every chat; the regex a card or preset brings goes with it.';
+
+  @override
+  String get tavernRegexUnnamed => 'Untitled';
+
+  @override
+  String tavernRegexCount(int count) {
+    return '$count';
+  }
+
+  @override
+  String get tavernLorebooks => 'Lorebooks';
+
+  @override
+  String get tavernLorebookImport => 'Import lorebook';
+
+  @override
+  String get tavernLorebookGlobal => 'Global';
+
+  @override
+  String get tavernLorebookBindGlobal => 'Use in every chat';
+
+  @override
+  String get tavernLorebookUnbindGlobal => 'Stop using in every chat';
+
+  @override
+  String get tavernLorebookExport => 'Export lorebook';
+
+  @override
+  String get tavernLorebookDelete => 'Delete lorebook';
+
+  @override
+  String tavernLorebookDeleteTitle(String name) {
+    return 'Delete the lorebook “$name”?';
+  }
+
+  @override
+  String get tavernLorebookDeleteMessage => 'Wherever it is bound, it is skipped. It can\'t be brought back.';
+
+  @override
+  String tavernLorebookImported(String name, int count) {
+    return 'Imported “$name”, $count entries';
+  }
+
+  @override
+  String get tavernLorebooksEmpty => 'No standalone lorebooks yet';
+
+  @override
+  String get tavernLorebooksEmptyMessage =>
+      'Lorebook JSON exported from SillyTavern can be imported. Made global, it applies to every chat; a card\'s own lorebook goes with the card.';
+
+  @override
+  String tavernLorebookCount(int count) {
+    return '$count';
+  }
+
+  @override
+  String get tavernPresetEdit => 'Edit preset';
+
+  @override
+  String get tavernPresetParams => 'Numbers';
+
+  @override
+  String get tavernPresetPrompts => 'Prompts, in the order they\'re sent';
+
+  @override
+  String get tavernPresetMarker => 'Placeholder';
+
+  @override
+  String get tavernPresetPromptsEmpty => 'This preset sets no prompt order; SillyTavern\'s default order is used.';
+
+  @override
+  String get tavernReport => 'Import check';
+
+  @override
+  String get tavernVerdictUsable => 'Works';
+
+  @override
+  String get tavernVerdictPartial => 'Partly works';
+
+  @override
+  String get tavernVerdictPreserve => 'Kept, not run';
+
+  @override
+  String tavernReportChecked(String time) {
+    return 'Checked $time';
+  }
+
+  @override
+  String get tavernReportStale => 'Changed since this check';
+
+  @override
+  String get tavernReportRecheck => 'Check again';
+
+  @override
+  String get tavernReportNone => 'Not checked yet';
+
+  @override
+  String get tavernReportNoneMessage => 'This was imported before checks existed; check it now.';
+
+  @override
+  String get tavernReportCheckNow => 'Check now';
+
+  @override
+  String get tavernReportRender0 => 'Suggested display: native';
+
+  @override
+  String get tavernReportRender1 => 'Suggested display: a web view in the message';
+
+  @override
+  String get tavernReportRender2 => 'Suggested display: a whole-page canvas';
+
+  @override
+  String get tavernReportCounts => 'Contains';
+
+  @override
+  String get tavernReportFindings => 'Not run, or worth a look';
+
+  @override
+  String get tavernReportNoFindings => 'Nothing to look at';
+
+  @override
+  String get tavernPresetForChat => 'This chat\'s preset';
+
+  @override
+  String get tavernPresetFollow => 'Default';
+
+  @override
+  String tavernPresetFollowDefault(String name) {
+    return 'Default ($name)';
+  }
+
+  @override
+  String get tavernPresetPickerEmpty => 'Import presets in Library › Presets to give this chat another.';
+
+  @override
+  String get tavernSectionShelf => 'Shelf';
+
+  @override
+  String get tavernSectionChats => 'Chats';
+
+  @override
+  String get tavernSectionLibrary => 'Library';
+
+  @override
+  String get tavernSectionMe => 'Me';
+
+  @override
+  String get tavernNoChats => 'No chats yet';
+
+  @override
+  String get tavernNoChatsMessage => 'Open a character on the shelf to start your first chat.';
+
+  @override
+  String get tavernSettingsGeneration => 'Generation';
+
+  @override
+  String get tavernMaxContext => 'Context limit';
+
+  @override
+  String get tavernMaxReply => 'Reply limit';
+
+  @override
+  String get tavernTemperature => 'Temperature';
+
+  @override
+  String get tavernGenerationNote =>
+      'A longer context remembers more and costs more each turn; numbers are tokens. This changes the default preset; a chat that brought its own preset keeps it.';
+
+  @override
+  String get tavernLayout => 'Layout';
+
+  @override
+  String get tavernLayoutBubble => 'Bubbles';
+
+  @override
+  String get tavernLayoutNovel => 'Novel';
+
+  @override
+  String get tavernYou => 'You';
+
+  @override
+  String get tavernSearchHint => 'Search characters, creators, tags';
+
+  @override
+  String get tavernAllTags => 'All';
+
+  @override
+  String get tavernNoMatch => 'No matching characters';
+
+  @override
+  String get tavernLayoutVisualNovel => 'Visual novel';
+
+  @override
+  String get tavernCharacterDetails => 'Character details';
+
+  @override
+  String get tavernChatLayout => 'Layout for this chat';
+
+  @override
+  String get tavernFollowSettings => 'Follow tavern settings';
+
+  @override
+  String get tavernLog => 'Backlog';
+
+  @override
+  String get tavernEditCharacter => 'Edit character';
+
+  @override
+  String get tavernNameNeeded => 'A name is needed';
+
+  @override
+  String get tavernFieldsBasics => 'Basics';
+
+  @override
+  String get tavernFieldNickname => 'Nickname';
+
+  @override
+  String get tavernFieldNicknameHelp => 'If set, chats call the character this';
+
+  @override
+  String get tavernFieldTags => 'Tags';
+
+  @override
+  String get tavernFieldTagsHelp => 'Separate with commas';
+
+  @override
+  String get tavernFieldCreator => 'Creator';
+
+  @override
+  String get tavernFieldVersion => 'Version';
+
+  @override
+  String get tavernFieldDescription => 'Description';
+
+  @override
+  String get tavernFieldPersonality => 'Personality';
+
+  @override
+  String get tavernFieldScenario => 'Scenario';
+
+  @override
+  String tavernGreetingNumber(int n) {
+    return 'Greeting $n';
+  }
+
+  @override
+  String get tavernFieldGreetingsNote => 'A new chat can start from any of these.';
+
+  @override
+  String get tavernAddGreeting => 'Add a greeting';
+
+  @override
+  String get tavernMoreFields => 'More fields';
+
+  @override
+  String get tavernMoreFieldsSubtitle => 'Example dialogue, system prompt, post-history instructions';
+
+  @override
+  String get tavernFieldExamples => 'Example dialogue';
+
+  @override
+  String get tavernFieldExamplesHelp => 'Start each example with a <START> line';
+
+  @override
+  String get tavernFieldPrompts => 'Prompts';
+
+  @override
+  String get tavernFieldPromptsNote =>
+      'When set, these replace the matching part of the preset; leave empty to use the preset\'s.';
+
+  @override
+  String get tavernFieldSystemPrompt => 'System prompt';
+
+  @override
+  String get tavernFieldPostHistory => 'Post-history instructions';
+
+  @override
+  String get tavernFieldNotesNote => 'For people reading the card; not sent to the model.';
+
+  @override
+  String tavernEditKeeps(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'This card has $count more items you can\'t edit here (lorebook, extensions…). Saving keeps them as they are, and existing chats don\'t change.',
+      one: 'This card has 1 more item you can\'t edit here (lorebook, extensions…). Saving keeps it as it is, and existing chats don\'t change.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernEditKeepsChats => 'Saving doesn\'t change existing chats.';
+
+  @override
+  String get tavernPersonas => 'Personas';
+
+  @override
+  String get tavernPersona => 'Persona';
+
+  @override
+  String get tavernPersonaNew => 'New persona';
+
+  @override
+  String get tavernPersonasEmpty => 'No personas yet';
+
+  @override
+  String get tavernPersonasEmptyMessage =>
+      'A persona is who you play in chats: a name and a few lines, so characters know who you are.';
+
+  @override
+  String get tavernPersonasNote =>
+      'Long-press to make one the default or delete it. Chats without their own persona use the default.';
+
+  @override
+  String get tavernPersonaUnsetDefault => 'Stop using as default';
+
+  @override
+  String get tavernPersonaSetDefault => 'Use as default';
+
+  @override
+  String tavernPersonaDeleteTitle(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get tavernPersonaDeleteMessage =>
+      'Chats that use it switch to the default persona; what\'s already written stays.';
+
+  @override
+  String get tavernPersonaEdit => 'Edit persona';
+
+  @override
+  String get tavernPersonaPickAvatar => 'Change picture';
+
+  @override
+  String get tavernPersonaRemoveAvatar => 'Remove picture';
+
+  @override
+  String get tavernPersonaAvatarFailed => 'Couldn\'t use that picture';
+
+  @override
+  String get tavernPersonaNameHint => 'What characters call you';
+
+  @override
+  String get tavernPersonaDescriptionHelp =>
+      'The model reads this: who you are, what you\'re like, how you know the character.';
+
+  @override
+  String get tavernPersonaDescriptionHint => 'e.g. The town\'s new doctor: quiet, always carrying an old leather case.';
+
+  @override
+  String get tavernPersonaDefaultSubtitle => 'New chats, and chats without their own persona, use it';
+
+  @override
+  String get tavernPersonaDelete => 'Delete persona';
+
+  @override
+  String get tavernPersonaNone => 'No persona';
+
+  @override
+  String tavernPersonaAs(String name) {
+    return 'As $name';
+  }
+
+  @override
+  String get tavernPersonaForChat => 'In this chat you are';
+
+  @override
+  String get tavernPersonaFollowDefault => 'Use the default';
+
+  @override
+  String get tavernPersonasManage => 'Manage personas';
+
+  @override
+  String get tavernSettingsYou => 'You';
+
+  @override
+  String get tavernDefaultPersona => 'Default persona';
+
+  @override
+  String get tavernPersonaNotSet => 'Not set';
+
+  @override
+  String get tavernFieldName => 'Name';
+
+  @override
+  String get tavernOpenFailed => 'The tavern couldn\'t open';
+
+  @override
+  String get tavernOpenFailedMessage =>
+      'The data for characters and chats couldn\'t be opened. Try again; if it still fails, restart the app.';
+
+  @override
+  String get tavernExportPng => 'Export card (PNG)';
+
+  @override
+  String get tavernExportPngSubtitle =>
+      'The card rides inside the picture; SillyTavern and other taverns can import it';
+
+  @override
+  String get tavernExportJson => 'Export as JSON';
+
+  @override
+  String get tavernExportFailed => 'Couldn\'t export this card';
+
+  @override
+  String get tavernInspectTitle => 'What this turn sent';
+
+  @override
+  String get tavernInspectMenu => 'See what was sent';
+
+  @override
+  String get tavernInspectLatest => 'What the last turn sent';
+
+  @override
+  String get tavernInspectNone => 'Nothing recorded';
+
+  @override
+  String get tavernInspectNoneMessage =>
+      'Greetings, messages from before the engine and sample replies have no record.';
+
+  @override
+  String get tavernInspectSummary => 'Summary';
+
+  @override
+  String get tavernInspectKind => 'Type';
+
+  @override
+  String get tavernTurnSend => 'Send';
+
+  @override
+  String get tavernTurnImpersonate => 'Write for me';
+
+  @override
+  String get tavernInspectStatus => 'Result';
+
+  @override
+  String get tavernInspectPreparing => 'Preparing';
+
+  @override
+  String get tavernInspectReady => 'Sent';
+
+  @override
+  String get tavernInspectCompleted => 'Done';
+
+  @override
+  String get tavernInspectFailed => 'Failed';
+
+  @override
+  String get tavernInspectPrompt => 'Prompt';
+
+  @override
+  String tavernTokens(int count) {
+    return '$count tokens';
+  }
+
+  @override
+  String tavernTokensAbout(int count) {
+    return 'about $count tokens';
+  }
+
+  @override
+  String get tavernInspectBudget => 'Context budget left';
+
+  @override
+  String get tavernInspectUsage => 'Usage the model reported';
+
+  @override
+  String get tavernInspectNoUsage => 'Not reported';
+
+  @override
+  String tavernInspectUsageValue(int prompt, int hit, int completion) {
+    return 'In $prompt (cached $hit) · out $completion';
+  }
+
+  @override
+  String tavernInspectSegments(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count parts sent', one: '1 part sent');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernInspectSegmentsNote => 'In the order sent. Tap for the full text; long-press to copy.';
+
+  @override
+  String tavernInspectWorld(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lorebook entries matched',
+      one: '1 lorebook entry matched',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tavernInspectWorldKey(String key) {
+    return 'key “$key”';
+  }
+
+  @override
+  String tavernInspectExcluded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count parts left out',
+      one: '1 part left out',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernExcludeDisabled => 'Turned off';
+
+  @override
+  String get tavernExcludeTrigger => 'Not for this kind of turn';
+
+  @override
+  String get tavernExcludeHidden => 'Hidden from the model';
+
+  @override
+  String get tavernExcludeSystem => 'System message';
+
+  @override
+  String get tavernExcludeHistoryBudget => 'Over the context budget';
+
+  @override
+  String get tavernExcludeExampleBudget => 'Examples over budget';
+
+  @override
+  String get tavernRoleSystem => 'System';
+
+  @override
+  String get tavernRoleUser => 'You';
+
+  @override
+  String get tavernRoleCharacter => 'Character';
+
+  @override
+  String get tavernSourcePreset => 'Preset';
+
+  @override
+  String get tavernSourceCard => 'Card';
+
+  @override
+  String get tavernSourceWorld => 'Lorebook';
+
+  @override
+  String get tavernSourcePersona => 'Persona';
+
+  @override
+  String get tavernSourceHistory => 'Chat';
+
+  @override
+  String get tavernSourceControl => 'Control';
+
+  @override
+  String get tavernWriteForMe => 'Write it for me';
+
+  @override
+  String get tavernHide => 'Hide from the model';
+
+  @override
+  String get tavernUnhide => 'Show to the model';
+
+  @override
+  String get tavernHiddenFromModel => 'The model can\'t see this';
+
+  @override
+  String get tavernTrySample => 'Try the sample card';
+
+  @override
+  String get tavernImportChats => 'Import chats';
+
+  @override
+  String get tavernImportChatsSubtitle => 'SillyTavern .jsonl files, one or several';
+
+  @override
+  String get tavernOnlyJsonl => 'Only .jsonl chat files can be imported';
+
+  @override
+  String tavernImportChatsFailed(String detail) {
+    return 'Couldn\'t import: $detail';
+  }
+
+  @override
+  String tavernImportedChats(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count chats',
+      one: 'Imported 1 chat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernImportNoticesTitle => 'Notes from the import';
+
+  @override
+  String get tavernExportChat => 'Export chat';
+
+  @override
+  String get tavernExportChatFailed => 'Couldn\'t export this chat';
+
+  @override
+  String get tavernLorebook => 'Lorebook';
+
+  @override
+  String get tavernLorebookSubtitle => 'The entries this card carries';
+
+  @override
+  String tavernLorebookEntries(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count entries', one: '1 entry');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernLorebookNote =>
+      'When a key comes up in the chat, its entry goes into the prompt; \'Always\' entries go in every time.';
+
+  @override
+  String tavernLorebookKeys(String keys) {
+    return 'Keys: $keys';
+  }
+
+  @override
+  String get tavernLorebookConstant => 'Always';
+
+  @override
+  String get tavernLorebookOff => 'Off';
+
+  @override
+  String get tavernLorebookEmpty => 'This card has no lorebook';
+
+  @override
+  String get tavernImportFromFile => 'From a file';
+
+  @override
+  String get tavernImportFromFileSubtitle =>
+      'Cards, presets, lorebooks, regex, quick replies or chats, told apart for you';
+
+  @override
+  String get tavernImportFromLink => 'From a link';
+
+  @override
+  String get tavernImportFromLinkSubtitle => 'A character page on Chub or RisuRealm, or a direct link to the card file';
+
+  @override
+  String get tavernLinkInvalid => 'That isn\'t a web address';
+
+  @override
+  String get tavernLinkFailed => 'Couldn\'t download it; check the connection or the link';
+
+  @override
+  String tavernLinkStatus(int status) {
+    return 'Couldn\'t download it (HTTP $status)';
+  }
+
+  @override
+  String get tavernLinkIsPage =>
+      'That\'s a web page, not a card file. Character pages on Chub and RisuRealm work as they are; elsewhere, find the download link to the .png or .json and try that.';
+
+  @override
+  String get tavernLinkSiteMissing => 'The site has no such character; it may be deleted or private';
+
+  @override
+  String get tavernQuickReplies => 'Quick replies';
+
+  @override
+  String get tavernQuickRepliesEmpty => 'No quick replies yet';
+
+  @override
+  String get tavernQuickRepliesNote =>
+      'They sit above the input in every chat: tap to send, long-press to put it in the box first.';
+
+  @override
+  String get tavernQuickReplyAdd => 'Add one';
+
+  @override
+  String get tavernQuickReplyHint => 'e.g. *looks around for anyone else*';
+
+  @override
+  String tavernQuickReplyCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernEditMessage => 'Edit message';
+
+  @override
+  String get tavernBackground => 'Background picture';
+
+  @override
+  String get tavernBackgroundNone => 'None';
+
+  @override
+  String get tavernBackgroundChange => 'Change';
+
+  @override
+  String get tavernBackgroundRemove => 'Remove the picture';
+
+  @override
+  String get tavernDice => 'Roll dice';
+
+  @override
+  String get tavernDiceCount => 'Dice';
+
+  @override
+  String get tavernDiceModifier => 'Modifier';
+
+  @override
+  String get tavernDiceFewer => 'One die fewer';
+
+  @override
+  String get tavernDiceMore => 'One more die';
+
+  @override
+  String get tavernDiceModifierDown => 'Modifier −1';
+
+  @override
+  String get tavernDiceModifierUp => 'Modifier +1';
+
+  @override
+  String get tavernDiceRoll => 'Roll';
+
+  @override
+  String get tavernDiceAgain => 'Roll again';
+
+  @override
+  String get tavernDiceUse => 'Put it in the box';
+
+  @override
+  String tavernDiceLine(String notation, int total, String working) {
+    return '🎲 $notation rolled $total$working';
+  }
+
+  @override
+  String tavernDiceWorking(String working) {
+    return ' ($working)';
+  }
+
+  @override
+  String get tavernStorybook => 'Storybook';
+
+  @override
+  String get tavernStorybookMenu => 'Export as a storybook';
+
+  @override
+  String get tavernStorybookTitle => 'Title';
+
+  @override
+  String tavernStorybookDefaultTitle(String name) {
+    return 'A story with $name';
+  }
+
+  @override
+  String tavernStorybookByline(String character, String you) {
+    return '$character and $you';
+  }
+
+  @override
+  String get tavernStorybookWhole => 'The whole story';
+
+  @override
+  String tavernStorybookWholeNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '$_temp0; hidden messages are left out. The EPUB opens in Apple Books and most reading apps.';
+  }
+
+  @override
+  String get tavernStorybookEpub => 'E-book (EPUB)';
+
+  @override
+  String get tavernStorybookText => 'Plain text (TXT)';
+
+  @override
+  String get tavernStorybookImage => 'Long image';
+
+  @override
+  String get tavernStorybookLatest => 'The latest';
+
+  @override
+  String tavernStorybookLines(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernStorybookSave => 'Save to photos';
+
+  @override
+  String get tavernStorybookShare => 'Share the image';
+
+  @override
+  String tavernStorybookEarlier(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count earlier lines are',
+      one: '1 earlier line is',
+    );
+    return '$_temp0 left out of the image; export the e-book for all of it.';
+  }
+
+  @override
+  String tavernStorybookEarlierShort(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count lines', one: '1 line');
+    return '… $_temp0 before this …';
+  }
+
+  @override
+  String get tavernStorybookMadeWith => 'Written in the DSH Go tavern';
+
+  @override
+  String get tavernStorybookContents => 'Contents';
+
+  @override
+  String tavernStorybookChapter(int n) {
+    return 'Chapter $n';
+  }
+
+  @override
+  String get tavernStorybookSaved => 'Saved to photos';
+
+  @override
+  String get tavernStorybookFailed => 'Couldn’t export it; try again';
+
+  @override
+  String get tavernLive2d => 'Live2D model';
+
+  @override
+  String get tavernLive2dSubtitle => 'Stands in for the card picture in the visual novel layout, moving as she talks';
+
+  @override
+  String get tavernLive2dNone => 'None';
+
+  @override
+  String get tavernLive2dSet => 'Imported';
+
+  @override
+  String get tavernLive2dImported => 'Imported. Switch the chat to the visual novel layout to see her.';
+
+  @override
+  String get tavernLive2dReplace => 'Replace it';
+
+  @override
+  String get tavernLive2dRemove => 'Remove the model';
+
+  @override
+  String get tavernLive2dNoRuntime =>
+      'There’s no Live2D runtime on this phone yet: set one up in the companion room first, or import a whole pack.';
+
+  @override
+  String get tavernTextSize => 'Text size';
+
+  @override
+  String get tavernTextSmall => 'S';
+
+  @override
+  String get tavernTextMedium => 'M';
+
+  @override
+  String get tavernTextLarge => 'L';
+
+  @override
+  String get tavernTextHuge => 'XL';
+
+  @override
+  String get tavernLineHeight => 'Line spacing';
+
+  @override
+  String get tavernLineTight => 'Tight';
+
+  @override
+  String get tavernLineNormal => 'Normal';
+
+  @override
+  String get tavernLineLoose => 'Loose';
+
+  @override
+  String get tavernReadingSample =>
+      '*She pushes a clay cup across to you; the firelight jumps in her eyes.*\n\n\"Still on the road this late? The snow won\'t stop tonight. If you\'re travelling, wait for daylight.\"';
+
+  @override
+  String get tavernPalette => 'Colours';
+
+  @override
+  String get tavernPalettePlain => 'Plain';
+
+  @override
+  String get tavernPaletteEmber => 'Warm';
+
+  @override
+  String get tavernPaletteOcean => 'Cool';
+
+  @override
+  String get tavernPaletteRose => 'Rose';
+
+  @override
+  String get tavernTextSpeed => 'Text speed';
+
+  @override
+  String get tavernTextSlow => 'Slow';
+
+  @override
+  String get tavernTextNormal => 'Medium';
+
+  @override
+  String get tavernTextFast => 'Fast';
+
+  @override
+  String get tavernTextInstant => 'Instant';
+
+  @override
+  String get tavernVnAuto => 'Auto';
+
+  @override
+  String get tavernVnSkip => 'Skip';
+
+  @override
+  String get tavernStage => 'Stage';
+
+  @override
+  String get tavernStageSession => 'This chat';
+
+  @override
+  String get tavernSessionUsing => 'In use';
+
+  @override
+  String get tavernSessionLook => 'Look';
+
+  @override
+  String get tavernSessionMore => 'More';
+
+  @override
+  String get tavernStageState => 'State';
+
+  @override
+  String get tavernStageDirector => 'Director';
+
+  @override
+  String get tavernStageTurn => 'This turn';
+
+  @override
+  String get tavernStageStateEmpty => 'This card keeps no state yet';
+
+  @override
+  String get tavernStageStateNote =>
+      'Once a card defines its state, relations, numbers, belongings and the time and place show here, each turn\'s changes marked (\"+5\"), and you can change them yourself. An older card without one lists its variables here.';
+
+  @override
+  String get tavernStageDirectorEmpty => 'No director yet';
+
+  @override
+  String get tavernStageDirectorNote =>
+      'With the director on, it reads the story in the background after each turn: it leaves the next turn an unseen hint, keeps its own notes (hidden by default, they may spoil), and puts three suggested replies over the box. It never speaks for you or writes the story.';
+
+  @override
+  String get tavernStageTurnNone => 'No turn to look at yet';
+
+  @override
+  String get tavernStageTokensIn => 'Prompt';
+
+  @override
+  String get tavernStageCache => 'Cache hit';
+
+  @override
+  String get tavernStageTokensOut => 'Reply';
+
+  @override
+  String get tavernStageWorld => 'Lorebook entries this turn';
+
+  @override
+  String get tavernStageWorldNone => 'No entry came up this turn';
+
+  @override
+  String get tavernStageInspect => 'See the whole inspection';
+
+  @override
+  String get tavernLorebookNone => 'None';
+
+  @override
+  String get tavernLorebooksBound => 'Bound lorebooks';
+
+  @override
+  String get tavernLorebooksBoundCharacter => 'Used in every chat with this character';
+
+  @override
+  String get tavernLorebooksBoundPersona => 'Used in every chat where you\'re this persona';
+
+  @override
+  String get tavernLorebookForChat => 'Lorebooks for this chat';
+
+  @override
+  String tavernLorebookForCharacter(String name) {
+    return 'Lorebooks for $name';
+  }
+
+  @override
+  String tavernLorebookForPersona(String name) {
+    return 'Lorebooks as $name';
+  }
+
+  @override
+  String get tavernLorebookChatNote => 'Used only in this chat. The ones marked Global are on in every chat anyway.';
+
+  @override
+  String get tavernLorebookCharacterNote =>
+      'Every chat with this character uses these, along with the card\'s own lorebook.';
+
+  @override
+  String get tavernLorebookPersonaNote => 'Every chat where you\'re this persona uses these.';
+
+  @override
+  String get tavernLorebookPickEmpty => 'No lorebooks in the library yet';
+
+  @override
+  String get tavernLorebookOpenLibrary => 'Import one in the library';
+
+  @override
+  String get tavernLorebookMissing => 'A deleted lorebook';
+
+  @override
+  String get tavernLorebookMissingSubtitle => 'Still bound and skipped when replying; turn off to unbind';
+
+  @override
+  String get tavernPresetOrder => 'Reorder';
+
+  @override
+  String get tavernPresetOrderNote =>
+      'Drag by the handle on the right. Prompts go to the model in this order; the ones switched off keep their place.';
+
+  @override
+  String get tavernPresetPromptOff => 'Off';
+
+  @override
+  String get tavernPrefill => 'Prefill';
+
+  @override
+  String get tavernPrefillOn => 'Start the reply with this';
+
+  @override
+  String get tavernPrefillOnSubtitle => 'The model writes on from it';
+
+  @override
+  String get tavernPrefillText => 'Opening text';
+
+  @override
+  String get tavernPrefillTextEmpty => 'Not written yet';
+
+  @override
+  String get tavernPrefillTarget => 'Goes in';
+
+  @override
+  String get tavernPrefillContent => 'Reply';
+
+  @override
+  String get tavernPrefillReasoning => 'Thinking';
+
+  @override
+  String get tavernPrefillNote =>
+      'When on, this goes to the model as the start of the reply, and it writes on from there. In Thinking it applies only with thinking on; otherwise it goes in the reply. Continuing a reply doesn\'t use it.';
+
+  @override
+  String get tavernPresetPromptEmpty => 'Empty';
+
+  @override
+  String tavernThinkingSeconds(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String tavernDeletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Deleted $count messages',
+      one: 'Deleted 1 message',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromUndoable =>
+      'From this one to the latest, with their alternatives and branches. You can undo for a few seconds after.';
+
+  @override
+  String get tavernUndoFailed => 'Couldn\'t undo';
+
+  @override
+  String get tavernShowUsage => 'Show usage under each reply';
+
+  @override
+  String get tavernShowUsageSubtitle => 'Input and output tokens as the model reports them; no cost estimates';
+
+  @override
+  String tavernUsageLine(int input, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return 'In $inputString · out $outputString';
+  }
+
+  @override
+  String tavernUsageLineCached(int input, int cached, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat cachedNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String cachedString = cachedNumberFormat.format(cached);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return 'In $inputString ($cachedString cached) · out $outputString';
+  }
+
+  @override
+  String get tavernSearchChat => 'Search this chat';
+
+  @override
+  String get tavernSearchChatHint => 'A line, a word';
+
+  @override
+  String get tavernSearchChatIdle =>
+      'Searches every branch of this chat, hidden messages too, but not the thinking. Tap a hit to read it whole.';
+
+  @override
+  String tavernSearchChatNone(String query) {
+    return 'Nothing found for “$query”';
+  }
+
+  @override
+  String tavernSearchChatFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count found, newest first',
+      one: '1 found',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteOne => 'Delete just this one';
+
+  @override
+  String get tavernDeleteOneTitle => 'Delete just this message?';
+
+  @override
+  String get tavernDeleteOneMessage =>
+      'The messages after it stay, joined to the one before it. This can\'t be undone.';
+
+  @override
+  String get tavernLorebookAdd => 'Add an entry';
+
+  @override
+  String get tavernLorebookStart =>
+      'This card has no lorebook of its own. Add an entry: when a chat mentions one of its keys, its text goes into the prompt.';
+
+  @override
+  String get tavernLorebookEntryNew => 'New entry';
+
+  @override
+  String get tavernLorebookEntryEdit => 'Edit entry';
+
+  @override
+  String get tavernLorebookFieldName => 'Entry name';
+
+  @override
+  String get tavernLorebookFieldNameHelp => 'Only for you, to find it by; not sent to the model.';
+
+  @override
+  String get tavernLorebookFieldKeys => 'Keys';
+
+  @override
+  String get tavernLorebookFieldKeysHelp =>
+      'When a chat mentions any of these, the text goes into the prompt. Separate with commas.';
+
+  @override
+  String get tavernLorebookFieldSecondary => 'Secondary keys';
+
+  @override
+  String get tavernLorebookFieldSecondaryHelp => 'If filled, the entry is also checked against them as set below.';
+
+  @override
+  String get tavernLorebookFieldContent => 'Text';
+
+  @override
+  String get tavernLorebookFieldConstantSubtitle => 'Always included, keys or not';
+
+  @override
+  String get tavernLorebookFieldEnabled => 'On';
+
+  @override
+  String get tavernLorebookFieldPosition => 'Goes';
+
+  @override
+  String get tavernLorebookBeforeChar => 'Before the character';
+
+  @override
+  String get tavernLorebookAfterChar => 'After the character';
+
+  @override
+  String get tavernLorebookFieldOrder => 'Order';
+
+  @override
+  String get tavernLorebookFieldOrderHelp => 'Higher numbers come first, and go in first.';
+
+  @override
+  String get tavernLorebookEntryDelete => 'Delete this entry';
+
+  @override
+  String tavernLorebookEntryDeleteTitle(String name) {
+    return 'Delete the entry “$name”?';
+  }
+
+  @override
+  String get tavernLorebookEntryDeleteMessage => 'It goes from the card for good.';
+
+  @override
+  String get tavernNarrator => 'Narrator';
+
+  @override
+  String get tavernSendOptions => 'Other ways to send';
+
+  @override
+  String get tavernSendOnly => 'Send without a reply';
+
+  @override
+  String get tavernSendOnlySubtitle => 'It goes into the story; no one answers yet';
+
+  @override
+  String get tavernNarrate => 'Send as narration';
+
+  @override
+  String get tavernNarrateSubtitle => 'It goes into the story as narration, not as your line';
+
+  @override
+  String get tavernSendFailed => 'Couldn\'t send';
+
+  @override
+  String get tavernStateVariables => 'Variables';
+
+  @override
+  String get tavernStateVariablesNote =>
+      'What macros like {{setvar}} saved in the card and this chat, as of the current message. Tap one to see it whole or change it.';
+
+  @override
+  String get tavernData => 'Data';
+
+  @override
+  String get tavernBackup => 'Back up the whole tavern';
+
+  @override
+  String get tavernBackupSubtitle => 'Cards, chats, presets, lorebooks, personas and settings, in one zip';
+
+  @override
+  String get tavernBackingUp => 'Backing up…';
+
+  @override
+  String tavernBackedUp(int count, String size) {
+    return 'Backed up: $count files, $size';
+  }
+
+  @override
+  String tavernBackupFailed(String error) {
+    return 'Couldn\'t back up: $error';
+  }
+
+  @override
+  String get tavernRestore => 'Restore from a backup';
+
+  @override
+  String get tavernRestoreSubtitle => 'Replace this tavern with a backup';
+
+  @override
+  String get tavernRestoreTitle => 'Replace this tavern with this backup?';
+
+  @override
+  String get tavernRestoreMessage =>
+      'The cards, chats, presets and settings here are all replaced by the backup\'s. To keep what is here, back it up first. A wrong or damaged backup changes nothing.';
+
+  @override
+  String get tavernRestoreAction => 'Restore';
+
+  @override
+  String get tavernRestoring => 'Restoring…';
+
+  @override
+  String tavernRestored(int count) {
+    return 'Restored: $count files';
+  }
+
+  @override
+  String tavernRestoreFailed(String error) {
+    return 'Couldn\'t restore; nothing here changed: $error';
+  }
+
+  @override
+  String get tavernLoreTest => 'Try it';
+
+  @override
+  String get tavernLoreTestTitle => 'Try the lorebook';
+
+  @override
+  String get tavernLoreTestInput => 'Say something';
+
+  @override
+  String get tavernLoreTestHint => 'A line you\'d expect to bring an entry in';
+
+  @override
+  String get tavernLoreTestNote =>
+      'Only this line, plus the always-on entries; earlier messages, sticky and cooldown don\'t count. No model is called.';
+
+  @override
+  String tavernLoreTestHits(int count) {
+    return 'Goes into the prompt ($count)';
+  }
+
+  @override
+  String get tavernLoreTestNone => 'This line brings in no entry.';
+
+  @override
+  String get tavernLoreTestOverflow => 'Over the lorebook budget; the later entries were left out.';
+
+  @override
+  String tavernLoreTestFailed(String error) {
+    return 'Couldn\'t try it: $error';
+  }
+
+  @override
+  String tavernLoreReasonKeys(String keys) {
+    return 'Keyword $keys';
+  }
+
+  @override
+  String get tavernLoreReasonSticky => 'Sticky, still on';
+
+  @override
+  String get tavernLoreReasonDecorator => 'Decorator';
+
+  @override
+  String tavernLoreAtDepth(int depth) {
+    return 'At depth $depth';
+  }
+
+  @override
+  String get tavernLoreNearNote => 'By the author\'s note';
+
+  @override
+  String get tavernLoreNearExamples => 'By the example dialogue';
+
+  @override
+  String get tavernLoreOutlet => 'Outlet';
+
+  @override
+  String tavernLoreOrder(String order) {
+    return 'Order $order';
+  }
+
+  @override
+  String get tavernBranches => 'Branches';
+
+  @override
+  String get tavernBranchesNote =>
+      'Each row is a stretch with no fork. An indented row is another way out of the end of the row above. Tap a row to switch to it or name it; one the story is not on can also be deleted.';
+
+  @override
+  String get tavernBranchesEmpty => 'No messages in this chat yet.';
+
+  @override
+  String tavernBranchCount(int count) {
+    return '$count messages';
+  }
+
+  @override
+  String tavernBranchUntil(String text) {
+    return 'to “$text”';
+  }
+
+  @override
+  String get tavernBranchCurrent => 'Current';
+
+  @override
+  String get tavernBranchSwitch => 'Switch to this branch';
+
+  @override
+  String get tavernBranchSwitchSubtitle => 'Carries on where it last left off';
+
+  @override
+  String get tavernBranchName => 'Name this branch';
+
+  @override
+  String get tavernBranchRename => 'Rename';
+
+  @override
+  String get tavernBranchNameHint => 'e.g. The cellar route';
+
+  @override
+  String get tavernBranchNameCaption => 'Only for you, to find it again; leave empty to remove it.';
+
+  @override
+  String get tavernBranchSwitched => 'Switched to this branch';
+
+  @override
+  String tavernBranchFailed(String error) {
+    return 'Couldn\'t do that: $error';
+  }
+
+  @override
+  String get tavernCardTheme => 'Use the card\'s own look';
+
+  @override
+  String get tavernCardThemeSubtitle =>
+      'The accent, name colours, layout and background a card sets; off, this page decides';
+
+  @override
+  String get tavernShelfSort => 'Sort';
+
+  @override
+  String get tavernShelfOrderRecent => 'Recently played';
+
+  @override
+  String get tavernShelfOrderName => 'Name';
+
+  @override
+  String get tavernShelfOrderImported => 'Recently imported';
+
+  @override
+  String get tavernFavorite => 'Favorite';
+
+  @override
+  String get tavernUnfavorite => 'Remove from favorites';
+
+  @override
+  String get tavernFavorited => 'Favorite';
+
+  @override
+  String get tavernChatSearchHint => 'Search chats: who, title, last line';
+
+  @override
+  String get tavernNoChatMatch => 'No matching chats';
+
+  @override
+  String get tavernCharacterTabChats => 'Chats';
+
+  @override
+  String get tavernCharacterTabCard => 'Card';
+
+  @override
+  String get tavernCharacterTabSetup => 'Setup';
+
+  @override
+  String get tavernCharacterNoDefinition => 'This card has no definition or notes.';
+
+  @override
+  String get tavernNovelIndent => 'Indent paragraphs in 小说';
+
+  @override
+  String get tavernNovelIndentSubtitle => 'Each paragraph opens two characters in, as in a book';
+
+  @override
+  String get tavernShelfSelect => 'Select';
+
+  @override
+  String tavernShelfPicked(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get tavernShelfExport => 'Export the selected cards';
+
+  @override
+  String tavernDeleteCharactersTitle(int count) {
+    return 'Delete these $count characters?';
+  }
+
+  @override
+  String get tavernQuickRepliesAll => 'All';
+
+  @override
+  String get tavernQuickRepliesManage => 'Manage quick replies';
+
+  @override
+  String tavernSpeakNext(String name) {
+    return 'Let $name go on';
+  }
+
+  @override
+  String get tavernSettingsConnection => 'Model & connection';
+
+  @override
+  String get tavernDefaultPreset => 'Default preset';
+
+  @override
+  String get tavernDefaultPresetPick => 'The preset new chats use';
+
+  @override
+  String tavernGenerationInPreset(String name) {
+    return 'Change $name\'s settings';
+  }
+
+  @override
+  String tavernGenerationPresetNote(String name) {
+    return 'New chats use $name: change context, reply length and temperature in that preset. A chat with a preset of its own keeps to it.';
+  }
+
+  @override
+  String get tavernStorage => 'Storage';
+
+  @override
+  String get tavernStorageCounting => 'Counting…';
+
+  @override
+  String get tavernStorageCharacters => 'Character cards';
+
+  @override
+  String get tavernStorageChats => 'Chats, presets and personas';
+
+  @override
+  String get tavernStorageLive2d => 'Live2D figures';
+
+  @override
+  String get tavernStorageOther => 'Backgrounds, lorebooks, regex and settings';
+
+  @override
+  String get tavernStorageNote =>
+      'All of it lives on this device only; before you change phones or uninstall, back up the whole tavern.';
+
+  @override
+  String get tavernDefaultPresetEmpty => 'Import presets in Library › Presets to pick another.';
+
+  @override
+  String tavernQuickRepliesAdded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Added $count quick replies',
+      one: 'Added 1 quick reply',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tavernQuickRepliesAddedSkipped(int count, int skipped) {
+    return 'Added $count quick replies; $skipped were ST slash commands and left out';
+  }
+
+  @override
+  String get tavernImportChatNoName => 'This chat doesn\'t say whose it is; import it from the character\'s page';
+
+  @override
+  String tavernImportChatNoCharacter(String name) {
+    return 'No single “$name” on the shelf; import this chat from the character\'s page';
+  }
+
+  @override
+  String tavernImportedChatsTo(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count chats to “$name”',
+      one: 'Imported 1 chat to “$name”',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tavernImportUnknown(String name) {
+    return 'Can\'t tell what $name is';
+  }
+
+  @override
+  String tavernImportFileFailed(String name, String reason) {
+    return 'Couldn\'t import $name: $reason';
+  }
+
+  @override
+  String get tavernIslands => 'Web pages in messages';
+
+  @override
+  String get tavernIslandsSubtitle =>
+      'HTML and styles a card writes in its messages (status bars, panels) show in a web page of their own; off, as text';
+
+  @override
+  String get tavernSettingsSafety => 'Safety';
+
+  @override
+  String get tavernIslandNoScripts => 'No card scripts in those pages';
+
+  @override
+  String get tavernIslandNoScriptsSubtitle =>
+      'The card\'s own JavaScript doesn\'t run; status bars that need it stay still';
+
+  @override
+  String get tavernIslandOffline => 'Keep those pages offline';
+
+  @override
+  String get tavernIslandOfflineSubtitle =>
+      'Only pictures and fonts inside the card; nothing is loaded from the internet';
+
+  @override
+  String get tavernSessionUsage => 'This chat\'s usage';
+
+  @override
+  String tavernSessionUsageNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count replies on the current line',
+      one: '1 reply on the current line',
+    );
+    return '$_temp0, added up; replaced alternatives aren\'t counted';
+  }
+
+  @override
+  String get tavernSessionUsageNone => 'The model hasn\'t reported any usage yet';
+
+  @override
+  String get tavernComposerNoKey => 'Add a key to begin';
+
+  @override
+  String get tavernWriteOwn => 'Write your own character';
+
+  @override
+  String get tavernWriteOwnSubtitle => 'Start from a blank card and fill in the name, setting and greeting';
+
+  @override
+  String get tavernNewCharacterName => 'New character';
+
+  @override
+  String get tavernSearchGoTo => 'Go to it in the chat';
+
+  @override
+  String get tavernBookmarks => 'Bookmarks';
+
+  @override
+  String get tavernBookmarkAdd => 'Bookmark';
+
+  @override
+  String get tavernBookmarkRemove => 'Remove bookmark';
+
+  @override
+  String get tavernBookmarkAdded => 'Bookmarked; find it in Stage › This chat › Bookmarks';
+
+  @override
+  String get tavernBookmarkRemoved => 'Bookmark removed';
+
+  @override
+  String get tavernBookmarksEmpty => 'No bookmarks yet';
+
+  @override
+  String get tavernBookmarksEmptyMessage => 'Long-press a message and choose Bookmark';
+
+  @override
+  String get tavernBookmarkGone => 'That line is gone; its bookmark was removed';
+
+  @override
+  String get tavernUsageStats => 'Usage';
+
+  @override
+  String get tavernUsageStatsSubtitle => 'How many tokens each chat has taken';
+
+  @override
+  String get tavernUsageAllNote =>
+      'Replies on every chat\'s current line, added up; replaced alternatives aren\'t counted';
+
+  @override
+  String tavernUsageChatReplies(int count, String completion) {
+    return '$count replies · $completion out';
+  }
+
+  @override
+  String get tavernSlashNoReply => 'There\'s no reply to do that to yet';
+
+  @override
+  String get tavernRegexTest => 'Try it';
+
+  @override
+  String get tavernRegexTestFind => 'Find';
+
+  @override
+  String get tavernRegexTestReplace => 'Replace with';
+
+  @override
+  String get tavernRegexTestInput => 'Some text';
+
+  @override
+  String get tavernRegexTestHint => 'Paste a reply to try it on';
+
+  @override
+  String get tavernRegexTestNote =>
+      'Only this rule, on this device, with no model call; it runs here whatever it applies to and whether or not it is on.';
+
+  @override
+  String get tavernRegexTestMacros => 'Macros like {{char}} are not filled in here; they are taken as written.';
+
+  @override
+  String get tavernRegexTestNone => 'No match; the text stays as it is';
+
+  @override
+  String tavernRegexTestResult(int count) {
+    return 'After ($count replaced)';
+  }
+
+  @override
+  String tavernRegexTestFailed(String reason) {
+    return 'Could not try it: $reason';
+  }
+
+  @override
+  String get tavernStateNote =>
+      'The card\'s own state, as of the current message. What changed this turn is marked (like +5); tap one to see it whole or change it. A change is kept on this message, so swiping or switching branches takes it back with the rest.';
+
+  @override
+  String get tavernStatePreview => 'Nothing is saved yet; these are the card\'s starting values.';
+
+  @override
+  String get tavernStateChanged => 'changed';
+
+  @override
+  String get tavernStateHidden => 'Spoiler · tap to see';
+
+  @override
+  String get tavernStateWhole => 'All of it';
+
+  @override
+  String get tavernStateEdit => 'Change';
+
+  @override
+  String get tavernStateEditText => 'The text is kept as written';
+
+  @override
+  String get tavernStateEditJson => 'Write JSON: a number, true / false, \"quoted text\", […], {…}';
+
+  @override
+  String get tavernStateEditBad => 'That is not valid JSON; nothing changed';
+
+  @override
+  String get tavernStateEditSaved => 'Changed';
+
+  @override
+  String get tavernStateEditSame => 'It was already that';
+
+  @override
+  String tavernStateEditRefused(String reason) {
+    return 'Not changed: $reason';
+  }
+
+  @override
+  String get tavernDirectorAuto => 'Director runs on its own';
+
+  @override
+  String get tavernDirectorAutoNote =>
+      'For this chat only. Every few turns, after a reply, the model is asked once more: where the next beat goes, and three things you might do. Each time uses a little more.';
+
+  @override
+  String get tavernDirectorRun => 'Ask the director now';
+
+  @override
+  String get tavernDirectorRunning => 'The director is thinking…';
+
+  @override
+  String get tavernDirectorBeat => 'The next beat';
+
+  @override
+  String get tavernDirectorSuggestions => 'You might…';
+
+  @override
+  String get tavernDirectorSuggestionsNote => 'Tap one to put it in the box; changing and sending it is up to you.';
+
+  @override
+  String get tavernDirectorNotes => 'The director\'s notes';
+
+  @override
+  String get tavernDirectorStale =>
+      'This was thought out for an earlier moment and may not fit now; it is kept to read.';
+
+  @override
+  String tavernDirectorFailed(String reason) {
+    return 'The last try did not work: $reason';
+  }
+
+  @override
+  String tavernDirectorRunFailed(String reason) {
+    return 'Could not do that: $reason';
+  }
+
+  @override
+  String get tavernBranchHere => 'Branch from here';
+
+  @override
+  String get tavernBranchedHere => 'Back to this message; what came after is kept in Branches';
+
+  @override
+  String get tavernBranchHereFailed => 'Could not go back to this message';
+
+  @override
+  String tavernStateItems(int count) {
+    return '$count items';
+  }
+
+  @override
+  String get tavernStateSearch => 'Search the values';
+
+  @override
+  String get tavernStateNoMatch => 'Nothing matches';
+
+  @override
+  String get tavernRuns => 'Background log';
+
+  @override
+  String get tavernRunsNote =>
+      'Every change to the state by you, the model or the card\'s rules, and every run of the director, card events and the story; newest first, up to 100. Tap one for the raw record.';
+
+  @override
+  String get tavernRunsEmpty => 'Nothing yet';
+
+  @override
+  String get tavernRunsEmptyMessage => 'Changes to the state and director runs show up here.';
+
+  @override
+  String get tavernRunUser => 'You';
+
+  @override
+  String get tavernRunModel => 'The model';
+
+  @override
+  String get tavernRunRules => 'Card rules';
+
+  @override
+  String get tavernRunStopped => 'Turn cut off';
+
+  @override
+  String get tavernRunDirector => 'Director';
+
+  @override
+  String get tavernRunDirectorFailed => 'Director failed';
+
+  @override
+  String get tavernRunEvent => 'Card event';
+
+  @override
+  String get tavernRunStory => 'Story';
+
+  @override
+  String get tavernRunSecret => 'Secret';
+
+  @override
+  String get tavernRunNotKept => 'Not kept';
+
+  @override
+  String get tavernRunGone => 'Its message is gone';
+
+  @override
+  String tavernRunMore(int count) {
+    return 'and $count more';
+  }
+
+  @override
+  String get tavernInspectCache => 'Cache';
+
+  @override
+  String get tavernInspectCacheKept => 'Same start as the last turn';
+
+  @override
+  String tavernInspectCacheBroken(int index) {
+    return 'Changed from part $index';
+  }
+
+  @override
+  String tavernInspectCacheMiss(int tokens) {
+    return 'This part and about $tokens tokens after it miss the cache; the parts before match the last turn. Usually a lorebook entry near the top changed this turn.';
+  }
+
+  @override
+  String get tavernInspectCacheBreak => 'The cache breaks here';
+
+  @override
+  String get tavernPaletteSt => 'ST';
+
+  @override
+  String tavernStTheme(String name) {
+    return 'ST theme: $name';
+  }
+
+  @override
+  String get tavernStThemeNote =>
+      'With 「ST」 as the colours, quotes and *actions* take its colours; one too faint to read here is adjusted until it reads.';
+
+  @override
+  String get tavernStThemeImport => 'Import an ST theme';
+
+  @override
+  String get tavernStThemeImportNote =>
+      'Takes the quote and italics colours from a theme file exported from SillyTavern.';
+
+  @override
+  String get tavernStThemeRemove => 'Remove';
+
+  @override
+  String tavernStThemeImported(String name) {
+    return 'Now using the colours of the ST theme “$name”';
+  }
+
+  @override
+  String tavernStThemeNoColors(String name) {
+    return '“$name” has no quote or italics colour to use';
+  }
+
+  @override
+  String get tavernPromptContent => 'Content';
+
+  @override
+  String get tavernPromptRole => 'Spoken as';
+
+  @override
+  String get tavernPromptRoleSystem => 'System';
+
+  @override
+  String get tavernPromptRoleUser => 'User';
+
+  @override
+  String get tavernPromptRoleAssistant => 'Assistant';
+
+  @override
+  String get tavernPromptPosition => 'Position';
+
+  @override
+  String get tavernPromptRelative => 'In order';
+
+  @override
+  String get tavernPromptInChat => 'In chat';
+
+  @override
+  String get tavernPromptDepth => 'Depth';
+
+  @override
+  String tavernPromptDepthNote(int depth) {
+    return 'Goes into the chat history, $depth messages up from the end (0 is the very end), as ST\'s In-Chat does.';
+  }
+
+  @override
+  String get tavernPromptRelativeNote => 'Sent where the preset\'s order puts it, as ST\'s Relative does.';
+
+  @override
+  String tavernPromptPlace(int depth) {
+    return 'In chat · depth $depth';
+  }
+
+  @override
+  String get tavernPromptOrder => 'Order at this depth';
+
+  @override
+  String get tavernPromptOrderNote => 'When several sit at one depth, the smaller number comes first (100 by default).';
+
+  @override
+  String get tavernPromptForbid => 'Keep the card from replacing it';
+
+  @override
+  String get tavernPromptForbidMain => 'A card\'s own system prompt won\'t replace this one.';
+
+  @override
+  String get tavernPromptForbidJailbreak => 'A card\'s own post-history instructions won\'t replace this one.';
+
+  @override
+  String get tavernLoreCommon => 'Common';
+
+  @override
+  String get tavernLoreMore => 'More';
+
+  @override
+  String get tavernLorePosAnTop => 'Before author\'s note';
+
+  @override
+  String get tavernLorePosAnBottom => 'After author\'s note';
+
+  @override
+  String get tavernLorePosExampleTop => 'Before examples';
+
+  @override
+  String get tavernLorePosExampleBottom => 'After examples';
+
+  @override
+  String get tavernLorePosOutlet => 'Outlet';
+
+  @override
+  String get tavernLoreLogic => 'How secondary keys count';
+
+  @override
+  String get tavernLoreLogicAndAny => 'Any';
+
+  @override
+  String get tavernLoreLogicAndAll => 'All';
+
+  @override
+  String get tavernLoreLogicNotAny => 'None';
+
+  @override
+  String get tavernLoreLogicNotAll => 'Not all';
+
+  @override
+  String get tavernLoreProbability => 'Chance';
+
+  @override
+  String get tavernLoreCase => 'Case-sensitive';
+
+  @override
+  String get tavernLoreWhole => 'Whole words';
+
+  @override
+  String get tavernLoreDefault => 'Default';
+
+  @override
+  String get tavernLoreYes => 'Yes';
+
+  @override
+  String get tavernLoreNo => 'No';
+
+  @override
+  String get tavernLorePosDepth => 'At depth';
+
+  @override
+  String get tavernLibraryBookOpen => 'Entries';
+
+  @override
+  String get tavernLibraryBookNote =>
+      'Changes are written back to this book; wherever it is bound uses them from the next turn.';
+
+  @override
+  String get tavernBranchDelete => 'Delete this branch';
+
+  @override
+  String get tavernBranchDeleteTitle => 'Delete this branch?';
+
+  @override
+  String tavernBranchDeleteMessage(int count) {
+    return 'Its $count messages, and every branch that grew from it, will go; you can take it back for a few seconds. The way the story is on now is not touched.';
+  }
+
+  @override
+  String tavernLetterFrom(String from) {
+    return 'A letter from $from';
+  }
+
+  @override
+  String get tavernLetter => 'A letter';
+
+  @override
+  String get tavernComponentMore => 'Show all';
+
+  @override
+  String get tavernComponentLess => 'Show less';
+
+  @override
+  String get tavernItemTaken => 'Got';
+
+  @override
+  String get tavernClue => 'Clue';
+
+  @override
+  String tavernPhoneFrom(String from) {
+    return 'Message from $from';
+  }
+
+  @override
+  String get tavernPhoneMessage => 'A message';
+
+  @override
+  String tavernRollCheck(String skill) {
+    return 'Check: $skill';
+  }
+
+  @override
+  String get tavernRoll => 'Roll';
+
+  @override
+  String get tavernRollSuccess => 'Success';
+
+  @override
+  String get tavernRollFailure => 'Failure';
+
+  @override
+  String get tavernGameHere => 'A mini-game goes here; it can\'t be played here yet';
+
+  @override
+  String get tavernRegexEdit => 'Edit rule';
+
+  @override
+  String get tavernRegexFieldName => 'Name';
+
+  @override
+  String get tavernRegexFieldFindHelp => 'SillyTavern\'s form: /pattern/flags, e.g. /(hi|bye)/gi';
+
+  @override
+  String get tavernRegexFieldReplaceHelp => '\$1 is the first group; {{match}} is the whole match';
+
+  @override
+  String get tavernRegexFieldTrim => 'Trim out first';
+
+  @override
+  String get tavernRegexFieldTrimHelp => 'One per line, cut from the match before it is replaced';
+
+  @override
+  String get tavernRegexPlacement => 'Applies to';
+
+  @override
+  String get tavernRegexPlaceUser => 'Your messages';
+
+  @override
+  String get tavernRegexPlaceAi => 'Replies';
+
+  @override
+  String get tavernRegexPlaceSlash => 'Slash commands';
+
+  @override
+  String get tavernRegexPlaceWorld => 'World info';
+
+  @override
+  String get tavernRegexPlaceReasoning => 'Reasoning';
+
+  @override
+  String get tavernRegexPhase => 'Changes';
+
+  @override
+  String get tavernRegexPhaseWrite => 'The text';
+
+  @override
+  String get tavernRegexPhaseDisplay => 'Display';
+
+  @override
+  String get tavernRegexPhasePrompt => 'Prompt';
+
+  @override
+  String get tavernRegexPhaseBoth => 'Both';
+
+  @override
+  String get tavernRegexPhaseNote =>
+      'The text: rewrites the saved message. Display: the saved text stays; only what you see changes. Prompt: only what is sent to the model.';
+
+  @override
+  String get tavernRegexMinDepth => 'From depth';
+
+  @override
+  String get tavernRegexMaxDepth => 'To depth';
+
+  @override
+  String get tavernRegexDepthHelp => 'Empty means any; 0 is the newest message';
+
+  @override
+  String get tavernRegexSubstitute => 'Macros in the pattern';
+
+  @override
+  String get tavernRegexSubstituteNone => 'Leave';
+
+  @override
+  String get tavernRegexSubstituteRaw => 'Expand';
+
+  @override
+  String get tavernRegexSubstituteEscaped => 'Expand escaped';
+
+  @override
+  String get tavernRegexRunOnEdit => 'Also when a message is edited';
+
+  @override
+  String get tavernRegexFieldEnabled => 'Use this rule';
+
+  @override
+  String get tavernRegexSavedIncompatible => 'Saved. This rule can\'t run here, so it is skipped';
+
+  @override
+  String get tavernRegexGone => 'This rule is gone; go back to the list';
+
+  @override
+  String get tavernRegexDeferred => 'It uses macros; whether it runs is known only when it does';
+
+  @override
+  String get tavernRegexTryDraft => 'Try it as filled in';
+
+  @override
+  String get tavernRegexDepthAny => 'Any';
+
+  @override
+  String get tavernCanvas => 'Whole-page canvas (trial)';
+
+  @override
+  String get tavernCanvasSubtitle =>
+      'The whole chat in one web page laid out as SillyTavern does, so a card\'s ST styles reach across messages. Not for visual novel; card scripts don\'t run here yet.';
+
+  @override
+  String get tavernCanvasReloaded => 'The page reloaded';
 
   @override
   String get updateCheck => 'Check for updates';

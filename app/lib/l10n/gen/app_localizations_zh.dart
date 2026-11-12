@@ -9864,6 +9864,27 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get modeSheetTitle => '模式';
+
+  @override
+  String get modeKeyTooltip => '切换模式';
+
+  @override
+  String get modeWork => '工作';
+
+  @override
+  String get modeWorkSubtitle => '和 DSH 一起干活';
+
+  @override
+  String get modeCompanionShort => '伙伴';
+
+  @override
+  String get modeTavernSubtitle => '导入角色卡，开始一段故事';
+
+  @override
+  String get modeStartup => '启动时进入';
+
+  @override
   String get nearbyThisChat => '本对话';
 
   @override
@@ -18648,6 +18669,2401 @@ class L10nZh extends L10n {
 
   @override
   String get appSlogan => '随时随刻，想go就Go！';
+
+  @override
+  String get tavernTitle => '酒馆';
+
+  @override
+  String get tavernImport => '导入';
+
+  @override
+  String get tavernEmptyTitle => '还没有角色';
+
+  @override
+  String get tavernEmptyMessage => '导入一张角色卡：PNG、JSON 或 CHARX';
+
+  @override
+  String get tavernContinue => '继续';
+
+  @override
+  String get tavernCharacters => '角色';
+
+  @override
+  String tavernImported(String name) {
+    return '已导入「$name」';
+  }
+
+  @override
+  String get tavernImportLorebook => '这是一本世界书，不是角色卡';
+
+  @override
+  String get tavernImportFailed => '这张卡读不出来';
+
+  @override
+  String get tavernCharacterGone => '这个角色已经不在了';
+
+  @override
+  String get tavernDeleteCharacter => '删除角色';
+
+  @override
+  String tavernDeleteCharacterTitle(String name) {
+    return '删除「$name」？';
+  }
+
+  @override
+  String get tavernDeleteCharacterMessage => '它的对话也会一起删掉。';
+
+  @override
+  String get tavernGreeting => '开场白';
+
+  @override
+  String tavernGreetingOf(int index, int count) {
+    return '开场白 $index/$count';
+  }
+
+  @override
+  String get tavernStart => '开始';
+
+  @override
+  String get tavernContinueLast => '继续上次';
+
+  @override
+  String get tavernStartNew => '用这个开场白开始新对话';
+
+  @override
+  String get tavernChats => '对话';
+
+  @override
+  String tavernMessageCount(int count) {
+    return '$count 条消息';
+  }
+
+  @override
+  String get tavernCreatorNotes => '作者说明';
+
+  @override
+  String get tavernDefinition => '设定';
+
+  @override
+  String tavernComposerHint(String name) {
+    return '对$name说…';
+  }
+
+  @override
+  String get tavernReplying => '正在回复…';
+
+  @override
+  String get tavernReady => '就绪';
+
+  @override
+  String get tavernPreviewStatus => '预览 · 回复是示例，还没接上模型';
+
+  @override
+  String get tavernRegenerate => '重新生成';
+
+  @override
+  String get tavernContinueReply => '接着写';
+
+  @override
+  String get tavernDeleteFrom => '删除这条及以后';
+
+  @override
+  String get tavernPrevious => '上一个回答';
+
+  @override
+  String get tavernNext => '下一个回答';
+
+  @override
+  String get tavernErrorNoKey => '先在设置里填 DeepSeek API Key';
+
+  @override
+  String get tavernKeyMissing => '还没填 DeepSeek API Key，填好就能开始。';
+
+  @override
+  String get tavernKeyMissingAction => '去填写';
+
+  @override
+  String get tavernErrorBadKey => 'API Key 不对，去设置里检查一下';
+
+  @override
+  String get tavernErrorBusy => '模型现在有点忙，稍后再试';
+
+  @override
+  String get tavernErrorNetwork => '连不上，检查网络后重试';
+
+  @override
+  String get tavernErrorTooLong => '对话太长了，超出了模型的上下文';
+
+  @override
+  String get tavernCutShort => '回复写到回复上限，在这里断开了。可以接着写，或在酒馆设置 › 生成里把回复上限调高。';
+
+  @override
+  String get tavernFiltered => '这条回复被模型的内容过滤拦下了一部分。';
+
+  @override
+  String get tavernErrorBalance => 'DeepSeek 账户余额不足，充值后再试';
+
+  @override
+  String get tavernErrorParameters => '模型不接受这次请求的参数';
+
+  @override
+  String tavernErrorParametersDetail(String detail) {
+    return '模型不接受这次请求的参数：$detail';
+  }
+
+  @override
+  String tavernErrorDetail(String detail) {
+    return '出错了：$detail';
+  }
+
+  @override
+  String get tavernSettings => '酒馆设置';
+
+  @override
+  String get tavernSettingsModel => '模型';
+
+  @override
+  String get tavernModelFlash => 'Flash';
+
+  @override
+  String get tavernModelPro => 'V4 Pro';
+
+  @override
+  String get tavernThinking => '思考';
+
+  @override
+  String get tavernThinkingSubtitle => '回复前先想一想';
+
+  @override
+  String get tavernApiKey => 'DeepSeek API Key';
+
+  @override
+  String get tavernApiKeySet => '已填';
+
+  @override
+  String get tavernApiKeyMissing => '未填';
+
+  @override
+  String get tavernDeleteChat => '删除对话';
+
+  @override
+  String get tavernDeleteChatTitle => '删除这段对话？';
+
+  @override
+  String get tavernDeleteChatMessage => '删除后就找不回来了。';
+
+  @override
+  String tavernDeleteFromTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '删除这 $count 条消息？', one: '删除这条消息？');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromMessage => '从这条到最新一条，连同它们的备选回复和分支。删除后就找不回来了。';
+
+  @override
+  String get tavernSwitchedBranch => '切到了另一条分支';
+
+  @override
+  String get tavernUndo => '撤销';
+
+  @override
+  String get tavernSettingsDisplay => '显示';
+
+  @override
+  String get tavernPresets => '预设';
+
+  @override
+  String get tavernPresetImport => '导入预设';
+
+  @override
+  String get tavernPresetStDefault => 'SillyTavern 默认预设';
+
+  @override
+  String get tavernPresetStDefaultNote => '没选预设时用它';
+
+  @override
+  String get tavernPresetDefault => '默认';
+
+  @override
+  String get tavernPresetSetDefault => '设为默认';
+
+  @override
+  String get tavernPresetUnsetDefault => '不再作为默认';
+
+  @override
+  String get tavernPresetExport => '导出预设';
+
+  @override
+  String get tavernPresetDelete => '删除预设';
+
+  @override
+  String tavernPresetDeleteTitle(String name) {
+    return '删除预设「$name」？';
+  }
+
+  @override
+  String get tavernPresetDeleteMessage => '用它的对话会改用默认预设。删除后就找不回来了。';
+
+  @override
+  String tavernPresetImported(String name) {
+    return '已导入「$name」';
+  }
+
+  @override
+  String tavernPresetImportedWithIssues(String name, int count) {
+    return '已导入「$name」，有 $count 处提示';
+  }
+
+  @override
+  String tavernPresetImportFailed(String reason) {
+    return '没能导入：$reason';
+  }
+
+  @override
+  String get tavernPresetNotText => '这个文件不是文本';
+
+  @override
+  String get tavernPresetsEmpty => '还没有预设';
+
+  @override
+  String get tavernPresetsEmptyMessage => 'SillyTavern 导出的预设 JSON 和 dsh-preset-enhance 的分享包都能导入。';
+
+  @override
+  String get tavernPresetEnvelope => '分享包';
+
+  @override
+  String tavernPresetCount(int count) {
+    return '$count 个';
+  }
+
+  @override
+  String get tavernRegex => '正则';
+
+  @override
+  String get tavernRegexImport => '导入正则';
+
+  @override
+  String get tavernRegexOn => '开';
+
+  @override
+  String get tavernRegexOff => '关';
+
+  @override
+  String get tavernRegexEnable => '启用';
+
+  @override
+  String get tavernRegexDisable => '停用';
+
+  @override
+  String get tavernRegexExport => '导出正则';
+
+  @override
+  String get tavernRegexDelete => '删除正则';
+
+  @override
+  String tavernRegexDeleteTitle(String name) {
+    return '删除正则「$name」？';
+  }
+
+  @override
+  String tavernRegexImported(int count) {
+    return '导入了 $count 条正则';
+  }
+
+  @override
+  String get tavernRegexIncompatible => '这里运行不了，已跳过';
+
+  @override
+  String get tavernRegexEmpty => '还没有全局正则';
+
+  @override
+  String get tavernRegexEmptyMessage => 'SillyTavern 导出的正则 JSON（一条或一组）都能导入。全局正则对所有对话生效；卡和预设自带的正则跟着它们走。';
+
+  @override
+  String get tavernRegexUnnamed => '未命名';
+
+  @override
+  String tavernRegexCount(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String get tavernLorebooks => '世界书';
+
+  @override
+  String get tavernLorebookImport => '导入世界书';
+
+  @override
+  String get tavernLorebookGlobal => '全局';
+
+  @override
+  String get tavernLorebookBindGlobal => '对所有对话生效';
+
+  @override
+  String get tavernLorebookUnbindGlobal => '不再对所有对话生效';
+
+  @override
+  String get tavernLorebookExport => '导出世界书';
+
+  @override
+  String get tavernLorebookDelete => '删除世界书';
+
+  @override
+  String tavernLorebookDeleteTitle(String name) {
+    return '删除世界书「$name」？';
+  }
+
+  @override
+  String get tavernLorebookDeleteMessage => '绑定它的地方会跳过它。删除后就找不回来了。';
+
+  @override
+  String tavernLorebookImported(String name, int count) {
+    return '已导入「$name」，$count 条';
+  }
+
+  @override
+  String get tavernLorebooksEmpty => '还没有独立世界书';
+
+  @override
+  String get tavernLorebooksEmptyMessage => 'SillyTavern 导出的世界书 JSON 都能导入。设为全局后对所有对话生效；卡自带的世界书跟着卡走。';
+
+  @override
+  String tavernLorebookCount(int count) {
+    return '$count 本';
+  }
+
+  @override
+  String get tavernPresetEdit => '编辑预设';
+
+  @override
+  String get tavernPresetParams => '参数';
+
+  @override
+  String get tavernPresetPrompts => '提示词（按发送顺序）';
+
+  @override
+  String get tavernPresetMarker => '占位';
+
+  @override
+  String get tavernPresetPromptsEmpty => '这个预设没写提示词顺序，发送时用 SillyTavern 的默认顺序。';
+
+  @override
+  String get tavernReport => '导入体检';
+
+  @override
+  String get tavernVerdictUsable => '能用';
+
+  @override
+  String get tavernVerdictPartial => '部分能用';
+
+  @override
+  String get tavernVerdictPreserve => '只保留，不执行';
+
+  @override
+  String tavernReportChecked(String time) {
+    return '检查于 $time';
+  }
+
+  @override
+  String get tavernReportStale => '资料改过了，这份体检是旧的';
+
+  @override
+  String get tavernReportRecheck => '重新检查';
+
+  @override
+  String get tavernReportNone => '还没有体检';
+
+  @override
+  String get tavernReportNoneMessage => '这份资料是加体检之前导入的，检查一下就有了。';
+
+  @override
+  String get tavernReportCheckNow => '检查一下';
+
+  @override
+  String get tavernReportRender0 => '建议显示方式：原生';
+
+  @override
+  String get tavernReportRender1 => '建议显示方式：单条消息里的网页';
+
+  @override
+  String get tavernReportRender2 => '建议显示方式：整页画布';
+
+  @override
+  String get tavernReportCounts => '里面有';
+
+  @override
+  String get tavernReportFindings => '没执行或要留意的';
+
+  @override
+  String get tavernReportNoFindings => '没有要留意的';
+
+  @override
+  String get tavernPresetForChat => '这段对话用的预设';
+
+  @override
+  String get tavernPresetFollow => '跟随默认';
+
+  @override
+  String tavernPresetFollowDefault(String name) {
+    return '跟随默认（$name）';
+  }
+
+  @override
+  String get tavernPresetPickerEmpty => '在 资源库 › 预设 里导入以后，就能给这段对话换别的。';
+
+  @override
+  String get tavernSectionShelf => '书架';
+
+  @override
+  String get tavernSectionChats => '对话';
+
+  @override
+  String get tavernSectionLibrary => '资源库';
+
+  @override
+  String get tavernSectionMe => '我的';
+
+  @override
+  String get tavernNoChats => '还没有对话';
+
+  @override
+  String get tavernNoChatsMessage => '在书架里点开一个角色，开始第一段对话。';
+
+  @override
+  String get tavernSettingsGeneration => '生成';
+
+  @override
+  String get tavernMaxContext => '上下文上限';
+
+  @override
+  String get tavernMaxReply => '回复上限';
+
+  @override
+  String get tavernTemperature => '温度';
+
+  @override
+  String get tavernGenerationNote => '上下文越长，角色记得越多，每回合也越贵；数字是 token。这里改的是默认预设，自带预设的对话以它自己的为准。';
+
+  @override
+  String get tavernLayout => '排版';
+
+  @override
+  String get tavernLayoutBubble => '气泡';
+
+  @override
+  String get tavernLayoutNovel => '小说';
+
+  @override
+  String get tavernYou => '你';
+
+  @override
+  String get tavernSearchHint => '搜索角色、作者、标签';
+
+  @override
+  String get tavernAllTags => '全部';
+
+  @override
+  String get tavernNoMatch => '没有符合的角色';
+
+  @override
+  String get tavernLayoutVisualNovel => '视觉小说';
+
+  @override
+  String get tavernCharacterDetails => '角色详情';
+
+  @override
+  String get tavernChatLayout => '这段对话的排版';
+
+  @override
+  String get tavernFollowSettings => '跟随酒馆设置';
+
+  @override
+  String get tavernLog => '记录';
+
+  @override
+  String get tavernEditCharacter => '编辑角色';
+
+  @override
+  String get tavernNameNeeded => '名字不能空着';
+
+  @override
+  String get tavernFieldsBasics => '基本';
+
+  @override
+  String get tavernFieldNickname => '昵称';
+
+  @override
+  String get tavernFieldNicknameHelp => '填了的话，对话里用它称呼角色';
+
+  @override
+  String get tavernFieldTags => '标签';
+
+  @override
+  String get tavernFieldTagsHelp => '用逗号隔开';
+
+  @override
+  String get tavernFieldCreator => '作者';
+
+  @override
+  String get tavernFieldVersion => '版本';
+
+  @override
+  String get tavernFieldDescription => '描述';
+
+  @override
+  String get tavernFieldPersonality => '性格';
+
+  @override
+  String get tavernFieldScenario => '场景';
+
+  @override
+  String tavernGreetingNumber(int n) {
+    return '开场白 $n';
+  }
+
+  @override
+  String get tavernFieldGreetingsNote => '新对话可以从任意一条开场白开始。';
+
+  @override
+  String get tavernAddGreeting => '加一条开场白';
+
+  @override
+  String get tavernMoreFields => '更多字段';
+
+  @override
+  String get tavernMoreFieldsSubtitle => '示例对话、系统提示、历史后指令';
+
+  @override
+  String get tavernFieldExamples => '示例对话';
+
+  @override
+  String get tavernFieldExamplesHelp => '每段示例用一行 <START> 开头';
+
+  @override
+  String get tavernFieldPrompts => '提示词';
+
+  @override
+  String get tavernFieldPromptsNote => '填了就替换预设里对应的那一段；留空用预设的。';
+
+  @override
+  String get tavernFieldSystemPrompt => '系统提示';
+
+  @override
+  String get tavernFieldPostHistory => '历史后指令';
+
+  @override
+  String get tavernFieldNotesNote => '写给看卡的人，不发给模型。';
+
+  @override
+  String tavernEditKeeps(int count) {
+    return '卡里还有 $count 项这里改不了的内容（世界书、扩展等），保存时原样保留；已有的对话也不会变。';
+  }
+
+  @override
+  String get tavernEditKeepsChats => '保存后，已有的对话不会变。';
+
+  @override
+  String get tavernPersonas => '人设';
+
+  @override
+  String get tavernPersona => '人设';
+
+  @override
+  String get tavernPersonaNew => '新建人设';
+
+  @override
+  String get tavernPersonasEmpty => '还没有人设';
+
+  @override
+  String get tavernPersonasEmptyMessage => '人设是你在对话里扮演的人：一个名字和一段介绍，角色就知道你是谁。';
+
+  @override
+  String get tavernPersonasNote => '长按设为默认或删除。没有单独选人设的对话用默认的。';
+
+  @override
+  String get tavernPersonaUnsetDefault => '不再作为默认';
+
+  @override
+  String get tavernPersonaSetDefault => '设为默认人设';
+
+  @override
+  String tavernPersonaDeleteTitle(String name) {
+    return '删除「$name」？';
+  }
+
+  @override
+  String get tavernPersonaDeleteMessage => '用它的对话会改用默认人设，已经写下的内容不变。';
+
+  @override
+  String get tavernPersonaEdit => '编辑人设';
+
+  @override
+  String get tavernPersonaPickAvatar => '换头像';
+
+  @override
+  String get tavernPersonaRemoveAvatar => '去掉头像';
+
+  @override
+  String get tavernPersonaAvatarFailed => '没能用上这张图片';
+
+  @override
+  String get tavernPersonaNameHint => '角色怎么称呼你';
+
+  @override
+  String get tavernPersonaDescriptionHelp => '模型会读到这段：你是谁、什么样子、和角色是什么关系。';
+
+  @override
+  String get tavernPersonaDescriptionHint => '比如：镇上新来的医生，话不多，总拎着一个旧皮箱。';
+
+  @override
+  String get tavernPersonaDefaultSubtitle => '新对话和没有单独选人设的对话都用它';
+
+  @override
+  String get tavernPersonaDelete => '删除人设';
+
+  @override
+  String get tavernPersonaNone => '没有人设';
+
+  @override
+  String tavernPersonaAs(String name) {
+    return '以「$name」的身份';
+  }
+
+  @override
+  String get tavernPersonaForChat => '这段对话里你是';
+
+  @override
+  String get tavernPersonaFollowDefault => '跟随默认';
+
+  @override
+  String get tavernPersonasManage => '管理人设';
+
+  @override
+  String get tavernSettingsYou => '你';
+
+  @override
+  String get tavernDefaultPersona => '默认人设';
+
+  @override
+  String get tavernPersonaNotSet => '未设置';
+
+  @override
+  String get tavernFieldName => '名字';
+
+  @override
+  String get tavernOpenFailed => '酒馆没能打开';
+
+  @override
+  String get tavernOpenFailedMessage => '存角色和对话的数据没能打开。重试一下；还不行的话，重启 App 再试。';
+
+  @override
+  String get tavernExportPng => '导出角色卡（PNG）';
+
+  @override
+  String get tavernExportPngSubtitle => '设定藏在图片里，SillyTavern 等酒馆都能导入';
+
+  @override
+  String get tavernExportJson => '导出为 JSON';
+
+  @override
+  String get tavernExportFailed => '没能导出这张卡';
+
+  @override
+  String get tavernInspectTitle => '这一回合发了什么';
+
+  @override
+  String get tavernInspectMenu => '看看发了什么';
+
+  @override
+  String get tavernInspectLatest => '上一回合发了什么';
+
+  @override
+  String get tavernInspectNone => '这条没有记录';
+
+  @override
+  String get tavernInspectNoneMessage => '开场白、接上引擎之前的消息和示例回复没有检视记录。';
+
+  @override
+  String get tavernInspectSummary => '概况';
+
+  @override
+  String get tavernInspectKind => '类型';
+
+  @override
+  String get tavernTurnSend => '发送';
+
+  @override
+  String get tavernTurnImpersonate => '代写';
+
+  @override
+  String get tavernInspectStatus => '结果';
+
+  @override
+  String get tavernInspectPreparing => '准备中';
+
+  @override
+  String get tavernInspectReady => '已发出';
+
+  @override
+  String get tavernInspectCompleted => '完成';
+
+  @override
+  String get tavernInspectFailed => '失败';
+
+  @override
+  String get tavernInspectPrompt => '提示词';
+
+  @override
+  String tavernTokens(int count) {
+    return '$count tokens';
+  }
+
+  @override
+  String tavernTokensAbout(int count) {
+    return '约 $count tokens';
+  }
+
+  @override
+  String get tavernInspectBudget => '上下文预算剩余';
+
+  @override
+  String get tavernInspectUsage => '模型报告的用量';
+
+  @override
+  String get tavernInspectNoUsage => '没报告';
+
+  @override
+  String tavernInspectUsageValue(int prompt, int hit, int completion) {
+    return '输入 $prompt（缓存 $hit）· 输出 $completion';
+  }
+
+  @override
+  String tavernInspectSegments(int count) {
+    return '发出去的 $count 段';
+  }
+
+  @override
+  String get tavernInspectSegmentsNote => '按发送顺序。点开看全文，长按复制。';
+
+  @override
+  String tavernInspectWorld(int count) {
+    return '世界书命中 $count 条';
+  }
+
+  @override
+  String tavernInspectWorldKey(String key) {
+    return '关键词「$key」';
+  }
+
+  @override
+  String tavernInspectExcluded(int count) {
+    return '没发出去的 $count 段';
+  }
+
+  @override
+  String get tavernExcludeDisabled => '关着';
+
+  @override
+  String get tavernExcludeTrigger => '不在这种生成里';
+
+  @override
+  String get tavernExcludeHidden => '对模型隐藏';
+
+  @override
+  String get tavernExcludeSystem => '系统消息';
+
+  @override
+  String get tavernExcludeHistoryBudget => '超出上下文预算';
+
+  @override
+  String get tavernExcludeExampleBudget => '示例超出预算';
+
+  @override
+  String get tavernRoleSystem => '系统';
+
+  @override
+  String get tavernRoleUser => '你';
+
+  @override
+  String get tavernRoleCharacter => '角色';
+
+  @override
+  String get tavernSourcePreset => '预设';
+
+  @override
+  String get tavernSourceCard => '角色卡';
+
+  @override
+  String get tavernSourceWorld => '世界书';
+
+  @override
+  String get tavernSourcePersona => '人设';
+
+  @override
+  String get tavernSourceHistory => '对话';
+
+  @override
+  String get tavernSourceControl => '控制';
+
+  @override
+  String get tavernWriteForMe => '帮我写';
+
+  @override
+  String get tavernHide => '对模型隐藏';
+
+  @override
+  String get tavernUnhide => '让模型看到';
+
+  @override
+  String get tavernHiddenFromModel => '模型看不到这条';
+
+  @override
+  String get tavernTrySample => '试试示范卡';
+
+  @override
+  String get tavernImportChats => '导入聊天记录';
+
+  @override
+  String get tavernImportChatsSubtitle => 'SillyTavern 的 .jsonl，可以一次选几个';
+
+  @override
+  String get tavernOnlyJsonl => '只能导入 .jsonl 聊天记录';
+
+  @override
+  String tavernImportChatsFailed(String detail) {
+    return '没能导入：$detail';
+  }
+
+  @override
+  String tavernImportedChats(int count) {
+    return '导入了 $count 段对话';
+  }
+
+  @override
+  String get tavernImportNoticesTitle => '导入时注意到';
+
+  @override
+  String get tavernExportChat => '导出聊天记录';
+
+  @override
+  String get tavernExportChatFailed => '没能导出这段对话';
+
+  @override
+  String get tavernLorebook => '世界书';
+
+  @override
+  String get tavernLorebookSubtitle => '这张卡自带的设定条目';
+
+  @override
+  String tavernLorebookEntries(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String get tavernLorebookNote => '对话里提到关键词时，对应条目会带进提示词；「常驻」的每次都带。';
+
+  @override
+  String tavernLorebookKeys(String keys) {
+    return '关键词：$keys';
+  }
+
+  @override
+  String get tavernLorebookConstant => '常驻';
+
+  @override
+  String get tavernLorebookOff => '已关';
+
+  @override
+  String get tavernLorebookEmpty => '这张卡没有世界书';
+
+  @override
+  String get tavernImportFromFile => '从文件导入';
+
+  @override
+  String get tavernImportFromFileSubtitle => '角色卡、预设、世界书、正则、快速回复或聊天记录，会自己认出来';
+
+  @override
+  String get tavernImportFromLink => '从链接导入';
+
+  @override
+  String get tavernImportFromLinkSubtitle => 'Chub、RisuRealm 的角色页，或卡文件的直链';
+
+  @override
+  String get tavernLinkInvalid => '这不是一个网址';
+
+  @override
+  String get tavernLinkFailed => '下载失败，检查网络或链接';
+
+  @override
+  String tavernLinkStatus(int status) {
+    return '下载失败（HTTP $status）';
+  }
+
+  @override
+  String get tavernLinkIsPage => '这是网页，不是卡文件。Chub 和 RisuRealm 的角色页可以直接贴；别的站打开网页找「下载」，拿到 .png 或 .json 的链接再试。';
+
+  @override
+  String get tavernLinkSiteMissing => '站上没有这个角色，可能删了或没公开';
+
+  @override
+  String get tavernQuickReplies => '快速回复';
+
+  @override
+  String get tavernQuickRepliesEmpty => '还没有快速回复';
+
+  @override
+  String get tavernQuickRepliesNote => '对话里输入框上方会出现这些：点一下直接发出去，长按放进输入框再改。';
+
+  @override
+  String get tavernQuickReplyAdd => '加一条';
+
+  @override
+  String get tavernQuickReplyHint => '比如：*环顾四周，看有没有别人*';
+
+  @override
+  String tavernQuickReplyCount(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String get tavernEditMessage => '编辑消息';
+
+  @override
+  String get tavernBackground => '背景图';
+
+  @override
+  String get tavernBackgroundNone => '无';
+
+  @override
+  String get tavernBackgroundChange => '换一张';
+
+  @override
+  String get tavernBackgroundRemove => '去掉背景图';
+
+  @override
+  String get tavernDice => '掷骰';
+
+  @override
+  String get tavernDiceCount => '个数';
+
+  @override
+  String get tavernDiceModifier => '加值';
+
+  @override
+  String get tavernDiceFewer => '少一个骰子';
+
+  @override
+  String get tavernDiceMore => '多一个骰子';
+
+  @override
+  String get tavernDiceModifierDown => '加值减 1';
+
+  @override
+  String get tavernDiceModifierUp => '加值加 1';
+
+  @override
+  String get tavernDiceRoll => '掷';
+
+  @override
+  String get tavernDiceAgain => '再掷一次';
+
+  @override
+  String get tavernDiceUse => '放进输入框';
+
+  @override
+  String tavernDiceLine(String notation, int total, String working) {
+    return '🎲 $notation 掷出 $total$working';
+  }
+
+  @override
+  String tavernDiceWorking(String working) {
+    return '（$working）';
+  }
+
+  @override
+  String get tavernStorybook => '故事书';
+
+  @override
+  String get tavernStorybookMenu => '导出成故事书';
+
+  @override
+  String get tavernStorybookTitle => '书名';
+
+  @override
+  String tavernStorybookDefaultTitle(String name) {
+    return '$name的故事';
+  }
+
+  @override
+  String tavernStorybookByline(String character, String you) {
+    return '$character 和 $you';
+  }
+
+  @override
+  String get tavernStorybookWhole => '整本';
+
+  @override
+  String tavernStorybookWholeNote(int count) {
+    return '一共 $count 句，隐藏的消息不放进去。EPUB 能用微信读书、Apple 图书等打开。';
+  }
+
+  @override
+  String get tavernStorybookEpub => '电子书（EPUB）';
+
+  @override
+  String get tavernStorybookText => '纯文本（TXT）';
+
+  @override
+  String get tavernStorybookImage => '长图';
+
+  @override
+  String get tavernStorybookLatest => '放最近';
+
+  @override
+  String tavernStorybookLines(int count) {
+    return '$count 句';
+  }
+
+  @override
+  String get tavernStorybookSave => '存到相册';
+
+  @override
+  String get tavernStorybookShare => '分享长图';
+
+  @override
+  String tavernStorybookEarlier(int count) {
+    return '前面还有 $count 句没放进图里，整段请导出电子书。';
+  }
+
+  @override
+  String tavernStorybookEarlierShort(int count) {
+    return '…… 前面还有 $count 句 ……';
+  }
+
+  @override
+  String get tavernStorybookMadeWith => '用 DSH Go 酒馆写成';
+
+  @override
+  String get tavernStorybookContents => '目录';
+
+  @override
+  String tavernStorybookChapter(int n) {
+    return '第 $n 章';
+  }
+
+  @override
+  String get tavernStorybookSaved => '已存到相册';
+
+  @override
+  String get tavernStorybookFailed => '没能导出，再试一次';
+
+  @override
+  String get tavernLive2d => 'Live2D 形象';
+
+  @override
+  String get tavernLive2dSubtitle => '视觉小说排版里用它代替卡面，会动、说话时会张嘴';
+
+  @override
+  String get tavernLive2dNone => '未导入';
+
+  @override
+  String get tavernLive2dSet => '已导入';
+
+  @override
+  String get tavernLive2dImported => '导入好了，切到视觉小说排版就能看到她。';
+
+  @override
+  String get tavernLive2dReplace => '换一个';
+
+  @override
+  String get tavernLive2dRemove => '去掉 Live2D 形象';
+
+  @override
+  String get tavernLive2dNoRuntime => '手机上还没有 Live2D 运行库：先在伙伴小屋装一个形象，或者导入完整的素材包。';
+
+  @override
+  String get tavernTextSize => '正文字号';
+
+  @override
+  String get tavernTextSmall => '小';
+
+  @override
+  String get tavernTextMedium => '中';
+
+  @override
+  String get tavernTextLarge => '大';
+
+  @override
+  String get tavernTextHuge => '特大';
+
+  @override
+  String get tavernLineHeight => '行距';
+
+  @override
+  String get tavernLineTight => '紧凑';
+
+  @override
+  String get tavernLineNormal => '适中';
+
+  @override
+  String get tavernLineLoose => '宽松';
+
+  @override
+  String get tavernReadingSample => '*她把陶杯推到你面前，炉火在她眼里跳了一下。*\n\n「这么晚了还在赶路？外头的雪今晚停不了，你要是赶路，最好等天亮。」';
+
+  @override
+  String get tavernPalette => '配色';
+
+  @override
+  String get tavernPalettePlain => '素';
+
+  @override
+  String get tavernPaletteEmber => '暖';
+
+  @override
+  String get tavernPaletteOcean => '冷';
+
+  @override
+  String get tavernPaletteRose => '粉';
+
+  @override
+  String get tavernTextSpeed => '逐字速度';
+
+  @override
+  String get tavernTextSlow => '慢';
+
+  @override
+  String get tavernTextNormal => '中';
+
+  @override
+  String get tavernTextFast => '快';
+
+  @override
+  String get tavernTextInstant => '立即';
+
+  @override
+  String get tavernVnAuto => '自动';
+
+  @override
+  String get tavernVnSkip => '跳过';
+
+  @override
+  String get tavernStage => '舞台';
+
+  @override
+  String get tavernStageSession => '本局';
+
+  @override
+  String get tavernSessionUsing => '正在用';
+
+  @override
+  String get tavernSessionLook => '外观';
+
+  @override
+  String get tavernSessionMore => '更多';
+
+  @override
+  String get tavernStageState => '状态';
+
+  @override
+  String get tavernStageDirector => '导演';
+
+  @override
+  String get tavernStageTurn => '本回合';
+
+  @override
+  String get tavernStageStateEmpty => '这张卡还没有状态';
+
+  @override
+  String get tavernStageStateNote => '卡里定义了状态以后，好感、属性、背包、时间地点都会在这里，每回合变了什么会标出来（「+5」），你也能直接改。没定义的老卡会在这里列出它的变量。';
+
+  @override
+  String get tavernStageDirectorEmpty => '导演还没上场';
+
+  @override
+  String get tavernStageDirectorNote =>
+      '打开导演后，它会在每回合之后在后台读剧情：给下一回合留一条看不见的提示，记下自己的笔记（默认藏着，怕剧透），再在输入框上方给你三个建议回复。它不替你说话，也不写正文。';
+
+  @override
+  String get tavernStageTurnNone => '还没有可看的回合';
+
+  @override
+  String get tavernStageTokensIn => '提示词';
+
+  @override
+  String get tavernStageCache => '缓存命中';
+
+  @override
+  String get tavernStageTokensOut => '回复';
+
+  @override
+  String get tavernStageWorld => '这回合用上的世界书';
+
+  @override
+  String get tavernStageWorldNone => '这回合没有条目被触发';
+
+  @override
+  String get tavernStageInspect => '看完整的检视';
+
+  @override
+  String get tavernLorebookNone => '无';
+
+  @override
+  String get tavernLorebooksBound => '绑定的世界书';
+
+  @override
+  String get tavernLorebooksBoundCharacter => '这个角色的每段对话都会用';
+
+  @override
+  String get tavernLorebooksBoundPersona => '用这个人设的对话都会用';
+
+  @override
+  String get tavernLorebookForChat => '这段对话的世界书';
+
+  @override
+  String tavernLorebookForCharacter(String name) {
+    return '「$name」的世界书';
+  }
+
+  @override
+  String tavernLorebookForPersona(String name) {
+    return '用「$name」时的世界书';
+  }
+
+  @override
+  String get tavernLorebookChatNote => '只在这段对话里用。标着「全局」的本来就对所有对话生效。';
+
+  @override
+  String get tavernLorebookCharacterNote => '这个角色的每段对话都会用，卡自带的世界书照常一起用。';
+
+  @override
+  String get tavernLorebookPersonaNote => '你用这个人设时，每段对话都会用。';
+
+  @override
+  String get tavernLorebookPickEmpty => '资源库里还没有世界书';
+
+  @override
+  String get tavernLorebookOpenLibrary => '去资源库导入';
+
+  @override
+  String get tavernLorebookMissing => '已删除的世界书';
+
+  @override
+  String get tavernLorebookMissingSubtitle => '还绑着，生成时会跳过；关掉就解除';
+
+  @override
+  String get tavernPresetOrder => '调整顺序';
+
+  @override
+  String get tavernPresetOrderNote => '按住右边的把手拖动。提示词按这个顺序发给模型，关着的也留在原位。';
+
+  @override
+  String get tavernPresetPromptOff => '已关';
+
+  @override
+  String get tavernPrefill => '预填充';
+
+  @override
+  String get tavernPrefillOn => '回复从这段开头';
+
+  @override
+  String get tavernPrefillOnSubtitle => '模型接着这段往下写';
+
+  @override
+  String get tavernPrefillText => '开头的文字';
+
+  @override
+  String get tavernPrefillTextEmpty => '还没写';
+
+  @override
+  String get tavernPrefillTarget => '放在';
+
+  @override
+  String get tavernPrefillContent => '正文';
+
+  @override
+  String get tavernPrefillReasoning => '思考';
+
+  @override
+  String get tavernPrefillNote => '开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。';
+
+  @override
+  String get tavernPresetPromptEmpty => '空着';
+
+  @override
+  String tavernThinkingSeconds(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String tavernDeletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '删掉了 $count 条', one: '删掉了 1 条');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteFromUndoable => '从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。';
+
+  @override
+  String get tavernUndoFailed => '没能撤销';
+
+  @override
+  String get tavernShowUsage => '每条回复下显示用量';
+
+  @override
+  String get tavernShowUsageSubtitle => '模型报告的输入、输出 token 数；不估算费用';
+
+  @override
+  String tavernUsageLine(int input, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return '输入 $inputString · 输出 $outputString';
+  }
+
+  @override
+  String tavernUsageLineCached(int input, int cached, int output) {
+    final intl.NumberFormat inputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String inputString = inputNumberFormat.format(input);
+    final intl.NumberFormat cachedNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String cachedString = cachedNumberFormat.format(cached);
+    final intl.NumberFormat outputNumberFormat = intl.NumberFormat.decimalPattern(localeName);
+    final String outputString = outputNumberFormat.format(output);
+
+    return '输入 $inputString（命中缓存 $cachedString）· 输出 $outputString';
+  }
+
+  @override
+  String get tavernSearchChat => '在对话里搜索';
+
+  @override
+  String get tavernSearchChatHint => '一句话、一个词';
+
+  @override
+  String get tavernSearchChatIdle => '搜的是这段对话的所有分支，包括隐藏的消息；不搜思考过程。点一条看全文。';
+
+  @override
+  String tavernSearchChatNone(String query) {
+    return '没有找到「$query」';
+  }
+
+  @override
+  String tavernSearchChatFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '找到 $count 条，新的在前', one: '找到 1 条');
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernDeleteOne => '只删这一条';
+
+  @override
+  String get tavernDeleteOneTitle => '只删除这一条消息？';
+
+  @override
+  String get tavernDeleteOneMessage => '后面的消息都留着，接到它前面那条上。这样删除不能撤销。';
+
+  @override
+  String get tavernLorebookAdd => '加一条';
+
+  @override
+  String get tavernLorebookStart => '这张卡还没有自己的世界书。加一条，对话里提到它的关键词时，内容就会带进提示词。';
+
+  @override
+  String get tavernLorebookEntryNew => '新条目';
+
+  @override
+  String get tavernLorebookEntryEdit => '编辑条目';
+
+  @override
+  String get tavernLorebookFieldName => '条目名';
+
+  @override
+  String get tavernLorebookFieldNameHelp => '只给你看，方便找；不发给模型。';
+
+  @override
+  String get tavernLorebookFieldKeys => '关键词';
+
+  @override
+  String get tavernLorebookFieldKeysHelp => '对话里出现其中任何一个，就把内容带进提示词。用逗号隔开。';
+
+  @override
+  String get tavernLorebookFieldSecondary => '次关键词';
+
+  @override
+  String get tavernLorebookFieldSecondaryHelp => '填了的话，再按下面「次关键词怎么算」筛一遍才带进去。';
+
+  @override
+  String get tavernLorebookFieldContent => '内容';
+
+  @override
+  String get tavernLorebookFieldConstantSubtitle => '不管有没有提到关键词，每次都带上';
+
+  @override
+  String get tavernLorebookFieldEnabled => '启用';
+
+  @override
+  String get tavernLorebookFieldPosition => '放在';
+
+  @override
+  String get tavernLorebookBeforeChar => '角色设定前';
+
+  @override
+  String get tavernLorebookAfterChar => '角色设定后';
+
+  @override
+  String get tavernLorebookFieldOrder => '顺序';
+
+  @override
+  String get tavernLorebookFieldOrderHelp => '数字大的排在前面，也先带进去。';
+
+  @override
+  String get tavernLorebookEntryDelete => '删除这一条';
+
+  @override
+  String tavernLorebookEntryDeleteTitle(String name) {
+    return '删除条目「$name」？';
+  }
+
+  @override
+  String get tavernLorebookEntryDeleteMessage => '这一条会从卡里删掉，删除后就找不回来了。';
+
+  @override
+  String get tavernNarrator => '旁白';
+
+  @override
+  String get tavernSendOptions => '换种方式发';
+
+  @override
+  String get tavernSendOnly => '只发，不回复';
+
+  @override
+  String get tavernSendOnlySubtitle => '这句放进故事，她先不接话';
+
+  @override
+  String get tavernNarrate => '以旁白身份发';
+
+  @override
+  String get tavernNarrateSubtitle => '作为叙述插进故事，不算你说的话';
+
+  @override
+  String get tavernSendFailed => '没能发出去';
+
+  @override
+  String get tavernStateVariables => '变量';
+
+  @override
+  String get tavernStateVariablesNote => '卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。点一项看全部，也能直接改。';
+
+  @override
+  String get tavernData => '数据';
+
+  @override
+  String get tavernBackup => '备份整个酒馆';
+
+  @override
+  String get tavernBackupSubtitle => '角色卡、对话、预设、世界书、人设和设置，打成一个 zip';
+
+  @override
+  String get tavernBackingUp => '正在备份…';
+
+  @override
+  String tavernBackedUp(int count, String size) {
+    return '备份好了：$count 个文件，$size';
+  }
+
+  @override
+  String tavernBackupFailed(String error) {
+    return '没能备份：$error';
+  }
+
+  @override
+  String get tavernRestore => '从备份恢复';
+
+  @override
+  String get tavernRestoreSubtitle => '用一份备份替换现在的酒馆';
+
+  @override
+  String get tavernRestoreTitle => '用这份备份替换现在的酒馆？';
+
+  @override
+  String get tavernRestoreMessage => '现在的角色、对话、预设和设置都会换成备份里的。想留着现在的，先备份一份。备份不对或者坏了的话，现在的数据不会动。';
+
+  @override
+  String get tavernRestoreAction => '恢复';
+
+  @override
+  String get tavernRestoring => '正在恢复…';
+
+  @override
+  String tavernRestored(int count) {
+    return '恢复好了：$count 个文件';
+  }
+
+  @override
+  String tavernRestoreFailed(String error) {
+    return '没能恢复，现在的数据没动：$error';
+  }
+
+  @override
+  String get tavernLoreTest => '测一下';
+
+  @override
+  String get tavernLoreTestTitle => '测一下世界书';
+
+  @override
+  String get tavernLoreTestInput => '说一句话';
+
+  @override
+  String get tavernLoreTestHint => '比如你希望它带出某一条时会说的话';
+
+  @override
+  String get tavernLoreTestNote => '只看这一句，加上常驻的条目；对话里前面说过的、粘性和冷却都不算。不会调用模型。';
+
+  @override
+  String tavernLoreTestHits(int count) {
+    return '会带进提示词的（$count）';
+  }
+
+  @override
+  String get tavernLoreTestNone => '这句话不会带出任何条目。';
+
+  @override
+  String get tavernLoreTestOverflow => '超出了世界书的预算，排在后面的条目没放进去。';
+
+  @override
+  String tavernLoreTestFailed(String error) {
+    return '没能测：$error';
+  }
+
+  @override
+  String tavernLoreReasonKeys(String keys) {
+    return '关键词$keys';
+  }
+
+  @override
+  String get tavernLoreReasonSticky => '粘性，还在生效';
+
+  @override
+  String get tavernLoreReasonDecorator => '装饰器';
+
+  @override
+  String tavernLoreAtDepth(int depth) {
+    return '倒数第 $depth 条消息处';
+  }
+
+  @override
+  String get tavernLoreNearNote => '作者注释旁';
+
+  @override
+  String get tavernLoreNearExamples => '示例对话旁';
+
+  @override
+  String get tavernLoreOutlet => '出口';
+
+  @override
+  String tavernLoreOrder(String order) {
+    return '顺序 $order';
+  }
+
+  @override
+  String get tavernBranches => '分支';
+
+  @override
+  String get tavernBranchesNote => '每行是一段没有分叉的对话。缩进的那行，是从上面那行的末尾岔出去的另一条路。点一行可以切过去、给它起名；没在走的那条也能删掉。';
+
+  @override
+  String get tavernBranchesEmpty => '这段对话还没有消息。';
+
+  @override
+  String tavernBranchCount(int count) {
+    return '$count 条';
+  }
+
+  @override
+  String tavernBranchUntil(String text) {
+    return '到「$text」';
+  }
+
+  @override
+  String get tavernBranchCurrent => '正在看';
+
+  @override
+  String get tavernBranchSwitch => '切到这条分支';
+
+  @override
+  String get tavernBranchSwitchSubtitle => '后面接着它上次走到的地方';
+
+  @override
+  String get tavernBranchName => '给这条分支起名';
+
+  @override
+  String get tavernBranchRename => '改名';
+
+  @override
+  String get tavernBranchNameHint => '比如：地下室那条线';
+
+  @override
+  String get tavernBranchNameCaption => '只给你看，方便找；留空就去掉名字。';
+
+  @override
+  String get tavernBranchSwitched => '切到了这条分支';
+
+  @override
+  String tavernBranchFailed(String error) {
+    return '没能完成：$error';
+  }
+
+  @override
+  String get tavernCardTheme => '用卡自带的样式';
+
+  @override
+  String get tavernCardThemeSubtitle => '卡里写的强调色、名字颜色、默认排版和背景；关掉就都按这里的设置';
+
+  @override
+  String get tavernShelfSort => '排序';
+
+  @override
+  String get tavernShelfOrderRecent => '最近聊过';
+
+  @override
+  String get tavernShelfOrderName => '名字';
+
+  @override
+  String get tavernShelfOrderImported => '最近导入';
+
+  @override
+  String get tavernFavorite => '收藏';
+
+  @override
+  String get tavernUnfavorite => '取消收藏';
+
+  @override
+  String get tavernFavorited => '已收藏';
+
+  @override
+  String get tavernChatSearchHint => '搜对话：角色、标题、最后一句';
+
+  @override
+  String get tavernNoChatMatch => '没有符合的对话';
+
+  @override
+  String get tavernCharacterTabChats => '对话';
+
+  @override
+  String get tavernCharacterTabCard => '设定';
+
+  @override
+  String get tavernCharacterTabSetup => '配置';
+
+  @override
+  String get tavernCharacterNoDefinition => '这张卡没有写设定和说明。';
+
+  @override
+  String get tavernNovelIndent => '小说排版段首空两格';
+
+  @override
+  String get tavernNovelIndentSubtitle => '像书里那样，每段开头空两个字';
+
+  @override
+  String get tavernShelfSelect => '选择';
+
+  @override
+  String tavernShelfPicked(int count) {
+    return '已选 $count 个';
+  }
+
+  @override
+  String get tavernShelfExport => '导出选中的角色卡';
+
+  @override
+  String tavernDeleteCharactersTitle(int count) {
+    return '删除这 $count 个角色？';
+  }
+
+  @override
+  String get tavernQuickRepliesAll => '全部';
+
+  @override
+  String get tavernQuickRepliesManage => '管理快速回复';
+
+  @override
+  String tavernSpeakNext(String name) {
+    return '让$name接着说';
+  }
+
+  @override
+  String get tavernSettingsConnection => '模型与连接';
+
+  @override
+  String get tavernDefaultPreset => '默认预设';
+
+  @override
+  String get tavernDefaultPresetPick => '新对话用的预设';
+
+  @override
+  String tavernGenerationInPreset(String name) {
+    return '改「$name」的参数';
+  }
+
+  @override
+  String tavernGenerationPresetNote(String name) {
+    return '新对话用「$name」：上下文、回复长度和温度在这份预设里改。自带预设的对话以它自己的为准。';
+  }
+
+  @override
+  String get tavernStorage => '存储占用';
+
+  @override
+  String get tavernStorageCounting => '正在计算…';
+
+  @override
+  String get tavernStorageCharacters => '角色卡';
+
+  @override
+  String get tavernStorageChats => '对话、预设和人设';
+
+  @override
+  String get tavernStorageLive2d => 'Live2D 形象';
+
+  @override
+  String get tavernStorageOther => '背景图、世界书、正则和设置';
+
+  @override
+  String get tavernStorageNote => '这些都只存在这台设备上；换手机或卸载前，先「备份整个酒馆」。';
+
+  @override
+  String get tavernDefaultPresetEmpty => '在 资源库 › 预设 里导入以后，就能换成别的。';
+
+  @override
+  String tavernQuickRepliesAdded(int count) {
+    return '加了 $count 条快速回复';
+  }
+
+  @override
+  String tavernQuickRepliesAddedSkipped(int count, int skipped) {
+    return '加了 $count 条快速回复；$skipped 条是 ST 的斜杠命令，没有加';
+  }
+
+  @override
+  String get tavernImportChatNoName => '这份聊天记录没写是哪个角色的，到角色页里导入它';
+
+  @override
+  String tavernImportChatNoCharacter(String name) {
+    return '书架上找不到唯一的「$name」，到角色页里导入这段聊天';
+  }
+
+  @override
+  String tavernImportedChatsTo(int count, String name) {
+    return '$count 段对话导入到了「$name」';
+  }
+
+  @override
+  String tavernImportUnknown(String name) {
+    return '认不出 $name 是什么文件';
+  }
+
+  @override
+  String tavernImportFileFailed(String name, String reason) {
+    return '$name 没能导入：$reason';
+  }
+
+  @override
+  String get tavernIslands => '消息里的网页';
+
+  @override
+  String get tavernIslandsSubtitle => '卡在消息里写的 HTML 和样式（状态栏、面板），单独放进一个网页里显示；关掉就按文字显示';
+
+  @override
+  String get tavernSettingsSafety => '安全';
+
+  @override
+  String get tavernIslandNoScripts => '网页里不运行卡的脚本';
+
+  @override
+  String get tavernIslandNoScriptsSubtitle => '卡自带的 JavaScript 不运行；要靠脚本动起来的状态栏会停住';
+
+  @override
+  String get tavernIslandOffline => '网页不联网';
+
+  @override
+  String get tavernIslandOfflineSubtitle => '只用卡里自带的图片和字体，不从网上加载任何东西';
+
+  @override
+  String get tavernSessionUsage => '本局用量';
+
+  @override
+  String tavernSessionUsageNote(int count) {
+    return '当前这条线上 $count 条回复的合计；换掉的备选不算';
+  }
+
+  @override
+  String get tavernSessionUsageNone => '还没有模型报告过用量';
+
+  @override
+  String get tavernComposerNoKey => '填好 Key 就能开始';
+
+  @override
+  String get tavernWriteOwn => '自己写一个角色';
+
+  @override
+  String get tavernWriteOwnSubtitle => '从一张空白卡开始，名字、设定和开场白都自己填';
+
+  @override
+  String get tavernNewCharacterName => '新角色';
+
+  @override
+  String get tavernSearchGoTo => '到对话里这一条';
+
+  @override
+  String get tavernBookmarks => '书签';
+
+  @override
+  String get tavernBookmarkAdd => '加书签';
+
+  @override
+  String get tavernBookmarkRemove => '去掉书签';
+
+  @override
+  String get tavernBookmarkAdded => '加了书签，在 舞台 › 本局 › 书签 里找';
+
+  @override
+  String get tavernBookmarkRemoved => '书签去掉了';
+
+  @override
+  String get tavernBookmarksEmpty => '还没有书签';
+
+  @override
+  String get tavernBookmarksEmptyMessage => '长按一条消息，选「加书签」';
+
+  @override
+  String get tavernBookmarkGone => '那一条已经不在了，书签去掉了';
+
+  @override
+  String get tavernUsageStats => '用量统计';
+
+  @override
+  String get tavernUsageStatsSubtitle => '每段对话用了多少 token';
+
+  @override
+  String get tavernUsageAllNote => '所有对话当前线上的回复合计；换掉的备选不算';
+
+  @override
+  String tavernUsageChatReplies(int count, String completion) {
+    return '$count 条回复 · 回复 $completion';
+  }
+
+  @override
+  String get tavernSlashNoReply => '还没有可以这样做的回复';
+
+  @override
+  String get tavernRegexTest => '试一下';
+
+  @override
+  String get tavernRegexTestFind => '查找';
+
+  @override
+  String get tavernRegexTestReplace => '替换为';
+
+  @override
+  String get tavernRegexTestInput => '一段文字';
+
+  @override
+  String get tavernRegexTestHint => '粘一段回复进来试试';
+
+  @override
+  String get tavernRegexTestNote => '只用这一条规则在本机试，不发给模型；不管它平时作用在哪、开没开，这里都照样跑。';
+
+  @override
+  String get tavernRegexTestMacros => '{{char}} 这类宏这里不展开，照字面算。';
+
+  @override
+  String get tavernRegexTestNone => '没有匹配，原样不变';
+
+  @override
+  String tavernRegexTestResult(int count) {
+    return '替换后（$count 处）';
+  }
+
+  @override
+  String tavernRegexTestFailed(String reason) {
+    return '没能试：$reason';
+  }
+
+  @override
+  String get tavernStateNote => '卡定义的状态，到当前这条消息为止。这回合变了的标着「+5」这样的记号；点一项看全部，也能直接改，改动记在这条消息上，换回答、切分支会跟着回退。';
+
+  @override
+  String get tavernStatePreview => '还没开始记，下面是卡给的初始值。';
+
+  @override
+  String get tavernStateChanged => '变了';
+
+  @override
+  String get tavernStateHidden => '剧透 · 点开看';
+
+  @override
+  String get tavernStateWhole => '整体';
+
+  @override
+  String get tavernStateEdit => '改';
+
+  @override
+  String get tavernStateEditText => '这段文字原样保存';
+
+  @override
+  String get tavernStateEditJson => '写 JSON：数字、true / false、\"带引号的文字\"、[…]、{…}';
+
+  @override
+  String get tavernStateEditBad => '这不是有效的 JSON，没有改';
+
+  @override
+  String get tavernStateEditSaved => '改好了';
+
+  @override
+  String get tavernStateEditSame => '值没变';
+
+  @override
+  String tavernStateEditRefused(String reason) {
+    return '没改成：$reason';
+  }
+
+  @override
+  String get tavernDirectorAuto => '自动导演';
+
+  @override
+  String get tavernDirectorAutoNote => '只对这段对话。开了以后每隔几个回合，在回复写完后多问一次模型：下一拍往哪走、给你三条可以做的事。每次都会多用一些额度。';
+
+  @override
+  String get tavernDirectorRun => '让导演想一想';
+
+  @override
+  String get tavernDirectorRunning => '导演在想…';
+
+  @override
+  String get tavernDirectorBeat => '下一拍';
+
+  @override
+  String get tavernDirectorSuggestions => '你可以…';
+
+  @override
+  String get tavernDirectorSuggestionsNote => '点一条放进输入框，改不改、发不发由你。';
+
+  @override
+  String get tavernDirectorNotes => '导演笔记';
+
+  @override
+  String get tavernDirectorStale => '这是之前的情况下想的，现在不一定合适，只供参考。';
+
+  @override
+  String tavernDirectorFailed(String reason) {
+    return '上次没想成：$reason';
+  }
+
+  @override
+  String tavernDirectorRunFailed(String reason) {
+    return '没能做到：$reason';
+  }
+
+  @override
+  String get tavernBranchHere => '从这里分叉';
+
+  @override
+  String get tavernBranchedHere => '回到了这一条，后面的内容留在「分支」里';
+
+  @override
+  String get tavernBranchHereFailed => '没能回到这一条';
+
+  @override
+  String tavernStateItems(int count) {
+    return '$count 项';
+  }
+
+  @override
+  String get tavernStateSearch => '搜变量';
+
+  @override
+  String get tavernStateNoMatch => '没有符合的';
+
+  @override
+  String get tavernRuns => '后台记录';
+
+  @override
+  String get tavernRunsNote => '你、模型和卡的规则改了状态，导演、卡事件和剧情每次跑过，都记在这里；最新的在上，最多 100 条。点一条看原始记录。';
+
+  @override
+  String get tavernRunsEmpty => '还没有记录';
+
+  @override
+  String get tavernRunsEmptyMessage => '改了状态，或者导演跑过以后，会记在这里。';
+
+  @override
+  String get tavernRunUser => '你改的';
+
+  @override
+  String get tavernRunModel => '模型改的';
+
+  @override
+  String get tavernRunRules => '卡的规则';
+
+  @override
+  String get tavernRunStopped => '回合中断';
+
+  @override
+  String get tavernRunDirector => '导演';
+
+  @override
+  String get tavernRunDirectorFailed => '导演没成';
+
+  @override
+  String get tavernRunEvent => '卡事件';
+
+  @override
+  String get tavernRunStory => '剧情';
+
+  @override
+  String get tavernRunSecret => '秘密';
+
+  @override
+  String get tavernRunNotKept => '没收下';
+
+  @override
+  String get tavernRunGone => '那条消息已删';
+
+  @override
+  String tavernRunMore(int count) {
+    return '等 $count 处';
+  }
+
+  @override
+  String get tavernInspectCache => '缓存';
+
+  @override
+  String get tavernInspectCacheKept => '和上一回合同前缀';
+
+  @override
+  String tavernInspectCacheBroken(int index) {
+    return '从第 $index 段起变了';
+  }
+
+  @override
+  String tavernInspectCacheMiss(int tokens) {
+    return '这一段和它后面约 $tokens tokens 不会命中缓存，前面的和上一回合一样。常是靠前的世界书条目这回合换了。';
+  }
+
+  @override
+  String get tavernInspectCacheBreak => '缓存从这里断开';
+
+  @override
+  String get tavernPaletteSt => 'ST';
+
+  @override
+  String tavernStTheme(String name) {
+    return 'ST 主题：$name';
+  }
+
+  @override
+  String get tavernStThemeNote => '配色选「ST」时，引号里的话和 *动作* 用它的颜色；太浅或太深看不清的，会调到看得清。';
+
+  @override
+  String get tavernStThemeImport => '导入 ST 主题';
+
+  @override
+  String get tavernStThemeImportNote => '从 SillyTavern 导出的主题文件里取引号和斜体的颜色。';
+
+  @override
+  String get tavernStThemeRemove => '移除';
+
+  @override
+  String tavernStThemeImported(String name) {
+    return '换成了 ST 主题「$name」的配色';
+  }
+
+  @override
+  String tavernStThemeNoColors(String name) {
+    return '「$name」里没有能用的引号或斜体颜色';
+  }
+
+  @override
+  String get tavernPromptContent => '内容';
+
+  @override
+  String get tavernPromptRole => '谁说';
+
+  @override
+  String get tavernPromptRoleSystem => '系统';
+
+  @override
+  String get tavernPromptRoleUser => '用户';
+
+  @override
+  String get tavernPromptRoleAssistant => '助手';
+
+  @override
+  String get tavernPromptPosition => '位置';
+
+  @override
+  String get tavernPromptRelative => '按顺序';
+
+  @override
+  String get tavernPromptInChat => '对话中';
+
+  @override
+  String get tavernPromptDepth => '深度';
+
+  @override
+  String tavernPromptDepthNote(int depth) {
+    return '插进聊天记录，从最后往前数第 $depth 条之前（0 是最末尾），和 ST 的「对话中」一样。';
+  }
+
+  @override
+  String get tavernPromptRelativeNote => '照预设的顺序放，和 ST 的「相对」一样。';
+
+  @override
+  String tavernPromptPlace(int depth) {
+    return '对话中 · 深度 $depth';
+  }
+
+  @override
+  String get tavernPromptOrder => '同深度的先后';
+
+  @override
+  String get tavernPromptOrderNote => '同一深度有几条时，数字小的在前（默认 100）。';
+
+  @override
+  String get tavernPromptForbid => '不让角色卡覆盖';
+
+  @override
+  String get tavernPromptForbidMain => '角色卡自带的系统提示词不会替换这一条。';
+
+  @override
+  String get tavernPromptForbidJailbreak => '角色卡自带的历史后指令不会替换这一条。';
+
+  @override
+  String get tavernLoreCommon => '常用';
+
+  @override
+  String get tavernLoreMore => '更多';
+
+  @override
+  String get tavernLorePosAnTop => '作者注前';
+
+  @override
+  String get tavernLorePosAnBottom => '作者注后';
+
+  @override
+  String get tavernLorePosExampleTop => '示例前';
+
+  @override
+  String get tavernLorePosExampleBottom => '示例后';
+
+  @override
+  String get tavernLorePosOutlet => '出口';
+
+  @override
+  String get tavernLoreLogic => '次关键词怎么算';
+
+  @override
+  String get tavernLoreLogicAndAny => '含任一';
+
+  @override
+  String get tavernLoreLogicAndAll => '全都含';
+
+  @override
+  String get tavernLoreLogicNotAny => '都不含';
+
+  @override
+  String get tavernLoreLogicNotAll => '不全含';
+
+  @override
+  String get tavernLoreProbability => '触发概率';
+
+  @override
+  String get tavernLoreCase => '区分大小写';
+
+  @override
+  String get tavernLoreWhole => '整词匹配';
+
+  @override
+  String get tavernLoreDefault => '默认';
+
+  @override
+  String get tavernLoreYes => '是';
+
+  @override
+  String get tavernLoreNo => '否';
+
+  @override
+  String get tavernLorePosDepth => '按深度';
+
+  @override
+  String get tavernLibraryBookOpen => '看条目、改条目';
+
+  @override
+  String get tavernLibraryBookNote => '改动写回这本书；绑定了它的地方，下一回合就用新内容。';
+
+  @override
+  String get tavernBranchDelete => '删掉这条分支';
+
+  @override
+  String get tavernBranchDeleteTitle => '删掉这条分支？';
+
+  @override
+  String tavernBranchDeleteMessage(int count) {
+    return '这条分支上的 $count 条消息，连同从它分出去的，都会删掉；删了之后几秒内可以撤销。正在走的这条不受影响。';
+  }
+
+  @override
+  String tavernLetterFrom(String from) {
+    return '$from的信';
+  }
+
+  @override
+  String get tavernLetter => '一封信';
+
+  @override
+  String get tavernComponentMore => '展开';
+
+  @override
+  String get tavernComponentLess => '收起';
+
+  @override
+  String get tavernItemTaken => '获得';
+
+  @override
+  String get tavernClue => '线索';
+
+  @override
+  String tavernPhoneFrom(String from) {
+    return '$from 发来消息';
+  }
+
+  @override
+  String get tavernPhoneMessage => '一条消息';
+
+  @override
+  String tavernRollCheck(String skill) {
+    return '检定：$skill';
+  }
+
+  @override
+  String get tavernRoll => '掷骰';
+
+  @override
+  String get tavernRollSuccess => '成功';
+
+  @override
+  String get tavernRollFailure => '失败';
+
+  @override
+  String get tavernGameHere => '这里有一个小游戏，现在还不能在这里玩';
+
+  @override
+  String get tavernRegexEdit => '编辑规则';
+
+  @override
+  String get tavernRegexFieldName => '名字';
+
+  @override
+  String get tavernRegexFieldFindHelp => 'SillyTavern 的写法：/规则/标志，比如 /(早安|晚安)/gi';
+
+  @override
+  String get tavernRegexFieldReplaceHelp => '\$1 是第一组，{{match}} 是整段匹配';
+
+  @override
+  String get tavernRegexFieldTrim => '先去掉的字';
+
+  @override
+  String get tavernRegexFieldTrimHelp => '每行一个；替换之前先从匹配到的字里删掉';
+
+  @override
+  String get tavernRegexPlacement => '用在';
+
+  @override
+  String get tavernRegexPlaceUser => '你的话';
+
+  @override
+  String get tavernRegexPlaceAi => '回复';
+
+  @override
+  String get tavernRegexPlaceSlash => '斜杠命令';
+
+  @override
+  String get tavernRegexPlaceWorld => '世界书';
+
+  @override
+  String get tavernRegexPlaceReasoning => '思考';
+
+  @override
+  String get tavernRegexPhase => '改哪一份';
+
+  @override
+  String get tavernRegexPhaseWrite => '原文';
+
+  @override
+  String get tavernRegexPhaseDisplay => '只改显示';
+
+  @override
+  String get tavernRegexPhasePrompt => '只改发出';
+
+  @override
+  String get tavernRegexPhaseBoth => '显示和发出';
+
+  @override
+  String get tavernRegexPhaseNote => '原文：直接改写存下来的消息。只改显示：存档不变，只是看起来不同。只改发出：只改发给模型的那一份。';
+
+  @override
+  String get tavernRegexMinDepth => '最浅';
+
+  @override
+  String get tavernRegexMaxDepth => '最深';
+
+  @override
+  String get tavernRegexDepthHelp => '空着就是不限；0 是最新一条';
+
+  @override
+  String get tavernRegexSubstitute => '查找里的宏';
+
+  @override
+  String get tavernRegexSubstituteNone => '不展开';
+
+  @override
+  String get tavernRegexSubstituteRaw => '原样展开';
+
+  @override
+  String get tavernRegexSubstituteEscaped => '转义后展开';
+
+  @override
+  String get tavernRegexRunOnEdit => '编辑消息时也跑';
+
+  @override
+  String get tavernRegexFieldEnabled => '启用这条规则';
+
+  @override
+  String get tavernRegexSavedIncompatible => '已保存。这条规则在这里跑不了，用的时候会跳过';
+
+  @override
+  String get tavernRegexGone => '这条规则已经不在了，回列表刷新一下';
+
+  @override
+  String get tavernRegexDeferred => '用到了宏，要到运行时才知道能不能跑';
+
+  @override
+  String get tavernRegexTryDraft => '用现在填的试一下';
+
+  @override
+  String get tavernRegexDepthAny => '不限';
+
+  @override
+  String get tavernCanvas => '整页画布（试用）';
+
+  @override
+  String get tavernCanvasSubtitle => '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。';
+
+  @override
+  String get tavernCanvasReloaded => '画面重新加载了';
 
   @override
   String get updateCheck => '检查更新';
