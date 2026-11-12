@@ -142,6 +142,15 @@ class RuntimeInstaller(
 
     /** Deletes the runtime; [keep] (paths under the rootfs) waits in runtime-keep for the next install. */
     fun reset(keep: List<String>) {
+        // tawcroot's store goes with the runtime: kept files it linked must become real files first.
+        if (keep.isNotEmpty() && TawcrootLinks.pending(rootfs)) {
+            val result = TawcrootLinks(rootfs, ::syncFilesystems, within = keep).run()
+            if (result is TawcrootLinks.Result.NotEnoughSpace) {
+                throw IllegalStateException("keep: needs ${result.need shr 20} MB free to keep files from the tawcroot launch, ${result.free shr 20} MB free")
+            }
+            // The store goes with the runtime: a kept name we could not convert would be lost.
+            check(!(result as TawcrootLinks.Result.Done).unseen) { "keep: some files from the tawcroot launch could not be read; nothing was reset" }
+        }
         retireRuntime(baseDir, retiredDir, keepDir, keep)
     }
 

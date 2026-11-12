@@ -11356,6 +11356,28 @@ class L10nZh extends L10n {
   String get phoneDirectChangeFailed => '未能切换启动方式，请停止本机引擎后重试。';
 
   @override
+  String get phoneTawcEngine => 'tawcroot 加速启动';
+
+  @override
+  String get phoneTawcHint =>
+      '实验功能，默认关闭，下次启动生效，和「直接启动」二选一。用 tawcroot 代替兼容启动运行本机引擎：启动快约三倍，装包、apt 也更快。启动不成功会自动改回兼容启动。关掉后的第一次启动会先把它留下的硬链接整理成普通文件，可能要多等一会。';
+
+  @override
+  String get phoneTawcFailedHint => '这台手机上 tawcroot 没有启动成功，已改用兼容启动。停止引擎后打开可再试一次。';
+
+  @override
+  String get phoneTawcUnavailable => '这个安装包不含 tawcroot，或系统低于 Android 10。';
+
+  @override
+  String get phoneLaunchTawcroot => 'tawcroot';
+
+  @override
+  String get phoneTawcLaunchFailed => 'tawcroot 未启动成功';
+
+  @override
+  String get phoneTawcUnsupported => '这次的启动参数 tawcroot 还不支持，暂用兼容启动';
+
+  @override
   String get phoneActualLaunchMode => '当前运行方式';
 
   @override

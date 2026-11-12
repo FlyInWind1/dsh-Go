@@ -11954,6 +11954,31 @@ class L10nEn extends L10n {
   String get phoneDirectChangeFailed => 'Could not change the launch method. Stop the local engine and try again.';
 
   @override
+  String get phoneTawcEngine => 'tawcroot fast launch';
+
+  @override
+  String get phoneTawcHint =>
+      'Experimental and off by default; applies on the next start. Only one of this and direct launch can be on. Runs the local engine with tawcroot instead of compatible launch: it starts about three times faster, and package installs and apt get faster too. If it can’t start, the app goes back to compatible launch on its own. The first start after you turn it off first turns the hard links it made into ordinary files, which can take a little longer.';
+
+  @override
+  String get phoneTawcFailedHint =>
+      'tawcroot didn’t start on this phone, so compatible launch is used. Stop the engine and turn this on to try again.';
+
+  @override
+  String get phoneTawcUnavailable =>
+      'This build doesn’t include tawcroot, or the phone runs a version older than Android 10.';
+
+  @override
+  String get phoneLaunchTawcroot => 'tawcroot';
+
+  @override
+  String get phoneTawcLaunchFailed => 'tawcroot failed to start';
+
+  @override
+  String get phoneTawcUnsupported =>
+      'This start’s settings aren’t supported by tawcroot yet, compatible launch for now';
+
+  @override
   String get phoneActualLaunchMode => 'Current launch';
 
   @override
