@@ -57,7 +57,14 @@ class TawcrootLinks(
         var incomplete = false
         val starts = within?.map { root.resolve(it.trimStart('/')).normalize() }?.filter { it.startsWith(root) } ?: listOf(root)
         for (start in starts) {
-            if (!Files.exists(start, LinkOption.NOFOLLOW_LINKS)) continue
+            try {
+                Files.readAttributes(start, BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
+            } catch (_: NoSuchFileException) {
+                continue
+            } catch (_: IOException) {
+                incomplete = true // can't tell: never treat it as absent
+                continue
+            }
             Files.walkFileTree(start, object : SimpleFileVisitor<Path>() {
                 override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult {
                     // The runtime's and phone storage's bind mount points can't be read by the app,
