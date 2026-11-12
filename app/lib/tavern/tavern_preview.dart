@@ -1925,4 +1925,43 @@ class _PreviewScripts implements TavernScriptBridge {
     List<TavernVariableChange> changes, {
     String? expectedVersion,
   }) => _no('mutateVariables');
+
+  @override
+  Future<TavernScriptGeneration> generate(String contextId, TavernScriptGenerateRequest request) => _no('generate');
+
+  @override
+  Future<TavernScriptGeneration> generateRaw(String contextId, TavernScriptRawRequest request) => _no('generateRaw');
+
+  @override
+  bool stopGenerationById(String generationId) => false;
+
+  @override
+  Future<List<TavernScriptRegex>> getTavernRegexes(String contextId, TavernScriptRegexQuery query) =>
+      _no('getTavernRegexes');
+
+  @override
+  Future<TavernDisplayResult> formatAsTavernRegexedString(
+    String contextId,
+    String text, {
+    required int source,
+    required RegexPhase destination,
+    num? depth,
+    String? characterId,
+  }) => _no('formatAsTavernRegexedString');
+
+  @override
+  Future<TavernScriptInjectionLease> injectPrompts(
+    String contextId,
+    List<TavernScriptInjection> prompts, {
+    bool once = false,
+  }) => _no('injectPrompts');
+
+  @override
+  Future<void> uninjectPrompts(String contextId, List<String> ids) => _no('uninjectPrompts');
+
+  @override
+  Future<void> releaseInjectionLease(String leaseId) => _no('releaseInjectionLease');
+
+  @override
+  Future<List<TavernScriptInjectionView>> listInjections(String contextId) => _no('listInjections');
 }

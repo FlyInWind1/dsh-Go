@@ -86,6 +86,40 @@ void main() {
     });
   });
 
+  test('B2 reaches the real engine too: a prompt injected for a chat is listed, then taken out', () async {
+    final dir = await Directory.systemTemp.createTemp('deferred-b2');
+    addTearDown(() => dir.delete(recursive: true));
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    addTearDown(deferred.close);
+    // Nothing can be generating before it opens.
+    expect(deferred.scripts.stopGenerationById('nothing'), isFalse);
+    opening.complete(await openTavern(dir.path));
+    final card = await File('assets/tavern/sample_innkeeper.json').readAsBytes();
+    final character = await deferred.importCard(card, fileName: 'sample_innkeeper.json');
+    final chat = await deferred.createChat(character.id);
+    final context = await deferred.scripts.openContext(TavernScriptContextSpec(instanceId: 'frame', chatId: chat));
+
+    await deferred.scripts.injectPrompts(context.id, [TavernScriptInjection(id: 'weather', content: '外面在下雨。')]);
+    final listed = await deferred.scripts.listInjections(context.id);
+    expect(listed.map((v) => v.injection?.content), contains('外面在下雨。'));
+    await deferred.scripts.uninjectPrompts(context.id, ['weather']);
+    expect(
+      (await deferred.scripts.listInjections(context.id)).map((v) => v.injection?.content),
+      isNot(contains('外面在下雨。')),
+    );
+    expect(deferred.scripts.stopGenerationById('nothing'), isFalse);
+  });
+
+  test('the preview says it does not simulate B2 either', () async {
+    final preview = PreviewTavern(tick: Duration.zero);
+    await expectLater(
+      preview.scripts.listInjections('c'),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability)),
+    );
+    expect(preview.scripts.stopGenerationById('g'), isFalse);
+  });
+
   test('card scripts before it opens: a value is copied at the call; a cycle is refused there', () async {
     final opening = Completer<Tavern>();
     final deferred = DeferredTavern(opening.future);

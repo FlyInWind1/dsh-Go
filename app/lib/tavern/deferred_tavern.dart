@@ -658,6 +658,65 @@ class _DeferredScripts implements TavernScriptBridge {
     final held = List.of(changes);
     return _call((b) => b.mutateVariables(contextId, target, held, expectedVersion: expectedVersion));
   }
+
+  // B2: background generation, regex and injections.
+
+  @override
+  Future<TavernScriptGeneration> generate(String contextId, TavernScriptGenerateRequest request) =>
+      _call((b) => b.generate(contextId, request));
+
+  @override
+  Future<TavernScriptGeneration> generateRaw(String contextId, TavernScriptRawRequest request) =>
+      _call((b) => b.generateRaw(contextId, request));
+
+  /// Nothing can be generating before the engine is open.
+  @override
+  bool stopGenerationById(String generationId) => _tavern._open?.scripts.stopGenerationById(generationId) ?? false;
+
+  @override
+  Future<List<TavernScriptRegex>> getTavernRegexes(String contextId, TavernScriptRegexQuery query) =>
+      _call((b) => b.getTavernRegexes(contextId, query));
+
+  @override
+  Future<TavernDisplayResult> formatAsTavernRegexedString(
+    String contextId,
+    String text, {
+    required int source,
+    required RegexPhase destination,
+    num? depth,
+    String? characterId,
+  }) => _call(
+    (b) => b.formatAsTavernRegexedString(
+      contextId,
+      text,
+      source: source,
+      destination: destination,
+      depth: depth,
+      characterId: characterId,
+    ),
+  );
+
+  @override
+  Future<TavernScriptInjectionLease> injectPrompts(
+    String contextId,
+    List<TavernScriptInjection> prompts, {
+    bool once = false,
+  }) {
+    final held = List.of(prompts);
+    return _call((b) => b.injectPrompts(contextId, held, once: once));
+  }
+
+  @override
+  Future<void> uninjectPrompts(String contextId, List<String> ids) {
+    final held = List.of(ids);
+    return _call((b) => b.uninjectPrompts(contextId, held));
+  }
+
+  @override
+  Future<void> releaseInjectionLease(String leaseId) => _call((b) => b.releaseInjectionLease(leaseId));
+
+  @override
+  Future<List<TavernScriptInjectionView>> listInjections(String contextId) => _call((b) => b.listInjections(contextId));
 }
 
 /// [value] as it is now: maps and lists copied all the way down, the rest
