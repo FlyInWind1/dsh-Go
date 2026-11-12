@@ -1087,14 +1087,24 @@ class _Evaluation {
           }
           if (message.isUser) {
             final sentAt = message.sentAt;
-            return sentAt == null ? 'just now' : clock.humanize(context.now.difference(sentAt));
+            return sentAt == null ? 'just now' : clock.humanize(context.now.difference(sentAt).inMilliseconds.abs());
           }
         }
         return 'just now';
       case 'timediff':
         final left = clock.parse(args[0]);
         final right = clock.parse(args[1]);
-        return left == null || right == null ? 'Invalid date' : clock.humanize(left.difference(right), suffix: true);
+        if (left == null || right == null) return 'Invalid date';
+        // Epoch milliseconds use floor. Correct the quotient toward zero
+        // without forming a microsecond difference that can overflow int64.
+        final milliseconds = left.millisecondsSinceEpoch - right.millisecondsSinceEpoch;
+        final remainder = left.microsecond - right.microsecond;
+        final wholeMilliseconds = milliseconds > 0 && remainder < 0
+            ? milliseconds - 1
+            : milliseconds < 0 && remainder > 0
+            ? milliseconds + 1
+            : milliseconds;
+        return clock.humanize(wholeMilliseconds.abs().toDouble(), suffix: true, future: left.isAfter(right));
       case 'datetimeformat':
         return clock.format(args[0]);
       case 'date':
@@ -1701,7 +1711,8 @@ class _MacroClock {
   String _token(String token) {
     final day = local.weekday % 7;
     final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
-    final dayOfYear = DateTime.utc(local.year, local.month, local.day).difference(DateTime.utc(local.year)).inDays + 1;
+    late final dayOfYear =
+        DateTime.utc(local.year, local.month, local.day).difference(DateTime.utc(local.year)).inDays + 1;
     if (_macroFractionalSeconds.hasMatch(token)) {
       return _pad(local.millisecond, 3).padRight(9, '0').substring(0, token.length);
     }
@@ -1849,16 +1860,24 @@ class _MacroClock {
     }
     if (match == null) return null;
     final year = int.parse(match[1]!);
+    // Reject impossible years before DateTime's microsecond arithmetic can wrap.
+    if (year < -271821 || year > 275760) return null;
     final month = int.parse(match[2] ?? '1');
     final day = int.parse(match[3] ?? '1');
     final hour = int.parse(match[4] ?? '0');
     final minute = int.parse(match[5] ?? '0');
     final second = int.parse(match[6] ?? '0');
     final millis = int.parse((match[7] ?? '').padRight(3, '0').substring(0, 3));
-    if (month < 1 ||
-        month > 12 ||
-        day < 1 ||
-        day > DateTime.utc(year, month + 1, 0).day ||
+    if (month < 1 || month > 12) return null;
+    // A synthetic month end can exceed DateTime's range even for a valid day.
+    final leapYear = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    final daysInMonth = switch (month) {
+      2 => leapYear ? 29 : 28,
+      4 || 6 || 9 || 11 => 30,
+      _ => 31,
+    };
+    if (day < 1 ||
+        day > daysInMonth ||
         hour > 24 ||
         minute > 59 ||
         second > 59 ||
@@ -1877,12 +1896,16 @@ class _MacroClock {
         zone = Duration(minutes: zoneText.startsWith('-') ? -minutes : minutes);
       }
     }
-    return DateTime.utc(year, month, day, hour, minute, second, millis).subtract(zone);
+    try {
+      // Moment constructs the wall date first; an offset cannot rescue it.
+      return DateTime.utc(year, month, day, hour, minute, second, millis).subtract(zone);
+    } on ArgumentError {
+      return null;
+    }
   }
 
-  String humanize(Duration duration, {bool suffix = false}) {
+  String humanize(num milliseconds, {bool suffix = false, bool future = false}) {
     _checkLocale();
-    final milliseconds = duration.inMilliseconds.abs();
     final seconds = (milliseconds / 1000).round();
     final minutes = (milliseconds / 60000).round();
     final hours = (milliseconds / 3600000).round();
@@ -1944,7 +1967,6 @@ class _MacroClock {
           };
     final text = forms[unit]!.replaceAll('%d', '$count');
     if (!suffix) return text;
-    final future = duration.inMicroseconds > 0;
     return chinese
         ? '$text${future ? '后' : '前'}'
         : future
