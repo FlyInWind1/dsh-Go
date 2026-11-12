@@ -81,6 +81,27 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
 }
 
 void main() {
+  test("a card's toastr reads title over text, cut when long, up longer for more and for trouble", () {
+    expect(tavernToast({'type': 'toast', 'level': 'info', 'title': '', 'message': '  '}), isNull);
+    expect(tavernToast({'type': 'toast'}), isNull);
+    final short = tavernToast({'level': 'success', 'title': ' 存档 ', 'message': '已保存'})!;
+    expect((short.title, short.message), ('存档', '已保存'));
+    expect(short.duration, const Duration(milliseconds: 2000));
+    final text = tavernToast({'level': 'info', 'message': '只有内容'})!;
+    expect((text.title, text.message), ('', '只有内容'));
+    final title = tavernToast({'level': 'info', 'title': '只有标题', 'message': 3})!;
+    expect((title.title, title.message), ('只有标题', ''));
+    expect(tavernToast({'level': 'error', 'message': '坏了'})!.duration, const Duration(milliseconds: 4000));
+    expect(tavernToast({'level': 'warning', 'message': '小心'})!.duration, const Duration(milliseconds: 4000));
+    final long = tavernToast({'level': 'info', 'title': '题' * 80, 'message': '长' * 400})!;
+    expect(long.title, '${'题' * tavernToastTitleMax}…');
+    expect(long.message, '${'长' * tavernToastMax}…');
+    expect(long.duration, const Duration(milliseconds: 6000));
+    expect(tavernToast({'level': 'error', 'message': '长' * 400})!.duration, const Duration(milliseconds: 8000));
+    // Characters, not UTF-16 units: an emoji is not split.
+    expect(tavernToast({'level': 'info', 'message': '😀' * 301})!.message, '${'😀' * 300}…');
+  });
+
   test('a message reads as ST would draw it: paragraphs, emphasis, what is said in <q>', () {
     expect(
       tavernStoryHtml('她笑了。\n第二行\n\n*点头*，**很重要**。'),
@@ -180,6 +201,10 @@ void main() {
     for (final name in ['getLastMessageId', 'getCurrentMessageId', 'getIframeName', 'getMessageId']) {
       expect(open, contains("['$name',$name]"));
     }
+    // toastr is the app's notice, its HTML read apart from the page.
+    expect(open, contains("post({type:'toast',level:level,title:t,message:m})"));
+    expect(open, contains("new DOMParser().parseFromString(String(s),'text/html')"));
+    expect(open, contains('if(!window.toastr)window.toastr=toastr;'));
 
     final json = jsonDecode(
       tavernCanvasJson(const [

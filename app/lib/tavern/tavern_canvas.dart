@@ -4,7 +4,8 @@
 // card's CSS that reaches across messages (#chat .mes …) takes, and ST's own
 // colour variables (--SmartThemeQuoteColor …) carry the story's colours.
 // Messages arrive as JSON through our script; the page itself is loaded once.
-// Card scripts don't run yet: they come with the helper bridge. Component
+// A card's scripts run in it, with 酒馆助手's helpers (variables, messages,
+// events, floors, toastr) answered through dsh.call. Component
 // tags (<dsh-letter>…, roleplay-ui §5) are Web Components here, with parts
 // and --dsh-* variables a card's CSS may restyle.
 
@@ -170,6 +171,34 @@ String _css(Color c) =>
 /// How many of the latest messages the canvas always lays out; older ones
 /// are skipped while off screen (CSS content-visibility).
 const tavernCanvasNear = 20;
+
+/// The most of a card's toastr notice shown, in characters: its title, its
+/// text.
+const tavernToastTitleMax = 60;
+const tavernToastMax = 300;
+
+/// What a card script's toastr call shows (the page posts {type:'toast',
+/// level, title, message}, already plain text): the title over the text, each
+/// cut when long, up longer the more there is to read and longer still for a
+/// warning or an error. Null when there is nothing to show.
+({String title, String message, Duration duration})? tavernToast(Map<Object?, Object?> data) {
+  String field(String key, int max) {
+    final text = switch (data[key]) {
+      final String s => s.trim(),
+      _ => '',
+    };
+    final runes = text.runes.toList();
+    return runes.length > max ? '${String.fromCharCodes(runes.take(max))}…' : text;
+  }
+
+  final title = field('title', tavernToastTitleMax);
+  final message = field('message', tavernToastMax);
+  if (title.isEmpty && message.isEmpty) return null;
+  final serious = data['level'] == 'warning' || data['level'] == 'error';
+  final length = title.runes.length + message.runes.length;
+  final ms = (1500 + length * 60).clamp(serious ? 4000 : 2000, serious ? 8000 : 6000);
+  return (title: title, message: message, duration: Duration(milliseconds: ms));
+}
 
 /// The page the canvas loads once: ST's structure and colour variables, the
 /// story's size and colours, and our script (allowed by [nonce]) that draws
@@ -570,6 +599,29 @@ $preload
    ['getIframeName',getIframeName],['getMessageId',getMessageId]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
+  // toastr, which 酒馆助手's pages have (toastr.error(content, title)): the
+  // app's own notice, not drawn here. Content may be HTML; its text is what
+  // shows (parsed apart from the page: nothing in it loads or runs). clear
+  // and remove leave it to time out.
+  function plainText(s){
+    if(s==null)return '';
+    var d=new DOMParser().parseFromString(String(s),'text/html');
+    if(!d.body)return '';
+    [].forEach.call(d.body.querySelectorAll('script,style,template,noscript'),function(e){e.remove();});
+    [].forEach.call(d.body.querySelectorAll('br,p,div,li,tr,h1,h2,h3,h4,h5,h6'),function(e){e.before(' ');e.after(' ');});
+    return String(d.body.textContent).replace(/\\s+/g,' ').trim();
+  }
+  function toast(level){
+    return function(message,title){
+      var m=plainText(message),t=plainText(title);
+      if(m||t)post({type:'toast',level:level,title:t,message:m});
+      return window.jQuery?jQuery():undefined;
+    };
+  }
+  var toastr={options:{},info:toast('info'),success:toast('success'),warning:toast('warning'),error:toast('error'),
+    clear:function(){},remove:function(){},subscribe:function(){}};
+  dsh.scripts.toastr=toastr;
+  if(!window.toastr)window.toastr=toastr;
   // Writing messages (酒馆助手's set/create/delete/rotateChatMessages, as its
   // public pages give them): each a Promise of nothing. The page's own field
   // names are the engine's but for four; every other field goes as written,

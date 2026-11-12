@@ -23,6 +23,7 @@ import '../common/brief_notice.dart';
 import '../theme/theme.dart';
 import '../web/web_view_guard.dart';
 import 'tavern_ink.dart';
+import 'tavern_toasts.dart';
 
 /// What the canvas is handed: the shown messages; the reply being written
 /// (its speaker's name and its HTML, null when none) as it changes; what to
@@ -71,6 +72,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   String? _rendered;
   Timer? _streamTimer;
   (String, String)? _streamSent;
+  final _toasts = TavernToasts();
 
   @override
   void initState() {
@@ -202,6 +204,9 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         unawaited(_answer(data));
       case 'ack':
         widget.calls?.acknowledge(data);
+      case 'toast':
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger != null) _toasts.show(messenger, data);
     }
   }
 
@@ -287,6 +292,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     widget.streaming.removeListener(_onStream);
     _streamTimer?.cancel();
     _guard.dispose();
+    _toasts.dispose();
     super.dispose();
   }
 
