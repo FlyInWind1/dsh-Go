@@ -172,7 +172,7 @@ class _LegacyEvaluation {
       _legacyPass(r'{{datetimeformat +([^}]*)}}', (match) => common._time('datetimeformat', [match[1]!])),
       _legacyPass(r'{{idle_duration}}', (_) => common._time('idleduration', const [])),
       _legacyPass(r'{{time_UTC([-+]\d+)}}', (match) => common._time('time', ['UTC${match[1]}'])),
-      _legacyPass(r'{{outlet::(.+?)}}', (match) => context.outlets[match[1]!.trim()] ?? ''),
+      _legacyPass(r'{{outlet::(.+?)}}', (match) => context.outlets[trimJsWhitespace(match[1]!)] ?? ''),
       _legacyPass(r'{{timeDiff::(.*?)::(.*?)}}', (match) => common._time('timediff', [match[1]!, match[2]!])),
       // Chat Completion has no textgenerationwebui banned-word accumulator.
       _legacyPass(r'{{banned "(.*)"}}', (_) => ''),

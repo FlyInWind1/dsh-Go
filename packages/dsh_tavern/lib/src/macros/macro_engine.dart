@@ -222,7 +222,7 @@ const _aliases = {
 };
 
 String _canonical(String name) {
-  final lower = name.trim().toLowerCase();
+  final lower = trimJsWhitespace(name).toLowerCase();
   return _aliases[lower] ?? lower;
 }
 

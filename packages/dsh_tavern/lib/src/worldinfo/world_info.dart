@@ -609,7 +609,7 @@ class WorldInfoResult {
        regexDiagnostics = List.unmodifiable(regexDiagnostics),
        externalActivations = List.unmodifiable(externalActivations) {
     final groups = <(int, int), List<WorldInfoHit>>{};
-    for (final hit in _stableSort(hits, (a, b) => b.order.compareTo(a.order))) {
+    for (final hit in _stableSort(hits, (a, b) => _compareWorldOrder(a.order, b.order))) {
       if (hit.disabledUiPrompt case final prompt?) disabledUiPrompts.add(prompt);
       if (hit.content.isEmpty) continue;
       if (hit.section case final section?) {
@@ -899,7 +899,7 @@ class WorldInfoEngine {
     }
     final transform = input.postProcessContent;
     if (transform != null) {
-      for (final hit in _stableSort(activated.values.toList(), (a, b) => b.order.compareTo(a.order))) {
+      for (final hit in _stableSort(activated.values.toList(), (a, b) => _compareWorldOrder(a.order, b.order))) {
         buffer.checkCancelled();
         activated[hit.entry.identity] = hit.withContent(
           transform(hit.entry, hit.content, hit.section == null && hit.position == 4 ? hit.depth : null),
@@ -1421,7 +1421,7 @@ Future<void> _filterGroups(
     if (group.length <= 1) continue;
     final priority = _stableSort(
       group.where((item) => item.entry.groupOverride).toList(),
-      (a, b) => b.entry.order.compareTo(a.entry.order),
+      (a, b) => _compareWorldOrder(a.entry.order, b.entry.order),
     );
     _RuntimeEntry? winner;
     if (priority.isNotEmpty) {
@@ -1470,7 +1470,8 @@ List<WorldInfoEntry> _sortedEntries(List<WorldInfoBook> books, WorldInfoStrategy
       if (seen.add(book.id)) bySource[source]!.addAll(book.entries);
     }
   }
-  List<WorldInfoEntry> sort(List<WorldInfoEntry> values) => _stableSort(values, (a, b) => b.order.compareTo(a.order));
+  List<WorldInfoEntry> sort(List<WorldInfoEntry> values) =>
+      _stableSort(values, (a, b) => _compareWorldOrder(a.order, b.order));
   final global = bySource[WorldInfoSource.global]!;
   final character = [...bySource[WorldInfoSource.character]!, ...bySource[WorldInfoSource.memory]!];
   final rest = switch (strategy) {
@@ -1585,6 +1586,9 @@ Map<String, Object?> _convertCharacterEntry(Map<String, Object?> raw, int index)
   }
   return result;
 }
+
+// ST subtraction treats signed zeros as a tie; order getters admit only finite numbers.
+int _compareWorldOrder(num a, num b) => a == b ? 0 : b.compareTo(a);
 
 List<T> _stableSort<T>(List<T> items, int Function(T, T) compare) {
   final indexed = [for (var index = 0; index < items.length; index++) (index, items[index])];

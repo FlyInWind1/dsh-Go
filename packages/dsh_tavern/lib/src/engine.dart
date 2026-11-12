@@ -3086,7 +3086,9 @@ class TavernEngine implements Tavern {
       ];
       final examples = [for (var index = 0; index < world.activated.length; index++) (index, world.activated[index])];
       examples.sort((a, b) {
-        final byOrder = b.$2.order.compareTo(a.$2.order);
+        final aOrder = a.$2.order;
+        final bOrder = b.$2.order;
+        final byOrder = aOrder == bOrder ? 0 : bOrder.compareTo(aOrder);
         return byOrder != 0 ? byOrder : a.$1.compareTo(b.$1);
       });
       final assembly = PromptAssembler(counter: _counter).assemble(
