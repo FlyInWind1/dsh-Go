@@ -180,12 +180,6 @@ class DshProcess(
         env["PROOT_TMP_DIR"] = tmp.absolutePath
         manifest.launchEnv.forEach { (k, v) -> env[k] = expand(v) }
         if (!guestEnvPlaced) env.putAll(effectiveGuestEnv)
-        if (direct) {
-            val plan = DirectLaunch.prepare(rootfs, manifest.abi, argv, env.toMap())
-            builder.command(plan.argv).directory(plan.cwd)
-            env.clear()
-            env.putAll(plan.environment)
-        }
         val tawcPlan = if (!tawc) null else try {
             TawcrootLaunch.prepare(rootfs.canonicalPath, context.applicationInfo.nativeLibraryDir, argv, env.toMap())
         } catch (e: TawcrootLaunch.Unsupported) {
@@ -199,6 +193,12 @@ class DshProcess(
         if (!tawc && TawcrootLinks.pending(rootfs)) {
             check(cleanup.complete) { "runtime cleanup incomplete; stop the engine and retry" }
             untangleTawcroot()
+        }
+        if (direct) {
+            val plan = DirectLaunch.prepare(rootfs, manifest.abi, argv, env.toMap())
+            builder.command(plan.argv).directory(plan.cwd)
+            env.clear()
+            env.putAll(plan.environment)
         }
         if (tawcPlan != null) {
             TawcrootLaunch.writeDevView(tawcPlan.devView)
