@@ -240,6 +240,14 @@
         }
       }
     },
+    "rrule-weekly-first-period.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/rrule/dist/es5/rrule.js": {
+          "after": "93954dd2dedfef048e9ed7ee5c7c5f5bb9607cdbda9007545847cd25754999a6",
+          "before": "7a23596f28eeeadd7dbc80d8b73f1317a5d94a6f70e855933b06ca07a8e1d88c"
+        }
+      }
+    },
     "schemastery-json-context.diff": {
       "0.2.1-rc.4": {
         "node_modules/@deepseek-ai/schemastery/lib/index.cjs": {
