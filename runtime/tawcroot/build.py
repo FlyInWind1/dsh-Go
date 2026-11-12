@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import struct
 import subprocess
@@ -212,9 +213,15 @@ def default_ndk(runtime):
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
     properties = runtime.parent / "app/android/local.properties"
     if not sdk and properties.is_file():
-        for line in properties.read_text().splitlines():
+        for line in properties.read_text(encoding="utf-8").splitlines():
             if line.startswith("sdk.dir="):
-                sdk = line[len("sdk.dir="):].replace("\\:", ":").replace("\\\\", "\\")
+                # local.properties uses Java escapes; environment paths do not.
+                sdk = re.sub(
+                    r"(?:\\u[0-9a-fA-F]{4})+|\\([\\: =#!])",
+                    lambda escaped: escaped[1] if escaped[1] is not None else
+                        bytes.fromhex(escaped[0].replace(r"\u", "")).decode("utf-16-be", "surrogatepass"),
+                    line[len("sdk.dir="):],
+                )
     if not sdk:
         return None
     return str(Path(sdk) / "ndk" / json.loads((runtime / "tawcroot/source.json").read_text())["ndkVersion"])

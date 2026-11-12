@@ -16,6 +16,14 @@
         }
       }
     },
+    "client-hmr-closed-response.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-hmr/lib/index.js": {
+          "after": "b5abcec230011f25b6ab8eab9c1da41eddc9e050ce4ca57d8bda5715982edd30",
+          "before": "dcc6157a921254b0fa059fd498b90dad651b1908b8ac59ef5ecd1ab488269409"
+        }
+      }
+    },
     "cordis-effect-dispose-completion.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/cordis/lib/index.js": {
@@ -63,6 +71,14 @@
         "node_modules/@deepseek-ai/dsh-fs-local/lib/index.js": {
           "after": "04fb3c9fe8a4a3eacdcf2b73fa72cb8d3fd9a10489c1e8c8fea68546fdf239fd",
           "before": "d22c2ead8df5061e7f5b5633959152143e3bc871c42fff81d2ac14de07cbfb00"
+        }
+      }
+    },
+    "fs-publication-short-names.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-fs-local/lib/index.js": {
+          "after": "4f36f666d2b2e707d795fa2b9c1b673926fd7609d3bea99dd0e2e105f9ce06f4",
+          "before": "04fb3c9fe8a4a3eacdcf2b73fa72cb8d3fd9a10489c1e8c8fea68546fdf239fd"
         }
       }
     },

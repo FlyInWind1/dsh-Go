@@ -309,6 +309,7 @@ export function installMedia(ctx, config, { generate, admit = admitGeneration, e
             finally {
               if (error instanceof MediaError && error.code === 'cleanup_failed') throw error;
             }
+            if (error instanceof MediaError && error.code === 'submission_unknown') throw error;
             throw safeFailure(error, signal);
           }
         })());
