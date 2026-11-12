@@ -431,6 +431,41 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
   };
   if(!window.getVariables)window.getVariables=getVariables;
   if(!window.replaceVariables)window.replaceVariables=replaceVariables;
+  // The rest of 酒馆助手's variable writes, as its public page describes them
+  // (read, change, replace): each a Promise of what the engine kept, failed
+  // if the engine refused. The page leaves merge depth open; here objects
+  // merge all the way down and arrays and other values are replaced whole.
+  function plain(v){return v!==null&&typeof v==='object'&&!Array.isArray(v);}
+  function assignDeep(into,from){for(var k in from){if(plain(into[k])&&plain(from[k]))assignDeep(into[k],from[k]);else into[k]=clone(from[k]);}return into;}
+  function insertDeep(into,from){for(var k in from){if(!(k in into))into[k]=clone(from[k]);else if(plain(into[k])&&plain(from[k]))insertDeep(into[k],from[k]);}return into;}
+  function steps(path){
+    var out=[];String(path).replace(/[^.[\\]]+|\\[(\\d+)\\]/g,function(m,i){out.push(i===undefined?m:Number(i));return m;});
+    if(!out.length)throw new TypeError('An empty variable path');
+    return out;
+  }
+  function updateVariablesWith(updater,o){
+    return attempt(function(){
+      var v=getVariables(o),r=updater(v);
+      var keep=function(n){return replaceVariables(n===undefined?v:n,o);};
+      return r&&typeof r.then==='function'?r.then(keep):keep(r);
+    });
+  }
+  function insertOrAssignVariables(vars,o){return attempt(function(){return replaceVariables(assignDeep(getVariables(o),vars||{}),o);});}
+  function insertVariables(vars,o){return attempt(function(){return replaceVariables(insertDeep(getVariables(o),vars||{}),o);});}
+  function deleteVariable(path,o){
+    return attempt(function(){
+      var v=getVariables(o),s=steps(path),at=v;
+      for(var i=0;i<s.length-1;i++){if(at===null||typeof at!=='object'||!(s[i] in at))return Promise.resolve({variables:v,delete_occurred:false});at=at[s[i]];}
+      var last=s[s.length-1];
+      if(at===null||typeof at!=='object'||!(last in at))return Promise.resolve({variables:v,delete_occurred:false});
+      if(Array.isArray(at)&&typeof last==='number')at.splice(last,1);else delete at[last];
+      return replaceVariables(v,o).then(function(kept){return {variables:kept,delete_occurred:true};});
+    });
+  }
+  [['updateVariablesWith',updateVariablesWith],['insertOrAssignVariables',insertOrAssignVariables],
+   ['insertVariables',insertVariables],['deleteVariable',deleteVariable]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   // getChatMessages(range, option) as 酒馆助手's public page gives it:
   // synchronous, from this page's copy; floors numbered along the whole
   // chosen path before any filter; a floor number, 'a-b', negative from the
