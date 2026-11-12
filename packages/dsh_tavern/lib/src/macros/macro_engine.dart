@@ -1087,7 +1087,7 @@ class _Evaluation {
           }
           if (message.isUser) {
             final sentAt = message.sentAt;
-            return sentAt == null ? 'just now' : clock.humanize(context.now.difference(sentAt).inMilliseconds.abs());
+            return sentAt == null ? 'just now' : clock.humanize(context.now, sentAt);
           }
         }
         return 'just now';
@@ -1095,16 +1095,7 @@ class _Evaluation {
         final left = clock.parse(args[0]);
         final right = clock.parse(args[1]);
         if (left == null || right == null) return 'Invalid date';
-        // Epoch milliseconds use floor. Correct the quotient toward zero
-        // without forming a microsecond difference that can overflow int64.
-        final milliseconds = left.millisecondsSinceEpoch - right.millisecondsSinceEpoch;
-        final remainder = left.microsecond - right.microsecond;
-        final wholeMilliseconds = milliseconds > 0 && remainder < 0
-            ? milliseconds - 1
-            : milliseconds < 0 && remainder > 0
-            ? milliseconds + 1
-            : milliseconds;
-        return clock.humanize(wholeMilliseconds.abs().toDouble(), suffix: true, future: left.isAfter(right));
+        return clock.humanize(left, right, suffix: true);
       case 'datetimeformat':
         return clock.format(args[0]);
       case 'date':
@@ -1648,6 +1639,8 @@ class _MacroClock {
     r'[Hh]mm(?:ss)?|Mo|MM?M?M?|Do|DDDo|DD?D?D?|ddd?d?|do?|w[o|w]?|W[o|W]?|Qo?|N{1,5}|'
     r'YYYYYY|YYYYY|YYYY|YY|y{2,4}|yo?|gg(?:ggg?)?|GG(?:GGG?)?|e|E|a|A|hh?|HH?|kk?|mm?|ss?|'
     r'S{1,9}|x|X|zz?|ZZ?|.)|(?:'
+    // Moment's unescaped w[o|w]? / W[o|W]? also consumes a literal pipe.
+    r'[wW]\||'
     '${_tokens.map(RegExp.escape).join('|')}|.)',
   );
 
@@ -1711,8 +1704,7 @@ class _MacroClock {
   String _token(String token) {
     final day = local.weekday % 7;
     final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
-    late final dayOfYear =
-        DateTime.utc(local.year, local.month, local.day).difference(DateTime.utc(local.year)).inDays + 1;
+    late final dayOfYear = _dayOfYear(local);
     if (_macroFractionalSeconds.hasMatch(token)) {
       return _pad(local.millisecond, 3).padRight(9, '0').substring(0, token.length);
     }
@@ -1762,11 +1754,11 @@ class _MacroClock {
       case 'Do':
         return _ordinal(local.day, 'D');
       case 'DDD':
-        return '$dayOfYear';
+        return dayOfYear == null ? 'NaN' : '$dayOfYear';
       case 'DDDD':
-        return _pad(dayOfYear, 3);
+        return dayOfYear == null ? '-NaN' : _pad(dayOfYear, 3);
       case 'DDDo':
-        return _ordinal(dayOfYear, 'DDD');
+        return dayOfYear == null ? (chinese ? 'NaN日' : 'NaNth') : _ordinal(dayOfYear, 'DDD');
       case 'd':
         return '$day';
       case 'do':
@@ -1796,8 +1788,13 @@ class _MacroClock {
         if (token[0].toLowerCase() == 'g') {
           return token.length == 2 ? _pad(week.year.remainder(100).toInt()) : _pad(week.year, 4);
         }
-        if (token.endsWith('o')) return _ordinal(week.week, token[0]);
-        return token.length == 2 ? _pad(week.week) : '${week.week}';
+        final weekNumber = week.week;
+        if (weekNumber == null) {
+          if (token.endsWith('o')) return chinese ? 'NaN周' : 'NaNth';
+          return token.length == 2 ? '-NaN' : 'NaN';
+        }
+        if (token.endsWith('o')) return _ordinal(weekNumber, token[0]);
+        return token.length == 2 ? _pad(weekNumber) : '$weekNumber';
       case 'H':
         return '${local.hour}';
       case 'HH':
@@ -1904,8 +1901,18 @@ class _MacroClock {
     }
   }
 
-  String humanize(num milliseconds, {bool suffix = false, bool future = false}) {
+  String humanize(DateTime left, DateTime right, {bool suffix = false}) {
     _checkLocale();
+    // Epoch milliseconds use floor. Correct the quotient toward zero
+    // without forming a microsecond difference that can overflow int64.
+    final differenceMilliseconds = left.millisecondsSinceEpoch - right.millisecondsSinceEpoch;
+    final remainder = left.microsecond - right.microsecond;
+    final wholeMilliseconds = differenceMilliseconds > 0 && remainder < 0
+        ? differenceMilliseconds - 1
+        : differenceMilliseconds < 0 && remainder > 0
+        ? differenceMilliseconds + 1
+        : differenceMilliseconds;
+    final milliseconds = wholeMilliseconds.abs().toDouble();
     final seconds = (milliseconds / 1000).round();
     final minutes = (milliseconds / 60000).round();
     final hours = (milliseconds / 3600000).round();
@@ -1967,6 +1974,7 @@ class _MacroClock {
           };
     final text = forms[unit]!.replaceAll('%d', '$count');
     if (!suffix) return text;
+    final future = left.isAfter(right);
     return chinese
         ? '$text${future ? '后' : '前'}'
         : future
@@ -1975,28 +1983,43 @@ class _MacroClock {
   }
 }
 
-int _firstWeekOffset(int year, int dow, int doy) {
-  final first = 7 + dow - doy;
-  final weekday = (7 + DateTime.utc(year, 1, first).weekday % 7 - dow) % 7;
-  return -weekday + first - 1;
+// Moment keeps a valid date but can derive NaN from an unavailable year start.
+int? _dayOfYear(DateTime date) {
+  try {
+    return DateTime.utc(date.year, date.month, date.day).difference(DateTime.utc(date.year)).inDays + 1;
+  } on ArgumentError {
+    return null;
+  }
 }
 
-int _weeksInYear(int year, int dow, int doy) =>
-    (DateTime.utc(year + 1).difference(DateTime.utc(year)).inDays -
-        _firstWeekOffset(year, dow, doy) +
-        _firstWeekOffset(year + 1, dow, doy)) ~/
-    7;
-
-({int year, int week}) _weekOfYear(DateTime date, int dow, int doy) {
-  var year = date.year;
-  final day = DateTime.utc(year, date.month, date.day).difference(DateTime.utc(year)).inDays + 1;
-  var week = ((day - _firstWeekOffset(year, dow, doy) - 1) / 7).floor() + 1;
-  if (week < 1) {
-    year--;
-    week += _weeksInYear(year, dow, doy);
-  } else if (week > _weeksInYear(year, dow, doy)) {
-    week -= _weeksInYear(year, dow, doy);
-    year++;
+int? _firstWeekOffset(int year, int dow, int doy) {
+  try {
+    final first = 7 + dow - doy;
+    final weekday = (7 + DateTime.utc(year, 1, first).weekday % 7 - dow) % 7;
+    return -weekday + first - 1;
+  } on ArgumentError {
+    return null;
   }
+}
+
+int? _weeksInYear(int year, int dow, int doy) {
+  final offset = _firstWeekOffset(year, dow, doy);
+  final nextOffset = _firstWeekOffset(year + 1, dow, doy);
+  if (offset == null || nextOffset == null) return null;
+  return (DateTime.utc(year + 1).difference(DateTime.utc(year)).inDays - offset + nextOffset) ~/ 7;
+}
+
+({int year, int? week}) _weekOfYear(DateTime date, int dow, int doy) {
+  final year = date.year;
+  final day = _dayOfYear(date);
+  final offset = _firstWeekOffset(year, dow, doy);
+  if (day == null || offset == null) return (year: year, week: null);
+  final week = ((day - offset - 1) / 7).floor() + 1;
+  if (week < 1) {
+    final total = _weeksInYear(year - 1, dow, doy);
+    return (year: year - 1, week: total == null ? null : week + total);
+  }
+  final total = _weeksInYear(year, dow, doy);
+  if (total != null && week > total) return (year: year + 1, week: week - total);
   return (year: year, week: week);
 }
