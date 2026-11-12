@@ -84,7 +84,7 @@ class TavernCanvasCalls {
     }
     final reply = await _wire.handle({
       ...request,
-      'params': {...params, 'contextId': context, ..._filters(params, context)},
+      'params': {...params, 'contextId': context, ..._filters(params, context), ..._scriptOwner(params)},
     });
     // The engine let it go (reopened, closed): the next call opens anew.
     if (reply['error'] case {'code': 'closedContext' || 'noContext'}) _forget();
@@ -107,6 +107,25 @@ class TavernCanvasCalls {
             else
               prompt,
         ],
+      };
+    }
+    return const {};
+  }
+
+  /// A card script's own variables, as the page names their script ({kind:
+  /// 'character', scriptId}): on this chat's character's card. A group has
+  /// no one card; the engine says so.
+  Map<String, Object?> _scriptOwner(Map<Object?, Object?> params) {
+    final target = params['target'];
+    if (target case {'scope': 'script', 'scriptOwner': final Map<Object?, Object?> owner}
+        when owner['kind'] == 'character' && owner['assetId'] == null) {
+      final character = characterId();
+      if (character == null) return const {};
+      return {
+        'target': {
+          ...target,
+          'scriptOwner': {...owner, 'assetId': character},
+        },
       };
     }
     return const {};

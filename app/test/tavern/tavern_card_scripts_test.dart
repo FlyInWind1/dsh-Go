@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dsh_app/tavern/tavern_canvas_calls.dart';
 import 'package:dsh_app/tavern/tavern_card_scripts.dart';
 import 'package:dsh_app/tavern/tavern_provider.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
@@ -154,4 +155,55 @@ void main() {
     final scripts = await container.read(tavernCardScriptsProvider(id).future);
     expect(scripts, [const TavernCardScript(id: 's1', name: '变量初始化', content: 'await initVars();')]);
   });
+
+  test(
+    "a script's own variables, asked for by the page by script alone: on this character's card, kept there",
+    () async {
+      final dir = await Directory.systemTemp.createTemp('card-script-vars');
+      final tavern = await openTavern(dir.path);
+      addTearDown(() async {
+        await tavern.close();
+        await dir.delete(recursive: true);
+      });
+      final card = _card({
+        'tavern_helper': {
+          'scripts': [
+            {
+              ..._script('s1'),
+              'data': {'count': 1},
+            },
+          ],
+        },
+      });
+      final id = (await tavern.importCard(utf8.encode(jsonEncode(card)), fileName: 'card.json')).id;
+      final chat = await tavern.createChat(id);
+      final calls = TavernCanvasCalls(tavern.scripts, chatId: chat, characterId: () => id);
+      addTearDown(calls.close);
+      const target = {
+        'scope': 'script',
+        'scriptOwner': {'kind': 'character', 'scriptId': 's1'},
+      };
+      final read = await calls.handle({
+        'id': 1,
+        'method': 'getVariables',
+        'params': {'target': target},
+      });
+      expect(read['ok'], isTrue, reason: '${read['error']}');
+      expect((read['result']! as Map)['value'], {'count': 1});
+      final written = await calls.handle({
+        'id': 2,
+        'method': 'replaceVariables',
+        'params': {
+          'target': target,
+          'value': {'count': 2},
+        },
+      });
+      expect(written['ok'], isTrue, reason: '${written['error']}');
+      // Kept on the card, in that script's own data.
+      final saved = jsonDecode(utf8.decode(await tavern.exportCard(id, format: TavernCardFormat.json))) as Map;
+      final entry =
+          ((((saved['data'] as Map)['extensions'] as Map)['tavern_helper'] as Map)['scripts'] as List).first as Map;
+      expect(entry['data'], {'count': 2});
+    },
+  );
 }

@@ -439,8 +439,15 @@ $preload
       return {key:'message:'+id,target:{scope:'message',messageId:id},id:id};
     }
     if(type==='global'||type==='chat'||type==='character')return {key:type,target:{scope:type}};
+    // A card script's own: the script asking (or the one script_id names).
+    if(type==='script'){
+      var s=o&&o.script_id!=null?scriptById(String(o.script_id)):callerScript();
+      if(!s)throw new TypeError('Script variables are asked for from a card script, or by its script_id');
+      return {key:'script:'+s.id,target:{scope:'script',scriptOwner:{kind:'character',scriptId:s.id}}};
+    }
     throw new TypeError('Variables of type '+type+' are not kept on this page');
   }
+  function varKey(t){return t.scope==='script'?'script:'+((t.scriptOwner||{}).scriptId||''):t.scope;}
   function kept(s){
     var e=vars[s.key];
     if(e)return e;
@@ -466,7 +473,7 @@ $preload
   function sameRef(a,b){return !!a&&!!b&&a.chatId===b.chatId&&a.nodeId===b.nodeId;}
   function setVar(v){
     var t=v.target||{};
-    if(t.scope!=='message'){var e=vars[t.scope]||(vars[t.scope]={seq:0});e.target=t;e.version=v.version;e.value=v.value;return;}
+    if(t.scope!=='message'){var k=varKey(t),e=vars[k]||(vars[k]={seq:0});e.target=t;e.version=v.version;e.value=v.value;return;}
     var latest=vars.message;
     if(latest&&latest.target&&sameRef(latest.target.messageRef,t.messageRef)){latest.version=v.version;latest.value=v.value;}
     for(var i=0;i<msgs.length;i++)if(sameRef(msgs[i].ref,t.messageRef)){
@@ -495,7 +502,7 @@ $preload
         msgs=s.messages||[];
         for(var k in vars)if(k.indexOf('message:')===0&&vars[k].pending===undefined)delete vars[k];
         (s.variables||[]).forEach(function(v){
-          var e=vars[v.target.scope]||(vars[v.target.scope]={seq:0});
+          var k=varKey(v.target),e=vars[k]||(vars[k]={seq:0});
           e.target=v.target;e.version=v.version;e.value=v.value;
         });
         lastSeq=s.lastSeq||0;pathRev=s.pathRevision||null;loaded=true;
@@ -1030,6 +1037,7 @@ $preload
     var k=/dsh-script-(\\d+)\\.js/.exec(stack);
     return k&&cardScripts[+k[1]]||null;
   }
+  function scriptById(id){for(var i=0;i<cardScripts.length;i++)if(cardScripts[i].id===id)return cardScripts[i];return null;}
   function getScriptId(){var s=callerScript();if(!s)throw new Error('getScriptId: not called from a card script');return s.id;}
   function getScriptName(){var s=callerScript();if(!s)throw new Error('getScriptName: not called from a card script');return s.name;}
   // The event a script's button sends when pressed; the buttons themselves
@@ -1042,12 +1050,18 @@ $preload
     cardScripts.forEach(function(s,n){
       var frame=document.createElement('iframe');
       frame.style.display='none';frame.setAttribute('aria-hidden','true');frame.dataset.script=s.id;
+      // Its own variables first, so getVariables({type:'script'}) reads them
+      // at once (or as none, should they not come).
+      var own=call('getVariables',{target:{scope:'script',scriptOwner:{kind:'character',scriptId:s.id}}})
+        .then(setVar,function(){});
       frame.onload=function(){
         var w=frame.contentWindow;if(!w)return;
         shared.forEach(function(k){if(window[k]!==undefined)w[k]=window[k];});
-        var el=w.document.createElement('script');el.type='module';
-        el.textContent=s.content+'\\n//# sourceURL=dsh-script-'+n+'.js';
-        w.document.head.appendChild(el);
+        own.then(function(){
+          var el=w.document.createElement('script');el.type='module';
+          el.textContent=s.content+'\\n//# sourceURL=dsh-script-'+n+'.js';
+          w.document.head.appendChild(el);
+        });
       };
       // Head and body come of themselves; no closing tags in our script.
       frame.srcdoc='<!doctype html><meta charset="utf-8">';
