@@ -16,8 +16,8 @@
 
 ## 自动恢复无障碍
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced,a11yRestoreTitle -->
-`设置 › 手机操控 › 更多设置 › 自动恢复无障碍`
+<!-- nav: commonSettings,hubSettingsPhoneControl,a11yRestoreTitle -->
+`设置 › 手机操控 › 自动恢复无障碍`
 
 展开 **更多设置**，打开这一项，阅读说明后点 **授权并开启**。已连接的 Shizuku、Sui、root 或自连 ADB 可以完成授权（页面会写明这次走哪条）；没有可用连接时，先按页面准备，或把页面的授权命令复制到电脑执行一次。只有手机操控开关开启、系统授予权限时才尝试恢复。
 
@@ -29,8 +29,8 @@
 
 ## Android Shell（独立授权）
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced,androidShellTitle -->
-`设置 › 手机操控 › 更多设置 › Android Shell`。默认关闭；先开启手机操控，再阅读风险说明并单独允许。它运行的是这台手机的 Android `sh`，不是 Ubuntu bash，不要求无障碍、后台屏幕或 Android 14。
+<!-- nav: commonSettings,hubSettingsPhoneControl,androidShellTitle -->
+`设置 › 手机操控 › Android Shell`。默认关闭；先开启手机操控，再阅读风险说明并单独允许。它运行的是这台手机的 Android `sh`，不是 Ubuntu bash，不要求无障碍、后台屏幕或 Android 14。
 
 - Shizuku：自行安装、启动 Shizuku，在本页明确请求授权并连接。服务实际可能是 shell（UID 2000）或 root（UID 0）；以页面和每次确认显示的身份为准。
 - **自连 ADB**：在系统开发者选项开启无线调试，打开配对码对话框，在本页填写六位码和配对端口（或发现端口）。配对后连接；连接端口与配对端口不同，留空时尝试发现本机端口。配对码不保存、不写日志；本功能不连接其他设备。
@@ -92,8 +92,8 @@
 
 ## 后台确认与返回
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced,phoneBackgroundGuideTitle -->
-`设置 › 手机操控 › 更多设置 › 后台确认与返回`
+<!-- nav: commonSettings,hubSettingsPhoneControl,phoneBackgroundGuideTitle -->
+`设置 › 手机操控 › 后台确认与返回`
 
 手机操控开启后，这一行在手机操控页的**更多设置**里，点它可以重新查看说明。点**打开系统设置**会打开 DSH Go 的系统应用信息页。
 

@@ -92,10 +92,10 @@ dsh-go 自身的匿名使用统计默认开启，第一次打开 App 时的欢�
 
 ## 本机文字识别与 Google ML Kit
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced -->
-`设置 › 手机操控 › 更多设置`
+<!-- nav: commonSettings,hubSettingsPhoneControl -->
+`设置 › 手机操控`
 
-手机操控使用内置的 Google ML Kit 中文文字识别（`com.google.mlkit:text-recognition-chinese:16.0.1`），默认开启，可以在这一页的 **文字识别** 单独关闭。识别在本机进行，截图和文字不会发给 Google；Google 的 SDK 会收集机型、应用版本、耗时等使用统计。上面的匿名统计开关不控制这个 SDK。
+手机操控使用内置的 Google ML Kit 中文文字识别（`com.google.mlkit:text-recognition-chinese:16.0.1`），默认开启，可以展开这一页的 **更多设置**，在 **文字识别** 里单独关闭。识别在本机进行，截图和文字不会发给 Google；Google 的 SDK 会收集机型、应用版本、耗时等使用统计。上面的匿名统计开关不控制这个 SDK。
 
 手机操控可能将截图和识别文字发给你配置的模型。关闭时，识别请求不会触发 SDK 加载或初始化。关闭本机识别后不再开始新的识别，已经开始的工作可能仍在收尾。关闭不会卸载 SDK、清除此前积累的 SDK 统计，也不保证历史 SDK 统计停止发送。从未初始化过 SDK 的设备，与此前开启并使用过识别的设备，历史状态不同。
 

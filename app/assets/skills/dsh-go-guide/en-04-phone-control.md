@@ -16,8 +16,8 @@ During a task, text on the screen is sent to the model you chose; with a vision 
 
 ## Restore accessibility automatically
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced,a11yRestoreTitle -->
-`Settings › Phone control › More settings › Restore accessibility automatically`
+<!-- nav: commonSettings,hubSettingsPhoneControl,a11yRestoreTitle -->
+`Settings › Phone control › Restore accessibility automatically`
 
 Expand **More settings** and open this row, read the explanation and tap **Authorize and enable**. A connected Shizuku, Sui, root or self-ADB channel can grant permission (the page says which one it will use). If neither is available, follow the setup page or copy the displayed command and run it once on your computer. Restoration requires both the in-app phone-control switch and the system permission.
 
@@ -29,8 +29,8 @@ After a system force-stop, reopen DSH Go before it can recover. Repeated failure
 
 ## Android Shell (separate authorization)
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced,androidShellTitle -->
-`Settings › Phone control › More settings › Android Shell`. Off by default: enable Phone control, then separately accept the Shell risk notice. Commands run in Android `sh` on this phone, not Ubuntu bash. Accessibility, the background display, and Android 14 are not required.
+<!-- nav: commonSettings,hubSettingsPhoneControl,androidShellTitle -->
+`Settings › Phone control › Android Shell`. Off by default: enable Phone control, then separately accept the Shell risk notice. Commands run in Android `sh` on this phone, not Ubuntu bash. Accessibility, the background display, and Android 14 are not required.
 
 - Shizuku: install and start Shizuku yourself, explicitly request authorization here, then connect. The actual service identity may be shell (UID 2000) or root (UID 0); check the status and each command confirmation.
 - **Self-ADB**: enable Wireless debugging in Android Developer options, open its pairing-code dialog, and enter the six-digit code and pairing port here (or use discovery). Connect after pairing. The connection port differs from the pairing port; leave it blank to discover a local endpoint. Pairing codes are not saved or logged. This feature does not contact other devices.
@@ -92,8 +92,8 @@ An approval card left for 30 seconds counts as **Decline**. In every mode, syste
 
 ## Confirmations and return
 
-<!-- nav: commonSettings,hubSettingsPhoneControl,phoneControlAdvanced,phoneBackgroundGuideTitle -->
-`Settings › Phone control › More settings › Confirmations and return`
+<!-- nav: commonSettings,hubSettingsPhoneControl,phoneBackgroundGuideTitle -->
+`Settings › Phone control › Confirmations and return`
 
 Once phone control is on, this row is under **More settings** on the phone control page; tap it to read the guidance again. **Open system settings** opens DSH Go's system App info page.
 

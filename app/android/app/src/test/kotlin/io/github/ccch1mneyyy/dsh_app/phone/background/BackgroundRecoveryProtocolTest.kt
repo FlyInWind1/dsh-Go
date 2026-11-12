@@ -58,8 +58,10 @@ class BackgroundRecoveryProtocolTest {
         assertTrue(BackgroundRecoveryProtocol.recovered(unavailable, receipt::get, receipt::containsKey))
         receipt[Proto.DISPLAY_ID] = null
         assertFalse(BackgroundRecoveryProtocol.recovered(unavailable, receipt::get, receipt::containsKey))
-        receipt.remove(Proto.DISPLAY_ID); receipt[Proto.RECOVERY_KIND] = "previousBoot"
+        receipt[Proto.DISPLAY_ID] = 11; receipt[Proto.RECOVERY_KIND] = "previousBoot"
         assertTrue(BackgroundRecoveryProtocol.recovered(unavailable, receipt::get, receipt::containsKey))
+        receipt.remove(Proto.DISPLAY_ID)
+        assertFalse(BackgroundRecoveryProtocol.recovered(unavailable, receipt::get, receipt::containsKey))
         receipt[Proto.RECOVERY_KIND] = "peerRetired"
         assertTrue(BackgroundRecoveryProtocol.retired(peer, receipt::get))
     }
