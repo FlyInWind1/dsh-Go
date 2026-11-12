@@ -148,6 +148,8 @@ class RuntimeInstaller(
             if (result is TawcrootLinks.Result.NotEnoughSpace) {
                 throw IllegalStateException("keep: needs ${result.need shr 20} MB free to keep files from the tawcroot launch, ${result.free shr 20} MB free")
             }
+            // The store goes with the runtime: a kept name we could not convert would be lost.
+            check(!(result as TawcrootLinks.Result.Done).unseen) { "keep: some files from the tawcroot launch could not be read; nothing was reset" }
         }
         retireRuntime(baseDir, retiredDir, keepDir, keep)
     }

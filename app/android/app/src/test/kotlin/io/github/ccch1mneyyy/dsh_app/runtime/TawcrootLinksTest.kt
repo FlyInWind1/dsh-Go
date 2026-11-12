@@ -74,6 +74,23 @@ class TawcrootLinksTest {
         }
     }
 
+    @Test fun anUnreadableOrdinaryDirectoryKeepsTheStore() {
+        obj("6", "x")
+        name("root/n", "6")
+        val home = File(root, "home").apply { mkdirs() }
+        Files.setPosixFilePermissions(home.toPath(), PosixFilePermissions.fromString("---------"))
+        try {
+            val result = migration().run() as TawcrootLinks.Result.Done
+            // Running as root (some CI containers) reads it anyway.
+            if (home.canRead()) return
+            assertTrue(result.unseen)
+            assertFalse(result.storeRemoved)
+            assertTrue(store.exists())
+        } finally {
+            Files.setPosixFilePermissions(home.toPath(), PosixFilePermissions.fromString("rwx------"))
+        }
+    }
+
     @Test fun aLinkedSymlinkStaysASymlink() {
         File(store, "link").mkdirs()
         Files.createSymbolicLink(File(store, "link/77").toPath(), Paths.get("../lib/libz.so.1"))
@@ -95,7 +112,7 @@ class TawcrootLinksTest {
         obj("1", "one")
         val good = name("root/good", "1")
         val dangling = name("root/dangling", "2")
-        assertEquals(TawcrootLinks.Result.Done(1, false), migration().run())
+        assertEquals(TawcrootLinks.Result.Done(1, false, unseen = true), migration().run())
         assertEquals("one", good.readText())
         assertTrue(Files.isSymbolicLink(dangling.toPath()))
         assertTrue(store.exists())

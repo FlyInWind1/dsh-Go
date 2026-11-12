@@ -32,8 +32,9 @@ class TawcrootLinks(
     private val within: List<String>? = null,
 ) {
     sealed class Result {
-        /** [names] became real files; [storeRemoved] when the whole tree was done. */
-        data class Done(val names: Int, val storeRemoved: Boolean) : Result()
+        /** [names] became real files; [storeRemoved] when the whole tree was done; [unseen] when a
+         * directory could not be read or a name's object is gone (the store then stays). */
+        data class Done(val names: Int, val storeRemoved: Boolean, val unseen: Boolean = false) : Result()
         data class NotEnoughSpace(val need: Long, val free: Long) : Result()
     }
 
@@ -59,9 +60,9 @@ class TawcrootLinks(
             if (!Files.exists(start, LinkOption.NOFOLLOW_LINKS)) continue
             Files.walkFileTree(start, object : SimpleFileVisitor<Path>() {
                 override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult {
-                    // A top-level directory of the rootfs that can't be read is a bind's mount point
-                    // (system, apex, sdcard, storage): tawcroot never stores links through a bind.
-                    if (file.parent != root) incomplete = true
+                    // The runtime's and phone storage's bind mount points can't be read by the app,
+                    // and tawcroot never stores links through a bind.
+                    if (file.parent != root || file.fileName.toString() !in MOUNT_POINTS) incomplete = true
                     return FileVisitResult.CONTINUE
                 }
 
@@ -109,7 +110,7 @@ class TawcrootLinks(
                 for ((temp, _) in copies) runCatching { Files.deleteIfExists(temp) }
             }
         }
-        if (within != null || incomplete) return Result.Done(done, false)
+        if (within != null || incomplete) return Result.Done(done, false, incomplete)
         flush()
         deleteTree(store)
         return Result.Done(done, true)
@@ -132,6 +133,7 @@ class TawcrootLinks(
 
     companion object {
         const val PREFIX = "tawcroot:link:"
+        private val MOUNT_POINTS = setOf("system", "apex", "sdcard", "storage", "dev", "proc", "sys")
         private val TOKEN = Regex("[0-9]+(-[0-9]+)?")
         const val TEMP_PREFIX = ".dsh-go-tawc-"
         val TEMP = Regex("""\.dsh-go-tawc-[0-9a-f]{16}\.tmp""")

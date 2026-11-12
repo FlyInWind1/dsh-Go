@@ -1040,6 +1040,9 @@ class RuntimeController private constructor(private val app: Context) : DshProce
                 // no strike. A new runtime, or turning tawcroot on again, gives it another try.
                 prefs.edit().putString(K_TAWC_FAILED, manifest.runtimeVersion).apply()
                 log("[dsh-app] tawcroot launch failed (exit $code${source.startupError?.let { ": $it" } ?: ""}); starting again with compatible launch", "system")
+                // A startup deadline already published its card and STOPPING: this retry replaces both.
+                error = null
+                setPhase(Phase.STARTING)
                 restartNow("with compatible launch")
                 return
             }
