@@ -1,11 +1,16 @@
 package io.github.ccch1mneyyy.dsh_app.runtime
 
+import java.io.DataInputStream
 import java.io.File
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
+import java.nio.file.NotLinkException
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
@@ -46,6 +51,7 @@ class TawcrootLinks(
     /** Throws on an IO error, leaving every name readable. [onSlow] runs once when this takes more than a moment. */
     fun run(onSlow: () -> Unit = {}): Result {
         if (!pending(root.toFile())) return Result.Done(0, false)
+        recoverNewNames()
         val started = System.nanoTime()
         var slow = false
         fun tick() {
@@ -123,6 +129,70 @@ class TawcrootLinks(
         return Result.Done(done, true)
     }
 
+    /** Finish only NEW's missing names before walking. Keep the journal/counts for tawc if this
+     * conversion stops or is limited to [within]; converting names only reduces live token refs. */
+    private fun recoverNewNames() {
+        val input = try { Files.newInputStream(store.resolve("intent")) } catch (_: NoSuchFileException) { return }
+        val (token, source, destination) = DataInputStream(input).use { stream ->
+            // Pinned format 1's intent_hdr on arm64/x64: uint64 cnt at 8, lengths at 16/20/24,
+            // then four padding bytes. Only NEW (3) can have moved an original name out of view.
+            val header = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN)
+            stream.readFully(header.array())
+            if (header.getInt(0) != 0x494c5754) throw IOException("tawcroot: invalid link intent")
+            if (header.getInt(4) != 3) return
+            val tokenSize = header.getInt(16)
+            val sourceSize = header.getInt(20)
+            val destinationSize = header.getInt(24)
+            if (tokenSize !in 1..31 || sourceSize !in 0..4095 || destinationSize !in 0..4095) {
+                throw IOException("tawcroot: invalid link intent lengths")
+            }
+            fun text(size: Int) = ByteArray(size).also { stream.readFully(it) }.toString(Charsets.UTF_8)
+            val token = text(tokenSize)
+            if (!TOKEN.matches(token)) throw IOException("tawcroot: invalid link intent token")
+            Triple(token, text(sourceSize), text(destinationSize))
+        }
+        val objectPresent = try {
+            Files.readAttributes(objects.resolve(token), BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
+            true
+        } catch (_: NoSuchFileException) { false }
+        val work = store.resolve("work")
+        val staged = listOf(work.resolve("$token.dst") to destination, work.resolve("$token.src") to source)
+        if (objectPresent) {
+            for ((entry, recorded) in staged) {
+                if (!matchesToken(entry, token)) continue // consumed: never recreate from the recorded path
+                val name = recoveryPath(recorded) ?: continue
+                try {
+                    Files.move(entry, name) // no REPLACE/ATOMIC_MOVE: a later occupant belongs to its writer
+                } catch (_: FileAlreadyExistsException) {
+                    // Like tawc's NOREPLACE recovery, leave the staged entry parked.
+                } catch (_: NoSuchFileException) {
+                    // The recorded parent vanished; do not recreate a directory or a name elsewhere.
+                }
+            }
+        } else {
+            // NEW never moved the original: discard only its staged/published token names.
+            for ((entry, _) in staged) if (matchesToken(entry, token)) Files.delete(entry)
+            recoveryPath(destination)?.let { if (matchesToken(it, token)) Files.delete(it) }
+        }
+    }
+
+    /** Recorded paths are host paths, not guest symlink targets. Resolve only the existing parent:
+     * the leaf may be a dangling token, and a renamed parent must not send recovery outside rootfs. */
+    private fun recoveryPath(recorded: String): Path? {
+        if (recorded.isEmpty()) return null
+        val path = root.fileSystem.getPath(recorded)
+        if (!path.isAbsolute || !path.normalize().startsWith(root) || path == root) {
+            return null
+        }
+        val parent = try { path.parent.toRealPath() } catch (_: NoSuchFileException) { return null }
+        if (!parent.startsWith(root)) return null
+        return parent.resolve(path.fileName)
+    }
+
+    private fun matchesToken(path: Path, token: String): Boolean = try {
+        Files.readSymbolicLink(path).toString() == PREFIX + token
+    } catch (_: NoSuchFileException) { false } catch (_: NotLinkException) { false }
+
     private fun deleteTree(dir: Path) {
         Files.walkFileTree(dir, object : SimpleFileVisitor<Path>() {
             override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
@@ -154,8 +224,10 @@ class TawcrootLinks(
 
         /** Whether tawcroot ever stored a linked file for this rootfs. */
         fun pending(rootfs: File): Boolean = try {
-            val dir = File(storeOf(rootfs), "link").toPath()
-            Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS) && Files.newDirectoryStream(dir).use { it.iterator().hasNext() }
+            val store = storeOf(rootfs).toPath()
+            val dir = store.resolve("link")
+            Files.exists(store.resolve("intent"), LinkOption.NOFOLLOW_LINKS) ||
+                (Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS) && Files.newDirectoryStream(dir).use { it.iterator().hasNext() })
         } catch (_: NoSuchFileException) { false }
     }
 }
