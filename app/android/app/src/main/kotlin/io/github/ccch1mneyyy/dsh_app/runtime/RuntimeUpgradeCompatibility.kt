@@ -97,7 +97,12 @@ private fun parseUpgrade(json: JSONObject): EngineUpgradeSpec = try {
 }
 
 private fun osIdentity(tree: File): List<String> = try {
-    val rows = File(tree, "etc/os-release").readLines()
+    val file = File(tree, "etc/os-release").takeIf { it.isFile }
+        ?: io.github.ccch1mneyyy.dsh_app.files.GuestFiles.resolve(
+            tree, "/etc/os-release", PhoneStorage.GUEST_PATH,
+        )
+        ?: throw RuntimeUpgradeBlocked("base")
+    val rows = file.readLines()
     listOf("ID", "VERSION_ID").map { key ->
         rows.single { it.startsWith("$key=") }.substringAfter('=').trim().trim('"', '\'')
     }
