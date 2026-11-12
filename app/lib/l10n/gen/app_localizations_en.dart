@@ -21442,6 +21442,13 @@ class L10nEn extends L10n {
   String get tavernLorePosDepth => 'At depth';
 
   @override
+  String get tavernLibraryBookOpen => 'Entries';
+
+  @override
+  String get tavernLibraryBookNote =>
+      'Changes are written back to this book; wherever it is bound uses them from the next turn.';
+
+  @override
   String get updateCheck => 'Check for updates';
 
   @override

@@ -37088,6 +37088,18 @@ abstract class L10n {
   /// **'按深度'**
   String get tavernLorePosDepth;
 
+  /// No description provided for @tavernLibraryBookOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'看条目、改条目'**
+  String get tavernLibraryBookOpen;
+
+  /// No description provided for @tavernLibraryBookNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'改动写回这本书；绑定了它的地方，下一回合就用新内容。'**
+  String get tavernLibraryBookNote;
+
   /// No description provided for @updateCheck.
   ///
   /// In zh, this message translates to:

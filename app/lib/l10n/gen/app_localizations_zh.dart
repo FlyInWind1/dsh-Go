@@ -20330,6 +20330,12 @@ class L10nZh extends L10n {
   String get tavernLorePosDepth => '按深度';
 
   @override
+  String get tavernLibraryBookOpen => '看条目、改条目';
+
+  @override
+  String get tavernLibraryBookNote => '改动写回这本书；绑定了它的地方，下一回合就用新内容。';
+
+  @override
   String get updateCheck => '检查更新';
 
   @override

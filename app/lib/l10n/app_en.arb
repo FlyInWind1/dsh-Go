@@ -6166,6 +6166,8 @@
   "tavernLoreYes": "Yes",
   "tavernLoreNo": "No",
   "tavernLorePosDepth": "At depth",
+  "tavernLibraryBookOpen": "Entries",
+  "tavernLibraryBookNote": "Changes are written back to this book; wherever it is bound uses them from the next turn.",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

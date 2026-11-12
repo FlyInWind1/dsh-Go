@@ -989,5 +989,7 @@
   "tavernLoreDefault": "Default",
   "tavernLoreYes": "Yes",
   "tavernLoreNo": "No",
-  "tavernLorePosDepth": "At depth"
+  "tavernLorePosDepth": "At depth",
+  "tavernLibraryBookOpen": "Entries",
+  "tavernLibraryBookNote": "Changes are written back to this book; wherever it is bound uses them from the next turn."
 }

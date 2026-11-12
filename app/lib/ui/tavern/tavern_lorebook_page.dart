@@ -120,7 +120,7 @@ class TavernLorebookPage extends ConsumerWidget {
             footer: Text(l10n.tavernLorebookNote),
             children: [
               for (final (i, e) in book.entries.indexed)
-                _EntryRow(
+                TavernBookEntryRow(
                   key: ValueKey('tavern-lore-$i'),
                   entry: e.entry,
                   onOpen: () => open(e),
@@ -134,8 +134,9 @@ class TavernLorebookPage extends ConsumerWidget {
 }
 
 /// An entry in the list: its name, its keys, 常驻 if always on, and a switch.
-class _EntryRow extends StatelessWidget {
-  const _EntryRow({super.key, required this.entry, required this.onOpen, required this.onEnabled});
+/// [entry] in the card's field names.
+class TavernBookEntryRow extends StatelessWidget {
+  const TavernBookEntryRow({super.key, required this.entry, required this.onOpen, required this.onEnabled});
 
   final Map<String, Object?> entry;
   final VoidCallback onOpen;
@@ -208,15 +209,50 @@ class _EntryRow extends StatelessWidget {
   }
 }
 
-/// One entry, edited; [entry] null for a new one, added on save.
-class TavernLorebookEntryPage extends ConsumerStatefulWidget {
-  const TavernLorebookEntryPage({super.key, required this.characterId, this.entry});
+/// Where an entry is kept — a card's own book, or a book in the library — and
+/// how an edit reaches it there. Entries go in and out in the card's field
+/// names (tavern_book_entry.dart turns a library book's own into them).
+abstract class TavernEntryHome {
+  Future<void> add(Tavern tavern, Map<String, Object?> entry);
+  Future<void> update(Tavern tavern, int index, Map<String, Object?> changes);
+  Future<void> delete(Tavern tavern, int index);
+
+  /// The list behind the page, read again.
+  void refresh(WidgetRef ref);
+}
+
+/// A card's own book: each edit goes to the card by the entry's index.
+class TavernCardBookHome implements TavernEntryHome {
+  const TavernCardBookHome(this.characterId);
 
   final String characterId;
+
+  @override
+  Future<void> add(Tavern tavern, Map<String, Object?> entry) => tavern.addCharacterBookEntry(characterId, entry);
+
+  @override
+  Future<void> update(Tavern tavern, int index, Map<String, Object?> changes) =>
+      tavern.updateCharacterBookEntry(characterId, index, changes);
+
+  @override
+  Future<void> delete(Tavern tavern, int index) => tavern.deleteCharacterBookEntry(characterId, index);
+
+  @override
+  void refresh(WidgetRef ref) => ref.invalidate(tavernCardBookProvider(characterId));
+}
+
+/// One entry, edited; [entry] null for a new one, added on save.
+class TavernLorebookEntryPage extends ConsumerStatefulWidget {
+  const TavernLorebookEntryPage({super.key, required this.home, this.entry});
+
+  final TavernEntryHome home;
   final TavernBookEntry? entry;
 
-  static Route<void> route({required String characterId, TavernBookEntry? entry}) => MaterialPageRoute<void>(
-    builder: (_) => TavernLorebookEntryPage(characterId: characterId, entry: entry),
+  static Route<void> route({required String characterId, TavernBookEntry? entry}) =>
+      routeIn(TavernCardBookHome(characterId), entry: entry);
+
+  static Route<void> routeIn(TavernEntryHome home, {TavernBookEntry? entry}) => MaterialPageRoute<void>(
+    builder: (_) => TavernLorebookEntryPage(home: home, entry: entry),
   );
 
   @override
@@ -357,12 +393,12 @@ class _TavernLorebookEntryPageState extends ConsumerState<TavernLorebookEntryPag
     });
     try {
       if (entry == null) {
-        await tavern.addCharacterBookEntry(widget.characterId, _fields());
+        await widget.home.add(tavern, _fields());
       } else {
-        await tavern.updateCharacterBookEntry(widget.characterId, entry.index, changes);
+        await widget.home.update(tavern, entry.index, changes);
       }
       if (!mounted) return;
-      ref.invalidate(tavernCardBookProvider(widget.characterId));
+      widget.home.refresh(ref);
       _leaving = true;
       navigator.pop();
     } on Object catch (e) {
@@ -387,13 +423,13 @@ class _TavernLorebookEntryPageState extends ConsumerState<TavernLorebookEntryPag
     );
     if (!ok || !mounted) return;
     try {
-      await ref.read(tavernProvider).deleteCharacterBookEntry(widget.characterId, entry.index);
+      await widget.home.delete(ref.read(tavernProvider), entry.index);
     } on Object {
       messenger?.showBriefNotice(l10n.commonSaveFailed);
       return;
     }
     if (!mounted) return;
-    ref.invalidate(tavernCardBookProvider(widget.characterId));
+    widget.home.refresh(ref);
     _leaving = true;
     navigator.pop();
   }

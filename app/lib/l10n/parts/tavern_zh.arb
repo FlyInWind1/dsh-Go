@@ -989,5 +989,7 @@
   "tavernLoreDefault": "默认",
   "tavernLoreYes": "是",
   "tavernLoreNo": "否",
-  "tavernLorePosDepth": "按深度"
+  "tavernLorePosDepth": "按深度",
+  "tavernLibraryBookOpen": "看条目、改条目",
+  "tavernLibraryBookNote": "改动写回这本书；绑定了它的地方，下一回合就用新内容。"
 }
