@@ -39041,7 +39041,7 @@ abstract class L10n {
   /// No description provided for @tavernGroupErrorHostInUse.
   ///
   /// In zh, this message translates to:
-  /// **'这个角色是群聊的群主，先换群主或删掉那个群聊'**
+  /// **'这个角色是一个群聊的群主，先删掉那个群聊'**
   String get tavernGroupErrorHostInUse;
 
   /// No description provided for @updateCheck.

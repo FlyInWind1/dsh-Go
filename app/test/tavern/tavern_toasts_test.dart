@@ -113,4 +113,23 @@ void main() {
     expect(_toast, findsNothing);
     toasts.dispose();
   });
+
+  testWidgets('new words just as one runs out of time: a notice of their own, up for their own time', (tester) async {
+    final messenger = await _messenger(tester);
+    final toasts = TavernToasts();
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '好'});
+    await tester.pumpAndSettle();
+    // Its two seconds are up: it starts to go.
+    await tester.pump(const Duration(milliseconds: 2050));
+    await tester.pump(const Duration(milliseconds: 50));
+    toasts.show(messenger, {'type': 'toast', 'level': 'warning', 'title': '小心', 'message': '前面有人'});
+    await tester.pumpAndSettle();
+    expect(find.text('小心\n前面有人'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('小心\n前面有人'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(_toast, findsNothing);
+    toasts.dispose();
+  });
 }

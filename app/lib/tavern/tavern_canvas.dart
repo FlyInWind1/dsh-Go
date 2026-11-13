@@ -886,7 +886,9 @@ $preload
     }
     if(c.el.dataset.url!==item.url){c.el.dataset.url=item.url;c.el.src=item.url;}
     audioApply(c);
-    if(c.settings.enabled){var p=c.el.play();if(p&&p.catch)p.catch(function(){});}
+    // Asked to play while the app is out of sight: it waits to be back.
+    if(audioHidden)c.suspended=c.settings.enabled;
+    else if(c.settings.enabled){var p=c.el.play();if(p&&p.catch)p.catch(function(){});}
     audioReport();
   }
   // A track ended (one on repeat loops instead): the next, or another at
@@ -906,7 +908,7 @@ $preload
     for(var i=0;i<c.list.length;i++)if(c.list[i].url===item.url)return audioStart(c,c.list[i]);
     c.list.push(item);audioSaved(c);audioStart(c,item);
   }
-  function pauseAudio(type){var c=channel(type);if(c.el)c.el.pause();}
+  function pauseAudio(type){var c=channel(type);c.suspended=false;if(c.el)c.el.pause();}
   function getCurrentAudio(type){
     var c=channel(type),el=c.el,src=c.current?c.current.url:'',title='';
     for(var i=0;i<c.list.length;i++)if(c.list[i].url===src){title=c.list[i].title;break;}
@@ -938,7 +940,9 @@ $preload
   };
   // The app out of sight: what is playing stops, and goes on when it is back
   // (the person did not pause it). A player paused by then stays paused.
+  var audioHidden=false;
   dsh.audioSuspend=function(on){
+    audioHidden=!!on;
     ['bgm','ambient'].forEach(function(t){
       var c=channel(t),el=c.el;if(!el)return;
       if(on){if(!el.paused&&!el.ended){c.suspended=true;el.pause();}}

@@ -36,6 +36,9 @@ class TavernToasts {
       SnackBar(
         key: const ValueKey('tavern-canvas-toast'),
         content: _Countdown(
+          // Its own each time: a bar that takes an old one's place in the
+          // messenger never keeps that one's count.
+          key: UniqueKey(),
           toast: _toast,
           onDone: () {
             if (identical(_bar, bar)) _leaving = true;
@@ -107,7 +110,7 @@ final class _Toast {
 /// Puts the notice away once its words have been up their time: counted from
 /// when it is on screen, and from the start again for new words.
 class _Countdown extends StatefulWidget {
-  const _Countdown({required this.toast, required this.onDone, required this.child});
+  const _Countdown({super.key, required this.toast, required this.onDone, required this.child});
 
   final ValueNotifier<_Toast> toast;
   final VoidCallback onDone;
@@ -119,10 +122,17 @@ class _Countdown extends StatefulWidget {
 
 class _CountdownState extends State<_Countdown> {
   Timer? _timer;
+  bool _done = false;
 
+  /// Counted from the start for new words, until it has gone off once: a
+  /// notice on its way out does not count again.
   void _count() {
+    if (_done) return;
     _timer?.cancel();
-    _timer = Timer(widget.toast.value.lasts, widget.onDone);
+    _timer = Timer(widget.toast.value.lasts, () {
+      _done = true;
+      widget.onDone();
+    });
   }
 
   @override

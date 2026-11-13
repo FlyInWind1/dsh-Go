@@ -21361,7 +21361,7 @@ class L10nZh extends L10n {
   String get tavernGroupErrorInvalidOrder => '排的顺序和群里的成员对不上，请重新打开再排';
 
   @override
-  String get tavernGroupErrorHostInUse => '这个角色是群聊的群主，先换群主或删掉那个群聊';
+  String get tavernGroupErrorHostInUse => '这个角色是一个群聊的群主，先删掉那个群聊';
 
   @override
   String get updateCheck => '检查更新';

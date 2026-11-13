@@ -1130,6 +1130,6 @@
   "tavernGroupErrorInvalidTalkativeness": "话多程度要在 0 到 1 之间",
   "tavernGroupErrorInvalidLimit": "每轮至少要有一个人说话",
   "tavernGroupErrorInvalidOrder": "排的顺序和群里的成员对不上，请重新打开再排",
-  "tavernGroupErrorHostInUse": "这个角色是群聊的群主，先换群主或删掉那个群聊",
+  "tavernGroupErrorHostInUse": "这个角色是一个群聊的群主，先删掉那个群聊",
   "@tavernGroupSaveFailed": {"placeholders": {"reason": {"type": "String"}}}
 }

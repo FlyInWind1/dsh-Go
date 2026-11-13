@@ -6491,7 +6491,7 @@
   "tavernGroupErrorInvalidTalkativeness": "Talkativeness goes from 0 to 1",
   "tavernGroupErrorInvalidLimit": "At least one member speaks each round",
   "tavernGroupErrorInvalidOrder": "That order doesn't match the members; open it again and reorder",
-  "tavernGroupErrorHostInUse": "This character hosts a group chat; change the host or delete that chat first",
+  "tavernGroupErrorHostInUse": "This character hosts a group chat; delete that chat first",
   "updateCheck": "Check for updates",
   "updateAutoCheck": "Check automatically",
   "updateAutoCheckDaily": "Once a day",

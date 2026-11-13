@@ -22535,8 +22535,7 @@ class L10nEn extends L10n {
   String get tavernGroupErrorInvalidOrder => 'That order doesn\'t match the members; open it again and reorder';
 
   @override
-  String get tavernGroupErrorHostInUse =>
-      'This character hosts a group chat; change the host or delete that chat first';
+  String get tavernGroupErrorHostInUse => 'This character hosts a group chat; delete that chat first';
 
   @override
   String get updateCheck => 'Check for updates';

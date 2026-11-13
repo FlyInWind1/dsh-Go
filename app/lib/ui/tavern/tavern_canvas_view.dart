@@ -100,7 +100,12 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   /// The app out of sight: the card's music waits for it to be back.
   late final TavernCanvasAudioLifecycle _audioLifecycle;
 
+  /// Whether the app is out of sight: a page that comes up meanwhile is told
+  /// so before anything on it plays.
+  bool _hidden = false;
+
   void _suspendAudio(bool on) {
+    _hidden = on;
     final controller = _controller;
     if (!_ready || controller == null) return;
     unawaited(controller.runJavaScript('window.dsh&&dsh.audioSuspend($on)').catchError((_) {}));
@@ -272,6 +277,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _streamSent = null;
         _avatars.reset();
         _audio?.report(null);
+        if (_hidden) _suspendAudio(true);
         _pushPersonas();
         _pushAudio();
         _render();
