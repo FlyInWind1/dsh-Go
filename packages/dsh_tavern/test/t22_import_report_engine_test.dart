@@ -481,6 +481,7 @@ class _NoModel extends TavernModelClient {
     required TavernModelConfig config,
     required Map<String, Object?> body,
     required ModelCancellation cancellation,
+    void Function(int attempt)? onRequestStarted,
   }) async* {
     calls++;
     throw StateError('Import inspection must never invoke the model.');

@@ -357,7 +357,12 @@ class _GroupCoordinator {
     return (await read(id))!;
   }
 
-  Stream<TavernGroupEvent> send(String chatId, String input, {String? speakerCharacterId}) {
+  Stream<TavernGroupEvent> send(
+    String chatId,
+    String input, {
+    String? speakerCharacterId,
+    void Function(_GroupRound)? onAdmitted,
+  }) {
     late StreamController<TavernGroupEvent> controller;
     _GroupRound? admitted;
     controller = StreamController<TavernGroupEvent>(
@@ -399,6 +404,7 @@ class _GroupCoordinator {
           admitted = round;
           round.observers.add(controller);
           rounds[chatId] = round;
+          onAdmitted?.call(round);
           round.emit(TavernGroupStarted(round.progress));
           unawaited(_run(round));
         } catch (error) {

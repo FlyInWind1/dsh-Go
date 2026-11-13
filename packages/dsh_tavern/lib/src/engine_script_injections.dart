@@ -417,6 +417,7 @@ class _ScriptInjectionRegistry {
     List<_ScriptInjectionCandidate> candidates, {
     required String generationId,
     required ModelCancellation cancellation,
+    void Function(Object request, List<TavernScriptIssue> issues, bool committed)? onObservedIssues,
   }) async {
     final used = <_ScriptInjectionCandidate>[];
     final hookIssues = <TavernScriptIssue>[];
@@ -436,7 +437,15 @@ class _ScriptInjectionRegistry {
           );
         }
         final ref = candidate.injection!.filter;
-        if (ref == null || await _invokeFilter(ref, candidate, generationId, cancellation, hookIssues)) {
+        if (ref == null ||
+            await _invokeFilter(
+              ref,
+              candidate,
+              generationId,
+              cancellation,
+              hookIssues,
+              onObservedIssues: onObservedIssues,
+            )) {
           used.add(candidate);
         }
       }
@@ -476,8 +485,9 @@ class _ScriptInjectionRegistry {
     _ScriptInjectionCandidate candidate,
     String generationId,
     ModelCancellation cancellation,
-    List<TavernScriptIssue> hookIssues,
-  ) async {
+    List<TavernScriptIssue> hookIssues, {
+    void Function(Object request, List<TavernScriptIssue> issues, bool committed)? onObservedIssues,
+  }) async {
     final context = owner.contexts[ref.contextId];
     if (context == null || context.closed || context.value.instanceId != ref.instanceId || ref.callbackId.isEmpty) {
       throw _filterFailure(
@@ -524,6 +534,9 @@ class _ScriptInjectionRegistry {
       } catch (error) {
         final issues = error is TavernScriptException ? error.issues : const <TavernScriptIssue>[];
         final committed = error is TavernScriptException && error.committed;
+        // Only the outcome which won Future.any reaches this boundary. A
+        // subsequent owner/host check cannot erase its already received facts.
+        onObservedIssues?.call(request, issues, committed);
         if (context.closed || context.value.instanceId != ref.instanceId) {
           throw _filterFailure(
             TavernScriptErrorCode.callbackUnavailable,
@@ -563,6 +576,7 @@ class _ScriptInjectionRegistry {
           committed: committed,
         );
       }
+      if (result != null) onObservedIssues?.call(request, result.issues, false);
       if (context.closed || context.value.instanceId != ref.instanceId) {
         throw _filterFailure(
           TavernScriptErrorCode.callbackUnavailable,

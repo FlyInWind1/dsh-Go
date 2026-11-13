@@ -38,6 +38,9 @@ import 'regex/regex_engine.dart';
 import 'regex/regex_worker.dart';
 import 'regex_library.dart';
 import 'scripts.dart';
+import 'slash/slash_language.dart';
+import 'slash/st_fuse.dart';
+import 'slash/st_output_cleanup.dart';
 import 'state.dart';
 import 'state/state_engine.dart' as state_core;
 import 'story/story_engine.dart' as story_core;
@@ -63,6 +66,23 @@ part 'engine_script_generation_commit.dart';
 part 'engine_script_prompt.dart';
 part 'engine_script_injections.dart';
 part 'engine_script_regex.dart';
+part 'engine_slash_types.dart';
+part 'engine_slash_execution.dart';
+part 'engine_slash_effects.dart';
+part 'engine_slash_chat_effects.dart';
+part 'engine_slash_handlers.dart';
+part 'engine_slash_messages.dart';
+part 'engine_slash_native.dart';
+part 'engine_slash_injections.dart';
+part 'engine_slash_worldinfo.dart';
+part 'engine_slash_returns.dart';
+part 'engine_slash_generation.dart';
+part 'engine_slash_output.dart';
+part 'engine_slash_host.dart';
+part 'engine_slash_generation_lock.dart';
+part 'engine_script_resources.dart';
+part 'slash/st_name_matching.dart';
+part 'slash/st_message_bias.dart';
 
 /// App convenience factory. [directory] is the actual tavern data directory,
 /// normally `<app support>/tavern`. No extra path component is appended.
@@ -2213,6 +2233,10 @@ class TavernEngine implements Tavern {
     Map<String, Object?> raw, {
     String? stWorldName,
     TavernImportReport? importReport,
+    Map<String, Object?>? preservedEnvelope,
+    void Function()? check,
+    void Function()? onStarted,
+    void Function()? onRenamed,
   }) async {
     final sourceName = stWorldName ?? _bookSourceNames[id];
     final report = importReport ?? _bookImportReports[id];
@@ -2220,20 +2244,25 @@ class TavernEngine implements Tavern {
     // legacy books have entries at the root; this local envelope does not.
     await _writeJson(
       File('${directory.path}/lorebooks/$id.json'),
-      sourceName == null && report == null
+      sourceName == null && report == null && preservedEnvelope == null
           ? raw
           : {
+              ...?preservedEnvelope,
               'format': 'dshgo-lorebook',
               'version': 1,
               'stWorldName': ?sourceName,
               if (report != null) 'importReport': report.toJson(),
               'book': raw,
             },
+      check: check,
+      onStarted: onStarted,
+      onRenamed: onRenamed,
     );
     _bookRevisions.update(id, (revision) => revision + 1, ifAbsent: () => 1);
     _books[id] = _copy(raw);
     if (sourceName != null) _bookSourceNames[id] = sourceName;
     if (report != null) _bookImportReports[id] = report;
+    _scripts.scriptResourceBookCommitted(id, raw);
   }
 
   @override
@@ -2286,6 +2315,7 @@ class TavernEngine implements Tavern {
       _books.remove(id);
       _bookSourceNames.remove(id);
       _bookImportReports.remove(id);
+      _scripts.scriptResourceBookCommitted(id, null);
     });
   });
 
@@ -2494,13 +2524,22 @@ class TavernEngine implements Tavern {
     }
   }
 
-  Future<void> _writeJson(File file, Map<String, Object?> json) {
+  Future<void> _writeJson(
+    File file,
+    Map<String, Object?> json, {
+    void Function()? check,
+    void Function()? onStarted,
+    void Function()? onRenamed,
+  }) {
     final text = jsonEncode(json);
     final result = _fileQueue.then((_) async {
+      check?.call();
+      onStarted?.call();
       await file.parent.create(recursive: true);
       final temporary = File('${file.path}.writing');
       await temporary.writeAsString(text, flush: true);
       await temporary.rename(file.path);
+      onRenamed?.call();
     });
     _fileQueue = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return result;
@@ -3091,7 +3130,13 @@ class TavernEngine implements Tavern {
     _turns[chatId]?.cancellation.cancel();
   }
 
-  Stream<TavernEvent> _streamTurn(String chatId, _TurnKind kind, {String input = '', String? nodeId}) {
+  Stream<TavernEvent> _streamTurn(
+    String chatId,
+    _TurnKind kind, {
+    String input = '',
+    String? nodeId,
+    void Function(_Turn)? onAdmitted,
+  }) {
     late StreamController<TavernEvent> controller;
     _Turn? turn;
     controller = StreamController<TavernEvent>(
@@ -3175,6 +3220,7 @@ class TavernEngine implements Tavern {
           }
           _turns[chatId] = running;
           _setInspection(running, running.inspection);
+          onAdmitted?.call(running);
           unawaited(_run(running));
         } catch (error) {
           controller.add(TavernTurnFailed(TavernFailure.server, detail: _safeDetail(error)));
@@ -4716,6 +4762,7 @@ class _MacroEnvironment {
     this.macroHistory,
     this.onCharacterDependency,
     this.prepareCharacterFieldsOnDemand = false,
+    this.collapseNewlinesOverride,
   }) {
     final raw = _map(settings['preset']);
     _presetSettings = (preset ?? (raw.isEmpty ? ChatPreset.stDefault() : ChatPreset(raw))).settings;
@@ -4729,6 +4776,7 @@ class _MacroEnvironment {
   final List<MacroMessage>? macroHistory;
   final void Function(String)? onCharacterDependency;
   final bool prepareCharacterFieldsOnDemand;
+  final bool? collapseNewlinesOverride;
   final TavernModelConfig config;
   final DateTime now;
   final double Function() random;
@@ -4799,7 +4847,7 @@ class _MacroEnvironment {
     extensions: _strings(settings['extensions']).toSet(),
     preferCharacterPrompt: _presetSettings['prefer_character_prompt'] != false,
     preferCharacterJailbreak: _presetSettings['prefer_character_jailbreak'] != false,
-    collapseNewlines: settings['collapseNewlines'] == true,
+    collapseNewlines: collapseNewlinesOverride ?? settings['collapseNewlines'] == true,
     systemPromptOverride: settings['systemPromptOverride'] as String?,
     scenarioOverride: settings['scenarioOverride'] as String?,
     mesExamplesOverride: settings['mesExamplesOverride'] as String?,

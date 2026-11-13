@@ -11,6 +11,26 @@ extension _ScriptGenerationCommit on _ScriptCoordinator {
           for (final node in engine._historyTo(chatId, chat.currentLeafId)) node.message.nodeId,
         ]);
       }
+      if (field == 'metadataSource') {
+        return _scriptRuntimeFingerprint(_slashMetadataSource(chat).source);
+      }
+      if (field == 'metadata:world_info') {
+        final selected = _slashMetadataSource(chat);
+        return _scriptRuntimeFingerprint([
+          selected.source,
+          selected.metadata.containsKey('world_info'),
+          selected.metadata['world_info'],
+        ]);
+      }
+      if (field == 'settings:stLorebookIds') {
+        return _scriptRuntimeFingerprint([chat.settings.containsKey('stLorebookIds'), chat.settings['stLorebookIds']]);
+      }
+      if (field == 'settings:lorebooks.chat') {
+        final books = chat.settings['lorebooks'];
+        return _scriptRuntimeFingerprint(
+          books is Map<String, Object?> ? [books.containsKey('chat'), books['chat']] : ['container', books],
+        );
+      }
       final metadata = engine._chatCodec.metadataForNode(engine._store, chatId);
       final state = chat.currentLeafId == null && engine._store.groupChat(chatId) == null
           ? _emptyChatState(metadata)
@@ -30,12 +50,14 @@ extension _ScriptGenerationCommit on _ScriptCoordinator {
     }
   }
 
-  String _generationFieldVersion(String chatId, String field) {
+  String _generationFieldVersion(String chatId, String field) =>
+      _generationFieldVersionForFingerprint(chatId, field, _generationFieldFingerprint(chatId, field));
+
+  String _generationFieldVersionForFingerprint(String chatId, String field, String fingerprint) {
     final chat = _generationChatObservations.putIfAbsent(
       chatId,
       () => _ScriptChatObservation(++_nextGenerationObservation),
     );
-    final fingerprint = _generationFieldFingerprint(chatId, field);
     final value = chat.fields.putIfAbsent(field, () => _ScriptObservedValue(fingerprint));
     value.observe(fingerprint);
     return '$epoch:preparation:${chat.identity}:$field:${value.revision}';
@@ -107,23 +129,29 @@ extension _ScriptGenerationCommit on _ScriptCoordinator {
     return _persistentInjectionToken(chat, entry);
   }
 
-  Future<_ScriptGenerationCapture> _captureGeneration(_ScriptGenerationRecord record) async {
+  Future<_ScriptGenerationCapture> _captureGeneration(
+    _ScriptGenerationRecord record, {
+    bool includeInjections = true,
+    _ScriptGenerationNeeds? needsOverride,
+  }) async {
     final context = _context(record.context.value.id);
     final request = record.request;
     final chatId = context.value.chatId;
     final chat = chatId == null ? null : engine._store.chat(chatId);
-    if (request is! TavernScriptRawRequest && chat == null) {
+    if (request is! TavernScriptRawRequest && chat == null && record.slashSpec?.raw != true) {
       throw _scriptError(TavernScriptErrorCode.noContext, 'generate', 'Normal generation requires a chat.');
     }
     final metadata = chat == null ? <String, Object?>{} : engine._chatCodec.metadataForNode(engine._store, chat.id);
     final persistentSource = chat == null ? null : engine._chatCodec.metadataSourceForNode(engine._store, chat.id);
-    final candidates = injectionRegistry.capture(
-      chatId: chatId,
-      metadata: metadata,
-      persistentSource: persistentSource,
-      request: request.injects,
-    );
-    final needs = generationNeeds(request, candidates);
+    final candidates = includeInjections
+        ? injectionRegistry.capture(
+            chatId: chatId,
+            metadata: metadata,
+            persistentSource: persistentSource,
+            request: request.injects,
+          )
+        : <_ScriptInjectionCandidate>[];
+    final needs = needsOverride ?? generationNeeds(request, candidates);
     final stateNeeded = needs.history || needs.worldInfo;
     final anchor = stateNeeded ? chat?.currentLeafId : null;
     final group = chat == null ? null : engine._store.groupChat(chat.id);
@@ -172,8 +200,11 @@ extension _ScriptGenerationCommit on _ScriptCoordinator {
     }
     final actorId =
         request.speakerCharacterId ?? context.value.characterId ?? (group == null ? chat?.characterId : null);
+    // D-B3-QUIET-ACTOR-02: only a real private quiet strategy may select a
+    // uniquely resolved actor outside this group; public B2 keeps its guard.
     if (group != null &&
         request.speakerCharacterId != null &&
+        record.slashSpec?.raw != false &&
         !group.members.any((member) => member.characterId == request.speakerCharacterId)) {
       throw _scriptError(
         TavernScriptErrorCode.noContext,
@@ -222,157 +253,63 @@ extension _ScriptGenerationCommit on _ScriptCoordinator {
     );
   }
 
-  void _checkGenerationTargets(_ScriptPreparedGeneration prepared, {bool global = true, bool chat = true}) {
+  _ScriptEffectPlan _generationEffectPlan(_ScriptPreparedGeneration prepared) {
     final capture = prepared.capture;
-    _context(capture.context.value.id);
-    if (global && capture.global.hasIntents) {
-      final committed = _variableVersion(
-        const TavernVariableTarget(scope: TavernVariableScope.global),
-        _fieldVariable(engine._document, 'globalVariables'),
-      );
-      if (capture.observation.globalRuntime != engine._globalVariables.observation ||
-          capture.observation.globalCommitted != committed) {
-        throw _scriptError(
-          TavernScriptErrorCode.revisionConflict,
-          'generate',
-          'Global runtime, pending intent or committed value changed.',
-        );
-      }
-    }
-    if (!chat || prepared.chatTargets.isEmpty) return;
-    final chatId = capture.chat?.id;
-    if (chatId == null || !capture.capturedChatState) {
-      throw _scriptError(TavernScriptErrorCode.noContext, 'generate', 'Preparation needs a captured chat state.');
-    }
-    final active = engine._turns[chatId];
-    if (active != null && active.nativePreparationStarted && !active.modelDrained.isCompleted) {
-      throw _scriptError(TavernScriptErrorCode.busy, 'generate', 'A native turn still owns the preparation state.');
-    }
-    if (capture.observation.selection != _generationFieldVersion(chatId, 'selection')) {
-      throw _scriptError(TavernScriptErrorCode.revisionConflict, 'generate', 'The captured selection changed.');
-    }
-    for (final target in prepared.chatTargets) {
-      if (!const {'local', 'timedWorldInfo', 'decoratorState', 'stChatIdHash'}.contains(target)) {
-        throw _scriptError(
-          TavernScriptErrorCode.reservedField,
-          'generate',
-          'Preparation cannot replace this state field.',
-        );
-      }
-      if (capture.observation.targets[target] != _generationFieldVersion(chatId, target)) {
-        throw _scriptError(TavernScriptErrorCode.revisionConflict, 'generate', 'A preparation target changed.');
-      }
-    }
-  }
-
-  Future<T> _generationChatWrite<T>(String chatId, T Function() action) {
-    final previous = engine._mutations[chatId] ?? Future<void>.value();
-    final released = Completer<void>();
-    engine._mutations[chatId] = released.future;
-    return () async {
-      try {
-        await previous;
-        return action();
-      } finally {
-        if (identical(engine._mutations[chatId], released.future)) {
-          unawaited(engine._mutations.remove(chatId));
-        }
-        released.complete();
-      }
-    }();
+    return _ScriptEffectPlan(
+      context: capture.context,
+      operation: 'generate',
+      global: capture.global,
+      local: capture.local,
+      observation: capture.observation,
+      chatId: capture.chat?.id,
+      anchor: capture.anchor,
+      capturedChatState: capture.capturedChatState,
+      stateUpdates: prepared.stateUpdates,
+      stChatIdHash: prepared.stChatIdHash,
+      hasHashUpdate: prepared.hasHashUpdate,
+    );
   }
 
   Future<void> _commitGeneration(_ScriptGenerationRecord record, _ScriptPreparedGeneration prepared) async {
-    final capture = prepared.capture;
+    final plan = _generationEffectPlan(prepared);
     final receipt = record.receipt;
-    if (capture.global.hasIntents) receipt.requiredTargets.add('global');
-    if (prepared.chatTargets.isNotEmpty) receipt.requiredTargets.add('chat');
+    receipt.requiredTargets.addAll(plan.carriers);
     record.cancellation.check();
     receipt.phase = 'accept';
-    _checkGenerationTargets(prepared);
+    _checkScriptEffectTargets(plan);
     receipt.claimedInjectionVersions.addAll(injectionRegistry.claim(prepared.injectionUses, generationId: record.id));
     receipt.accepted = true;
     record.status = TavernScriptGenerationStatus.accepted;
-    if (capture.global.hasIntents) {
-      receipt.phase = 'global';
-      record.cancellation.check();
-      await engine._settingsDocument((document) async {
-        record.cancellation.check();
-        receipt.startedTargets.add('global');
-        receipt.failedTarget = 'global';
-        _checkGenerationTargets(prepared, chat: false);
-        final through = engine._globalVariables.revision;
-        final runtime = capture.global.applyTo(engine._globalVariables.project(through));
-        final value = _copy(runtime);
-        final sameJson = _stateJsonEqual(value, document['globalVariables']);
-        if (sameJson) {
-          engine._adoptGlobals(runtime, through);
-          receipt.persistedTargets.add({'targetKind': 'global', 'status': 'adopted'});
-        } else {
-          final next = _copy(document)..['globalVariables'] = value;
-          await engine._commitSettingsDocument(
-            next,
-            globals: (runtime: runtime, through: through),
-            onCommitted: () {
-              receipt.persistedTargets.add({'targetKind': 'global', 'status': 'written'});
-              receipt.failedTarget = null;
-            },
-          );
-        }
-        receipt.failedTarget = null;
-      });
-    }
-    if (prepared.chatTargets.isNotEmpty) {
-      receipt.phase = 'chat';
-      record.cancellation.check();
-      final chatId = capture.chat!.id;
-      await _generationChatWrite(chatId, () {
-        record.cancellation.check();
-        receipt.startedTargets.add('chat');
-        receipt.failedTarget = 'chat';
-        _checkGenerationTargets(prepared, global: false);
-        final chat = engine._store.chat(chatId);
-        final group = engine._store.groupChat(chatId);
-        final metadata = engine._chatCodec.metadataForNode(engine._store, chatId);
-        final state = capture.anchor == null && group == null
-            ? _emptyChatState(metadata)
-            : engine._stateAt(chatId, capture.anchor);
-        final live = engine._liveVariables[chatId];
-        final current = live != null && live.leaf == capture.anchor
-            ? live.values
-            : state.containsKey('variables')
-            ? _map(state['variables'])
-            : chat.variables;
-        final local = capture.local.hasIntents ? capture.local.applyTo(current) : _runtimeCopy(current);
-        if (capture.local.hasIntents) state['variables'] = _copy(local);
-        for (final entry in prepared.stateUpdates.entries) {
-          state[entry.key] = _copy({'value': entry.value})['value'];
-        }
-        if (prepared.hasHashUpdate) state['stChatIdHash'] = prepared.stChatIdHash;
-        final adopted = (leaf: capture.anchor, values: local);
-        engine._store.transaction(
-          () {
-            if (capture.anchor != null) {
-              engine._store.writeNodeState(chatId, capture.anchor!, state);
-              engine._writeNodeState(chatId, capture.anchor!, state);
-            } else if (group != null) {
-              engine._store.setGroupInitialState(chatId, state);
-            }
-            engine._store.updateChat(chatId, variables: _copy(local), metadata: _runtimeMetadata(chat.metadata, state));
-          },
-          onCommitted: () {
-            engine._liveVariables[chatId] = adopted;
-            receipt.persistedTargets.add({
-              'targetKind': 'chat',
-              'chatId': chatId,
-              if (capture.anchor != null) 'nodeId': capture.anchor,
-              'status': 'written',
-            });
-            receipt.failedTarget = null;
-          },
-        );
-      });
-    }
+    record.slashSpec?.onPreparationAccepted(record, prepared);
+    await _commitScriptEffectPlan(
+      plan,
+      checkAlive: record.cancellation.check,
+      signals: _ScriptCarrierSignals(
+        onEntering: (kind) {
+          receipt.phase = kind;
+        },
+        onStarted: (kind) {
+          receipt.startedTargets.add(kind);
+          receipt.failedTarget = kind;
+          record.slashSpec?.onCarrierStarted(record, kind);
+        },
+        onCommitted: (kind, status) {
+          receipt.persistedTargets.add({
+            'targetKind': kind,
+            if (kind == 'chat') 'chatId': plan.chatId!,
+            if (kind == 'chat' && plan.anchor != null) 'nodeId': plan.anchor,
+            'status': status,
+          });
+          receipt.failedTarget = null;
+        },
+        onAdopted: (adoption) {
+          record.slashSpec?.onCarrierAdopted(record, adoption);
+        },
+        onFinished: (_) {
+          receipt.failedTarget = null;
+        },
+      ),
+    );
     if (receipt.persistedTargets.isNotEmpty) resourcesChanged();
   }
 }

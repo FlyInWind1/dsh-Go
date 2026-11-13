@@ -97,9 +97,10 @@ class _BindingModel extends T24Model {
     required TavernModelConfig config,
     required Map<String, Object?> body,
     required ModelCancellation cancellation,
+    void Function(int attempt)? onRequestStarted,
   }) {
     atEntry?.call();
-    return super.generate(config: config, body: body, cancellation: cancellation);
+    return super.generate(config: config, body: body, cancellation: cancellation, onRequestStarted: onRequestStarted);
   }
 }
 

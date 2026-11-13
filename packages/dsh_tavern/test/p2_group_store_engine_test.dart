@@ -494,6 +494,7 @@ class _UnexpectedModel extends TavernModelClient {
     required TavernModelConfig config,
     required Map<String, Object?> body,
     required ModelCancellation cancellation,
+    void Function(int attempt)? onRequestStarted,
   }) {
     calls++;
     throw StateError('Storage operations must not generate.');

@@ -887,6 +887,7 @@ extension _ScriptVariableVersions on _ScriptCoordinator {
     if (_closed) {
       return;
     }
+    scriptResourceCardCommitted(id, data);
     for (final entry in _variableVersions.values) {
       final target = entry.target;
       if (target.scope == TavernVariableScope.character && target.characterId == id) {

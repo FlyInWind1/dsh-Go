@@ -69,6 +69,7 @@ extension _ScriptPromptPreparation on _ScriptCoordinator {
     ModelCancellation cancellation, {
     void Function(String)? onBudgetSource,
     void Function(String)? onPhase,
+    _SlashQuietPreparation? quiet,
   }) async {
     onPhase?.call('capture');
     if (capture.config.deepseek && capture.request.samplingOverrides.containsKey('seed')) {
@@ -82,18 +83,23 @@ extension _ScriptPromptPreparation on _ScriptCoordinator {
     for (final injection in capture.request.injects) {
       injectionRegistry.validateCallbackOwner(injection, capture.context);
     }
-    _scriptCheckPromptSources(capture);
+    if (quiet == null) {
+      _scriptCheckPromptSources(capture);
+    } else {
+      quiet.checkSources(capture);
+    }
     final worldBooks = await _scriptCaptureWorldBooks(this, capture, cancellation);
     onPhase?.call('filter');
     final uses = await injectionRegistry.filter(
       capture.injectionCandidates,
       generationId: capture.generationId,
       cancellation: cancellation,
+      onObservedIssues: quiet?.spec.observeHostOutcome,
     );
     try {
       cancellation.check();
       onPhase?.call('assemble');
-      final run = _ScriptPromptRun(this, capture, cancellation, uses, worldBooks);
+      final run = _ScriptPromptRun(this, capture, cancellation, uses, worldBooks, quiet: quiet);
       onBudgetSource?.call(run.budgetSource);
       try {
         return await run.prepare();
@@ -268,7 +274,7 @@ void _scriptCheckPromptSources(_ScriptGenerationCapture capture) {
 }
 
 class _ScriptPromptRun {
-  _ScriptPromptRun(this.owner, this.capture, this.cancellation, this.uses, this.worldBooks)
+  _ScriptPromptRun(this.owner, this.capture, this.cancellation, this.uses, this.worldBooks, {this.quiet})
     : overrides = capture.request.overrides.fields,
       macroHistory = List.of(capture.history),
       promptHistory = List.of(capture.history),
@@ -321,7 +327,7 @@ class _ScriptPromptRun {
               node: capture.history.lastOrNull,
             ),
       inputRequested ? request.userInput : '',
-      'normal',
+      generationType,
       chatIdHash: initialHash,
       pickRerollSeed: capture.metadata['pick_reroll_seed'],
       characterId: capture.actorId ?? '',
@@ -332,6 +338,7 @@ class _ScriptPromptRun {
       macroHistory: capture.chat == null ? unavailableHistory : null,
       onCharacterDependency: capture.actorId == null ? _observeCharacterDependency : null,
       prepareCharacterFieldsOnDemand: raw,
+      collapseNewlinesOverride: quiet?.policy.cleanup.collapseNewlines,
     );
   }
 
@@ -340,6 +347,7 @@ class _ScriptPromptRun {
   final ModelCancellation cancellation;
   final _ScriptInjectionUseSet uses;
   final _ScriptWorldBooksSnapshot? worldBooks;
+  final _SlashQuietPreparation? quiet;
   final Map<String, Object?> overrides, card, settings;
   final List<StoredNode> macroHistory;
   final List<StoredNode> promptHistory;
@@ -362,6 +370,7 @@ class _ScriptPromptRun {
   final configuredScan = <String>[];
   int _pieceSerial = 0;
   bool get raw => capture.request is TavernScriptRawRequest;
+  String get generationType => quiet == null ? 'normal' : 'quiet';
   bool get hasHistory => requested.contains(TavernScriptPromptPlaceholder.chatHistory);
   bool get inputRequested => requested.contains(TavernScriptPromptPlaceholder.userInput);
   bool get ordinaryInputSlot => !raw && inputRequested && capture.request.userInput.isNotEmpty;
@@ -389,6 +398,7 @@ class _ScriptPromptRun {
   };
 
   Future<_ScriptPreparedGeneration> prepare() async {
+    quiet?.prepareLeading(this);
     if (inputRequested && capture.request.userInput.isNotEmpty) {
       final regexed = environment.regex.apply(
         capture.request.userInput,
@@ -398,7 +408,9 @@ class _ScriptPromptRun {
       preparedInput = environment.expand(regexed, const {});
     }
     if (!raw) {
-      ordinaryFields = prepareCharacterFields(card, persona: environment.persona, expand: environment.baseExpand);
+      ordinaryFields =
+          quiet?.prepareFields(this) ??
+          prepareCharacterFields(card, persona: environment.persona, expand: environment.baseExpand);
       // Retain the ordinary eager phase in a private prompt copy. It never
       // edits the actual greeting or changes the independent WI clock input.
       if (promptHistory.isNotEmpty && !overrides.containsKey('chatHistory') && capture.request.maxChatHistory != 0) {
@@ -432,6 +444,7 @@ class _ScriptPromptRun {
         if (text.isNotEmpty) configuredScan.add(text);
       }
     }
+    quiet?.prepareWorldScan(this);
     final needWorld =
         !raw ||
         (requested.contains(TavernScriptPromptPlaceholder.worldInfoBefore) &&
@@ -451,6 +464,7 @@ class _ScriptPromptRun {
     if (unavailableHistory.accessed) _noContext('history macro');
     checkCharacterDependency();
     _applyFinalOptions(body);
+    quiet?.spec.applyWireOptions(body, capture.config);
     cancellation.check();
     final stateUpdates = <String, Object?>{};
     final evaluated = world;
@@ -583,6 +597,7 @@ class _ScriptPromptRun {
           if (inputRequested && preparedInput.isNotEmpty) preparedInput,
           ...configuredScan,
           ...shared.scanTexts,
+          if (quiet != null && quiet!.scanText.isNotEmpty) quiet!.scanText,
         ],
         personaDescription: prepared.persona,
         characterDescription: prepared['description'],
@@ -590,7 +605,7 @@ class _ScriptPromptRun {
         characterDepthPrompt: prepared['charDepthPrompt'],
         scenario: prepared['scenario'],
         creatorNotes: prepared['creator_notes'],
-        trigger: 'normal',
+        trigger: generationType,
         characterName: _characterFilename(settings, capture.actorId ?? ''),
         characterTags: _characterTags(settings, capture.actorId ?? ''),
         timedWorldInfo: _map(capture.state['timedWorldInfo']),
@@ -604,7 +619,7 @@ class _ScriptPromptRun {
                 if (requested.contains(TavernScriptPromptPlaceholder.charPersonality)) 'personality',
                 if (requested.contains(TavernScriptPromptPlaceholder.scenario)) 'scenario',
               }
-            : _availableWorldSections(promptPreset!, 'normal'),
+            : _availableWorldSections(promptPreset!, generationType),
         postProcessContent: (entry, content, depth) => environment.regex.apply(
           content,
           placement: RegexPlacement.worldInfo,
@@ -694,48 +709,51 @@ class _ScriptPromptRun {
         ),
       );
     }
-    final assembly = PromptAssembler(counter: owner.engine._counter).assemble(
-      PromptInput(
-        preset: promptPreset!,
-        card: card,
-        history: history,
-        model: capture.config.model,
-        userName: environment.userName,
-        characterId: capture.actorId ?? '',
-        groupNames: capture.groupView?.names ?? const [],
-        generationType: 'normal',
-        deepseek: capture.config.deepseek,
-        persona: environment.persona,
-        personaInPrompt: settings['personaInPrompt'] != false,
-        worldBefore: outlet('worldInfoBefore', evaluated.before),
-        worldAfter: outlet('worldInfoAfter', evaluated.after),
-        worldSections: {
-          for (final entry in evaluated.sections.entries) entry.key: entry.value.map(_worldFragment).toList(),
-        },
-        disabledUiPrompts: evaluated.disabledUiPrompts,
-        assistantPrefill: [
-          if (capture.config.deepseek && depthRequested)
-            for (final depth in evaluated.depths)
-              for (final hit in depth.entries)
-                if (_worldPrefill(hit)) _worldFragment(hit),
-        ],
-        injections: injections,
-        worldExamples: [
-          for (final item in examples.reversed)
-            if (item.$2.content.isNotEmpty &&
-                item.$2.section == null &&
-                (item.$2.position == 5 || item.$2.position == 6))
-              PromptExample(fragment: _worldFragment(item.$2), before: item.$2.position == 5),
-        ],
-        pinExamples: settings['pinExamples'] == true,
-        stripExamples: settings['stripExamples'] == true,
-        bias: _string(settings['bias']),
-        stops: _strings(settings['stops']),
-        expansion: environment.expand,
-        cardExpansion: environment.baseExpand,
-        preparedFields: fields,
-      ),
+    final input = PromptInput(
+      preset: promptPreset!,
+      card: card,
+      history: history,
+      model: capture.config.model,
+      userName: environment.userName,
+      characterId: capture.actorId ?? '',
+      groupNames: capture.groupView?.names ?? const [],
+      generationType: generationType,
+      deepseek: capture.config.deepseek,
+      persona: environment.persona,
+      personaInPrompt: settings['personaInPrompt'] != false,
+      worldBefore: outlet('worldInfoBefore', evaluated.before),
+      worldAfter: outlet('worldInfoAfter', evaluated.after),
+      worldSections: {
+        for (final entry in evaluated.sections.entries) entry.key: entry.value.map(_worldFragment).toList(),
+      },
+      disabledUiPrompts: evaluated.disabledUiPrompts,
+      assistantPrefill: [
+        if (capture.config.deepseek && depthRequested)
+          for (final depth in evaluated.depths)
+            for (final hit in depth.entries)
+              if (_worldPrefill(hit)) _worldFragment(hit),
+      ],
+      injections: injections,
+      worldExamples: [
+        for (final item in examples.reversed)
+          if (item.$2.content.isNotEmpty && item.$2.section == null && (item.$2.position == 5 || item.$2.position == 6))
+            PromptExample(fragment: _worldFragment(item.$2), before: item.$2.position == 5),
+      ],
+      pinExamples: settings['pinExamples'] == true,
+      stripExamples: settings['stripExamples'] == true,
+      quietPrompt: quiet?.quietPrompt ?? '',
+      bias: quiet?.bias ?? _string(settings['bias']),
+      stops: quiet == null ? _strings(settings['stops']) : const [],
+      expansion: environment.expand,
+      cardExpansion: quiet == null
+          ? environment.baseExpand
+          : (text, overrides) => quiet!.baseExpand(this, text, overrides),
+      preparedFields: fields,
     );
+    final assembler = PromptAssembler(counter: owner.engine._counter);
+    final assembly = quiet == null
+        ? assembler.assemble(input)
+        : assembleScriptPrompt(assembler, input, preparedStops: () => quiet!.wireStops(this));
     final excluded = <(String, String)>{
       for (final exclusion in assembly.excluded)
         if (exclusion.reason == 'v3-ignore-on-max-context')

@@ -99,6 +99,21 @@ final class PromptAssembler {
   PromptAssembly assemble(PromptInput input) => _AssemblyRun(input, counter).run();
 }
 
+/// Internal quiet adapter: call the already-prepared stop supplier once at
+/// the assembler's real stop stage, without filtering or expanding it again.
+/// Its bias admission uses the first prepared value and JS whitespace; the
+/// ordinary assemble/default raw paths retain their original behavior.
+PromptAssembly assembleScriptPrompt(
+  PromptAssembler assembler,
+  PromptInput input, {
+  required List<String> Function() preparedStops,
+}) => _AssemblyRun(
+  input,
+  assembler.counter,
+  preparedStops: preparedStops,
+  preparedBiasHasContent: trimJsWhitespace(input.bias).isNotEmpty,
+).run();
+
 final class _Prompt {
   _Prompt(
     this.id,
@@ -176,7 +191,8 @@ final class _DepthExtension {
 }
 
 final class _AssemblyRun {
-  _AssemblyRun(this.input, this.counter) : settings = input.preset.settings {
+  _AssemblyRun(this.input, this.counter, {this.preparedStops, this.preparedBiasHasContent})
+    : settings = input.preset.settings {
     type = input.generationType.trim().toLowerCase();
     if (type.isEmpty) type = 'normal';
     final extensions = settings['extensions'];
@@ -202,6 +218,8 @@ final class _AssemblyRun {
     remaining = budget - 3;
   }
   final PromptInput input;
+  final List<String> Function()? preparedStops;
+  final bool? preparedBiasHasContent;
   final PromptTokenCounter counter;
   final Map<String, Object?> settings;
   late final bool enhancedPrefillEnabled;
@@ -660,7 +678,7 @@ final class _AssemblyRun {
     for (final id in ['nsfw', 'jailbreak', ...relativeIds, 'enhanceDefinitions']) {
       addFixed(id);
     }
-    if (input.bias.trim().isNotEmpty) addFixed('bias');
+    if (preparedBiasHasContent ?? input.bias.trim().isNotEmpty) addFixed('bias');
     final absolute = prompts.where((prompt) => prompt.absolute).map((prompt) => prompt.copy()).toList();
     final depthExtensions = input.injections
         .where((injection) => injection.placement == PromptPlacement.inChat && injectionHasContent(injection))
@@ -797,7 +815,9 @@ final class _AssemblyRun {
             counter: counter,
           )
         : before;
-    final stops = input.stops.where((stop) => stop.isNotEmpty).map((stop) => expand(stop)).toList();
+    final stops = preparedStops == null
+        ? input.stops.where((stop) => stop.isNotEmpty).map((stop) => expand(stop)).toList()
+        : List<String>.of(preparedStops!());
     final body = input.deepseek
         ? deepSeekRequestBody(
             messages: after,
@@ -1288,11 +1308,28 @@ Map<String, Object?> explicitPromptRequestBody({
   required Map<String, Object?>? settings,
   required bool deepseek,
   required String model,
+  List<String> preparedStops = const [],
 }) => settings == null
-    ? {'model': model, 'messages': messages.map((message) => message.message).toList()}
+    ? {
+        'model': model,
+        'messages': messages.map((message) => message.message).toList(),
+        if (preparedStops.isNotEmpty) 'stop': preparedStops.take(4).toList(),
+      }
     : deepseek
-    ? deepSeekRequestBody(messages: messages, settings: settings, model: model, generationType: 'normal')
-    : genericChatRequestBody(messages: messages, settings: settings, model: model, generationType: 'normal');
+    ? deepSeekRequestBody(
+        messages: messages,
+        settings: settings,
+        model: model,
+        generationType: 'normal',
+        stops: preparedStops,
+      )
+    : genericChatRequestBody(
+        messages: messages,
+        settings: settings,
+        model: model,
+        generationType: 'normal',
+        stops: preparedStops,
+      );
 
 // JS trim's exact WhiteSpace/LineTerminator set. In particular U+0085 NEL is
 // meaningful text; Dart String.trim would incorrectly discard that prefix.

@@ -263,6 +263,84 @@ class CharacterLibrary {
     return jsonDecode(jsonEncode(record.card.data)) as Map<String, Object?>;
   }
 
+  /// Internal raw bridge read. The synchronous projection runs under the real
+  /// character queue so its data and observed target token cannot be mixed
+  /// with another adoption. It never opens the import/media for a raw read.
+  Future<T?> readAuthority<T>(String id, T Function(Map<String, Object?> data) project) => _exclusive(() async {
+    _requireId(id);
+    await _tidy();
+    final envelope = await _readAuthorityEnvelope(id);
+    if (envelope == null) return null;
+    return project(envelope['data']! as Map<String, Object?>);
+  });
+
+  /// Internal full-data/embedded-book writer. [prepare] is synchronous and is
+  /// called once against current authoritative data inside the queue. It owns
+  /// expected-version checks; it must neither await nor perform external I/O.
+  /// The adopted data is reported immediately after the real rename, before
+  /// the fallible derived summary. Original bytes and source format stay put.
+  Future<StoredCharacter> updateAuthority(
+    String id,
+    Map<String, Object?> Function(Map<String, Object?> current) prepare, {
+    void Function(Map<String, Object?> actual)? onCommitted,
+    void Function()? check,
+  }) => _exclusive(() async {
+    _requireId(id);
+    await _tidy();
+    final envelope = await _readAuthorityEnvelope(id);
+    if (envelope == null) throw const TavernImportError('角色不存在。');
+    final next = prepare(envelope['data']! as Map<String, Object?>);
+    final json = <String, Object?>{...envelope, 'data': jsonDecode(jsonEncode(next)) as Map<String, Object?>};
+    const CardCodec().validateAuthority(json);
+    final record = await _read(id);
+    if (record == null) throw const TavernImportError('角色不存在。');
+    final projection = const CardCodec().decode(Uint8List.fromList(utf8.encode(jsonEncode(json))));
+    final updated = StoredCharacter(
+      id: id,
+      card: TavernCard(
+        json: projection.json,
+        assets: record.card.assets,
+        png: record.card.png,
+        originalBytes: record.card.originalBytes,
+        sourceFormat: record.card.sourceFormat,
+      ),
+      importedAt: record.importedAt,
+      avatarPath: record.avatarPath,
+      directoryPath: record.directoryPath,
+    );
+    final summary = _summarize(updated);
+    final file = File('${_characters.path}/$id/card.json');
+    final pending = File('${file.path}.writing');
+    check?.call();
+    await _invalidateSummary(id);
+    try {
+      check?.call();
+      await pending.writeAsString(jsonEncode(json), flush: true);
+      await pending.rename(file.path);
+      final actual = json['data']! as Map<String, Object?>;
+      onCommitted?.call(actual);
+      cardCommitted?.call(id, actual);
+    } finally {
+      try {
+        if (await pending.exists()) await pending.delete();
+      } on FileSystemException {
+        // Pending cleanup is not a second authority adoption.
+      }
+    }
+    await _writeSummary(summary);
+    return updated;
+  });
+
+  Future<Map<String, Object?>?> _readAuthorityEnvelope(String id) async {
+    final directory = Directory('${_characters.path}/$id');
+    final type = await FileSystemEntity.type(directory.path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return null;
+    if (type != FileSystemEntityType.directory) {
+      throw const FileSystemException('Character folder is not a directory');
+    }
+    return const CardCodec().decodeAuthority(await File('${directory.path}/card.json').readAsBytes());
+  }
+
   /// Changes only the supplied editable fields. Empty strings/lists clear a
   /// field; null, unknown keys and values of the wrong type are rejected.
   ///
@@ -291,6 +369,8 @@ class CharacterLibrary {
   /// change. Other card extensions, assets, original bytes and identity stay
   /// intact. The engine supplies the latest detached extension document while
   /// owning its character queue; this does not broaden updateFields.
+  /// Persist from authority; decoder defaults belong only to the returned
+  /// runtime view, including defaults in an unrelated embedded book.
   Future<StoredCharacter> updateScriptStorage(String id, Map<String, Object?> extensions) {
     _requireId(id);
     final captured = jsonDecode(jsonEncode(extensions)) as Map<String, Object?>;
@@ -300,7 +380,10 @@ class CharacterLibrary {
       if (record == null) {
         throw const TavernImportError('角色不存在。');
       }
-      final json = jsonDecode(jsonEncode(record.card.json)) as Map<String, Object?>;
+      final json = await _readAuthorityEnvelope(id);
+      if (json == null) {
+        throw const TavernImportError('角色不存在。');
+      }
       final data = json['data']! as Map<String, Object?>;
       final previous = data['extensions'];
       if (previous != null && previous is! Map<String, Object?>) {
@@ -314,7 +397,7 @@ class CharacterLibrary {
         }
       }
       data['extensions'] = captured;
-      return _saveCard(record, json);
+      return _saveCard(record, json, runtimeProjection: true);
     });
   }
 
@@ -402,12 +485,19 @@ class CharacterLibrary {
     return _saveCard(record, json);
   });
 
-  Future<StoredCharacter> _saveCard(StoredCharacter record, Map<String, Object?> json) async {
+  Future<StoredCharacter> _saveCard(
+    StoredCharacter record,
+    Map<String, Object?> json, {
+    bool runtimeProjection = false,
+  }) async {
     (json['data']! as Map<String, Object?>)['modification_date'] = _now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    final runtimeJson = runtimeProjection
+        ? const CardCodec().decode(Uint8List.fromList(utf8.encode(jsonEncode(json)))).json
+        : json;
     final updated = StoredCharacter(
       id: record.id,
       card: TavernCard(
-        json: json,
+        json: runtimeJson,
         assets: record.card.assets,
         png: record.card.png,
         originalBytes: record.card.originalBytes,
@@ -426,7 +516,7 @@ class CharacterLibrary {
     try {
       await pending.writeAsString(jsonEncode(json), flush: true);
       await pending.rename(cardFile.path);
-      cardCommitted?.call(record.id, updated.card.data);
+      cardCommitted?.call(record.id, json['data']! as Map<String, Object?>);
     } finally {
       try {
         if (await pending.exists()) {

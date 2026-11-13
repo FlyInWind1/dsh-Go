@@ -1080,7 +1080,7 @@ App 的 `DeferredTavern` 要转发所有新群方法，Preview 由 owner 按完�
 
 # P2 B1：脚本数据桥与持久回复屏障
 
-`Tavern.scripts` 提供原生的 `TavernScriptBridge`。本节记录 B1 引入的 context/snapshot、消息与 swipe family、五个变量 scope、实际提交版本、可等待的主生命周期和 App host 接口。B1 当时的 `capabilities.adapterVersion` 是 `p2-b1`；本包在下节继续接入 B2，当前能力版本为 `p2-b2`。它不内置 JavaScript 引擎、不解析 MVU，也不实现 STscript 或 UI 命令；没有 host 时持久数据操作仍可使用，`hostAttached=false` 不伪造宿主成功 Ack。
+`Tavern.scripts` 提供原生的 `TavernScriptBridge`。本节记录 B1 引入的 context/snapshot、消息与 swipe family、五个变量 scope、实际提交版本、可等待的主生命周期和 App host 接口。B1 当时的 `capabilities.adapterVersion` 是 `p2-b1`，随后 B2 使用 `p2-b2`；本包当前候选继续接入末节的 B3，能力版本为 `p2-b3`。本包不内置 JavaScript 引擎、不解析 MVU；B3 的有限 STscript 与真实 App host 协议见末节。没有 host 时持久数据操作仍可使用，`hostAttached=false` 不伪造宿主成功 Ack。
 
 这些调用/事件边界遵循已交付 P2 API 和项目勘误，尤其派生通知、swipe 改长及主生命周期重入是项目协议，不声称它们都已由固定 helper 原件或实际 MVU 构建证明。当前作者只做源码实施与静态自读；本层 Dart 编译、analyze、测试、App 和 MVU 的实际结论以对应正式回件为准。
 
@@ -1165,7 +1165,7 @@ App 的 DeferredTavern 需新增 scripts 转发或稳定代理；同步 getter �
 
 # P2 B2：后台生成、注入与显式正则
 
-本层在同一个 `TavernScriptBridge` 增加九个入口：`generate`、`generateRaw`、`stopGenerationById`、`getTavernRegexes`、`formatAsTavernRegexedString`、`injectPrompts`、`uninjectPrompts`、`releaseInjectionLease`、`listInjections`。`capabilities.adapterVersion` 为 `p2-b2`，保留 B1 的十五方法和五 scope；`generationOptions` 只列已接入的十二个请求字段。本段陈述源码合同；编译、analyze、运行及 fixed helper/App/MVU 的实际结论仍以对应正式回件为准。
+本层在同一个 `TavernScriptBridge` 增加九个入口：`generate`、`generateRaw`、`stopGenerationById`、`getTavernRegexes`、`formatAsTavernRegexedString`、`injectPrompts`、`uninjectPrompts`、`releaseInjectionLease`、`listInjections`。B2 引入时的 `capabilities.adapterVersion` 为 `p2-b2`，保留 B1 的十五方法和五 scope；`generationOptions` 只列已接入的十二个请求字段。当前 B3 保留这些公开入口和请求字段。本段陈述源码合同；编译、analyze、运行及 fixed helper/App/MVU 的实际结论仍以对应正式回件为准。
 
 ## 请求、热 handle 与观察
 
@@ -1211,7 +1211,7 @@ persistent 来源是 chat metadata.script_injects，继续 JSONL/reopen；transi
 
 持久候选同步保存 raw 与实际 metadata 载体：native 的非当前 regenerate/continue 使用目标 node，后台调用使用捕获时的 current leaf。载体按既有 codec 的 sources[key]、首个有效 files/header、root 顺序解析一次；后续 COMMIT 观察与 claim 固定该实际载体和 rawId，不再改读当前页。目标真实 A→B→A 仍推进内部版本，单纯切页或另一 source 的修改不冒充该注入变化；若准备还实际写 history/WI/local，其原选路检查仍独立生效。raw literal 的 generation anchor 可为 null，但持久来源身份不因此丢失。内部 token 不是 helper lease/owner；原 SQL→claim 次序和一次 filter 保持。
 
-filter 只调用一次，并供 scan/prompt 共用同一结果和已准备文字；不持文件/SQL 锁等 host。callback 必须属于原 live context/instance，requestId 和 host 身份核对失败不是 false。持久 closure 属于尚未接入的 STscript 能力；实际需要它时报 unsupportedCapability，并在 list 中保留 raw/诊断。
+filter 只调用一次，并供 scan/prompt 共用同一结果和已准备文字；不持文件/SQL 锁等 host。callback 必须属于原 live context/instance，requestId 和 host 身份核对失败不是 false。持久载体中的序列化 closure 不恢复为可调用对象；实际需要执行它时仍报 unsupportedCapability，并在 list 中保留 raw/诊断。这与 B3 执行过程中有真实身份的私有 Closure 是不同来源。
 
 全部实际参与的 transient/persistent 注册都在接受点核精确版本；任一个变化则整批 revisionConflict。once 仅在完整准备后同步全领取；filter=false 不领取。scanOnly、展开为空、后续预算裁掉等已参与来源仍可领取；claim 后缺 key、HTTP 错误或取消不退还。claimed 记录以诊断状态保留，之后不再候选，不写入备份或 JSONL。raw inChat 在完整显式序列上定位，再做 provider 转换；非空 beforeMain/afterMain 缺 main 时明确失败。
 
@@ -1222,3 +1222,83 @@ native 单聊与每个群演员共用这张 registry。AFTER_COMMANDS 及直接�
 后台的 iframe STARTED、stream=true 时的正文 INCREMENTALLY/FULLY、ENDED 均独立发布，不等 Ack 才读 key、推进模型或完成 result。GENERATION_REQUESTED 仍由 App 在 Dart 调用前执行。事件 context.seq 与 handle event.seq 是不同序列。终态只冻结已知 hookIssues；迟到 Ack/失败仍通过 watchEvents 归属原 event/record，不修改旧 result。silent 只供 App 决定全局停止按钮的目标，显式 stopGenerationById 仍可停止它；Tavern.stop(chatId) 保持主回合/群范围。
 
 正则查询按 inline global、managed global、所选 context/显式 preset、明确 character 的真实来源投影，保留 raw、ST id、实际 managed engineId 和来源身份；同名规则不合并。formatter 的 source 是 RegexPlacement 整数，destination 仅 prompt/display；depth=null 完全不筛。两个 phase 都用脱离的 local/global/hash 和私有稳定 seed RNG，clock 仅捕获一次，不消耗主引擎随机序列、不写库。display 保留 worker 保护；prompt 在原同步执行循环取得 warnings/replacement count，不先预跑或伪装成 display。上述 raw、once、WI 时钟和 formatter 隔离是项目政策，未冒称 fixed helper 4.12 actual 对拍结论。
+
+# P2 B3：有限 STscript、宿主交互与原始资源
+
+本层在同一 bridge 增加七个入口，能力版本为 `p2-b3`。下述是候选源码合同；编译、静态诊断、Windows guard、真实 App 与提供方集成的结论分别以实际回件为准。能力集合不包含“运行已通过”之类的状态。
+
+| 方法 | 输入与实际边界 |
+| --- | --- |
+| `triggerSlash` | context、完整 source String、可选 executionId/pipe 和 `Map<String,String>` arguments；返回只有 id/events/result 的热执行 handle。 |
+| `stopScript` | 按活动 executionId 停止该真实 record 及它拥有的后台 child；返回是否找到尚未终结的执行。 |
+| `substituteMacros` | 普通 String 宏求值与真实 local/global/hash 提交，完成对应 cache 确认后返回 `Future<String>`；没有 Slash frame。 |
+| `replaceCharacterData` | characterId、完整 raw data object 与可选 expectedVersion；目标级 CAS、真实文件采用及原格式/外壳保全。 |
+| `getContextBooks` | 返回实际 global/persona/chat/character/group 绑定；不因只读查询自动建书或迁移绑定。 |
+| `readBook` | standalone/embedded tagged ref；返回脱离的 raw book 与同次读取的 version，缺失资源或坏形状明确失败。 |
+| `replaceBook` | tagged ref、完整 raw book object 与可选 expectedVersion；走实际资源队列、CAS 和文件采用。 |
+
+## 命令与语言
+
+批准拼写共41个、38个语义族：
+
+```text
+setvar getvar addvar incvar setglobalvar getglobalvar flushvar
+if while times run pass return break abort
+gen genraw trigger
+send sendas sys nar comment
+inject listinjects flushinject flushinjects
+echo input buttons popup setinput
+hide unhide messages cut del
+getchatbook findentry createentry setentryfield
+```
+
+只有 return→pass、nar→sys、flushinjects→flushinject 三组别名。`/:` 是 run 的结构糖，不增加 capability 拼写。命令只支持本层已批准的有限参数与格式；未知普通命令或封闭 named 选项在实际执行该命令、求它的参数效果之前失败。完整源码先完成语法解析，因此后段语法错不会让前段先写入；未选 lazy 分支中的普通未知命令保持休眠，结构性 parser flag 则在完整解析时明确拒绝。
+
+默认参数、重复 named、立即 child 和 unnamed 各按实际顺序求值；公共 arguments 是调用数据，不声明同名 lexical 变量，也不作为新的 Slash 源重解析。真实 Closure 身份只在执行器内传递，公开投影为 `[Closure]` 或 `[Closure]()`；普通字符串、变量存储与 JSON 往返不会恢复可执行身份。modern indexed lexical lookup 与固定 legacy 的无 index 行为保留各自合同；legacy scoped匹配区分大小写。
+
+`pass`/`return` 继续后续命令；`break` 只作用于所属局部 break owner；lazy 循环与 `/run` 各建立局部归属，无归属的根 `break` 写入 pipe 后继续，quoted 控制 body 不继承外层 break 归属；`abort` 成功终结为 aborted，而显式 stop 是 cancelled。parser 每4096 UTF-16消费步骤合作式让出，命令和循环也真正让出 event loop；不以微任务循环假装可取消，不额外设置长度或嵌套小上限。
+
+## 热执行、效果与取消
+
+record 在首次异步解析前登记，订阅者只是观察者；取消订阅不取消执行。事件有单调 seq 与恢复 snapshot，终态晚订阅只取得该 record 的冻结终态。公开 ID 可在逻辑终态后重用，旧 handle、旧 host 回件和旧 child 清理仍归原 record。纯语言执行不因 host 替换停止，真正依赖旧 host 的等待则按归属取消。
+
+三个效果单位分别保持：一次规定文本片段先采用，再进入下一段；私有 generation 的完整输入只在一次 prepare→accept 中采用；网络返回后以 fresh capture 完成 quiet C1→reasoning→C2 或 raw 单次清理，再一次采用。global 文件先于 chat SQL，已经成功的文件采用不能被后来 SQL 失败或取消回滚成“没有效果”。effects 的单项 committed 与累计 committed 分开，HTTP开始、非空文字、accepted 或发出事件本身不代表持久提交；错误保留已知事实和适用的 partialGeneration。
+
+`/gen` 使用真实聊天、卡、预设、注入和 WI；`/genraw` 使用 prefill→user→system 的输入求值顺序及规定的实际 wire 顺序，不隐式消费 registry/WI。raw callback恰空时在 child/key/lease 前返回，外层已经完成的参数效果保留；空白 String 仍进入生成。quiet偏置依据第一次已展开结果做JS空白判定，保留NEL、裁去FEFF；输出的两次cleanup各从原decoded正文开始。公开 B2 generate/generateRaw 的结果与请求字段仍沿原合同，Slash私有选项不混入它们。
+
+## App host 与手工消息
+
+App需通过既有 `TavernScriptHost` 接线：dispatch及其ACK使用 `eventId`，interact/invoke使用 `requestId`，invoke的ref另含 `contextId/instanceId/callbackId`；resolveSlash的Reference只有 `contextId/label` 与可选 `setName/sourceSpan`，没有公开 `requestId`。native另核对捕获的真实context instance、host和execution归属。第四波 ADDENDUM-04 中 owner 报告：App invoke 已接（本机提交2774677d，未推送），filter 留在所属页面，调用返回在 filter 及其写入完成后确认；注入、列出、撤销已在真引擎核过，filter 实际调用仅在单元测试和 Edge 桩核过，尚未经过真实生成准备。interact 原生 input/buttons/popup、echo提示条、setInput composer 界面已完成（139c7813），仍待 B3 合入后接到 host；resolveSlash 因无脚本库仍拒绝。这些是 owner 报告，不是本包实测。五UI使用固定typed fields；input/buttons的取消是正常空结果，echo/setinput必须确认实际处理文本。HTML/Markdown显示及sanitize由真实App完成，后端不虚报已绘制。`resolveSlash` 接入后的合同是返回一次固定source与asset/version；执行器不在执行中重查来源。
+
+可选 `TavernScriptGenerationLockHost` 单独提供 acquire/release。hostCapabilities仅当当前host实现该接口时有generationLock，既不代表已获得lease，也不代表App实现已经验证。lease所有权在实际调用前建立；正常release是命令完成屏障，失败/取消收尾使用独立取消令牌且不无限等待任意host Promise。snapshot保留读取时的能力副本，host替换后的新getter/新snapshot反映新host。
+
+send/sendas/sys/comment走真实B1消息存储：文本效果先采用，再保存消息；消息SQL失败仍保留更早文本效果。返回值捕获真实保存时的节点/编号/正文，不被后来的派生listener改写。手工send/sendas的SENT/RECEIVED是保存后的非屏障派生通知，模型回合的RECEIVED仍是原可等待生命周期；raw CRUD不附送这些通知。九种return模式为none、pipe、object、chat-html、chat-text、popup-html、popup-text、toast-html、toast-text；显示使用已捕获source，不再宏展开。
+
+## 持久注入、世界书与原始数据
+
+`inject`/`flushinject`只改实际选中物理header/source的persistent `script_injects`，不删除同名transient或once注册。`listinjects`对已接受return模式统一先读取并格式化真实条目，坏条目在输出前失败；none/object没有惰性跳过格式检查的例外。序列化filter保留为数据，不执行为Closure。
+
+完整character data与embedded book有独立目标版本，无关变量写入不冒充整个raw data或embedded字段变更；实际A→B→A仍推进对应目标身份。保留原sourceFormat、外壳、资源与未知字段，读raw与version不拼接来自两次读取的数据。standalone原书的entries object与array格式按资源API保留；ST字段命令只支持standalone entries object，array格式明确unsupported。
+
+`getchatbook`先解析真实canonical绑定，再按已定唯一native绑定回退；只读不迁移。建书先真实文件采用，再写chat SQL，第二步失败报告chatBookPartial并保留真实orphan。createentry取raw属性键第一空洞并使用完整固定模板；setentryfield按raw key定位，按当前值类型转换并保留unknown，不能把actual uid当raw key。Names要求真实身份，非空Tags需要真实catalog；缺能力明确失败。findentry使用固定Fuse 7.1.0有限消费者，按JS整数属性顺序与UTF-16分块，不附加disabled/uid真值/order筛选。其默认完整小写复用本包固定Unicode 16数据，包含条件Final_Sigma和一对多映射，保留重音及原正规化形式；整个Unicode空间与任意浏览器运行时的逐点等价尚未取得实际证据。
+
+App的Deferred/Preview转发、真实宿主UI与MVU运行由主线接入；本包没有借方法存在声明这些外部工作已完成。预览只能标注并实现其真实模拟能力，未实现入口应明确失败。固定来源为ST 1.19.0、Handlebars 4.7.9及Fuse 7.1.0，对应来源与许可证见各文件头；本层有限实际与其未覆盖范围见交付报告。
+
+## R5 当前状态：136 失败后的有限修订
+
+本小节记录 2026-11-12 UTC 的 R5 冻结前作者状态，接续上述合同与历史说明。136 的真实结果为：原八条命令中 1–7 均 exit 0，analyze 为 0 error / 0 warning / 0 info；第 8 条 guard exit 1，owner 报告 276 pass / 5 fail，无超时。root 于 2026-11-12T23:19:53.210980Z 全文接受独立 RUNTIME，结论仍是 **PARTIAL / BLOCKED_GUARD_FAILURE**。analyze 通过不能提升为 B3 通过，R5 本身尚未运行。
+
+R5 的修改范围保持有限：
+
+| 修订 | 合同与证据边界 |
+| --- | --- |
+| 内部缓存 capture 失效 | `_buildView` 在解析每个内部 target 之前复核所捕获 pathRevision，仅确认失效才整体重建各 scope。稳定目标的 notFound、真实读取错误和关闭/取消链仍保留。136 回件定位了 cache notFound，但没有打印具体异步交错或该失败子阶段的实际 DELETE receipt；提交后旧 capture 失效是源码可达路径分析，不能写成该次实际采用已证。 |
+| numeric 条件测试 oracle | 固定 `Scope.getVariable` 对非索引 numeric String 进行 Number 转换；`n=007` 与 `7` 应相等。保留原脚本，并用 `n=8` 对照确认 lexical 值仍遮蔽 persistent `n='007'`。没有修改语言数值产品逻辑。 |
+| 两个 legacy 测试 oracle | 固定 ST 在构造 legacy 宏列表时即取得 chat hash；本项目 L1 保存成功片段的真实 hash intent。测试核首调用的真实 SQL metadata/hash adoption，并保持同 fixture 后续调用无新采用；原大小写与 typed Closure 语义仍按原 source/pipe 期待核对。 |
+| quiet whitespace 测试 oracle | fresh empty chat 的第一次 quiet preparation 会真实保存 WI timer/decorator 状态。测试保留原 NEL、FEFF、ASCII 三个 wire/pipe 向量，核首轮两个具体 SQL adoption 及真实 metadata，后两轮仍要求无新采用；没有改 whitespace、WI 或 effects 产品算法，也没有暖机或删除向量。 |
+
+完整归因、固定来源、实际作者范围与未运行事项见交付工作目录的 `review-b3-r5/author/AUTHOR-B3-R5-EFFECTS-GENERATION.md` 及 root 的条件/legacy 作者记录；136 原始 reply、完整 RUNTIME/checks/root 接受记录整件保留。结合回件与冻结测试断言顺序可以作静态控制流推断，但 wire/pipe、receipt、各 case 的实际逐项日志没有因此补齐；FEFF/ASCII 后续 case 不能据首轮失败宣称已运行。R5 新期待和缓存修正仍待独立 CODE 及真实后继运行，未继承实际 PASS。
+
+后续 137 已选执行父链为：**干净 `4af464df` → owner 原始未格式化 `checkpoint-135-P2-B3-r3.patch` 一次 → 真正同时包含 R4 与 R5 的 R5-on-R3 delta 一次**。不能再另叠 R4 delta；不以 raw136 为父，也不在此链叠加 full-on-B2。R5 full-on-B2 累计补丁仍用于完整当前层审查与接入，和上述执行 delta 的用途分开。raw135 原件由 owner 持有，本地 R3 代表只支持静态接点核对；raw136 也只收到 owner 留存的名称、规模与校验元数据，未取得其原始字节。本节编写时 137 尚未正式创建，补丁身份、正式请求 ID 与时钟以真实最终发布记录为准。
+
+完整 HB 仍 OPEN，mixed String/object entries 的 Fuse 合同域仍未定，完整 Unicode/浮点域与任意浏览器运行时的等价未由这些修正证明。App 状态继续按上文 ADDENDUM-04 的 owner 报告：invoke 已接但 filter 尚无真实生成准备验证；interact 原生界面已完成但未接 host；resolveSlash 仍拒绝。真实 App/MVU/device 及其它原未覆盖范围保持。下一阶段已有 owner 决策不撤销，但阶段一实施仍须后继 B3 实际通过、正式交付和 owner 合并主线三项全部完成；本次没有启动该阶段。

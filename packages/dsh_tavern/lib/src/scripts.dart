@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'api.dart' show TavernFailure, TavernRole, TavernUsage;
+import 'api.dart' show TavernCharacter, TavernFailure, TavernRole, TavernUsage;
 import 'regex/regex_engine.dart';
 import 'regex_library.dart' show TavernDisplayResult, TavernRegexDiagnostic;
 import 'state.dart';
@@ -329,17 +329,20 @@ class TavernScriptCapabilities {
     required Set<TavernVariableScope> scopes,
     Set<String> slashCommands = const {},
     Set<String> generationOptions = const {},
+    Set<String> hostCapabilities = const {},
     required this.hostAttached,
     this.simulated = false,
   }) : methods = Set.unmodifiable(methods),
        scopes = Set.unmodifiable(scopes),
        slashCommands = Set.unmodifiable(slashCommands),
-       generationOptions = Set.unmodifiable(generationOptions);
+       generationOptions = Set.unmodifiable(generationOptions),
+       hostCapabilities = Set.unmodifiable(hostCapabilities);
   final String adapterVersion;
   final Set<String> methods;
   final Set<TavernVariableScope> scopes;
   final Set<String> slashCommands;
   final Set<String> generationOptions;
+  final Set<String> hostCapabilities;
   final bool hostAttached;
   final bool simulated;
 }
@@ -645,6 +648,54 @@ abstract interface class TavernScriptHost {
   Future<void> refresh(TavernScriptRefreshRequest request);
 }
 
+/// Optional real App generation-control lease. The original host contract is
+/// unchanged; a host advertises this capability by implementing this interface.
+abstract interface class TavernScriptGenerationLockHost {
+  Future<TavernScriptGenerationLockAck> acquireGenerationLock(
+    TavernScriptGenerationLockAcquireRequest request,
+    TavernScriptCancellation cancellation,
+  );
+  Future<TavernScriptGenerationLockAck> releaseGenerationLock(
+    TavernScriptGenerationLockReleaseRequest request,
+    TavernScriptCancellation cancellation,
+  );
+}
+
+enum TavernScriptGenerationLockStatus { acquired, released, cancelled, failed }
+
+class TavernScriptGenerationLockAcquireRequest {
+  const TavernScriptGenerationLockAcquireRequest({
+    required this.requestId,
+    required this.contextId,
+    required this.executionId,
+    required this.leaseId,
+  });
+  final String requestId, contextId, executionId, leaseId;
+}
+
+class TavernScriptGenerationLockReleaseRequest {
+  const TavernScriptGenerationLockReleaseRequest({
+    required this.requestId,
+    required this.contextId,
+    required this.executionId,
+    required this.leaseId,
+    required this.acquireRequestId,
+  });
+  final String requestId, contextId, executionId, leaseId, acquireRequestId;
+}
+
+class TavernScriptGenerationLockAck {
+  TavernScriptGenerationLockAck({
+    required this.requestId,
+    required this.leaseId,
+    required this.status,
+    List<TavernScriptIssue> issues = const [],
+  }) : issues = List.unmodifiable(issues);
+  final String requestId, leaseId;
+  final TavernScriptGenerationLockStatus status;
+  final List<TavernScriptIssue> issues;
+}
+
 /// Persisted data, awaited native lifecycle and independent B2 background
 /// generation. App callback execution and STscript remain separate capabilities.
 abstract interface class TavernScriptBridge {
@@ -729,6 +780,263 @@ abstract interface class TavernScriptBridge {
   Future<void> uninjectPrompts(String contextId, List<String> ids);
   Future<void> releaseInjectionLease(String leaseId);
   Future<List<TavernScriptInjectionView>> listInjections(String contextId);
+  Future<TavernSlashExecution> triggerSlash(
+    String contextId,
+    String source, {
+    String? executionId,
+    String pipe = '',
+    Map<String, String> arguments = const {},
+  });
+  bool stopScript(String executionId);
+  Future<String> substituteMacros(String contextId, String text);
+  Future<TavernCharacter> replaceCharacterData(
+    String contextId,
+    String characterId,
+    TavernJsonObject data, {
+    String? expectedVersion,
+  });
+  Future<List<TavernScriptBookBinding>> getContextBooks(String contextId);
+  Future<TavernScriptBookSnapshot> readBook(String contextId, TavernScriptBookRef ref);
+  Future<TavernScriptBookSnapshot> replaceBook(
+    String contextId,
+    TavernScriptBookRef ref,
+    TavernJsonObject book, {
+    String? expectedVersion,
+  });
+}
+
+enum TavernSlashExecutionEventKind { snapshot, started, command, waiting, finished, failed }
+
+enum TavernSlashStatus { parsing, running, waiting, completed, aborted, failed, cancelled }
+
+enum TavernSlashCompletion { completed, aborted }
+
+enum TavernSlashWaitKind {
+  storage,
+  generation,
+  nativeTurn,
+  ui,
+  resolveSlash,
+  generationLockAcquire,
+  generationLockRelease,
+}
+
+enum TavernSlashEffectKind { storage, injection, backgroundGeneration, nativeTurn, ui, generationLock }
+
+enum TavernSlashEffectStage { defaults, named, unnamed, provided, handler, preparation, model, outputCleanup, release }
+
+enum TavernSlashEffectState {
+  requested,
+  started,
+  accepted,
+  adopted,
+  completed,
+  failed,
+  cancelled,
+  skipped,
+  acquireRequested,
+  acquired,
+  releaseRequested,
+  released,
+  unconfirmed,
+}
+
+/// A hot execution. Observing or cancelling a subscription never starts or stops
+/// the script. Each subscription receives its own current immutable snapshot.
+abstract interface class TavernSlashExecution {
+  String get id;
+  Stream<TavernSlashExecutionEvent> get events;
+  Future<TavernSlashResult> get result;
+}
+
+class TavernSlashEffects {
+  TavernSlashEffects({required this.committed, List<TavernSlashEffect> entries = const []})
+    : entries = List.unmodifiable(entries);
+  final bool committed;
+  final List<TavernSlashEffect> entries;
+  TavernJsonObject toJson() => {
+    'committed': committed,
+    'entries': [for (final entry in entries) entry.toJson()],
+  };
+}
+
+class TavernSlashEffect {
+  TavernSlashEffect({
+    required this.index,
+    required this.kind,
+    required this.stage,
+    required this.state,
+    required this.operation,
+    required TavernJsonObject target,
+    required this.committed,
+    this.commandIndex,
+    this.command,
+    this.sourceSpan,
+    this.version,
+    TavernJsonObject details = const {},
+  }) : _target = _scriptObject(target),
+       _details = _scriptObject(details);
+  final int index;
+  final TavernSlashEffectKind kind;
+  final TavernSlashEffectStage stage;
+  final TavernSlashEffectState state;
+  final String operation;
+  final TavernJsonObject _target, _details;
+  final bool committed;
+  final int? commandIndex;
+  final String? command, version;
+  final TavernScriptSourceSpan? sourceSpan;
+  TavernJsonObject get target => _scriptObject(_target);
+  TavernJsonObject get details => _scriptObject(_details);
+  TavernJsonObject toJson() => {
+    'index': index,
+    'kind': kind.name,
+    'stage': stage.name,
+    'state': state.name,
+    'operation': operation,
+    'target': target,
+    'committed': committed,
+    if (commandIndex != null) 'commandIndex': commandIndex,
+    if (command != null) 'command': command,
+    if (sourceSpan case final span?)
+      'sourceSpan': {
+        'sourceId': ?span.sourceId,
+        'start': span.start,
+        'end': span.end,
+        'line': span.line,
+        'column': span.column,
+      },
+    if (version != null) 'version': version,
+    'details': details,
+  };
+}
+
+class TavernSlashExecutionEvent {
+  TavernSlashExecutionEvent({
+    required this.id,
+    required this.context,
+    required this.seq,
+    required this.kind,
+    required this.status,
+    required this.effects,
+    this.pipe,
+    this.commandIndex,
+    this.command,
+    this.sourceSpan,
+    this.waitKind,
+    this.completion,
+    this.error,
+    this.partialGeneration,
+    this.lastSeq,
+    List<TavernScriptIssue> issues = const [],
+    this.simulated = false,
+  }) : issues = List.unmodifiable(issues);
+  final String id;
+  final TavernScriptContext context;
+  final int seq;
+  final TavernSlashExecutionEventKind kind;
+  final TavernSlashStatus status;
+  final TavernSlashEffects effects;
+  final String? pipe;
+  final int? commandIndex;
+  final String? command;
+  final TavernScriptSourceSpan? sourceSpan;
+  final TavernSlashWaitKind? waitKind;
+  final TavernSlashCompletion? completion;
+  final TavernScriptException? error;
+  final TavernScriptGenerationResult? partialGeneration;
+  final int? lastSeq;
+  final List<TavernScriptIssue> issues;
+  final bool simulated;
+  bool get isSnapshot => kind == TavernSlashExecutionEventKind.snapshot;
+}
+
+class TavernSlashResult {
+  TavernSlashResult({
+    required this.id,
+    required this.context,
+    required this.pipe,
+    required this.completion,
+    required this.effects,
+    List<TavernScriptIssue> issues = const [],
+    this.simulated = false,
+  }) : issues = List.unmodifiable(issues);
+  final String id;
+  final TavernScriptContext context;
+  final String pipe;
+  final TavernSlashCompletion completion;
+  final TavernSlashEffects effects;
+  final List<TavernScriptIssue> issues;
+  final bool simulated;
+}
+
+sealed class TavernScriptBookRef {
+  const TavernScriptBookRef();
+  factory TavernScriptBookRef.standalone({required String bookId}) = TavernScriptStandaloneBookRef;
+  factory TavernScriptBookRef.embedded({required String characterId}) = TavernScriptEmbeddedBookRef;
+  TavernJsonObject toJson();
+  factory TavernScriptBookRef.fromJson(TavernJsonObject json) {
+    final value = _scriptDtoObject(json, const {'kind', 'bookId', 'characterId'});
+    if (value['kind'] == 'standalone') {
+      _scriptDtoKeys(value, const {'kind', 'bookId'});
+      return TavernScriptBookRef.standalone(bookId: _scriptRequiredString(value, 'bookId'));
+    }
+    if (value['kind'] == 'embedded') {
+      _scriptDtoKeys(value, const {'kind', 'characterId'});
+      return TavernScriptBookRef.embedded(characterId: _scriptRequiredString(value, 'characterId'));
+    }
+    throw _scriptDtoError('kind', 'Expected standalone or embedded.');
+  }
+}
+
+final class TavernScriptStandaloneBookRef extends TavernScriptBookRef {
+  TavernScriptStandaloneBookRef({required this.bookId}) {
+    if (bookId.isEmpty) throw _scriptDtoError('bookId', 'Identity must be nonempty.');
+  }
+  final String bookId;
+  @override
+  TavernJsonObject toJson() => {'kind': 'standalone', 'bookId': bookId};
+  @override
+  bool operator ==(Object other) => other is TavernScriptStandaloneBookRef && bookId == other.bookId;
+  @override
+  int get hashCode => Object.hash('standalone', bookId);
+}
+
+final class TavernScriptEmbeddedBookRef extends TavernScriptBookRef {
+  TavernScriptEmbeddedBookRef({required this.characterId}) {
+    if (characterId.isEmpty) throw _scriptDtoError('characterId', 'Identity must be nonempty.');
+  }
+  final String characterId;
+  @override
+  TavernJsonObject toJson() => {'kind': 'embedded', 'characterId': characterId};
+  @override
+  bool operator ==(Object other) => other is TavernScriptEmbeddedBookRef && characterId == other.characterId;
+  @override
+  int get hashCode => Object.hash('embedded', characterId);
+}
+
+enum TavernScriptBookSource { global, persona, chat, character, groupMember }
+
+class TavernScriptBookBinding {
+  const TavernScriptBookBinding({
+    required this.ref,
+    required this.source,
+    this.chatId,
+    this.personaId,
+    this.characterId,
+  });
+  final TavernScriptBookRef ref;
+  final TavernScriptBookSource source;
+  final String? chatId, personaId, characterId;
+}
+
+class TavernScriptBookSnapshot {
+  TavernScriptBookSnapshot({required this.ref, required this.version, required TavernJsonObject book})
+    : _book = _scriptObject(book);
+  final TavernScriptBookRef ref;
+  final String version;
+  final TavernJsonObject _book;
+  TavernJsonObject get book => _scriptObject(_book);
 }
 
 enum TavernScriptPromptRole { system, user, assistant }

@@ -172,6 +172,11 @@ final class ChatJsonlCodec {
     return metadata;
   }
 
+  /// The actual source used by [metadataForState], captured with the selected
+  /// state. A stale/unmapped label falls back to root just as that reader does.
+  String? metadataSourceForState(StoredChat chat, Map<String, Object?> state) =>
+      metadataSourceTargetForState(chat, state).sourceFile;
+
   /// Resolves once with the same null/current and effective-state rules as
   /// [metadataForNode]. An empty path or an unmapped label resolves to root.
   ChatJsonlMetadataSource metadataSourceForNode(ChatStore store, String chatId, {String? nodeId}) {
@@ -193,6 +198,65 @@ final class ChatJsonlCodec {
     if (source.carrier == ChatJsonlMetadataCarrier.root) return _clone(root);
     final header = _metadataSourceHeader(root, source);
     return header == null ? null : _map(header['chat_metadata']);
+  }
+
+  /// Pure single-source edit for the bridge's short SQL carrier. The caller
+  /// checks current selection/source identity inside its real transaction.
+  /// Only a proven same-key/context catalogue mirror follows the delta;
+  /// unrelated headers, quarantine data and unknown keys are untouched.
+  Map<String, Object?> updateMetadataSource(
+    Map<String, Object?> root, {
+    required String? sourceFile,
+    ChatJsonlMetadataSource? target,
+    required Map<String, Object?> Function(Map<String, Object?>) update,
+  }) {
+    final result = _clone(root);
+    final source = target ?? _metadataSource(result, sourceFile);
+    if (source.sourceFile != sourceFile) {
+      throw const FormatException('The selected metadata source is absent.');
+    }
+    if (source.carrier == ChatJsonlMetadataCarrier.root) return _clone(update(result));
+    final header = _metadataSourceHeader(result, source);
+    if (header == null) throw const FormatException('The selected metadata source is absent.');
+    final metadata = header['chat_metadata'];
+    if (metadata != null && metadata is! Map<String, Object?>) {
+      throw const FormatException('The selected source metadata is not an object.');
+    }
+    final before = _map(metadata);
+    final after = _clone(update(_clone(before)));
+    header['chat_metadata'] = after;
+    if (source.carrier == ChatJsonlMetadataCarrier.sources) {
+      // The normal importer also keeps the file's terminal header. Only its
+      // same-key, same-context mirror follows this edit; a historical context
+      // with the same label remains independent. Apply the context delta once,
+      // preserving the catalogue's variables, navigation and unknown fields.
+      final own = _view(_view(result['dshgo'])[_namespace]);
+      final files = own['files'];
+      final beforeContext = _contextMetadata(before);
+      final afterContext = _contextMetadata(after);
+      if (files is List<Object?>) {
+        for (final file in files.whereType<Map<String, Object?>>()) {
+          final mirror = file['header'];
+          if (file['key'] != sourceFile || mirror is! Map<String, Object?>) continue;
+          final raw = mirror['chat_metadata'];
+          if (raw != null && raw is! Map<String, Object?>) continue;
+          final current = _map(raw);
+          if (_canonical(_contextMetadata(current)) != _canonical(beforeContext)) continue;
+          mirror['chat_metadata'] = _metadataContextDelta(current, beforeContext, afterContext);
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Single-page ST object at the actual commit watermark. It shares the
+  /// existing export projection/family logic without serializing a whole
+  /// JSONL document, inventing a header integrity, or changing stored values.
+  Map<String, Object?> projectMessage(ChatStore store, String chatId, String nodeId) {
+    final tree = _ExportTree(store, chatId, null, _createIntegrity);
+    final node = tree.byId[nodeId];
+    if (node == null) throw StateError('The committed message is absent.');
+    return _clone(tree._exportMessage(node, const {}));
   }
 
   List<StChatDocument> exportChat(ChatStore store, String chatId, {String? fileName}) =>
@@ -1491,6 +1555,38 @@ Map<String, Object?>? _metadataSourceHeader(Map<String, Object?> metadata, ChatJ
     return header is Map<String, Object?> ? header : null;
   }
   return null;
+}
+
+Map<String, Object?> _metadataContextDelta(
+  Map<String, Object?> current,
+  Map<String, Object?> before,
+  Map<String, Object?> after,
+) {
+  final result = _clone(current);
+  for (final key in {...before.keys, ...after.keys}) {
+    if (!after.containsKey(key)) {
+      final oldValue = before[key];
+      final actual = result[key];
+      if (oldValue is Map<String, Object?> && actual is Map<String, Object?>) {
+        final remaining = _metadataContextDelta(actual, oldValue, const {});
+        if (remaining.isEmpty) {
+          result.remove(key);
+        } else {
+          result[key] = remaining;
+        }
+      } else {
+        result.remove(key);
+      }
+    } else if (!before.containsKey(key) || _canonical(before[key]) != _canonical(after[key])) {
+      final oldValue = before[key];
+      final newValue = after[key];
+      final actual = result[key];
+      result[key] = newValue is Map<String, Object?> && actual is Map<String, Object?>
+          ? _metadataContextDelta(actual, oldValue is Map<String, Object?> ? oldValue : const {}, newValue)
+          : _clone({'value': newValue})['value'];
+    }
+  }
+  return result;
 }
 
 Map<String, Object?> _effectiveState(ChatStore store, String chatId, StoredNode node) {

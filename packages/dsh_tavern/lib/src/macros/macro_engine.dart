@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import '../js_string.dart';
 
 part 'legacy_macro_engine.dart';
+part 'script_macro_adapter.dart';
 
 /// A message on the active chat path. Message ids are indices in this path.
 class MacroMessage {
@@ -644,6 +645,7 @@ class _Evaluation {
     this.characterOverride,
     this.inheritOriginal = true,
     this.postProcess,
+    this.scriptResolver,
   }) : contentHash = MacroEngine.stringHash(original),
        replaceCharacterCard = replaceCharacterCard ?? context.replaceCharacterCard,
        overrides = {for (final entry in overrides.entries) entry.key.toLowerCase(): entry.value};
@@ -655,22 +657,28 @@ class _Evaluation {
   final String? characterOverride;
   final bool inheritOriginal;
   final Object? Function(Object?)? postProcess;
+  final _ScriptMacroResolver? scriptResolver;
   final Map<String, String> _cardFields = {};
   List<String>? _alternateGreetings;
   bool _originalUsed = false;
 
+  String _prepareText(String text) {
+    text = text.replaceAllMapped(_macroTimeUtcAlias, (match) => '{{time::${match[1]}}}');
+    const oldNames = {
+      'user': 'user',
+      'bot': 'char',
+      'char': 'char',
+      'group': 'group',
+      'charifnotgroup': 'charIfNotGroup',
+    };
+    return text.replaceAllMapped(_macroAngleNames, (match) => '{{${oldNames[match[1]!.toLowerCase()]}}}');
+  }
+
+  String _finishText(String text) =>
+      text.replaceAllMapped(_macroEscapedBraces, (m) => m[1]!).replaceAll(_macroTrim, '').replaceAll(_elseMarker, '');
+
   String evaluate(String text, {int offset = 0, bool processors = true, bool scopes = true}) {
-    if (processors) {
-      text = text.replaceAllMapped(_macroTimeUtcAlias, (match) => '{{time::${match[1]}}}');
-      const oldNames = {
-        'user': 'user',
-        'bot': 'char',
-        'char': 'char',
-        'group': 'group',
-        'charifnotgroup': 'charIfNotGroup',
-      };
-      text = text.replaceAllMapped(_macroAngleNames, (match) => '{{${oldNames[match[1]!.toLowerCase()]}}}');
-    }
+    if (processors) text = _prepareText(text);
     final document = _Parser(text).parse(scopes: scopes);
     final output = StringBuffer();
     var cursor = 0;
@@ -681,17 +689,48 @@ class _Evaluation {
       cursor = call.closingEnd ?? call.end;
     }
     output.write(text.substring(cursor));
-    var result = output.toString();
-    if (processors) {
-      result = result
-          .replaceAllMapped(_macroEscapedBraces, (m) => m[1]!)
-          .replaceAll(_macroTrim, '')
-          .replaceAll(_elseMarker, '');
+    final result = output.toString();
+    return processors ? _finishText(result) : result;
+  }
+
+  // Only a real scoped resolver result may introduce a private callable.
+  // Ordinary macro outputs are String and can never be decoded into one.
+  Object evaluateScript(String text) {
+    text = _prepareText(text);
+    final document = _Parser(text).parse();
+    final parts = <Object>[];
+    var output = StringBuffer();
+    void flushText() {
+      final result = _finishText(output.toString());
+      if (result.isNotEmpty) parts.add(result);
+      output = StringBuffer();
     }
-    return result;
+
+    var cursor = 0;
+    for (final call in document.calls) {
+      if (call.start < cursor) continue;
+      output.write(text.substring(cursor, call.start));
+      final result = _evaluateCallValue(document, call, 0);
+      if (result is _ScriptMacroValue) {
+        flushText();
+        parts.add(result.callable!);
+      } else {
+        output.write(result);
+      }
+      cursor = call.closingEnd ?? call.end;
+    }
+    output.write(text.substring(cursor));
+    flushText();
+    if (parts.isEmpty) return '';
+    return parts.length == 1 ? parts.single : parts;
   }
 
   String _evaluateCall(_Document document, _Call call, int offset) {
+    final value = _evaluateCallValue(document, call, offset);
+    return value is _ScriptMacroValue ? value.text : value as String;
+  }
+
+  Object _evaluateCallValue(_Document document, _Call call, int offset) {
     final text = document.text;
     if (call.keepRaw || call.closing) {
       return text.substring(call.start, call.end);
@@ -731,6 +770,8 @@ class _Evaluation {
     raw.write('}}');
     final fallback = raw.toString();
     if (call.name.isEmpty) return fallback;
+    final scripted = scriptResolver?.call(call.name, arguments);
+    if (scripted != null) return scripted.callable == null ? scripted.text : scripted;
     final spec = _spec(name);
     if (name != 'original') {
       final override = overrides[call.name.toLowerCase()];

@@ -1,7 +1,7 @@
 part of 'engine.dart';
 
 class _ScriptGenerationRecord implements TavernScriptGeneration {
-  _ScriptGenerationRecord(this.owner, this.id, this.context, this.request, this.config, this.at) {
+  _ScriptGenerationRecord(this.owner, this.id, this.context, this.request, this.config, this.at, {this.slashSpec}) {
     // Observe rejection immediately without replacing the caller's future.
     // A caller may first await result long after the hot operation has failed.
     unawaited(_result.future.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
@@ -13,6 +13,7 @@ class _ScriptGenerationRecord implements TavernScriptGeneration {
   final TavernScriptGenerateRequest request;
   final TavernModelConfig config;
   final DateTime at;
+  final _SlashGenerationSpec? slashSpec;
   final cancellation = ModelCancellation();
   final receipt = _ScriptGenerationReceipt();
   final _result = Completer<TavernScriptGenerationResult>();
@@ -220,19 +221,23 @@ extension _ScriptGenerationOperations on _ScriptCoordinator {
           {'silent': record.request.silent},
         ]);
         record.cancellation.check();
-        final capture = await _captureGeneration(record);
+        final capture = record.slashSpec == null
+            ? await _captureGeneration(record)
+            : await _captureSlashGeneration(record);
         record.capture = capture;
         record.receipt.phase = 'assemble';
-        final prepared = await prepareGeneration(
-          capture,
-          record.cancellation,
-          onPhase: (phase) {
-            record.receipt.phase = phase;
-          },
-          onBudgetSource: (source) {
-            record.receipt.budgetSource = source;
-          },
-        );
+        final prepared = record.slashSpec == null
+            ? await prepareGeneration(
+                capture,
+                record.cancellation,
+                onPhase: (phase) {
+                  record.receipt.phase = phase;
+                },
+                onBudgetSource: (source) {
+                  record.receipt.budgetSource = source;
+                },
+              )
+            : await _prepareSlashGeneration(record, capture);
         record.hookIssues.addAll(prepared.hookIssues);
         record.receipt.budgetSource = prepared.budgetSource;
         record.cancellation.check();
@@ -305,6 +310,7 @@ extension _ScriptGenerationOperations on _ScriptCoordinator {
   }
 
   void _generationNotify(_ScriptGenerationRecord record, String name, List<Object?> args) {
+    final slashSpec = record.slashSpec;
     final request = _dispatch(
       record.context,
       kind: TavernScriptDispatchKind.lifecycle,
@@ -322,8 +328,18 @@ extension _ScriptGenerationOperations on _ScriptCoordinator {
         request,
         committed: record.committed,
         cancellation: name == 'GENERATION_ENDED' ? null : record.cancellation,
+        onObservedIssues: slashSpec == null
+            ? null
+            : (request, issues, committed) {
+                if (record.terminal == null) slashSpec.observeHostOutcome(request, issues, committed);
+              },
       ).then<void>((issues) {
-        if (record.terminal == null) record.hookIssues.addAll(issues);
+        if (record.terminal == null) {
+          // This aggregate also contains engine-generated delivery issues. It
+          // propagates known occurrences; it is not another host observation.
+          slashSpec?.owner.observeIssues(issues);
+          record.hookIssues.addAll(issues);
+        }
       }),
     );
   }
@@ -378,8 +394,14 @@ extension _ScriptGenerationOperations on _ScriptCoordinator {
       record.cancellation.check();
       record.status = TavernScriptGenerationStatus.running;
       record.receipt.phase = 'key';
+      final slashSpec = record.slashSpec;
       subscription = engine._modelClient
-          .generate(config: transportConfig, body: _captureScriptObject(body), cancellation: record.cancellation)
+          .generate(
+            config: transportConfig,
+            body: _captureScriptObject(body),
+            cancellation: record.cancellation,
+            onRequestStarted: slashSpec == null ? null : (attempt) => slashSpec.onModelStarted(record, attempt),
+          )
           .listen(
             (delta) {
               if (record.terminal != null || record.cancellation.isCancelled) return;

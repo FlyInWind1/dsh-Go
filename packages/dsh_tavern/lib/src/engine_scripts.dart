@@ -67,6 +67,10 @@ class _ScriptCoordinator implements TavernScriptBridge {
   final _variableVersions = <String, _ScriptVariableVersion>{};
   final _generations = <String, _ScriptGenerationRecord>{};
   final _generationDrains = <Future<void>>{};
+  final _slashExecutions = <String, _SlashExecutionRecord>{};
+  final _effectCacheScopes = HashMap<Future<void>, Set<_ScriptEffectScope>>.identity();
+  final scriptResources = _ScriptResourceState();
+  final slashHostState = _SlashHostState();
   final _generationChatObservations = <String, _ScriptChatObservation>{};
   int _nextGenerationObservation = 0;
   late final _ScriptInjectionRegistry injectionRegistry = _ScriptInjectionRegistry(this);
@@ -123,8 +127,9 @@ class _ScriptCoordinator implements TavernScriptBridge {
 
   @override
   TavernScriptCapabilities get capabilities => TavernScriptCapabilities(
-    adapterVersion: 'p2-b2',
+    adapterVersion: 'p2-b3',
     hostAttached: _host != null,
+    hostCapabilities: _host is TavernScriptGenerationLockHost ? const {'generationLock'} : const {},
     methods: const {
       'openContext',
       'snapshot',
@@ -150,8 +155,16 @@ class _ScriptCoordinator implements TavernScriptBridge {
       'uninjectPrompts',
       'releaseInjectionLease',
       'listInjections',
+      'triggerSlash',
+      'stopScript',
+      'substituteMacros',
+      'replaceCharacterData',
+      'getContextBooks',
+      'readBook',
+      'replaceBook',
     },
     scopes: TavernVariableScope.values.toSet(),
+    slashCommands: slashDescriptors.keys.toSet(),
     generationOptions: const {
       'generationId',
       'presetId',
@@ -237,6 +250,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
     if (identical(_host, host)) {
       return;
     }
+    _slashHostReplaced(_host, _hostVersion);
     _hostVersion++;
     for (final context in contexts.values) {
       for (final token in context.pending.values) {
@@ -315,13 +329,18 @@ class _ScriptCoordinator implements TavernScriptBridge {
 
   @override
   Future<void> closeContext(String contextId) => _bridgeOperation(() {
-    final context = contexts.remove(contextId);
+    final context = contexts[contextId];
     if (context == null) {
-      if (_closedContexts.contains(contextId)) {
-        return;
-      }
+      if (_closedContexts.contains(contextId)) return;
       throw _scriptError(TavernScriptErrorCode.noContext, 'closeContext', 'Unknown context.', contextId: contextId);
     }
+    // Still registered and open while the old owner's known watch facts
+    // and lease revocations are synchronously published.
+    _slashContextClosed(context);
+    for (final record in _slashExecutions.values.toList()) {
+      if (identical(record.owner.context, context)) record.owner.cancel();
+    }
+    if (identical(contexts[contextId], context)) contexts.remove(contextId);
     context.closed = true;
     _closedContexts.add(contextId);
     for (final token in context.pending.values) {
@@ -475,6 +494,46 @@ class _ScriptCoordinator implements TavernScriptBridge {
   Future<List<TavernScriptInjectionView>> listInjections(String contextId) =>
       _bridgeOperation(() => injectionRegistry.list(contextId));
 
+  @override
+  Future<TavernSlashExecution> triggerSlash(
+    String contextId,
+    String source, {
+    String? executionId,
+    String pipe = '',
+    Map<String, String> arguments = const {},
+  }) => _bridgeOperation(
+    () => _startSlash(contextId, source, executionId: executionId, pipe: pipe, arguments: arguments),
+  );
+  @override
+  bool stopScript(String executionId) {
+    final record = _slashExecutions[executionId];
+    if (record == null || record.terminal != null) return false;
+    record.owner.cancel();
+    return true;
+  }
+
+  @override
+  Future<String> substituteMacros(String contextId, String text) => _substitutePublicMacros(contextId, text);
+  @override
+  Future<TavernCharacter> replaceCharacterData(
+    String contextId,
+    String characterId,
+    TavernJsonObject data, {
+    String? expectedVersion,
+  }) => replaceScriptCharacterData(contextId, characterId, data, expectedVersion: expectedVersion);
+  @override
+  Future<List<TavernScriptBookBinding>> getContextBooks(String contextId) => scriptContextBooks(contextId);
+  @override
+  Future<TavernScriptBookSnapshot> readBook(String contextId, TavernScriptBookRef ref) =>
+      readScriptBook(contextId, ref);
+  @override
+  Future<TavernScriptBookSnapshot> replaceBook(
+    String contextId,
+    TavernScriptBookRef ref,
+    TavernJsonObject book, {
+    String? expectedVersion,
+  }) => replaceScriptBook(contextId, ref, book, expectedVersion: expectedVersion);
+
   Future<T> _structureWrite<T>(_ScriptChatCapture capture, FutureOr<T> Function() action) {
     _context(capture.context.value.id);
     return engine._withMutation(capture.chatId, () {
@@ -520,6 +579,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
     if (context.closed) {
       return null;
     }
+    rebuildView:
     while (true) {
       final capture = context.value.chatId == null ? null : _captureChat(context.value.id);
       final variables = <TavernVariableSnapshot>[];
@@ -537,6 +597,13 @@ class _ScriptCoordinator implements TavernScriptBridge {
         if (context.value.script != null) const TavernVariableTarget(scope: TavernVariableScope.script),
       ];
       for (final target in targets) {
+        // A previous scope read can await a file queue while this captured
+        // path is deleted or replaced. Rebuild every scope before resolving
+        // its now-stale internal message ref; current target errors still
+        // propagate normally.
+        if (capture != null && capture.revision != _pathRevision(capture.chatId)) {
+          continue rebuildView;
+        }
         final resolved = _resolveTarget(context, target);
         try {
           variables.add(
@@ -560,6 +627,9 @@ class _ScriptCoordinator implements TavernScriptBridge {
           });
         }
       }
+      final characterData = context.value.characterId == null
+          ? null
+          : await engine._libraryOperation(() => _scriptCharacterDataView(context.value.characterId!));
       if (context.closed) {
         return null;
       }
@@ -572,6 +642,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
       if (observedVersions.entries.any((entry) => _currentVariableVersion(entry.key) != entry.value)) {
         continue;
       }
+      if (characterData != null && !_scriptCharacterDataViewCurrent(characterData)) continue;
       final latest = capture == null ? null : _captureChat(context.value.id);
       if (capture != null &&
           latest != null &&
@@ -608,6 +679,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
           'hostCharacterId': group?.hostCharacterId,
           'memberCharacterIds': memberIds,
           'hostVersion': '$epoch:host:$_hostVersion',
+          'characterData': ?characterData,
           if (shapeIssues.isNotEmpty) 'variableIssues': shapeIssues,
         },
         capabilities: capabilities,
@@ -615,18 +687,21 @@ class _ScriptCoordinator implements TavernScriptBridge {
     }
   }
 
-  Future<void> _refreshContext(_ScriptContextState context) async {
+  Future<void> _refreshContext(_ScriptContextState context, {_ScriptEffectScope? effectScope}) async {
     if (context.closed) {
       return;
     }
     final running = context.refreshing;
     if (running != null) {
+      if (effectScope != null) _attachScriptEffectCacheScope(running, effectScope);
       context.refreshAgain = true;
       await running;
       return;
     }
     final completed = Completer<void>();
-    context.refreshing = completed.future;
+    final run = completed.future;
+    context.refreshing = run;
+    if (effectScope != null) _attachScriptEffectCacheScope(run, effectScope);
     try {
       do {
         context.refreshAgain = false;
@@ -690,7 +765,12 @@ class _ScriptCoordinator implements TavernScriptBridge {
           resourceRefs: resourcesChanged ? after.resourceRefs : const {},
         );
         final request = _dispatch(context, kind: TavernScriptDispatchKind.cache, delta: delta);
-        final issues = await _deliver(context, request, committed: true);
+        final issues = await _deliver(
+          context,
+          request,
+          committed: true,
+          onObservedIssues: (request, issues, committed) => _observeScriptEffectCache(run, request, issues, committed),
+        );
         if (issues.isNotEmpty) {
           throw _scriptError(
             TavernScriptErrorCode.hookFailure,
@@ -732,7 +812,8 @@ class _ScriptCoordinator implements TavernScriptBridge {
       completed.future.ignore();
       Error.throwWithStackTrace(failure, stack);
     } finally {
-      context.refreshing = null;
+      if (identical(context.refreshing, run)) context.refreshing = null;
+      _effectCacheScopes.remove(run);
       if (!completed.isCompleted) {
         completed.complete();
       }
@@ -795,6 +876,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
     required bool committed,
     ModelCancellation? cancellation,
     _ScriptCancellation? pendingToken,
+    void Function(TavernScriptDispatch request, List<TavernScriptIssue> issues, bool committed)? onObservedIssues,
   }) {
     return _ownDelivery(
       () => _deliverCaptured(
@@ -803,6 +885,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
         committed: committed,
         cancellation: cancellation,
         pendingToken: pendingToken,
+        onObservedIssues: onObservedIssues,
       ),
     );
   }
@@ -837,6 +920,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
     required bool committed,
     ModelCancellation? cancellation,
     _ScriptCancellation? pendingToken,
+    void Function(TavernScriptDispatch request, List<TavernScriptIssue> issues, bool committed)? onObservedIssues,
   }) async {
     final host = _host;
     _observe(request, 'published', committed);
@@ -888,7 +972,10 @@ class _ScriptCoordinator implements TavernScriptBridge {
         ]);
         // Reported prior effects survive a failed/cancelled acknowledgement;
         // they do not turn an invalid identity or ended owner into success.
-        if (ack != null) rememberIssues(ack.issues);
+        if (ack != null) {
+          rememberIssues(ack.issues);
+          onObservedIssues?.call(request, ack.issues, ack.issues.any((issue) => issue.committed));
+        }
         if (ack == null || token.isCancelled || context.closed || hostVersion != _hostVersion) {
           issues = failure(token.reason, 'Host delivery ended before acknowledgement.', cancelled: token.isCancelled);
         } else if (ack.eventId != request.eventId) {
@@ -907,6 +994,7 @@ class _ScriptCoordinator implements TavernScriptBridge {
       if (error is TavernScriptException) {
         if (error.committed) knownCommitted = true;
         rememberIssues(error.issues);
+        onObservedIssues?.call(request, error.issues, error.committed);
       }
       issues = token.isCancelled || context.closed || hostVersion != _hostVersion
           ? failure(token.reason, 'Host delivery ended before acknowledgement.', cancelled: token.isCancelled)
@@ -1028,10 +1116,19 @@ class _ScriptCoordinator implements TavernScriptBridge {
     _ScriptContextState origin,
     TavernScriptMutation mutation, {
     List<_ScriptLifecycle> events = const [],
+    _ScriptEffectScope? effectScope,
   }) async {
     final related = contexts.values.where((item) => !item.closed && item.value.chatId == origin.value.chatId).toList();
     for (final context in related) {
-      await _refreshContext(context);
+      if (effectScope == null) {
+        await _refreshContext(context);
+      } else {
+        try {
+          await effectScope.waitCache(_refreshContext(context, effectScope: effectScope));
+        } finally {
+          _detachScriptEffectCacheScope(effectScope);
+        }
+      }
     }
     for (final context in related) {
       for (final event in events) {
@@ -1431,6 +1528,14 @@ class _ScriptCoordinator implements TavernScriptBridge {
   }
 
   void close() {
+    _slashHostClosed();
+    final slashResults = [
+      for (final record in _slashExecutions.values)
+        record.result.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    ];
+    for (final record in _slashExecutions.values.toList()) {
+      record.owner.cancel();
+    }
     _closed = true;
     final generationResults = [
       for (final record in _generations.values) record.result.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
@@ -1456,7 +1561,11 @@ class _ScriptCoordinator implements TavernScriptBridge {
     // Keep the observation stream open until those outcomes are published;
     // a paused observer must still never hold engine.close().
     unawaited(() async {
-      await Future.wait<void>([...generationResults, for (final context in contexts.values) context.lifecycle]);
+      await Future.wait<void>([
+        ...generationResults,
+        ...slashResults,
+        for (final context in contexts.values) context.lifecycle,
+      ]);
       while (_deliveries.isNotEmpty) {
         await Future.wait<void>(List.of(_deliveries));
       }

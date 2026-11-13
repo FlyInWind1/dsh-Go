@@ -70,7 +70,7 @@ void main() {
       'samplingOverrides',
       'orderedPrompts',
     });
-    expect(snapshot.capabilities.slashCommands, isEmpty);
+    expect(snapshot.capabilities.slashCommands, h.bridge.capabilities.slashCommands);
     await h.bridge.closeContext(context.id);
     await expectLater(() => h.bridge.snapshot(context.id), throwsA(scriptError(TavernScriptErrorCode.closedContext)));
     expect((await h.bridge.snapshot(other.id)).messages, isEmpty);
