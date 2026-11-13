@@ -932,12 +932,22 @@ $preload
     });
     audioReport();
   };
+  // The app out of sight: what is playing stops, and goes on when it is back
+  // (the person did not pause it). A player paused by then stays paused.
+  dsh.audioSuspend=function(on){
+    ['bgm','ambient'].forEach(function(t){
+      var c=channel(t),el=c.el;if(!el)return;
+      if(on){if(!el.paused&&!el.ended){c.suspended=true;el.pause();}}
+      else if(c.suspended){c.suspended=false;if(c.settings.enabled){var p=el.play();if(p&&p.catch)p.catch(function(){});}}
+    });
+  };
   // The app's player: play or pause ({type, action:'toggle'}), or settings
   // the person chose ({type, settings}), kept like a script's.
   dsh.audioControl=function(cmd){
     var c=channel(cmd&&cmd.type);
     if(cmd.settings)setAudioSettings(cmd.type,cmd.settings);
     if(cmd.action==='toggle'){
+      c.suspended=false;
       if(c.el&&!c.el.paused)c.el.pause();
       else if(c.current)audioStart(c,c.current);
       else if(c.list.length)audioStart(c,c.list[0]);

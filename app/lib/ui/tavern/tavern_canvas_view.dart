@@ -85,6 +85,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     super.initState();
     widget.streaming.addListener(_onStream);
     widget.calls?.deliver = _deliver;
+    _audioLifecycle = TavernCanvasAudioLifecycle(_suspendAudio);
     if (widget.calls?.chatId case final chat?) {
       final audio = ref.read(tavernCanvasAudioProvider(chat).notifier);
       audio.attach(_sendAudio);
@@ -95,6 +96,16 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   /// The chat's player in the app (舞台 › 会话): what this page's players
   /// are doing goes there, and what the person does there comes here.
   TavernCanvasAudio? _audio;
+
+  /// The app out of sight: the card's music waits for it to be back.
+  late final TavernCanvasAudioLifecycle _audioLifecycle;
+
+  void _suspendAudio(bool on) {
+    final controller = _controller;
+    if (!_ready || controller == null) return;
+    unawaited(controller.runJavaScript('window.dsh&&dsh.audioSuspend($on)').catchError((_) {}));
+  }
+
   Future<void> _sendAudio(Map<String, Object?> command) async {
     final controller = _controller;
     if (!mounted || !_ready || controller == null) return;
@@ -402,6 +413,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         }
       });
     }
+    _audioLifecycle.dispose();
     widget.streaming.removeListener(_onStream);
     _streamTimer?.cancel();
     _guard.dispose();

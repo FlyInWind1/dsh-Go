@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -154,4 +155,18 @@ class TavernCanvasAudio extends Notifier<Map<String, TavernAudioNow>> {
       // The page went: nothing to tell.
     }
   }
+}
+
+/// A canvas's players while the app is out of sight: [suspend] (true) when it
+/// goes, so a card's music does not play on behind other apps, and (false)
+/// when it is back, for what was playing to go on.
+class TavernCanvasAudioLifecycle {
+  TavernCanvasAudioLifecycle(this.suspend) {
+    _listener = AppLifecycleListener(onHide: () => suspend(true), onShow: () => suspend(false));
+  }
+
+  final void Function(bool on) suspend;
+  late final AppLifecycleListener _listener;
+
+  void dispose() => _listener.dispose();
 }
