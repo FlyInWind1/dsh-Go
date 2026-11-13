@@ -1720,11 +1720,10 @@ class L10nEn extends L10n {
 
   @override
   String get androidShellConfirmationNote =>
-      'Every command needs native confirmation on the phone. Screen-control confirmation exemptions do not apply. Shell permissions differ from screen control; app rules cannot block every command.';
+      'Every command needs confirmation and may change system settings and files.';
 
   @override
-  String get androidShellMasterOff =>
-      'Turn on Phone control on the previous page before enabling Android Shell. Authorization and pairing guidance remain available here.';
+  String get androidShellMasterOff => 'Turn on Phone control on the previous page first.';
 
   @override
   String get androidShellRiskTitle => 'Allow Android system commands?';
@@ -1737,7 +1736,13 @@ class L10nEn extends L10n {
   String get androidShellRiskAction => 'Allow Android Shell';
 
   @override
-  String get androidShellBackend => 'Execution channel';
+  String get androidShellBackend => 'Connection method';
+
+  @override
+  String get androidShellDetails => 'Details';
+
+  @override
+  String get androidShellReady => 'Connected';
 
   @override
   String get androidShellShizukuHint =>
@@ -10911,7 +10916,7 @@ class L10nEn extends L10n {
   String get phoneDndDirectAdb => 'Direct ADB';
 
   @override
-  String get phoneDndChannels => 'Channel';
+  String get phoneDndChannels => 'Connection';
 
   @override
   String get phoneDndShizukuFor => 'Phones with the Shizuku app';
@@ -10973,7 +10978,7 @@ class L10nEn extends L10n {
       'The Sui interface isn’t available. Check that the Sui module is enabled, restart the phone and try again.';
 
   @override
-  String get phoneDndSuiAllSet => 'Sui is ready.';
+  String get phoneDndSuiAllSet => 'Sui is running and authorized. Connect the background screen next.';
 
   @override
   String get phoneDndSuiPermissionFailed =>
@@ -10984,7 +10989,7 @@ class L10nEn extends L10n {
 
   @override
   String get phoneDndRootConnected =>
-      'Root is connected. If it drops, choose it here again; DSH Go asks for root on its own only with “Keep root channel” on above.';
+      'Root is connected. If it drops, choose it here again; DSH Go asks for root on its own only with “Keep root channel” enabled under More settings.';
 
   @override
   String get phoneDndRootConnectedKept =>
@@ -10994,8 +10999,7 @@ class L10nEn extends L10n {
   String get phoneDndRootRetry => 'Ask for root again';
 
   @override
-  String get phoneDndInstallShizuku =>
-      'Install Shizuku first (free and open source). If you use tools like Ice Box or Brevent, you may already have it.';
+  String get phoneDndInstallShizuku => 'Install Shizuku first (free and open source).';
 
   @override
   String get phoneDndOpenShizukuSite => 'Open Shizuku website';
@@ -11011,7 +11015,7 @@ class L10nEn extends L10n {
   String get phoneDndGrantShizuku => 'Allow DSH Go';
 
   @override
-  String get phoneDndShizukuAllSet => 'Shizuku is ready.';
+  String get phoneDndShizukuAllSet => 'Shizuku is running and authorized. Connect the background screen next.';
 
   @override
   String get phoneDndShizukuInstalled => 'Shizuku installed';
@@ -11156,7 +11160,23 @@ class L10nEn extends L10n {
   String get phoneControlFloatingBarHint => 'Pause or stop from the floating bar';
 
   @override
-  String get phoneControlAdvanced => 'Advanced';
+  String get phoneControlAdvanced => 'More settings';
+
+  @override
+  String get phoneDndMoreChannels => 'More connections (Root / Sui)';
+
+  @override
+  String get phoneDndChangeChannel => 'Change connection';
+
+  @override
+  String get phoneDndPairingHelp => 'Pairing help / manual entry';
+
+  @override
+  String get phoneDndConnectHelp => 'Cannot connect?';
+
+  @override
+  String get phoneDndPairNext =>
+      'Enable Wireless debugging in Developer options, then start pairing and enter the pairing code in the notification.';
 
   @override
   String get phoneControlKeepAliveHint => 'Prevent Android from turning off accessibility';
@@ -11954,6 +11974,31 @@ class L10nEn extends L10n {
   String get phoneDirectChangeFailed => 'Could not change the launch method. Stop the local engine and try again.';
 
   @override
+  String get phoneTawcEngine => 'tawcroot fast launch';
+
+  @override
+  String get phoneTawcHint =>
+      'Experimental and off by default; applies on the next start. Only one of this and direct launch can be on. Runs the local engine with tawcroot instead of compatible launch: it starts about three times faster, and package installs and apt get faster too. If it can’t start, the app goes back to compatible launch on its own. The first start after you turn it off first turns the hard links it made into ordinary files, which can take a little longer.';
+
+  @override
+  String get phoneTawcFailedHint =>
+      'tawcroot didn’t start on this phone, so compatible launch is used. Stop the engine and turn this on to try again.';
+
+  @override
+  String get phoneTawcUnavailable =>
+      'This build doesn’t include tawcroot, or the phone runs a version older than Android 10.';
+
+  @override
+  String get phoneLaunchTawcroot => 'tawcroot';
+
+  @override
+  String get phoneTawcLaunchFailed => 'tawcroot failed to start';
+
+  @override
+  String get phoneTawcUnsupported =>
+      'This start’s settings aren’t supported by tawcroot yet, compatible launch for now';
+
+  @override
   String get phoneActualLaunchMode => 'Current launch';
 
   @override
@@ -12082,7 +12127,17 @@ class L10nEn extends L10n {
       'The previous background screen is still unconfirmed. Its screen access remains reserved.';
 
   @override
-  String get phoneSelfCheckTitle => 'Local phone self-check';
+  String get phoneSelfCheckTitle => 'Check phone control';
+
+  @override
+  String get phoneSelfCheckTechnicalDetails => 'Technical details';
+
+  @override
+  String get phoneLocalOcrSummary =>
+      'On-device recognition; results may go to your model. The SDK collects usage statistics.';
+
+  @override
+  String get phoneLocalOcrPrivacyDetails => 'Privacy details';
 
   @override
   String get phoneSelfCheckPartial => 'Partial check — only observed items have results';
@@ -12092,7 +12147,7 @@ class L10nEn extends L10n {
       'Uses the selected connected channel and a temporary presentation display. App launch, text input, screenshots, OCR and MAIN disturbance are not tested. Cleanup alone does not prove a display was created.';
 
   @override
-  String get phoneSelfCheckStart => 'Start partial check';
+  String get phoneSelfCheckStart => 'Start check';
 
   @override
   String get phoneSelfCheckCancel => 'Request cancellation';
@@ -12125,7 +12180,7 @@ class L10nEn extends L10n {
       'idle': 'Not started',
       'running': 'Running partial check',
       'cleaning': 'Cleaning up; cancellation does not undo sent input',
-      'done': 'Execution and cleanup ended; inspect each result below',
+      'done': 'Check ended; see Technical details for results',
       'cancelled': 'Cancelled; observed actions remain recorded',
       'cleanup_pending': 'Cleanup unconfirmed — resources remain reserved',
       'other': 'Status unavailable',
@@ -12292,7 +12347,7 @@ class L10nEn extends L10n {
   String get phoneInterruptionActionFailed => 'Task records are not confirmed yet. Please retry.';
 
   @override
-  String get phoneLocalOcrTitle => 'On-device text recognition (ML Kit)';
+  String get phoneLocalOcrTitle => 'Text recognition';
 
   @override
   String get phoneLocalOcrUnknown => 'This setting could not be read. Refresh and try again.';
@@ -25161,6 +25216,9 @@ class L10nEn extends L10n {
       'Uninstalled, but some places didn\'t catch up. Reopen the app to bring them up to date.';
 
   @override
+  String get workshopInstalledDismissFailure => 'Got it';
+
+  @override
   String get workshopMinePublish => 'Submit';
 
   @override
@@ -25610,6 +25668,105 @@ class L10nEn extends L10n {
 
   @override
   String get workshopPublishErrorAgain => 'It can\'t be submitted again right now.';
+
+  @override
+  String get workshopPublishSectionPreview => 'Preview';
+
+  @override
+  String get workshopPublishPreviewSwitch => 'Show a preview in the Workshop';
+
+  @override
+  String get workshopPublishPreviewIdle => 'The first frame of the idle animation';
+
+  @override
+  String get workshopPublishSectionCover => 'Cover (optional)';
+
+  @override
+  String get workshopPublishCoverPick => 'Choose a cover';
+
+  @override
+  String get workshopPublishCoverHelper =>
+      'PNG, up to 512 px a side and 2 MB. Without one, the first letter of the name is shown.';
+
+  @override
+  String get workshopPublishCoverChosen => 'Your cover';
+
+  @override
+  String get workshopPublishCoverReplace => 'Replace';
+
+  @override
+  String get workshopPublishCoverRemove => 'Remove';
+
+  @override
+  String get workshopPublishCoverBadSize => 'This image is empty or larger than 2 MB. Try another.';
+
+  @override
+  String get workshopPublishCoverBadPng => 'This isn\'t an intact PNG image. Try another.';
+
+  @override
+  String get workshopPublishCoverBadDimensions =>
+      'This image is too large: 512 px a side at most. Shrink it and choose again.';
+
+  @override
+  String get workshopPublishCoverUnreadable => 'Couldn\'t read this image. Try another.';
+
+  @override
+  String get workshopPublishReviewPreviewIdle => 'First idle frame';
+
+  @override
+  String get workshopPublishReviewPreviewNone => 'No preview';
+
+  @override
+  String get workshopPublishErrorPreviewPet =>
+      'This pet\'s frame is larger than 512 px, so it can\'t have a preview. Turn the preview off to submit as usual.';
+
+  @override
+  String get workshopPublishErrorPreviewConflict =>
+      'The companion\'s package already has a preview.png, so the cover can\'t be added. Remove the cover to submit as usual.';
+
+  @override
+  String get workshopPublishErrorPreviewMissing =>
+      'The preview to use wasn\'t found. Choose it again, or submit without one.';
+
+  @override
+  String get workshopPublishErrorPreviewUnsupported =>
+      'This Workshop isn\'t taking previews right now. Submit without one as usual.';
+
+  @override
+  String get workshopPublishLetGo => 'Let go of this record';
+
+  @override
+  String get workshopPublishLetGoTitle => 'Let go of this phone\'s record?';
+
+  @override
+  String workshopPublishLetGoAccount(String forum, String worker) {
+    return 'Only this phone\'s unfinished record for the account on forum $forum at Workshop $worker is removed.';
+  }
+
+  @override
+  String workshopPublishLetGoAll(String forum, String worker) {
+    return 'The submission records on this phone can\'t be read as a whole. Letting go removes the unfinished-submission records of every account on this phone, not just the one for forum $forum at Workshop $worker.';
+  }
+
+  @override
+  String get workshopPublishLetGoFacts =>
+      'The Workshop isn\'t told to cancel: if it already received this submission, it stays there and shows under My uploads. If it didn\'t, you\'ll need to submit again, and if it did arrive after all there will be two.';
+
+  @override
+  String get workshopPublishLetGoFactsKnown =>
+      'The Workshop isn\'t told to cancel: its result stays as it is, and this submission is still under My uploads.';
+
+  @override
+  String get workshopPublishLetGoConfirm => 'Let go';
+
+  @override
+  String get workshopPublishLetGoDone => 'This phone\'s record was let go';
+
+  @override
+  String get workshopPublishLetGoStale => 'The record just changed. Tap again to confirm it anew.';
+
+  @override
+  String get workshopPublishLetGoUnsupported => 'This version can\'t let go of the record here.';
 
   @override
   String get workspaceRecoveryTitle => 'Workspace index recovery';

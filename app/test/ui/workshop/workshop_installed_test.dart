@@ -10,6 +10,7 @@ import 'package:dsh_app/state/workshop_installed_state.dart';
 import 'package:dsh_app/ui/common/empty_view.dart';
 import 'package:dsh_app/ui/theme/theme.dart';
 import 'package:dsh_app/ui/workshop/workshop_installed.dart';
+import 'package:dsh_app/ui/workshop/workshop_screen.dart';
 import 'package:dsh_app/ui/workshop/workshop_installed_sheet.dart';
 import 'package:dsh_app/ui/workshop/workshop_item_sheet.dart';
 import 'package:dsh_app/workshop/workshop_models.dart';
@@ -29,11 +30,20 @@ class _Installed extends WorkshopInstalledController {
   int refreshes = 0;
   bool accepts = true;
 
+  /// What the next read of the phone produces; null leaves the state alone.
+  WorkshopInstalledListState? nextOnRefresh;
+
+  /// Runs while the catalogue is being asked, before the phone is read.
+  void Function()? duringCatalog;
+
   @override
   WorkshopInstalledListState build() => _initial;
 
   @override
-  Future<void> refresh() async => refreshes++;
+  Future<void> refresh() async {
+    refreshes++;
+    if (nextOnRefresh case final next?) state = next;
+  }
 
   @override
   Future<bool> uninstall(WorkshopLocalEntry entry) async {
@@ -54,7 +64,13 @@ class _Catalog extends WorkshopCatalogController {
   WorkshopCatalogState build() => WorkshopCatalogState(items: _items, localStateKnown: true);
 
   @override
-  Future<void> refresh() async => refreshes++;
+  Future<void> refresh() async {
+    refreshes++;
+    installed?.duringCatalog?.call();
+  }
+
+  /// The installed controller of the same bench, for what happens mid-pull.
+  _Installed? installed;
 }
 
 class _Install extends WorkshopInstallController {
@@ -77,11 +93,13 @@ Future<_Bench> _pump(
   double width = 390,
   double scale = 1,
   Locale locale = const Locale('zh', 'CN'),
+  bool wholePage = false,
 }) async {
   tester.view.devicePixelRatio = 2;
   tester.view.physicalSize = Size(width * 2, 844 * 2);
   addTearDown(tester.view.reset);
   final bench = _Bench(_Installed(state), _Catalog(catalog));
+  bench.catalog.installed = bench.installed;
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -99,11 +117,13 @@ Future<_Bench> _pump(
           data: MediaQuery.of(context).copyWith(disableAnimations: true, textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
-        home: Scaffold(
-          body: CustomScrollView(
-            slivers: [WorkshopInstalledSliver(onBrowse: () => bench.browsed++)],
-          ),
-        ),
+        home: wholePage
+            ? const WorkshopScreen(initialTab: WorkshopTab.installed)
+            : Scaffold(
+                body: CustomScrollView(
+                  slivers: [WorkshopInstalledSliver(onBrowse: () => bench.browsed++)],
+                ),
+              ),
       ),
     ),
   );
@@ -621,6 +641,73 @@ void main() {
       expect(_sheetUninstall, findsOneWidget);
       expect(bench.installed.uninstalled, isEmpty);
       _expectNoRawText();
+    });
+
+    testWidgets('a failed uninstall is put away by 「知道了」, and the row says what the phone says again', (tester) async {
+      final local = stateInstalled(kind: 'companion', id: 'she');
+      final bench = await _pump(
+        tester,
+        _list(
+          [_local(local)],
+          removal: WorkshopRemovalState(phase: WorkshopRemovalPhase.failed, target: local, error: 'workshop_readers_busy'),
+        ),
+      );
+      expect(find.text('没能卸载'), findsOneWidget);
+
+      await tester.tap(find.text('she'));
+      await tester.pumpAndSettle();
+      await tester.tap(_inSheet('知道了'));
+      await tester.pumpAndSettle();
+
+      expect(bench.installed.state.removal.phase, WorkshopRemovalPhase.idle);
+      expect(find.textContaining('没能卸载'), findsNothing);
+      // Nothing was removed or read again by putting the result away.
+      expect(bench.installed.uninstalled, isEmpty);
+      expect(bench.installed.refreshes, 0);
+      expect(_sheetUninstall, findsOneWidget);
+    });
+
+    Future<void> pull(WidgetTester tester) async {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 400));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a pull that reads the phone again puts the last result away; one that fails keeps it', (tester) async {
+      final local = stateInstalled();
+      final done = WorkshopRemovalState(phase: WorkshopRemovalPhase.succeeded, target: local);
+      final bench = await _pump(tester, _list([_local(local)], removal: done), wholePage: true);
+      expect(find.text('已卸载'), findsOneWidget);
+
+      // The phone could not be read: the result still has something to say.
+      bench.installed.nextOnRefresh = _list([_local(local)], loadError: 'workshop_storage', removal: done);
+      await pull(tester);
+      expect(bench.installed.refreshes, 1);
+      expect(bench.installed.state.removal.phase, WorkshopRemovalPhase.succeeded);
+
+      // Read again: the rows are current, the result has nothing to add.
+      bench.installed.nextOnRefresh = _list(const [], removal: done);
+      await pull(tester);
+      expect(bench.installed.refreshes, 2);
+      expect(bench.catalog.refreshes, 2);
+      expect(bench.installed.state.removal.phase, WorkshopRemovalPhase.idle);
+    });
+
+    testWidgets('a result that arrives during a pull is news, and stays', (tester) async {
+      final local = stateInstalled();
+      final bench = await _pump(tester, _list([_local(local)]), wholePage: true);
+      final failed = WorkshopRemovalState(
+        phase: WorkshopRemovalPhase.failed,
+        target: local,
+        error: 'workshop_readers_busy',
+      );
+      // An uninstall fails while the catalogue is being asked; the read after it works.
+      bench.installed.duringCatalog = () => bench.installed.show(_list([_local(local)], removal: failed));
+      bench.installed.nextOnRefresh = null;
+      await pull(tester);
+
+      expect(bench.installed.refreshes, 1);
+      expect(identical(bench.installed.state.removal, failed), isTrue);
+      expect(find.text('没能卸载'), findsOneWidget);
     });
 
     testWidgets('a result that is not this page\'s to announce stays quiet', (tester) async {

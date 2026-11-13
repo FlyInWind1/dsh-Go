@@ -1637,10 +1637,10 @@ class L10nZh extends L10n {
   String get androidShellEnableHint => '独立开关，不随不打扰模式或屏幕免确认设置开启。';
 
   @override
-  String get androidShellConfirmationNote => '每条命令都要经过手机上的原生确认；屏幕操控的「免确认」不适用于这里。Shell 权限范围与屏幕操控不同，不能依靠应用名单拦截所有命令。';
+  String get androidShellConfirmationNote => '每条命令均需确认，可能修改系统和文件。';
 
   @override
-  String get androidShellMasterOff => '先在上一页打开「手机操控」，才能启用 Android Shell。你仍可在这里查看授权和配对引导。';
+  String get androidShellMasterOff => '先在上一页打开「手机操控」。';
 
   @override
   String get androidShellRiskTitle => '允许执行 Android 系统命令？';
@@ -1652,7 +1652,13 @@ class L10nZh extends L10n {
   String get androidShellRiskAction => '允许 Android Shell';
 
   @override
-  String get androidShellBackend => '执行通道';
+  String get androidShellBackend => '连接方式';
+
+  @override
+  String get androidShellDetails => '详情';
+
+  @override
+  String get androidShellReady => '已连接';
 
   @override
   String get androidShellShizukuHint => '使用已安装并启动的 Shizuku，需单独授权；不需要 Android 14、无障碍或不打扰模式。';
@@ -10381,7 +10387,7 @@ class L10nZh extends L10n {
   String get phoneDndDirectAdb => '自连 ADB';
 
   @override
-  String get phoneDndChannels => '通道';
+  String get phoneDndChannels => '连接方式';
 
   @override
   String get phoneDndShizukuFor => '装了 Shizuku App 的手机';
@@ -10441,7 +10447,7 @@ class L10nZh extends L10n {
   String get phoneDndSuiStopped => 'Sui 接口当前不可用。确认 Sui 模块已启用，重启手机后再试。';
 
   @override
-  String get phoneDndSuiAllSet => 'Sui 这边准备好了。';
+  String get phoneDndSuiAllSet => 'Sui 已启动并授权，接下来连接后台屏。';
 
   @override
   String get phoneDndSuiPermissionFailed => '没能请求 Sui 授权。确认 Sui 模块已启用后再试。';
@@ -10450,7 +10456,7 @@ class L10nZh extends L10n {
   String get phoneDndRootWaiting => '正在等待 root 授权，请在 root 管理器的弹窗里选择。';
 
   @override
-  String get phoneDndRootConnected => 'root 已连接。断开后要回到这里再选一次；打开上面的「保持 root 通道」，DSH Go 才会自己再去申请。';
+  String get phoneDndRootConnected => 'root 已连接。断开后要回到这里再选一次；打开「更多设置」中的「保持 root 通道」，DSH Go 才会自己再去申请。';
 
   @override
   String get phoneDndRootConnectedKept => 'root 已连接。断开后 DSH Go 会自己向 root 管理器再次申请。';
@@ -10459,7 +10465,7 @@ class L10nZh extends L10n {
   String get phoneDndRootRetry => '重新申请 root 授权';
 
   @override
-  String get phoneDndInstallShizuku => '先装 Shizuku（免费、开源）。已经在用冰箱、黑阈这类工具的话，多半已经装了。';
+  String get phoneDndInstallShizuku => '先安装 Shizuku（免费、开源）。';
 
   @override
   String get phoneDndOpenShizukuSite => '打开 Shizuku 官网';
@@ -10474,7 +10480,7 @@ class L10nZh extends L10n {
   String get phoneDndGrantShizuku => '授权给 DSH Go';
 
   @override
-  String get phoneDndShizukuAllSet => 'Shizuku 这边准备好了。';
+  String get phoneDndShizukuAllSet => 'Shizuku 已启动并授权，接下来连接后台屏。';
 
   @override
   String get phoneDndShizukuInstalled => '已安装 Shizuku';
@@ -10612,7 +10618,22 @@ class L10nZh extends L10n {
   String get phoneControlFloatingBarHint => '悬浮条上也能暂停或停止';
 
   @override
-  String get phoneControlAdvanced => '进阶';
+  String get phoneControlAdvanced => '更多设置';
+
+  @override
+  String get phoneDndMoreChannels => '更多连接方式（Root / Sui）';
+
+  @override
+  String get phoneDndChangeChannel => '更换连接方式';
+
+  @override
+  String get phoneDndPairingHelp => '配对帮助 / 手动填写';
+
+  @override
+  String get phoneDndConnectHelp => '连接不上？';
+
+  @override
+  String get phoneDndPairNext => '先在系统开发者选项打开「无线调试」，再点「开始配对」，按通知填写配对码。';
 
   @override
   String get phoneControlKeepAliveHint => '防止系统关掉无障碍';
@@ -11356,6 +11377,28 @@ class L10nZh extends L10n {
   String get phoneDirectChangeFailed => '未能切换启动方式，请停止本机引擎后重试。';
 
   @override
+  String get phoneTawcEngine => 'tawcroot 加速启动';
+
+  @override
+  String get phoneTawcHint =>
+      '实验功能，默认关闭，下次启动生效，和「直接启动」二选一。用 tawcroot 代替兼容启动运行本机引擎：启动快约三倍，装包、apt 也更快。启动不成功会自动改回兼容启动。关掉后的第一次启动会先把它留下的硬链接整理成普通文件，可能要多等一会。';
+
+  @override
+  String get phoneTawcFailedHint => '这台手机上 tawcroot 没有启动成功，已改用兼容启动。停止引擎后打开可再试一次。';
+
+  @override
+  String get phoneTawcUnavailable => '这个安装包不含 tawcroot，或系统低于 Android 10。';
+
+  @override
+  String get phoneLaunchTawcroot => 'tawcroot';
+
+  @override
+  String get phoneTawcLaunchFailed => 'tawcroot 未启动成功';
+
+  @override
+  String get phoneTawcUnsupported => '这次的启动参数 tawcroot 还不支持，暂用兼容启动';
+
+  @override
   String get phoneActualLaunchMode => '当前运行方式';
 
   @override
@@ -11478,7 +11521,16 @@ class L10nZh extends L10n {
   String get phoneCleanupRetryFailed => '仍未能确认上一后台屏已清理，屏幕占用继续保留。';
 
   @override
-  String get phoneSelfCheckTitle => '本机手机自检';
+  String get phoneSelfCheckTitle => '检查手机操控';
+
+  @override
+  String get phoneSelfCheckTechnicalDetails => '技术详情';
+
+  @override
+  String get phoneLocalOcrSummary => '本机识别；结果可发给模型，SDK 会收集使用统计。';
+
+  @override
+  String get phoneLocalOcrPrivacyDetails => '隐私详情';
 
   @override
   String get phoneSelfCheckPartial => '部分自检：仅已观察的项目有结果';
@@ -11487,7 +11539,7 @@ class L10nZh extends L10n {
   String get phoneSelfCheckScope => '使用已选择并连接的通道和临时展示屏。应用启动、文字输入、截图、OCR及主屏受扰情况均未测试。清理通过不代表展示屏创建成功。';
 
   @override
-  String get phoneSelfCheckStart => '开始部分自检';
+  String get phoneSelfCheckStart => '开始检查';
 
   @override
   String get phoneSelfCheckCancel => '请求取消';
@@ -11519,7 +11571,7 @@ class L10nZh extends L10n {
       'idle': '尚未开始',
       'running': '部分自检进行中',
       'cleaning': '正在清理；取消不代表已撤销派发的输入',
-      'done': '执行和清理已结束，请逐项查看下方结果',
+      'done': '检查已结束，结果见技术详情',
       'cancelled': '已取消，已观察到的操作仍保留',
       'cleanup_pending': '清理尚未确认，资源仍保留',
       'other': '状态不可用',
@@ -11684,7 +11736,7 @@ class L10nZh extends L10n {
   String get phoneInterruptionActionFailed => '任务记录尚未确认，请重试';
 
   @override
-  String get phoneLocalOcrTitle => '本机文字识别（ML Kit）';
+  String get phoneLocalOcrTitle => '文字识别';
 
   @override
   String get phoneLocalOcrUnknown => '暂时无法读取本机文字识别设置，请刷新后再试。';
@@ -23850,6 +23902,9 @@ class L10nZh extends L10n {
   String get workshopInstalledRemovedLocalIssue => '已卸载，但有些地方没能跟着更新，重新打开 App 就好。';
 
   @override
+  String get workshopInstalledDismissFailure => '知道了';
+
+  @override
   String get workshopMinePublish => '投稿';
 
   @override
@@ -24287,6 +24342,97 @@ class L10nZh extends L10n {
 
   @override
   String get workshopPublishErrorAgain => '现在还不能重新投稿。';
+
+  @override
+  String get workshopPublishSectionPreview => '预览图';
+
+  @override
+  String get workshopPublishPreviewSwitch => '在工坊里显示预览图';
+
+  @override
+  String get workshopPublishPreviewIdle => '用待机动画的第一帧';
+
+  @override
+  String get workshopPublishSectionCover => '封面（选填）';
+
+  @override
+  String get workshopPublishCoverPick => '选一张封面';
+
+  @override
+  String get workshopPublishCoverHelper => 'PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。';
+
+  @override
+  String get workshopPublishCoverChosen => '自选封面';
+
+  @override
+  String get workshopPublishCoverReplace => '换一张';
+
+  @override
+  String get workshopPublishCoverRemove => '移除';
+
+  @override
+  String get workshopPublishCoverBadSize => '这张图是空的或超过 2 MB，换一张试试。';
+
+  @override
+  String get workshopPublishCoverBadPng => '这不是一张完整的 PNG 图片，换一张试试。';
+
+  @override
+  String get workshopPublishCoverBadDimensions => '这张图太大了，每边最多 512 像素。缩小后再选。';
+
+  @override
+  String get workshopPublishCoverUnreadable => '没能读出这张图，换一张试试。';
+
+  @override
+  String get workshopPublishReviewPreviewIdle => '待机动画第一帧';
+
+  @override
+  String get workshopPublishReviewPreviewNone => '不带预览图';
+
+  @override
+  String get workshopPublishErrorPreviewPet => '这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewConflict => '伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewMissing => '没找到要用的预览图。重新选一次，或者去掉预览图再投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewUnsupported => '这个工坊现在不收预览图。去掉预览图可以照常投稿。';
+
+  @override
+  String get workshopPublishLetGo => '放下这条记录';
+
+  @override
+  String get workshopPublishLetGoTitle => '放下本机的这条记录？';
+
+  @override
+  String workshopPublishLetGoAccount(String forum, String worker) {
+    return '只删除这台手机上，论坛 $forum 的账号在工坊 $worker 的这条未完成记录。';
+  }
+
+  @override
+  String workshopPublishLetGoAll(String forum, String worker) {
+    return '这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是论坛 $forum 在工坊 $worker 的这一条。';
+  }
+
+  @override
+  String get workshopPublishLetGoFacts => '工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。';
+
+  @override
+  String get workshopPublishLetGoFactsKnown => '工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。';
+
+  @override
+  String get workshopPublishLetGoConfirm => '放下记录';
+
+  @override
+  String get workshopPublishLetGoDone => '已放下本机的记录';
+
+  @override
+  String get workshopPublishLetGoStale => '记录刚刚有变化，再点一次重新确认。';
+
+  @override
+  String get workshopPublishLetGoUnsupported => '这个版本没法在这里放下记录。';
 
   @override
   String get workspaceRecoveryTitle => '工作区索引救援';

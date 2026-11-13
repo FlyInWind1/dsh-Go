@@ -87,5 +87,54 @@
   "workshopPublishErrorTooLarge": "包太大了，超过了工坊的上限。",
   "workshopPublishErrorMetadata": "资料没有通过工坊的检查，改一改再试。",
   "workshopPublishErrorNotReady": "还没准备好，稍等再试。",
-  "workshopPublishErrorAgain": "现在还不能重新投稿。"
+  "workshopPublishErrorAgain": "现在还不能重新投稿。",
+  "workshopPublishSectionPreview": "预览图",
+  "workshopPublishPreviewSwitch": "在工坊里显示预览图",
+  "workshopPublishPreviewIdle": "用待机动画的第一帧",
+  "workshopPublishSectionCover": "封面（选填）",
+  "workshopPublishCoverPick": "选一张封面",
+  "workshopPublishCoverHelper": "PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。",
+  "workshopPublishCoverChosen": "自选封面",
+  "workshopPublishCoverReplace": "换一张",
+  "workshopPublishCoverRemove": "移除",
+  "workshopPublishCoverBadSize": "这张图是空的或超过 2 MB，换一张试试。",
+  "workshopPublishCoverBadPng": "这不是一张完整的 PNG 图片，换一张试试。",
+  "workshopPublishCoverBadDimensions": "这张图太大了，每边最多 512 像素。缩小后再选。",
+  "workshopPublishCoverUnreadable": "没能读出这张图，换一张试试。",
+  "workshopPublishReviewPreviewIdle": "待机动画第一帧",
+  "workshopPublishReviewPreviewNone": "不带预览图",
+  "workshopPublishErrorPreviewPet": "这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。",
+  "workshopPublishErrorPreviewConflict": "伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。",
+  "workshopPublishErrorPreviewMissing": "没找到要用的预览图。重新选一次，或者去掉预览图再投稿。",
+  "workshopPublishErrorPreviewUnsupported": "这个工坊现在不收预览图。去掉预览图可以照常投稿。",
+  "workshopPublishLetGo": "放下这条记录",
+  "workshopPublishLetGoTitle": "放下本机的这条记录？",
+  "workshopPublishLetGoAccount": "只删除这台手机上，论坛 {forum} 的账号在工坊 {worker} 的这条未完成记录。",
+  "@workshopPublishLetGoAccount": {
+    "placeholders": {
+      "forum": {
+        "type": "String"
+      },
+      "worker": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopPublishLetGoAll": "这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是论坛 {forum} 在工坊 {worker} 的这一条。",
+  "@workshopPublishLetGoAll": {
+    "placeholders": {
+      "forum": {
+        "type": "String"
+      },
+      "worker": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopPublishLetGoFacts": "工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。",
+  "workshopPublishLetGoFactsKnown": "工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。",
+  "workshopPublishLetGoConfirm": "放下记录",
+  "workshopPublishLetGoDone": "已放下本机的记录",
+  "workshopPublishLetGoStale": "记录刚刚有变化，再点一次重新确认。",
+  "workshopPublishLetGoUnsupported": "这个版本没法在这里放下记录。"
 }

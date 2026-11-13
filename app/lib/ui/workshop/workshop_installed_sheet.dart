@@ -90,33 +90,16 @@ WorkshopRemovalPhase workshopInstalledRemovalOf(WorkshopInstalledRow row, Worksh
   return mine ? removal.phase : WorkshopRemovalPhase.idle;
 }
 
-/// What kind of local problem a diagnostic code is. Only codes the listing is
-/// known to hand out are named; anything else is [other], never a guess from
-/// the code's name.
+/// What kind of local problem a diagnostic code is. Which codes mean "the
+/// package itself is wrong" is the data layer's list
+/// ([workshopPackageValidationCodes]); a code this page has no name for is
+/// [other], never a guess from how it is spelled.
 enum _LocalIssue { broken, unreadable, record, other }
 
 _LocalIssue _localIssue(String code) => switch (code) {
   'workshop_install_record' || 'workshop_install_conflict' => _LocalIssue.record,
   'workshop_storage' || 'workshop_companion_storage' => _LocalIssue.unreadable,
-  'workshop_pet_no_pack' ||
-  'workshop_pet_bad_pack' ||
-  'workshop_pet_missing_sheet' ||
-  'workshop_pet_bad_sheet' ||
-  'workshop_companion_not_a_pack' ||
-  'workshop_companion_no_model' ||
-  'workshop_companion_legacy_model' ||
-  'workshop_companion_missing_file' ||
-  'workshop_companion_changed' ||
-  'workshop_companion_bad_json' ||
-  'workshop_companion_missing_index' ||
-  'workshop_companion_bad_index' ||
-  'workshop_companion_missing_model' ||
-  'workshop_companion_bad_reference' ||
-  'workshop_companion_missing_reference' ||
-  'workshop_companion_bad_model' ||
-  'workshop_companion_bad_moc' ||
-  'workshop_companion_moc_version' ||
-  'workshop_companion_missing_texture' => _LocalIssue.broken,
+  _ when workshopPackageValidationCodes.contains(code) => _LocalIssue.broken,
   _ => _LocalIssue.other,
 };
 
@@ -159,7 +142,7 @@ class WorkshopInstalledAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (row.publicEntry case final entry?) return WorkshopAvatar(entry.metadata, size: size);
+    if (row.publicEntry case final entry?) return WorkshopEntryAvatar(entry, size: size);
     final local = row.local;
     if (local is WorkshopInstalled) {
       // The same tint WorkshopAvatar gives this identity.
@@ -243,6 +226,10 @@ class WorkshopInstalledSheet extends ConsumerWidget {
             l10n.workshopInstalledRemoveFailed(workshopErrorLine(l10n, state.removal.error ?? '')),
             tone: WorkshopNoteTone.danger,
             padding: notePadding,
+            // Put away on the person's tap, never from a listener: the row
+            // goes back to what the phone says about it.
+            actionLabel: l10n.workshopInstalledDismissFailure,
+            onAction: () => ref.read(workshopInstalledProvider.notifier).acknowledgeRemoval(),
           ),
         if (row.localIssue case final code?)
           WorkshopNote(_issueText(l10n, code), tone: WorkshopNoteTone.warning, padding: notePadding),

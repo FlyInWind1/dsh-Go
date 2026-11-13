@@ -54,5 +54,6 @@
   "workshopInstalledRemoveMessage": "This deletes the copy on this phone. To use it again, get it from the Workshop again.",
   "workshopInstalledRemoveNoReinstall": "The Workshop doesn't list it right now, so you may not be able to get it back.",
   "workshopInstalledRemovedRefreshIssue": "Uninstalled, but the list couldn't refresh. Pull down to refresh it.",
-  "workshopInstalledRemovedLocalIssue": "Uninstalled, but some places didn't catch up. Reopen the app to bring them up to date."
+  "workshopInstalledRemovedLocalIssue": "Uninstalled, but some places didn't catch up. Reopen the app to bring them up to date.",
+  "workshopInstalledDismissFailure": "Got it"
 }

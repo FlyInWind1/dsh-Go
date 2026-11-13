@@ -54,5 +54,6 @@
   "workshopInstalledRemoveMessage": "会删掉这台手机上的这一份。想再用，要回工坊重新获取。",
   "workshopInstalledRemoveNoReinstall": "工坊里现在找不到它，卸载后可能装不回来。",
   "workshopInstalledRemovedRefreshIssue": "已卸载，但列表没能刷新，下拉刷新一下。",
-  "workshopInstalledRemovedLocalIssue": "已卸载，但有些地方没能跟着更新，重新打开 App 就好。"
+  "workshopInstalledRemovedLocalIssue": "已卸载，但有些地方没能跟着更新，重新打开 App 就好。",
+  "workshopInstalledDismissFailure": "知道了"
 }

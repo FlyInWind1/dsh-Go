@@ -3101,13 +3101,13 @@ abstract class L10n {
   /// No description provided for @androidShellConfirmationNote.
   ///
   /// In zh, this message translates to:
-  /// **'每条命令都要经过手机上的原生确认；屏幕操控的「免确认」不适用于这里。Shell 权限范围与屏幕操控不同，不能依靠应用名单拦截所有命令。'**
+  /// **'每条命令均需确认，可能修改系统和文件。'**
   String get androidShellConfirmationNote;
 
   /// No description provided for @androidShellMasterOff.
   ///
   /// In zh, this message translates to:
-  /// **'先在上一页打开「手机操控」，才能启用 Android Shell。你仍可在这里查看授权和配对引导。'**
+  /// **'先在上一页打开「手机操控」。'**
   String get androidShellMasterOff;
 
   /// No description provided for @androidShellRiskTitle.
@@ -3131,8 +3131,20 @@ abstract class L10n {
   /// No description provided for @androidShellBackend.
   ///
   /// In zh, this message translates to:
-  /// **'执行通道'**
+  /// **'连接方式'**
   String get androidShellBackend;
+
+  /// No description provided for @androidShellDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情'**
+  String get androidShellDetails;
+
+  /// No description provided for @androidShellReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接'**
+  String get androidShellReady;
 
   /// No description provided for @androidShellShizukuHint.
   ///
@@ -19241,7 +19253,7 @@ abstract class L10n {
   /// No description provided for @phoneDndChannels.
   ///
   /// In zh, this message translates to:
-  /// **'通道'**
+  /// **'连接方式'**
   String get phoneDndChannels;
 
   /// No description provided for @phoneDndShizukuFor.
@@ -19361,7 +19373,7 @@ abstract class L10n {
   /// No description provided for @phoneDndSuiAllSet.
   ///
   /// In zh, this message translates to:
-  /// **'Sui 这边准备好了。'**
+  /// **'Sui 已启动并授权，接下来连接后台屏。'**
   String get phoneDndSuiAllSet;
 
   /// No description provided for @phoneDndSuiPermissionFailed.
@@ -19379,7 +19391,7 @@ abstract class L10n {
   /// No description provided for @phoneDndRootConnected.
   ///
   /// In zh, this message translates to:
-  /// **'root 已连接。断开后要回到这里再选一次；打开上面的「保持 root 通道」，DSH Go 才会自己再去申请。'**
+  /// **'root 已连接。断开后要回到这里再选一次；打开「更多设置」中的「保持 root 通道」，DSH Go 才会自己再去申请。'**
   String get phoneDndRootConnected;
 
   /// No description provided for @phoneDndRootConnectedKept.
@@ -19397,7 +19409,7 @@ abstract class L10n {
   /// No description provided for @phoneDndInstallShizuku.
   ///
   /// In zh, this message translates to:
-  /// **'先装 Shizuku（免费、开源）。已经在用冰箱、黑阈这类工具的话，多半已经装了。'**
+  /// **'先安装 Shizuku（免费、开源）。'**
   String get phoneDndInstallShizuku;
 
   /// No description provided for @phoneDndOpenShizukuSite.
@@ -19427,7 +19439,7 @@ abstract class L10n {
   /// No description provided for @phoneDndShizukuAllSet.
   ///
   /// In zh, this message translates to:
-  /// **'Shizuku 这边准备好了。'**
+  /// **'Shizuku 已启动并授权，接下来连接后台屏。'**
   String get phoneDndShizukuAllSet;
 
   /// No description provided for @phoneDndShizukuInstalled.
@@ -19703,8 +19715,38 @@ abstract class L10n {
   /// No description provided for @phoneControlAdvanced.
   ///
   /// In zh, this message translates to:
-  /// **'进阶'**
+  /// **'更多设置'**
   String get phoneControlAdvanced;
+
+  /// No description provided for @phoneDndMoreChannels.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多连接方式（Root / Sui）'**
+  String get phoneDndMoreChannels;
+
+  /// No description provided for @phoneDndChangeChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换连接方式'**
+  String get phoneDndChangeChannel;
+
+  /// No description provided for @phoneDndPairingHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对帮助 / 手动填写'**
+  String get phoneDndPairingHelp;
+
+  /// No description provided for @phoneDndConnectHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接不上？'**
+  String get phoneDndConnectHelp;
+
+  /// No description provided for @phoneDndPairNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'先在系统开发者选项打开「无线调试」，再点「开始配对」，按通知填写配对码。'**
+  String get phoneDndPairNext;
 
   /// No description provided for @phoneControlKeepAliveHint.
   ///
@@ -21044,6 +21086,48 @@ abstract class L10n {
   /// **'未能切换启动方式，请停止本机引擎后重试。'**
   String get phoneDirectChangeFailed;
 
+  /// No description provided for @phoneTawcEngine.
+  ///
+  /// In zh, this message translates to:
+  /// **'tawcroot 加速启动'**
+  String get phoneTawcEngine;
+
+  /// No description provided for @phoneTawcHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'实验功能，默认关闭，下次启动生效，和「直接启动」二选一。用 tawcroot 代替兼容启动运行本机引擎：启动快约三倍，装包、apt 也更快。启动不成功会自动改回兼容启动。关掉后的第一次启动会先把它留下的硬链接整理成普通文件，可能要多等一会。'**
+  String get phoneTawcHint;
+
+  /// No description provided for @phoneTawcFailedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台手机上 tawcroot 没有启动成功，已改用兼容启动。停止引擎后打开可再试一次。'**
+  String get phoneTawcFailedHint;
+
+  /// No description provided for @phoneTawcUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个安装包不含 tawcroot，或系统低于 Android 10。'**
+  String get phoneTawcUnavailable;
+
+  /// No description provided for @phoneLaunchTawcroot.
+  ///
+  /// In zh, this message translates to:
+  /// **'tawcroot'**
+  String get phoneLaunchTawcroot;
+
+  /// No description provided for @phoneTawcLaunchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'tawcroot 未启动成功'**
+  String get phoneTawcLaunchFailed;
+
+  /// No description provided for @phoneTawcUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次的启动参数 tawcroot 还不支持，暂用兼容启动'**
+  String get phoneTawcUnsupported;
+
   /// No description provided for @phoneActualLaunchMode.
   ///
   /// In zh, this message translates to:
@@ -21275,8 +21359,26 @@ abstract class L10n {
   /// No description provided for @phoneSelfCheckTitle.
   ///
   /// In zh, this message translates to:
-  /// **'本机手机自检'**
+  /// **'检查手机操控'**
   String get phoneSelfCheckTitle;
+
+  /// No description provided for @phoneSelfCheckTechnicalDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'技术详情'**
+  String get phoneSelfCheckTechnicalDetails;
+
+  /// No description provided for @phoneLocalOcrSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机识别；结果可发给模型，SDK 会收集使用统计。'**
+  String get phoneLocalOcrSummary;
+
+  /// No description provided for @phoneLocalOcrPrivacyDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐私详情'**
+  String get phoneLocalOcrPrivacyDetails;
 
   /// No description provided for @phoneSelfCheckPartial.
   ///
@@ -21293,7 +21395,7 @@ abstract class L10n {
   /// No description provided for @phoneSelfCheckStart.
   ///
   /// In zh, this message translates to:
-  /// **'开始部分自检'**
+  /// **'开始检查'**
   String get phoneSelfCheckStart;
 
   /// No description provided for @phoneSelfCheckCancel.
@@ -21347,7 +21449,7 @@ abstract class L10n {
   /// No description provided for @phoneSelfCheckRunState.
   ///
   /// In zh, this message translates to:
-  /// **'{state, select, idle{尚未开始} running{部分自检进行中} cleaning{正在清理；取消不代表已撤销派发的输入} done{执行和清理已结束，请逐项查看下方结果} cancelled{已取消，已观察到的操作仍保留} cleanup_pending{清理尚未确认，资源仍保留} other{状态不可用}}'**
+  /// **'{state, select, idle{尚未开始} running{部分自检进行中} cleaning{正在清理；取消不代表已撤销派发的输入} done{检查已结束，结果见技术详情} cancelled{已取消，已观察到的操作仍保留} cleanup_pending{清理尚未确认，资源仍保留} other{状态不可用}}'**
   String phoneSelfCheckRunState(String state);
 
   /// No description provided for @phoneSelfCheckStepState.
@@ -21479,7 +21581,7 @@ abstract class L10n {
   /// No description provided for @phoneLocalOcrTitle.
   ///
   /// In zh, this message translates to:
-  /// **'本机文字识别（ML Kit）'**
+  /// **'文字识别'**
   String get phoneLocalOcrTitle;
 
   /// No description provided for @phoneLocalOcrUnknown.
@@ -43376,6 +43478,12 @@ abstract class L10n {
   /// **'已卸载，但有些地方没能跟着更新，重新打开 App 就好。'**
   String get workshopInstalledRemovedLocalIssue;
 
+  /// No description provided for @workshopInstalledDismissFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get workshopInstalledDismissFailure;
+
   /// No description provided for @workshopMinePublish.
   ///
   /// In zh, this message translates to:
@@ -44233,6 +44341,180 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'现在还不能重新投稿。'**
   String get workshopPublishErrorAgain;
+
+  /// No description provided for @workshopPublishSectionPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览图'**
+  String get workshopPublishSectionPreview;
+
+  /// No description provided for @workshopPublishPreviewSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'在工坊里显示预览图'**
+  String get workshopPublishPreviewSwitch;
+
+  /// No description provided for @workshopPublishPreviewIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用待机动画的第一帧'**
+  String get workshopPublishPreviewIdle;
+
+  /// No description provided for @workshopPublishSectionCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面（选填）'**
+  String get workshopPublishSectionCover;
+
+  /// No description provided for @workshopPublishCoverPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选一张封面'**
+  String get workshopPublishCoverPick;
+
+  /// No description provided for @workshopPublishCoverHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。'**
+  String get workshopPublishCoverHelper;
+
+  /// No description provided for @workshopPublishCoverChosen.
+  ///
+  /// In zh, this message translates to:
+  /// **'自选封面'**
+  String get workshopPublishCoverChosen;
+
+  /// No description provided for @workshopPublishCoverReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一张'**
+  String get workshopPublishCoverReplace;
+
+  /// No description provided for @workshopPublishCoverRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get workshopPublishCoverRemove;
+
+  /// No description provided for @workshopPublishCoverBadSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图是空的或超过 2 MB，换一张试试。'**
+  String get workshopPublishCoverBadSize;
+
+  /// No description provided for @workshopPublishCoverBadPng.
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是一张完整的 PNG 图片，换一张试试。'**
+  String get workshopPublishCoverBadPng;
+
+  /// No description provided for @workshopPublishCoverBadDimensions.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图太大了，每边最多 512 像素。缩小后再选。'**
+  String get workshopPublishCoverBadDimensions;
+
+  /// No description provided for @workshopPublishCoverUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能读出这张图，换一张试试。'**
+  String get workshopPublishCoverUnreadable;
+
+  /// No description provided for @workshopPublishReviewPreviewIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待机动画第一帧'**
+  String get workshopPublishReviewPreviewIdle;
+
+  /// No description provided for @workshopPublishReviewPreviewNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不带预览图'**
+  String get workshopPublishReviewPreviewNone;
+
+  /// No description provided for @workshopPublishErrorPreviewPet.
+  ///
+  /// In zh, this message translates to:
+  /// **'这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。'**
+  String get workshopPublishErrorPreviewPet;
+
+  /// No description provided for @workshopPublishErrorPreviewConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。'**
+  String get workshopPublishErrorPreviewConflict;
+
+  /// No description provided for @workshopPublishErrorPreviewMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没找到要用的预览图。重新选一次，或者去掉预览图再投稿。'**
+  String get workshopPublishErrorPreviewMissing;
+
+  /// No description provided for @workshopPublishErrorPreviewUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个工坊现在不收预览图。去掉预览图可以照常投稿。'**
+  String get workshopPublishErrorPreviewUnsupported;
+
+  /// No description provided for @workshopPublishLetGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下这条记录'**
+  String get workshopPublishLetGo;
+
+  /// No description provided for @workshopPublishLetGoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下本机的这条记录？'**
+  String get workshopPublishLetGoTitle;
+
+  /// No description provided for @workshopPublishLetGoAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'只删除这台手机上，论坛 {forum} 的账号在工坊 {worker} 的这条未完成记录。'**
+  String workshopPublishLetGoAccount(String forum, String worker);
+
+  /// No description provided for @workshopPublishLetGoAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是论坛 {forum} 在工坊 {worker} 的这一条。'**
+  String workshopPublishLetGoAll(String forum, String worker);
+
+  /// No description provided for @workshopPublishLetGoFacts.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。'**
+  String get workshopPublishLetGoFacts;
+
+  /// No description provided for @workshopPublishLetGoFactsKnown.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。'**
+  String get workshopPublishLetGoFactsKnown;
+
+  /// No description provided for @workshopPublishLetGoConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下记录'**
+  String get workshopPublishLetGoConfirm;
+
+  /// No description provided for @workshopPublishLetGoDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已放下本机的记录'**
+  String get workshopPublishLetGoDone;
+
+  /// No description provided for @workshopPublishLetGoStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录刚刚有变化，再点一次重新确认。'**
+  String get workshopPublishLetGoStale;
+
+  /// No description provided for @workshopPublishLetGoUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个版本没法在这里放下记录。'**
+  String get workshopPublishLetGoUnsupported;
 
   /// No description provided for @workspaceRecoveryTitle.
   ///

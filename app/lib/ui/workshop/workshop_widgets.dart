@@ -3,16 +3,18 @@
 // taking the page over.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../state/workshop_dependencies.dart';
 import '../../workshop/workshop_models.dart';
 import '../plugins/plugin_widgets.dart' show PluginAvatar;
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'workshop_text.dart';
 
-/// The item's square, app-store style. The catalogue carries no picture yet,
-/// so this is the title's first letter on a tint the item keeps.
+/// The item's square, app-store style, for when there is no picture: the
+/// title's first letter on a tint the item keeps.
 class WorkshopAvatar extends StatelessWidget {
   const WorkshopAvatar(this.metadata, {super.key, this.size = 40});
 
@@ -25,6 +27,130 @@ class WorkshopAvatar extends StatelessWidget {
     title: workshopTitleOf(metadata, Localizations.localeOf(context).languageCode),
     size: size,
   );
+}
+
+/// Where [entry]'s public picture is, or null when it has none (or the
+/// workshop is not ready to say). The address is the data layer's: the same
+/// origin the package itself is fetched from, never one a page puts together.
+Uri? workshopPreviewUri(WidgetRef ref, WorkshopEntry entry) {
+  if (entry.preview == null) return null;
+  return switch (ref.watch(workshopClientProvider)) {
+    AsyncData(:final value) => value.publicPreviewUri(entry),
+    _ => null,
+  };
+}
+
+/// The picture itself. Pixel pets are drawn with hard edges; a companion's
+/// cover is smoothed. While it loads, and if it cannot be had, [fallback]
+/// stays: a missing picture says nothing about the package.
+class WorkshopPreviewImage extends StatelessWidget {
+  const WorkshopPreviewImage({
+    super.key,
+    required this.uri,
+    required this.kind,
+    required this.fallback,
+    this.fit = BoxFit.contain,
+    this.cacheExtent,
+  });
+
+  final Uri uri;
+  final String kind;
+  final Widget fallback;
+  final BoxFit fit;
+
+  /// The longest side to decode to, in physical pixels. Not used for pixel
+  /// pets: resampling would blur them.
+  final int? cacheExtent;
+
+  @override
+  Widget build(BuildContext context) {
+    final pixel = kind == 'pet';
+    return Image.network(
+      uri.toString(),
+      fit: fit,
+      filterQuality: pixel ? FilterQuality.none : FilterQuality.medium,
+      cacheWidth: pixel ? null : cacheExtent,
+      gaplessPlayback: true,
+      excludeFromSemantics: true,
+      frameBuilder: (context, child, frame, synchronous) => frame == null && !synchronous ? fallback : child,
+      errorBuilder: (context, error, stack) => fallback,
+    );
+  }
+}
+
+/// The item's square with its public picture when the workshop has one for
+/// this release, and the letter square otherwise.
+class WorkshopEntryAvatar extends ConsumerWidget {
+  const WorkshopEntryAvatar(this.entry, {super.key, this.size = 40});
+
+  final WorkshopEntry entry;
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final letter = WorkshopAvatar(entry.metadata, size: size);
+    final uri = workshopPreviewUri(ref, entry);
+    if (uri == null) return letter;
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox.square(
+      dimension: size,
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          color: scheme.onSurface.withValues(alpha: 0.05),
+          shape: Squircle.border(size * 0.25),
+        ),
+        child: ClipPath(
+          clipper: ShapeBorderClipper(shape: Squircle.border(size * 0.25)),
+          child: WorkshopPreviewImage(
+            uri: uri,
+            kind: entry.metadata.kind,
+            fallback: letter,
+            fit: entry.metadata.kind == 'pet' ? BoxFit.contain : BoxFit.cover,
+            cacheExtent: (size * MediaQuery.devicePixelRatioOf(context)).ceil(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The picture at a size it can be judged by, in the item's detail. Nothing
+/// at all when the release has no picture or it cannot be shown.
+class WorkshopPreviewPanel extends ConsumerWidget {
+  const WorkshopPreviewPanel(this.entry, {super.key, this.height = 176});
+
+  final WorkshopEntry entry;
+  final double height;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uri = workshopPreviewUri(ref, entry);
+    if (uri == null) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: scheme.onSurface.withValues(alpha: 0.04),
+            shape: Squircle.border(AppShape.radiusLg.topLeft.x),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: WorkshopPreviewImage(
+              uri: uri,
+              kind: entry.metadata.kind,
+              // Not an empty frame: the same square the list shows, larger.
+              fallback: Center(child: WorkshopAvatar(entry.metadata, size: 72)),
+              cacheExtent: (height * MediaQuery.devicePixelRatioOf(context)).ceil(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// What the capsule at the end of a row offers.

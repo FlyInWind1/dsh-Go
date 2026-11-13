@@ -33,6 +33,7 @@ import '../settings/settings_widgets.dart' show SettingsSection;
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'workshop_publish_preview.dart';
 import 'workshop_publish_text.dart';
 import 'workshop_text.dart';
 import 'workshop_widgets.dart';
@@ -236,11 +237,19 @@ class WorkshopPublishForm extends ConsumerStatefulWidget {
     required this.seed,
     required this.onChangeSource,
     required this.onNext,
+    required this.onCover,
+    this.cover,
     this.notes = const [],
   });
 
   final WorkshopPublishSource source;
   final WorkshopPublicationInput seed;
+
+  /// The page's copy of the companion cover in [source], for its thumbnail.
+  final WorkshopCover? cover;
+
+  /// Another cover was taken by the state layer, or none.
+  final ValueChanged<WorkshopCover?> onCover;
 
   /// 「更换」: the page asks about unsaved edits and shows the sources.
   final VoidCallback onChangeSource;
@@ -412,6 +421,14 @@ class _WorkshopPublishFormState extends ConsumerState<WorkshopPublishForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Part of what is sent, so it sits with the source. Changing
+                // it leaves the fields below as typed.
+                WorkshopPublishPreviewGroup(
+                  source: widget.source,
+                  cover: widget.cover,
+                  onCover: widget.onCover,
+                  enabled: !busy,
+                ),
                 SettingsSection(
                   title: l10n.workshopPublishSectionNames,
                   children: [
@@ -685,11 +702,20 @@ class WorkshopPublishRights extends StatelessWidget {
 /// 「投稿」 needs. Everything here is read from the state layer's prepared
 /// result, not from the form.
 class WorkshopPublishReview extends ConsumerWidget {
-  const WorkshopPublishReview({super.key, required this.onEdit, required this.onSubmit, this.notes = const []});
+  const WorkshopPublishReview({
+    super.key,
+    required this.onEdit,
+    required this.onSubmit,
+    this.cover,
+    this.notes = const [],
+  });
 
   /// 「修改资料」: back to the form.
   final VoidCallback onEdit;
   final VoidCallback onSubmit;
+
+  /// The page's copy of the companion cover that was packed, when it has one.
+  final WorkshopCover? cover;
   final List<Widget> notes;
 
   @override
@@ -742,6 +768,8 @@ class WorkshopPublishReview extends ConsumerWidget {
               chevron: true,
               onTap: () => unawaited(_showFiles(context, publish.files)),
             ),
+            // The one thing here that is public before anyone installs it.
+            WorkshopPublishPreviewRow(source: meta.previewSource, cover: cover),
           ],
         ),
         if (description.isNotEmpty || meta.tags.isNotEmpty)

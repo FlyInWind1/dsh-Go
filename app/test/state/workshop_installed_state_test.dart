@@ -190,6 +190,147 @@ void main() {
     } finally { container.dispose(); }
   });
 
+  for (final fails in [false, true]) {
+    test('acknowledges ${fails ? 'failed' : 'successful'} removal without I/O or gate changes', () async {
+      final entry = stateInstalled();
+      final packages = StatePackages()..rows = [entry];
+      var reads = 0, notices = 0;
+      packages.list = () async {
+        reads++;
+        return List<WorkshopLocalEntry>.of(packages.rows);
+      };
+      if (fails) {
+        packages.removeAction = (_) async => throw const WorkshopException('workshop_install_conflict');
+      }
+      final client = StateClient();
+      final container = stateContainer(packages: packages, configured: false,
+        sources: [StateSource(client, StateRepository(client, packages))],
+        changed: (item, {required removed}) async {
+          notices++;
+          if (!fails) {
+            throw StateError('refresh failed');
+          }
+        });
+      final gate = container.read(workshopMutationProvider.notifier);
+      WorkshopMutation? token;
+      try {
+        final controller = container.read(workshopInstalledProvider.notifier);
+        await controller.ready;
+        await container.read(workshopCatalogProvider.notifier).ready;
+        expect(controller.acknowledgeRemoval(), isFalse);
+        expect(await controller.uninstall(entry), isTrue);
+        final terminal = container.read(workshopInstalledProvider).removal;
+        expect(terminal.phase, fails ? WorkshopRemovalPhase.failed : WorkshopRemovalPhase.succeeded);
+        expect(terminal.target, same(entry));
+        expect(terminal.error, fails ? 'workshop_install_conflict' : null);
+        expect(terminal.refreshError, fails ? null : 'workshop_local_refresh');
+        await controller.refresh();
+        expect(container.read(workshopInstalledProvider).removal, same(terminal));
+
+        token = gate.claim(WorkshopMutationKind.install, 'another-install');
+        expect(token, isNotNull);
+        final before = container.read(workshopInstalledProvider);
+        final calls = (reads, notices, packages.removed.length, packages.installedCalls.length,
+          client.cacheReads, client.networkReads);
+        expect(controller.acknowledgeRemoval(), isTrue);
+        final after = container.read(workshopInstalledProvider);
+        expect(after.removal.phase, WorkshopRemovalPhase.idle);
+        expect(after.removal.target, isNull);
+        expect(after.removal.error, isNull);
+        expect(after.removal.refreshError, isNull);
+        expect(after.rows, before.rows);
+        expect((after.loading, after.refreshing, after.loadError, after.catalogError, after.catalogStale),
+          (before.loading, before.refreshing, before.loadError, before.catalogError, before.catalogStale));
+        expect(container.read(workshopMutationProvider), same(token));
+        expect((reads, notices, packages.removed.length, packages.installedCalls.length,
+          client.cacheReads, client.networkReads), calls);
+        expect(controller.acknowledgeRemoval(), isFalse);
+        expect(container.read(workshopInstalledProvider), same(after));
+      } finally {
+        if (token != null) {
+          gate.release(token);
+        }
+        container.dispose();
+      }
+    });
+  }
+
+  test('a synchronous terminal listener can acknowledge before the removal releases its gate', () async {
+    final entry = stateInstalled();
+    final packages = StatePackages()..rows = [entry];
+    final client = StateClient();
+    final container = stateContainer(packages: packages, configured: false,
+      sources: [StateSource(client, StateRepository(client, packages))]);
+    try {
+      final controller = container.read(workshopInstalledProvider.notifier);
+      await controller.ready;
+      await container.read(workshopCatalogProvider.notifier).ready;
+      var terminalCount = 0;
+      var acknowledged = false;
+      WorkshopMutation? beforeAck, afterAck;
+      final subscription = container.listen(workshopInstalledProvider, (previous, next) {
+        if (next.removal.phase == WorkshopRemovalPhase.succeeded) {
+          terminalCount++;
+          beforeAck = container.read(workshopMutationProvider);
+          acknowledged = controller.acknowledgeRemoval();
+          afterAck = container.read(workshopMutationProvider);
+        }
+      });
+      try {
+        expect(await controller.uninstall(entry), isTrue);
+        expect(terminalCount, 1);
+        expect(acknowledged, isTrue);
+        expect(beforeAck?.kind, WorkshopMutationKind.uninstall);
+        expect(afterAck, same(beforeAck));
+        expect(container.read(workshopInstalledProvider).removal.phase, WorkshopRemovalPhase.idle);
+        expect(container.read(workshopMutationProvider), isNull);
+        expect(packages.removed, [same(entry)]);
+      } finally {
+        subscription.close();
+      }
+    } finally {
+      container.dispose();
+    }
+  });
+
+  test('acknowledgement cannot clear a removal that is still in progress', () async {
+    final entry = stateInstalled();
+    final packages = StatePackages()..rows = [entry];
+    final entered = Completer<void>(), release = Completer<void>();
+    packages.removeAction = (_) {
+      entered.complete();
+      return release.future;
+    };
+    final client = StateClient();
+    final container = stateContainer(packages: packages, configured: false,
+      sources: [StateSource(client, StateRepository(client, packages))]);
+    final settled = <Future<void>>[];
+    try {
+      final controller = container.read(workshopInstalledProvider.notifier);
+      await controller.ready;
+      await container.read(workshopCatalogProvider.notifier).ready;
+      final pending = controller.uninstall(entry);
+      settled.add(stateSettled(pending));
+      await stateSignal(entered, pending);
+      final before = container.read(workshopInstalledProvider);
+      final token = container.read(workshopMutationProvider);
+      expect(before.removal.phase, WorkshopRemovalPhase.removing);
+      expect(before.removal.target, same(entry));
+      expect(controller.acknowledgeRemoval(), isFalse);
+      expect(container.read(workshopInstalledProvider), same(before));
+      expect(container.read(workshopMutationProvider), same(token));
+      release.complete();
+      expect(await pending, isTrue);
+      expect(container.read(workshopInstalledProvider).removal.phase, WorkshopRemovalPhase.succeeded);
+    } finally {
+      if (!release.isCompleted) {
+        release.complete();
+      }
+      await Future.wait(settled);
+      container.dispose();
+    }
+  });
+
   test('a local refresh failure retains rows and a later refresh clears the error', () async {
     final entry = stateInstalled();
     final packages = StatePackages()..rows = [entry];

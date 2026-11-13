@@ -1,5 +1,5 @@
-// Words only the 投稿 page needs: what is wrong with one field, what a
-// publisher code means, and how a workshop or forum address is shown.
+// Words only the 投稿 page needs: what is wrong with one field or one picked
+// cover, what a publisher code means, and why a record could not be let go.
 //
 // Everything else goes through workshop_text.dart, so a code reads the same
 // on every workshop page. A code neither file knows gets the generic line.
@@ -60,9 +60,34 @@ String workshopPublishErrorText(L10n l10n, WorkshopException error) {
     'workshop_new_submission_unavailable' => l10n.workshopPublishErrorAgain,
     'workshop_draft_cleanup' => l10n.workshopPublishLeftovers,
     'workshop_companion_unavailable' => l10n.workshopPublishNoCompanion,
+    // Found while packing, so only a pet's idle frame: a companion's cover
+    // is measured when it is picked ([workshopCoverProblemText]).
+    'workshop_preview_dimensions' => l10n.workshopPublishErrorPreviewPet,
+    'workshop_preview_conflict' => l10n.workshopPublishErrorPreviewConflict,
+    'workshop_preview_missing' => l10n.workshopPublishErrorPreviewMissing,
+    'workshop_preview_unsupported' => l10n.workshopPublishErrorPreviewUnsupported,
+    'workshop_preview_size' => l10n.workshopPublishCoverBadSize,
+    'workshop_preview_png' => l10n.workshopPublishCoverBadPng,
     final code => workshopErrorLine(l10n, code),
   };
 }
+
+/// Why a picked cover was not taken, short enough to sit under its row. Any
+/// code but the three the cover check gives means the file could not be read.
+String workshopCoverProblemText(L10n l10n, String code) => switch (code) {
+  'workshop_preview_size' => l10n.workshopPublishCoverBadSize,
+  'workshop_preview_png' => l10n.workshopPublishCoverBadPng,
+  'workshop_preview_dimensions' => l10n.workshopPublishCoverBadDimensions,
+  _ => l10n.workshopPublishCoverUnreadable,
+};
+
+/// Why the phone's record could not be let go ([WorkshopPublishState.recoveryError]).
+String workshopRecoveryErrorText(L10n l10n, WorkshopException error) => switch (error.code) {
+  'workshop_confirmation_stale' => l10n.workshopPublishLetGoStale,
+  'workshop_recovery_unsupported' => l10n.workshopPublishLetGoUnsupported,
+  'workshop_profile_required' => l10n.workshopPublishProfileTitle,
+  _ => l10n.workshopErrorPreferences,
+};
 
 /// "Not now" rather than "it failed": the controller did not start the
 /// command (something else is running, a check has not finished). Said once
