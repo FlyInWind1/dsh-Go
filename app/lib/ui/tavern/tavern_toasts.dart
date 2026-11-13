@@ -10,7 +10,8 @@ import '../../tavern/tavern_canvas.dart';
 /// The notices one canvas's card scripts ask for. One already up or waiting
 /// takes the new words rather than another queueing behind it, and they get
 /// their own time to be read; a notice of the app's own is never put away
-/// for one, it waits its turn.
+/// for one, it waits its turn. The card can put its notice away before its
+/// time ([clear]).
 class TavernToasts {
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _bar;
 
@@ -28,7 +29,7 @@ class TavernToasts {
   void show(ScaffoldMessengerState messenger, Map<Object?, Object?> data) {
     final toast = tavernToast(data);
     if (_disposed || toast == null) return;
-    _toast.value = _Toast(toast.title, toast.message, toast.duration, _toast.value.shown + 1);
+    _toast.value = _Toast(toast.title, toast.message, toast.duration, _toast.value.shown + 1, id: _id(data));
     if (_bar != null && !_leaving) return;
     _leaving = false;
     late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> bar;
@@ -90,6 +91,23 @@ class TavernToasts {
     );
   }
 
+  /// The card put its notice away (toastr.clear or remove; the page's
+  /// {type:'toastClear', id}): the one up or waiting, when its words are that
+  /// call's or [data] names none. Words a later call has put in its place
+  /// stay. One still waiting behind the app's own goes as soon as it is up.
+  void clear(Map<Object?, Object?> data) {
+    final id = _id(data);
+    final now = _toast.value;
+    if (_disposed || _bar == null || _leaving || now.cleared) return;
+    if (id != null && id != now.id) return;
+    _toast.value = _Toast(now.title, now.message, now.lasts, now.shown, id: now.id, cleared: true);
+  }
+
+  static int? _id(Map<Object?, Object?> data) => switch (data['id']) {
+    final num n => n.toInt(),
+    _ => null,
+  };
+
   /// Done with: a notice still up reads its words until it goes.
   void dispose() {
     if (_disposed) return;
@@ -99,16 +117,23 @@ class TavernToasts {
 }
 
 final class _Toast {
-  const _Toast(this.title, this.message, this.lasts, this.shown);
+  const _Toast(this.title, this.message, this.lasts, this.shown, {this.id, this.cleared = false});
 
   final String title;
   final String message;
   final Duration lasts;
   final int shown;
+
+  /// The page's number for the call that showed these words.
+  final int? id;
+
+  /// Put away by the card: it goes now, not when its time is up.
+  final bool cleared;
 }
 
 /// Puts the notice away once its words have been up their time: counted from
-/// when it is on screen, and from the start again for new words.
+/// when it is on screen, and from the start again for new words; at once when
+/// the card has put them away.
 class _Countdown extends StatefulWidget {
   const _Countdown({super.key, required this.toast, required this.onDone, required this.child});
 
@@ -125,11 +150,14 @@ class _CountdownState extends State<_Countdown> {
   bool _done = false;
 
   /// Counted from the start for new words, until it has gone off once: a
-  /// notice on its way out does not count again.
+  /// notice on its way out does not count again. Put away, it goes on the
+  /// next turn (not while the messenger is building it), unless new words
+  /// come first.
   void _count() {
     if (_done) return;
     _timer?.cancel();
-    _timer = Timer(widget.toast.value.lasts, () {
+    final toast = widget.toast.value;
+    _timer = Timer(toast.cleared ? Duration.zero : toast.lasts, () {
       _done = true;
       widget.onDone();
     });

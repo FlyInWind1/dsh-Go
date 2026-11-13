@@ -326,7 +326,9 @@ void main() {
       expect(open, contains("['$name',$name]"));
     }
     // toastr is the app's notice, its HTML read apart from the page.
-    expect(open, contains("post({type:'toast',level:level,title:t,message:m})"));
+    expect(open, contains("post({type:'toast',level:level,title:t,message:m,id:id})"));
+    // clear and remove put away the notice a call showed, or with none named whichever is up.
+    expect(open, contains('clear:clearToast,remove:clearToast'));
     expect(open, contains("new DOMParser().parseFromString(String(s),'text/html')"));
     expect(open, contains('if(!window.toastr)window.toastr=toastr;'));
     // An ST theme's custom CSS comes after our styles, so it wins as in ST;

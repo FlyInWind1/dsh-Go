@@ -1021,8 +1021,10 @@ $preload
   });
   // toastr, which 酒馆助手's pages have (toastr.error(content, title)): the
   // app's own notice, not drawn here. Content may be HTML; its text is what
-  // shows (parsed apart from the page: nothing in it loads or runs). clear
-  // and remove leave it to time out.
+  // shows (parsed apart from the page: nothing in it loads or runs). Each
+  // call is numbered; clear and remove put away the one a call showed (what
+  // it returned), or with nothing given whichever is up; another element is
+  // not one of ours, and nothing goes.
   function plainText(s){
     if(s==null)return '';
     var d=new DOMParser().parseFromString(String(s),'text/html');
@@ -1031,15 +1033,22 @@ $preload
     [].forEach.call(d.body.querySelectorAll('br,p,div,li,tr,h1,h2,h3,h4,h5,h6'),function(e){e.before(' ');e.after(' ');});
     return String(d.body.textContent).replace(/\\s+/g,' ').trim();
   }
+  var toastSeq=0;
   function toast(level){
     return function(message,title){
-      var m=plainText(message),t=plainText(title);
-      if(m||t)post({type:'toast',level:level,title:t,message:m});
-      return window.jQuery?jQuery():undefined;
+      var m=plainText(message),t=plainText(title),id=++toastSeq;
+      if(m||t)post({type:'toast',level:level,title:t,message:m,id:id});
+      var shown=window.jQuery?jQuery():undefined;
+      if(shown)shown.dshToast=id;
+      return shown;
     };
   }
+  function clearToast(shown){
+    if(shown==null)post({type:'toastClear',id:null});
+    else if(shown.dshToast)post({type:'toastClear',id:shown.dshToast});
+  }
   var toastr={options:{},info:toast('info'),success:toast('success'),warning:toast('warning'),error:toast('error'),
-    clear:function(){},remove:function(){},subscribe:function(){}};
+    clear:clearToast,remove:clearToast,subscribe:function(){}};
   dsh.scripts.toastr=toastr;
   if(!window.toastr)window.toastr=toastr;
   // Writing messages (酒馆助手's set/create/delete/rotateChatMessages, as its
