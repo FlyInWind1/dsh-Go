@@ -1458,6 +1458,20 @@ class _SessionUsageView extends StatelessWidget {
                 ),
               ],
             ),
+            if (usage.replies > usage.unpriced)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 8),
+                child: Text(
+                  key: const ValueKey('tavern-session-cost'),
+                  l10n.tavernSessionUsageCost('US\$${tavernUsd(usage.cost)}'),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            if (usage.unpriced > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 4),
+                child: Text(l10n.tavernSessionUsageUnpriced(usage.unpriced), style: quiet),
+              ),
             Padding(
               padding: const EdgeInsets.only(left: 8, top: 6),
               child: Text(l10n.tavernSessionUsageNote(usage.replies), style: quiet),

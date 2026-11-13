@@ -20609,6 +20609,16 @@ class L10nZh extends L10n {
   String get tavernSessionUsageNone => '还没有模型报告过用量';
 
   @override
+  String tavernSessionUsageCost(String usd) {
+    return '约 $usd，按 DeepSeek 官方价，分高峰和低谷时段算；法定节假日全天是低谷价，那几天这里会算高一点';
+  }
+
+  @override
+  String tavernSessionUsageUnpriced(int count) {
+    return '$count 条回复用的模型不在价目表里，没算进费用';
+  }
+
+  @override
   String get tavernComposerNoKey => '填好 Key 就能开始';
 
   @override

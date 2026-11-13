@@ -37652,6 +37652,18 @@ abstract class L10n {
   /// **'还没有模型报告过用量'**
   String get tavernSessionUsageNone;
 
+  /// No description provided for @tavernSessionUsageCost.
+  ///
+  /// In zh, this message translates to:
+  /// **'约 {usd}，按 DeepSeek 官方价，分高峰和低谷时段算；法定节假日全天是低谷价，那几天这里会算高一点'**
+  String tavernSessionUsageCost(String usd);
+
+  /// No description provided for @tavernSessionUsageUnpriced.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条回复用的模型不在价目表里，没算进费用'**
+  String tavernSessionUsageUnpriced(int count);
+
   /// No description provided for @tavernComposerNoKey.
   ///
   /// In zh, this message translates to:

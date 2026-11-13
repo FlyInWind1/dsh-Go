@@ -21763,6 +21763,22 @@ class L10nEn extends L10n {
   String get tavernSessionUsageNone => 'The model hasn\'t reported any usage yet';
 
   @override
+  String tavernSessionUsageCost(String usd) {
+    return 'About $usd at DeepSeek\'s list prices, peak and off-peak hours apart; China\'s public holidays are off-peak all day, so those days come out a little high here';
+  }
+
+  @override
+  String tavernSessionUsageUnpriced(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count replies used a model not on the price list and aren\'t in the cost',
+      one: '1 reply used a model not on the price list and isn\'t in the cost',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get tavernComposerNoKey => 'Add a key to begin';
 
   @override
