@@ -46,6 +46,39 @@ class _Priced extends PreviewTavern {
       );
 }
 
+/// A group round where each member's reply reports [usage] by who wrote it.
+class _PricedGroup extends PreviewTavern {
+  _PricedGroup(this.usage) : super(tick: Duration.zero);
+
+  final Map<String, TavernUsage> usage;
+
+  @override
+  Stream<TavernGroupEvent> sendGroup(String chatId, String text, {String? speakerCharacterId}) => super
+      .sendGroup(chatId, text, speakerCharacterId: speakerCharacterId)
+      .map(
+        (e) => switch (e) {
+          TavernGroupMemberEvent(:final progress, :final characterId, event: TavernTurnDone(:final message)) =>
+            TavernGroupMemberEvent(
+              progress: progress,
+              characterId: characterId,
+              event: TavernTurnDone(
+                TavernMessage(
+                  nodeId: message.nodeId,
+                  parentId: message.parentId,
+                  role: message.role,
+                  speaker: message.speaker,
+                  text: message.text,
+                  at: DateTime.utc(2026, 11, 11, 2),
+                  speakerCharacterId: message.speakerCharacterId,
+                  reportedUsage: usage[characterId],
+                ),
+              ),
+            ),
+          _ => e,
+        },
+      );
+}
+
 Widget _app(PreviewTavern tavern, Widget home) => ProviderScope(
   overrides: [tavernProvider.overrideWith((ref) => tavern)],
   child: MaterialApp(
@@ -121,6 +154,40 @@ void main() {
     await tester.tap(find.descendant(of: row, matching: find.text('\$0.05')));
     await tester.pumpAndSettle();
     expect((await SharedPreferences.getInstance()).getDouble(TavernSettingsController.costAlertKey), 0.05);
+  });
+
+  testWidgets("a group round: its costliest reply is the one said, once the round ends", (tester) async {
+    SharedPreferences.setMockInitialValues({TavernSettingsController.costAlertKey: 0.1});
+    final tavern = _PricedGroup({
+      'sample-innkeeper': const TavernUsage(
+        promptTokens: 60000,
+        cacheHitTokens: 0,
+        completionTokens: 1000,
+        model: 'deepseek-v4-pro',
+      ),
+      'sample-navigator': _big,
+    });
+    final chat = (await tester.runAsync(
+      () => tavern.createGroupChat(
+        ['sample-innkeeper', 'sample-navigator'],
+        activation: TavernGroupActivation.listOrder,
+        addGreetings: false,
+      ),
+    ))!;
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_app(tavern, TavernChatPage(chatId: chat)));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '大家好');
+    await tester.pump();
+    await tester.tap(find.byIcon(AppIcons.send));
+    for (var i = 0; i < 200; i++) {
+      await tester.pump(const Duration(milliseconds: 5));
+    }
+    await tester.pumpAndSettle();
+    final notice = find.byKey(const ValueKey('tavern-notice'));
+    expect(find.descendant(of: notice, matching: find.text(_said)), findsOneWidget);
   });
 
   test('a stored line not on the list reads as off', () async {

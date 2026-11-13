@@ -566,6 +566,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _live.reset();
     _stopThinking();
     _thinking.value = null;
+    // The round's costliest reply: what 单回合费用提醒 speaks of once it ends.
+    TavernMessage? costliest;
+    var most = 0.0;
     void member(TavernEvent event) {
       switch (event) {
         case TavernTurnStarted(:final message):
@@ -587,7 +590,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             _thinking.value = 0;
             _thinkingTick = Timer.periodic(const Duration(seconds: 1), (_) => _thinking.value = _thinking.value! + 1);
           }
-        case TavernTurnDone():
+        case TavernTurnDone(:final message):
+          if (_replyCost(message) case final cost? when cost > most) {
+            costliest = message;
+            most = cost;
+          }
           // This one has said it; the next follows.
           _stream.value = _nothing;
           _live.reset();
@@ -626,7 +633,15 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             final l10n = context.l10n;
             switch (reason) {
               case TavernGroupEndReason.completed || TavernGroupEndReason.cancelled:
-                _finish();
+                final over = switch (costliest) {
+                  final reply? => _overCost(reply),
+                  null => null,
+                };
+                if (over != null) {
+                  _finish(error: over.error, calm: true, action: over.action);
+                } else {
+                  _finish();
+                }
               case TavernGroupEndReason.noSpeakers:
                 _finish(error: l10n.tavernGroupNoSpeakers, calm: true);
               case TavernGroupEndReason.failed:
@@ -705,11 +720,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// into that turn. Null when it is off, under the line, or not priced.
   ({String error, ({String label, VoidCallback onPressed}) action})? _overCost(TavernMessage reply) {
     final line = ref.read(tavernSettingsProvider).costAlert;
-    final usage = reply.reportedUsage;
-    final price = tavernModelPrice(usage?.model);
-    if (line <= 0 || usage == null || price == null) return null;
-    final cost = tavernReplyCost(usage, price, reply.at);
-    if (cost <= line) return null;
+    final cost = _replyCost(reply);
+    if (line <= 0 || cost == null || cost <= line) return null;
     final l10n = context.l10n;
     return (
       error: l10n.tavernCostAlertNotice(tavernCostLabel(l10n, cost), 'US\$${line.toStringAsFixed(2)}'),
@@ -719,6 +731,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             unawaited(Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: reply.nodeId))),
       ),
     );
+  }
+
+  /// What [reply] cost at DeepSeek's list prices; null when not priced.
+  static double? _replyCost(TavernMessage reply) {
+    final usage = reply.reportedUsage;
+    final price = tavernModelPrice(usage?.model);
+    return usage == null || price == null ? null : tavernReplyCost(usage, price, reply.at);
   }
 
   /// The reply's node, once known: the page places the reply by it.
