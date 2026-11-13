@@ -82,6 +82,14 @@
         }
       }
     },
+    "input-trigger-source-recovery.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-ui-input-trigger/lib/client.js": {
+          "after": "efd7a41a7dc2d3554d2e210371c3248f80d472a3b5c17ad7b1d5edef1da267de",
+          "before": "3f57b79e1f5f9a2378caadba05c3fead8baf1aa4dc80e3ffcd3718774f0b887f"
+        }
+      }
+    },
     "install-log-redaction.diff": {
       "0.2.1-rc.4": {
         "node_modules/@deepseek-ai/dsh-plugin-manager/lib/index.js": {
