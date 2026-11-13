@@ -232,6 +232,14 @@
         }
       }
     },
+    "rrule-mixed-byday.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/rrule/dist/es5/rrule.js": {
+          "after": "ba775df437da7265acc536d406fdf72311b3d157e5053d72d9a8c3a7d32bc324",
+          "before": "93954dd2dedfef048e9ed7ee5c7c5f5bb9607cdbda9007545847cd25754999a6"
+        }
+      }
+    },
     "rrule-negative-position-range.diff": {
       "0.2.2-rc.1": {
         "node_modules/rrule/dist/es5/rrule.js": {
