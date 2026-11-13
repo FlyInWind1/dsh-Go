@@ -73,4 +73,56 @@ void main() {
     }
     await calls.close();
   });
+
+  test("the character's picture: the app's to give, as a data: URL; none for a group", () async {
+    final preview = PreviewTavern(tick: Duration.zero);
+    final chat = await preview.createChat('sample-innkeeper');
+    final asked = <String>[];
+    String? character = 'sample-innkeeper';
+    final calls = TavernCanvasCalls(
+      preview.scripts,
+      chatId: chat,
+      characterId: () => character,
+      avatar: (id) async {
+        asked.add(id);
+        return 'data:image/png;base64,AAAA';
+      },
+    );
+    final reply = await calls.handle({'id': 7, 'method': 'characterAvatar', 'params': <String, Object?>{}});
+    expect(reply, {'id': 7, 'ok': true, 'result': 'data:image/png;base64,AAAA'});
+    expect(asked, ['sample-innkeeper']);
+
+    character = null;
+    expect(await calls.handle({'id': 8, 'method': 'characterAvatar'}), {'id': 8, 'ok': true, 'result': null});
+    expect(asked, ['sample-innkeeper']);
+
+    // No reader, or one that fails: no picture, not an error.
+    final bare = TavernCanvasCalls(preview.scripts, chatId: chat, characterId: () => 'sample-innkeeper');
+    expect((await bare.handle({'id': 9, 'method': 'characterAvatar'}))['result'], isNull);
+    final failing = TavernCanvasCalls(
+      preview.scripts,
+      chatId: chat,
+      characterId: () => 'sample-innkeeper',
+      avatar: (_) async => throw const FileSystemException('gone'),
+    );
+    expect(await failing.handle({'id': 10, 'method': 'characterAvatar'}), {'id': 10, 'ok': true, 'result': null});
+  });
+
+  test('a picture file as a data: URL, its type known by its first bytes', () async {
+    final dir = await Directory.systemTemp.createTemp('dsh-avatar');
+    addTearDown(() => dir.delete(recursive: true));
+    Future<String?> of(String name, List<int> bytes) async {
+      final file = File('${dir.path}/$name');
+      await file.writeAsBytes(bytes);
+      return tavernImageDataUrl(file.path);
+    }
+
+    expect(await of('a.png', [0x89, 0x50, 0x4E, 0x47, 1]), 'data:image/png;base64,iVBORwE=');
+    expect(await of('a.jpg', [0xFF, 0xD8, 0xFF, 0xE0]), startsWith('data:image/jpeg;base64,'));
+    expect(await of('a.gif', 'GIF89a'.codeUnits), startsWith('data:image/gif;base64,'));
+    expect(await of('a.webp', [...'RIFF'.codeUnits, 0, 0, 0, 0, ...'WEBP'.codeUnits]), startsWith('data:image/webp;'));
+    expect(await of('a.txt', 'not a picture'.codeUnits), isNull);
+    expect(await tavernImageDataUrl('${dir.path}/missing.png'), isNull);
+    expect(await tavernImageDataUrl(null), isNull);
+  });
 }

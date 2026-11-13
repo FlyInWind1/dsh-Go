@@ -6,6 +6,9 @@
 // deliveries for that context come back through [deliver] (the page's own
 // copy of variables and messages stays current).
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dsh_tavern/dsh_tavern.dart';
 
 import 'tavern_script_host.dart';
@@ -18,7 +21,13 @@ class TavernCanvasCalls {
     required this.characterId,
     this.instanceId = 'canvas',
     this.pages,
+    this.avatar,
   });
+
+  /// The chat character's picture as the page can show it (a data: URL),
+  /// for getCharAvatarPath; null when it has none. The app's, not the
+  /// engine's: asked as 'characterAvatar'.
+  final Future<String?> Function(String characterId)? avatar;
 
   final TavernScriptBridge _bridge;
   final String chatId;
@@ -63,6 +72,16 @@ class TavernCanvasCalls {
 
   /// The reply to [request], always JSON; never throws.
   Future<Map<String, Object?>> handle(Object? request) async {
+    if (request is Map && request['method'] == 'characterAvatar') {
+      final character = characterId();
+      String? picture;
+      try {
+        picture = character == null ? null : await avatar?.call(character);
+      } on Object {
+        picture = null;
+      }
+      return {'id': request['id'], 'ok': true, 'result': picture};
+    }
     if (request is! Map || request['method'] is! String || _own.contains(request['method'])) {
       return _wire.handle(request);
     }
@@ -158,4 +177,31 @@ class TavernCanvasCalls {
       // Never opened, or already closed: nothing to release.
     }
   }
+}
+
+/// The picture at [path] as a data: URL a page can show (PNG, JPEG, GIF or
+/// WebP, known by its first bytes); null when there is none to read.
+Future<String?> tavernImageDataUrl(String? path) async {
+  if (path == null || path.isEmpty) return null;
+  final file = File(path);
+  if (!await file.exists()) return null;
+  final bytes = await file.readAsBytes();
+  bool starts(List<int> head, [int at = 0]) {
+    if (bytes.length < at + head.length) return false;
+    for (var i = 0; i < head.length; i++) {
+      if (bytes[at + i] != head[i]) return false;
+    }
+    return true;
+  }
+
+  final type = starts([0x89, 0x50, 0x4E, 0x47])
+      ? 'image/png'
+      : starts([0xFF, 0xD8, 0xFF])
+      ? 'image/jpeg'
+      : starts([0x47, 0x49, 0x46, 0x38])
+      ? 'image/gif'
+      : starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8)
+      ? 'image/webp'
+      : null;
+  return type == null ? null : 'data:$type;base64,${base64Encode(bytes)}';
 }

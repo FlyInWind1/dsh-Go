@@ -744,9 +744,16 @@ $preload
       creator_notes:card.creator_notes||'',tags:card.tags||[],talkativeness:x.talkativeness!=null?x.talkativeness:0.5,
       fav:x.fav!=null?x.fav:false,data:card}));
   }
+  // Its picture, as the app has it (a data: URL the page can show); null for
+  // another character's, or a card that has none.
+  function getCharAvatarPath(n){
+    if(!isCurrent(n))return Promise.resolve(null);
+    return call('characterAvatar',{}).then(function(r){return r||null;},function(){return null;});
+  }
   Object.defineProperty(SillyTavern,'name2',{get:function(){return getCurrentCharacterName()||undefined;},enumerable:true});
   [['getCurrentCharacterName',getCurrentCharacterName],['getCurrentCharacterId',getCurrentCharacterId],
-   ['getCharacter',watched(getCharacter)],['getCharData',getCharData]].forEach(function(f){
+   ['getCharacter',watched(getCharacter)],['getCharData',getCharData],
+   ['getCharAvatarPath',getCharAvatarPath]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
   // The user's personas (酒馆助手's 获取用户人设 page), as the app tells this
@@ -1212,8 +1219,8 @@ $preload
     'generateRaw','stopGenerationById','stopAllGeneration','getScriptId','getScriptName','getButtonEvent',
     'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
-    'getCharacter','getCharData','getPersonaNames','getPersonaIds','getCurrentPersonaName','getCurrentPersonaId',
-    'getPersona',
+    'getCharacter','getCharData','getCharAvatarPath','getPersonaNames','getPersonaIds','getCurrentPersonaName',
+    'getCurrentPersonaId','getPersona',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;

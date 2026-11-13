@@ -165,6 +165,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     chatId: widget.chatId,
     characterId: () => _canvasCharacter,
     pages: ref.read(tavernScriptPagesProvider),
+    avatar: (id) async => tavernImageDataUrl((await _tavern.character(id))?.avatarPath),
   );
 
   /// The chat's character (or a group's title), and the names of all.
