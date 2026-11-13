@@ -3101,13 +3101,13 @@ abstract class L10n {
   /// No description provided for @androidShellConfirmationNote.
   ///
   /// In zh, this message translates to:
-  /// **'每条命令都要经过手机上的原生确认；屏幕操控的「免确认」不适用于这里。Shell 权限范围与屏幕操控不同，不能依靠应用名单拦截所有命令。'**
+  /// **'每条命令均需确认，可能修改系统和文件。'**
   String get androidShellConfirmationNote;
 
   /// No description provided for @androidShellMasterOff.
   ///
   /// In zh, this message translates to:
-  /// **'先在上一页打开「手机操控」，才能启用 Android Shell。你仍可在这里查看授权和配对引导。'**
+  /// **'先在上一页打开「手机操控」。'**
   String get androidShellMasterOff;
 
   /// No description provided for @androidShellRiskTitle.
@@ -3131,8 +3131,20 @@ abstract class L10n {
   /// No description provided for @androidShellBackend.
   ///
   /// In zh, this message translates to:
-  /// **'执行通道'**
+  /// **'连接方式'**
   String get androidShellBackend;
+
+  /// No description provided for @androidShellDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情'**
+  String get androidShellDetails;
+
+  /// No description provided for @androidShellReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接'**
+  String get androidShellReady;
 
   /// No description provided for @androidShellShizukuHint.
   ///
@@ -19241,7 +19253,7 @@ abstract class L10n {
   /// No description provided for @phoneDndChannels.
   ///
   /// In zh, this message translates to:
-  /// **'通道'**
+  /// **'连接方式'**
   String get phoneDndChannels;
 
   /// No description provided for @phoneDndShizukuFor.
@@ -19361,7 +19373,7 @@ abstract class L10n {
   /// No description provided for @phoneDndSuiAllSet.
   ///
   /// In zh, this message translates to:
-  /// **'Sui 这边准备好了。'**
+  /// **'Sui 已启动并授权，接下来连接后台屏。'**
   String get phoneDndSuiAllSet;
 
   /// No description provided for @phoneDndSuiPermissionFailed.
@@ -19379,7 +19391,7 @@ abstract class L10n {
   /// No description provided for @phoneDndRootConnected.
   ///
   /// In zh, this message translates to:
-  /// **'root 已连接。断开后要回到这里再选一次；打开上面的「保持 root 通道」，DSH Go 才会自己再去申请。'**
+  /// **'root 已连接。断开后要回到这里再选一次；打开「更多设置」中的「保持 root 通道」，DSH Go 才会自己再去申请。'**
   String get phoneDndRootConnected;
 
   /// No description provided for @phoneDndRootConnectedKept.
@@ -19397,7 +19409,7 @@ abstract class L10n {
   /// No description provided for @phoneDndInstallShizuku.
   ///
   /// In zh, this message translates to:
-  /// **'先装 Shizuku（免费、开源）。已经在用冰箱、黑阈这类工具的话，多半已经装了。'**
+  /// **'先安装 Shizuku（免费、开源）。'**
   String get phoneDndInstallShizuku;
 
   /// No description provided for @phoneDndOpenShizukuSite.
@@ -19427,7 +19439,7 @@ abstract class L10n {
   /// No description provided for @phoneDndShizukuAllSet.
   ///
   /// In zh, this message translates to:
-  /// **'Shizuku 这边准备好了。'**
+  /// **'Shizuku 已启动并授权，接下来连接后台屏。'**
   String get phoneDndShizukuAllSet;
 
   /// No description provided for @phoneDndShizukuInstalled.
@@ -19703,8 +19715,38 @@ abstract class L10n {
   /// No description provided for @phoneControlAdvanced.
   ///
   /// In zh, this message translates to:
-  /// **'进阶'**
+  /// **'更多设置'**
   String get phoneControlAdvanced;
+
+  /// No description provided for @phoneDndMoreChannels.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多连接方式（Root / Sui）'**
+  String get phoneDndMoreChannels;
+
+  /// No description provided for @phoneDndChangeChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换连接方式'**
+  String get phoneDndChangeChannel;
+
+  /// No description provided for @phoneDndPairingHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对帮助 / 手动填写'**
+  String get phoneDndPairingHelp;
+
+  /// No description provided for @phoneDndConnectHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接不上？'**
+  String get phoneDndConnectHelp;
+
+  /// No description provided for @phoneDndPairNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'先在系统开发者选项打开「无线调试」，再点「开始配对」，按通知填写配对码。'**
+  String get phoneDndPairNext;
 
   /// No description provided for @phoneControlKeepAliveHint.
   ///
@@ -21317,8 +21359,26 @@ abstract class L10n {
   /// No description provided for @phoneSelfCheckTitle.
   ///
   /// In zh, this message translates to:
-  /// **'本机手机自检'**
+  /// **'检查手机操控'**
   String get phoneSelfCheckTitle;
+
+  /// No description provided for @phoneSelfCheckTechnicalDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'技术详情'**
+  String get phoneSelfCheckTechnicalDetails;
+
+  /// No description provided for @phoneLocalOcrSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机识别；结果可发给模型，SDK 会收集使用统计。'**
+  String get phoneLocalOcrSummary;
+
+  /// No description provided for @phoneLocalOcrPrivacyDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐私详情'**
+  String get phoneLocalOcrPrivacyDetails;
 
   /// No description provided for @phoneSelfCheckPartial.
   ///
@@ -21335,7 +21395,7 @@ abstract class L10n {
   /// No description provided for @phoneSelfCheckStart.
   ///
   /// In zh, this message translates to:
-  /// **'开始部分自检'**
+  /// **'开始检查'**
   String get phoneSelfCheckStart;
 
   /// No description provided for @phoneSelfCheckCancel.
@@ -21389,7 +21449,7 @@ abstract class L10n {
   /// No description provided for @phoneSelfCheckRunState.
   ///
   /// In zh, this message translates to:
-  /// **'{state, select, idle{尚未开始} running{部分自检进行中} cleaning{正在清理；取消不代表已撤销派发的输入} done{执行和清理已结束，请逐项查看下方结果} cancelled{已取消，已观察到的操作仍保留} cleanup_pending{清理尚未确认，资源仍保留} other{状态不可用}}'**
+  /// **'{state, select, idle{尚未开始} running{部分自检进行中} cleaning{正在清理；取消不代表已撤销派发的输入} done{检查已结束，结果见技术详情} cancelled{已取消，已观察到的操作仍保留} cleanup_pending{清理尚未确认，资源仍保留} other{状态不可用}}'**
   String phoneSelfCheckRunState(String state);
 
   /// No description provided for @phoneSelfCheckStepState.
@@ -21521,7 +21581,7 @@ abstract class L10n {
   /// No description provided for @phoneLocalOcrTitle.
   ///
   /// In zh, this message translates to:
-  /// **'本机文字识别（ML Kit）'**
+  /// **'文字识别'**
   String get phoneLocalOcrTitle;
 
   /// No description provided for @phoneLocalOcrUnknown.

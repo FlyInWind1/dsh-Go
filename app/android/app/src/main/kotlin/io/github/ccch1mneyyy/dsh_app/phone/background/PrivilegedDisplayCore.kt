@@ -167,7 +167,7 @@ class PrivilegedDisplayCore internal constructor(
                         response.putInt(Proto.SELF_CHECK_TARGET_VERSION, 1)
                         response.putInt(Proto.SELF_CHECK_TARGET_C2_VERSION, 1)
                     }
-                }
+                } else response.putString(Proto.ERROR, "releaseQueryFailed")
                 return response
             }
             if (op == Proto.OP_COLLECT_SYSTEM_IME) {
