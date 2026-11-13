@@ -484,7 +484,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   ),
                 );
               default:
-                _finish();
+                if (_overCost(message) case final over?) {
+                  _finish(error: over.error, calm: true, action: over.action);
+                } else {
+                  _finish();
+                }
             }
           case TavernTurnFailed(:final kind, :final detail, :final partial):
             if (partial == null && draft != null && _input.text.isEmpty) _input.text = draft;
@@ -694,6 +698,27 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// while a reply is written or something is being typed.
   void _vnReadingBack(bool back) {
     _immersive.value = back && !_running && !_focus.hasFocus;
+  }
+
+  /// [reply], when what it cost (at DeepSeek's list prices) is over 酒馆设置's
+  /// 单回合费用提醒: what to say over the composer, and 看看发了什么 to see what went
+  /// into that turn. Null when it is off, under the line, or not priced.
+  ({String error, ({String label, VoidCallback onPressed}) action})? _overCost(TavernMessage reply) {
+    final line = ref.read(tavernSettingsProvider).costAlert;
+    final usage = reply.reportedUsage;
+    final price = tavernModelPrice(usage?.model);
+    if (line <= 0 || usage == null || price == null) return null;
+    final cost = tavernReplyCost(usage, price, reply.at);
+    if (cost <= line) return null;
+    final l10n = context.l10n;
+    return (
+      error: l10n.tavernCostAlertNotice(tavernCostLabel(l10n, cost), 'US\$${line.toStringAsFixed(2)}'),
+      action: (
+        label: l10n.tavernInspectMenu,
+        onPressed: () =>
+            unawaited(Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: reply.nodeId))),
+      ),
+    );
   }
 
   /// The reply's node, once known: the page places the reply by it.

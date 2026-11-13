@@ -36842,6 +36842,30 @@ abstract class L10n {
   /// **'不到 {usd}'**
   String tavernUsageCostUnder(String usd);
 
+  /// No description provided for @tavernCostAlert.
+  ///
+  /// In zh, this message translates to:
+  /// **'单回合费用提醒'**
+  String get tavernCostAlert;
+
+  /// No description provided for @tavernCostAlertSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'一个回合按 DeepSeek 官方价估的费用超过这条线时，在输入框上方说一声；别的模型不估'**
+  String get tavernCostAlertSubtitle;
+
+  /// No description provided for @tavernCostAlertOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关'**
+  String get tavernCostAlertOff;
+
+  /// No description provided for @tavernCostAlertNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一回合{cost}，超过了提醒线 {line}'**
+  String tavernCostAlertNotice(String cost, String line);
+
   /// No description provided for @tavernSearchChat.
   ///
   /// In zh, this message translates to:

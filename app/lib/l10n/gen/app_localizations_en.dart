@@ -21272,6 +21272,21 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernCostAlert => 'Per-turn cost reminder';
+
+  @override
+  String get tavernCostAlertSubtitle =>
+      'When a turn costs more than this at DeepSeek\'s list prices, say so over the composer; other models aren\'t estimated';
+
+  @override
+  String get tavernCostAlertOff => 'Off';
+
+  @override
+  String tavernCostAlertNotice(String cost, String line) {
+    return 'This turn cost $cost, over your reminder line of $line';
+  }
+
+  @override
   String get tavernSearchChat => 'Search this chat';
 
   @override

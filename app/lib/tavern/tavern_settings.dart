@@ -41,6 +41,9 @@ enum TavernTextSpeed {
   final double? charactersPerSecond;
 }
 
+/// 单回合费用提醒's lines, US dollars a turn; 0 is off.
+const tavernCostAlerts = [0.0, 0.01, 0.05, 0.1, 0.5];
+
 class TavernSettings {
   const TavernSettings({
     this.model = 'deepseek-flash',
@@ -57,6 +60,7 @@ class TavernSettings {
     this.islandNoScripts = false,
     this.islandOffline = false,
     this.canvas = false,
+    this.costAlert = 0,
     this.loaded = false,
   });
 
@@ -93,6 +97,11 @@ class TavernSettings {
   /// SillyTavern's structure, so a card's CSS reaches across messages. Not
   /// for 视觉小说; card scripts don't run there yet.
   final bool canvas;
+
+  /// 单回合费用提醒: a turn whose reply cost more than this (US dollars, at
+  /// DeepSeek's list prices) is said to over the composer. One of
+  /// [tavernCostAlerts]; 0 is off.
+  final double costAlert;
   final bool loaded;
 
   TavernSettings copyWith({
@@ -110,6 +119,7 @@ class TavernSettings {
     bool? islandNoScripts,
     bool? islandOffline,
     bool? canvas,
+    double? costAlert,
   }) => TavernSettings(
     model: model ?? this.model,
     thinking: thinking ?? this.thinking,
@@ -125,6 +135,7 @@ class TavernSettings {
     islandNoScripts: islandNoScripts ?? this.islandNoScripts,
     islandOffline: islandOffline ?? this.islandOffline,
     canvas: canvas ?? this.canvas,
+    costAlert: costAlert ?? this.costAlert,
     loaded: true,
   );
 }
@@ -144,6 +155,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   static const islandNoScriptsKey = 'tavern.islandNoScripts';
   static const islandOfflineKey = 'tavern.islandOffline';
   static const canvasKey = 'tavern.canvas';
+  static const costAlertKey = 'tavern.costAlert';
 
   @override
   TavernSettings build() {
@@ -171,6 +183,7 @@ class TavernSettingsController extends Notifier<TavernSettings> {
         islandNoScripts: prefs.getBool(islandNoScriptsKey) ?? false,
         islandOffline: prefs.getBool(islandOfflineKey) ?? false,
         canvas: prefs.getBool(canvasKey) ?? false,
+        costAlert: _oneOf(prefs.getDouble(costAlertKey), tavernCostAlerts, 0),
         loaded: true,
       );
     } catch (_) {
@@ -247,6 +260,11 @@ class TavernSettingsController extends Notifier<TavernSettings> {
   Future<void> setCanvas(bool on) async {
     state = state.copyWith(canvas: on);
     await _save((prefs) => prefs.setBool(canvasKey, on));
+  }
+
+  Future<void> setCostAlert(double usd) async {
+    state = state.copyWith(costAlert: usd);
+    await _save((prefs) => prefs.setDouble(costAlertKey, usd));
   }
 
   /// [stored] when it is one of [choices]; else [fallback].

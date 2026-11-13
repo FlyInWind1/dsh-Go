@@ -171,6 +171,18 @@ List<Widget> tavernSettingsGroups(BuildContext context, WidgetRef ref) {
           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary),
         ),
       ),
+      SettingsSegmentTile<double>(
+        key: const ValueKey('tavern-cost-alert'),
+        icon: AppIcons.notifications,
+        title: l10n.tavernCostAlert,
+        subtitle: l10n.tavernCostAlertSubtitle,
+        segments: [
+          for (final usd in tavernCostAlerts)
+            PillSegment(usd, usd == 0 ? l10n.tavernCostAlertOff : '\$${usd.toStringAsFixed(2)}'),
+        ],
+        selected: settings.costAlert,
+        onChanged: (usd) => unawaited(controller.setCostAlert(usd)),
+      ),
     ],
   );
   final display = SheetGroup(

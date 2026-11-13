@@ -20153,6 +20153,20 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernCostAlert => '单回合费用提醒';
+
+  @override
+  String get tavernCostAlertSubtitle => '一个回合按 DeepSeek 官方价估的费用超过这条线时，在输入框上方说一声；别的模型不估';
+
+  @override
+  String get tavernCostAlertOff => '关';
+
+  @override
+  String tavernCostAlertNotice(String cost, String line) {
+    return '这一回合$cost，超过了提醒线 $line';
+  }
+
+  @override
   String get tavernSearchChat => '在对话里搜索';
 
   @override
