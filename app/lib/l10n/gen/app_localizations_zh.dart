@@ -20115,10 +20115,10 @@ class L10nZh extends L10n {
   String get tavernUndoFailed => '没能撤销';
 
   @override
-  String get tavernShowUsage => '每条回复下显示用量';
+  String get tavernShowUsage => '每条回复下显示用量和费用';
 
   @override
-  String get tavernShowUsageSubtitle => '模型报告的输入、输出 token 数；不估算费用';
+  String get tavernShowUsageSubtitle => '模型报告的输入、输出 token 数；DeepSeek 的模型另按官方价估个费用，分高峰和低谷时段';
 
   @override
   String tavernUsageLine(int input, int output) {
@@ -20140,6 +20140,16 @@ class L10nZh extends L10n {
     final String outputString = outputNumberFormat.format(output);
 
     return '输入 $inputString（命中缓存 $cachedString）· 输出 $outputString';
+  }
+
+  @override
+  String tavernUsageCost(String usd) {
+    return '约 $usd';
+  }
+
+  @override
+  String tavernUsageCostUnder(String usd) {
+    return '不到 $usd';
   }
 
   @override

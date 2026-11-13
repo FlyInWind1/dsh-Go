@@ -12289,8 +12289,8 @@
   },
   "tavernDeleteFromUndoable": "从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。",
   "tavernUndoFailed": "没能撤销",
-  "tavernShowUsage": "每条回复下显示用量",
-  "tavernShowUsageSubtitle": "模型报告的输入、输出 token 数；不估算费用",
+  "tavernShowUsage": "每条回复下显示用量和费用",
+  "tavernShowUsageSubtitle": "模型报告的输入、输出 token 数；DeepSeek 的模型另按官方价估个费用，分高峰和低谷时段",
   "tavernUsageLine": "输入 {input} · 输出 {output}",
   "@tavernUsageLine": {
     "placeholders": {
@@ -12318,6 +12318,22 @@
       "output": {
         "type": "int",
         "format": "decimalPattern"
+      }
+    }
+  },
+  "tavernUsageCost": "约 {usd}",
+  "@tavernUsageCost": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernUsageCostUnder": "不到 {usd}",
+  "@tavernUsageCostUnder": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
       }
     }
   },

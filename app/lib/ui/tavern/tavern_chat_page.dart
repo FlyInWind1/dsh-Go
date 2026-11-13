@@ -34,6 +34,7 @@ import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_pinned.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
+import '../../tavern/tavern_session_usage.dart';
 import '../../tavern/tavern_settings.dart';
 import '../../tavern/tavern_slash.dart';
 import '../../tavern/tavern_sprites.dart';
@@ -1726,6 +1727,7 @@ class _MessageRow extends StatelessWidget {
     final usage? when showUsage && message.role == TavernRole.character => _UsageLine(
       key: ValueKey('tavern-usage-${message.nodeId}'),
       usage: usage,
+      at: message.at,
     ),
     _ => null,
   };
@@ -1863,24 +1865,32 @@ class _MessageRow extends StatelessWidget {
   }
 }
 
-/// The tokens a reply took, as the provider reported them (engine T24): no
-/// estimate, no price.
+/// The tokens a reply took, as the provider reported them (engine T24), and
+/// for a DeepSeek model what that cost at its list prices when it was written
+/// ([tavernReplyCost]); another model's is not guessed at.
 class _UsageLine extends StatelessWidget {
-  const _UsageLine({super.key, required this.usage});
+  const _UsageLine({super.key, required this.usage, required this.at});
 
   final TavernUsage usage;
+  final DateTime at;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final tokens = usage.cacheHitTokens > 0
+        ? l10n.tavernUsageLineCached(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens)
+        : l10n.tavernUsageLine(usage.promptTokens, usage.completionTokens);
+    final price = tavernModelPrice(usage.model);
+    final cost = price == null ? null : tavernReplyCost(usage, price, at);
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: Text(
-        usage.cacheHitTokens > 0
-            ? l10n.tavernUsageLineCached(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens)
-            : l10n.tavernUsageLine(usage.promptTokens, usage.completionTokens),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
-      ),
+      child: Text(switch (cost) {
+        null => tokens,
+        // Most replies are a fraction of a cent; one too small to show in
+        // four places is said to be so, not shown as nothing.
+        final double c when c < 0.0001 => '$tokens · ${l10n.tavernUsageCostUnder('US\$0.0001')}',
+        final double c => '$tokens · ${l10n.tavernUsageCost('US\$${tavernUsd(c)}')}',
+      }, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary)),
     );
   }
 }

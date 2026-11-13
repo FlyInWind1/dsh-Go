@@ -36809,13 +36809,13 @@ abstract class L10n {
   /// No description provided for @tavernShowUsage.
   ///
   /// In zh, this message translates to:
-  /// **'每条回复下显示用量'**
+  /// **'每条回复下显示用量和费用'**
   String get tavernShowUsage;
 
   /// No description provided for @tavernShowUsageSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'模型报告的输入、输出 token 数；不估算费用'**
+  /// **'模型报告的输入、输出 token 数；DeepSeek 的模型另按官方价估个费用，分高峰和低谷时段'**
   String get tavernShowUsageSubtitle;
 
   /// No description provided for @tavernUsageLine.
@@ -36829,6 +36829,18 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'输入 {input}（命中缓存 {cached}）· 输出 {output}'**
   String tavernUsageLineCached(int input, int cached, int output);
+
+  /// No description provided for @tavernUsageCost.
+  ///
+  /// In zh, this message translates to:
+  /// **'约 {usd}'**
+  String tavernUsageCost(String usd);
+
+  /// No description provided for @tavernUsageCostUnder.
+  ///
+  /// In zh, this message translates to:
+  /// **'不到 {usd}'**
+  String tavernUsageCostUnder(String usd);
 
   /// No description provided for @tavernSearchChat.
   ///

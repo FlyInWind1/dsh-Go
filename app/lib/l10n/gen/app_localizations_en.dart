@@ -21233,10 +21233,11 @@ class L10nEn extends L10n {
   String get tavernUndoFailed => 'Couldn\'t undo';
 
   @override
-  String get tavernShowUsage => 'Show usage under each reply';
+  String get tavernShowUsage => 'Show usage and cost under each reply';
 
   @override
-  String get tavernShowUsageSubtitle => 'Input and output tokens as the model reports them; no cost estimates';
+  String get tavernShowUsageSubtitle =>
+      'Input and output tokens as the model reports them; for DeepSeek models, a cost at their list prices, peak and off-peak hours apart';
 
   @override
   String tavernUsageLine(int input, int output) {
@@ -21258,6 +21259,16 @@ class L10nEn extends L10n {
     final String outputString = outputNumberFormat.format(output);
 
     return 'In $inputString ($cachedString cached) · out $outputString';
+  }
+
+  @override
+  String tavernUsageCost(String usd) {
+    return 'about $usd';
+  }
+
+  @override
+  String tavernUsageCostUnder(String usd) {
+    return 'under $usd';
   }
 
   @override
