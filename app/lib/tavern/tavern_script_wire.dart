@@ -245,6 +245,18 @@ class TavernScriptWire {
         return {'id': result.id, 'pipe': result.pipe, 'completion': result.completion.name};
       case 'stopScript':
         return bridge.stopScript(p.string('executionId'));
+      // The regexes in play for this context, as 酒馆助手's getTavernRegexes
+      // hands them out, by where each comes from (global, the chat's
+      // character, the preset in use), in the order they apply.
+      case 'getTavernRegexes':
+        final regexes = await bridge.getTavernRegexes(p.string('contextId'), TavernScriptRegexQuery());
+        return {
+          for (final source in TavernScriptRegexSource.values)
+            source.name: [
+              for (final r in regexes)
+                if (r.source == source) tavernHelperRegexJson(r),
+            ],
+        };
     }
     throw TavernScriptException(
       code: TavernScriptErrorCode.unsupportedCapability,
@@ -252,6 +264,54 @@ class TavernScriptWire {
       message: 'The page channel does not carry $method.',
     );
   }
+}
+
+/// [r] in 酒馆助手's TavernRegex shape: its ST fields renamed; where it runs
+/// (ST's placements 1 user input, 2 AI output, 3 slash command, 5 world info,
+/// 6 reasoning); whether it changes what is shown and what the model is
+/// sent (markdownOnly is the display alone, promptOnly the prompt alone,
+/// neither both).
+Map<String, Object?> tavernHelperRegexJson(TavernScriptRegex r) {
+  final raw = r.raw;
+  final placement = {
+    if (raw['placement'] case final List<Object?> list)
+      for (final p in list)
+        if (p is num) p.toInt(),
+  };
+  String text(String key) => switch (raw[key]) {
+    final String s => s,
+    _ => '',
+  };
+  num? depth(String key) => switch (raw[key]) {
+    final num n => n,
+    _ => null,
+  };
+  return {
+    'id': switch (raw['id']) {
+      final String s when s.isNotEmpty => s,
+      _ => r.stId,
+    },
+    'script_name': text('scriptName'),
+    'enabled': r.enabled,
+    'run_on_edit': raw['runOnEdit'] == true,
+    if (r.source != TavernScriptRegexSource.preset) 'scope': r.source.name,
+    'find_regex': text('findRegex'),
+    'trim_strings': switch (raw['trimStrings']) {
+      final List<Object?> list => list.whereType<String>().join('\n'),
+      _ => '',
+    },
+    'replace_string': text('replaceString'),
+    'source': {
+      'user_input': placement.contains(1),
+      'ai_output': placement.contains(2),
+      'slash_command': placement.contains(3),
+      'world_info': placement.contains(5),
+      'reasoning': placement.contains(6),
+    },
+    'destination': {'display': raw['promptOnly'] != true, 'prompt': raw['markdownOnly'] != true},
+    'min_depth': depth('minDepth'),
+    'max_depth': depth('maxDepth'),
+  };
 }
 
 TavernScriptException _bad(String operation, String message, {String? fieldPath}) => TavernScriptException(

@@ -541,7 +541,7 @@ $preload
         lastSeq=s.lastSeq||0;pathRev=s.pathRevision||null;loaded=true;
         renumber();
         var waiting=held;held=[];waiting.forEach(apply);
-        return true;
+        return regexReady().then(function(){return true;});
       },function(x){loading=null;throw x;});
       return loading;
     },
@@ -766,6 +766,21 @@ $preload
       creator_notes:card.creator_notes||'',tags:card.tags||[],talkativeness:x.talkativeness!=null?x.talkativeness:0.5,
       fav:x.fav!=null?x.fav:false,data:card}));
   }
+  // The chat's regexes (酒馆助手's 获取正则 page), which getTavernRegexes
+  // hands out at once: fetched once, before any script runs; another
+  // character's or preset's are not on this page, and come back empty.
+  var regexes={global:[],character:[],preset:[]},regexLoading=null;
+  function regexReady(){
+    if(!regexLoading)regexLoading=call('getTavernRegexes',{}).then(function(r){if(r)regexes=r;},function(){});
+    return regexLoading;
+  }
+  function getTavernRegexes(option){
+    var o=option||{},name=o.name;
+    if(o.type==='global')return clone(regexes.global||[]);
+    if(o.type==='character')return name==null||name==='current'||isCurrent(name)?clone(regexes.character||[]):[];
+    if(o.type==='preset')return name==null||name==='in_use'?clone(regexes.preset||[]):[];
+    throw new Error('getTavernRegexes: type is global, character or preset');
+  }
   // Its picture, as the app has it (a data: URL the page can show); null for
   // another character's, or a card that has none.
   function getCharAvatarPath(n){
@@ -776,7 +791,7 @@ $preload
   [['triggerSlash',triggerSlash],['getCurrentCharacterName',getCurrentCharacterName],
    ['getCurrentCharacterId',getCurrentCharacterId],
    ['getCharacter',watched(getCharacter)],['getCharData',getCharData],
-   ['getCharAvatarPath',getCharAvatarPath]].forEach(function(f){
+   ['getCharAvatarPath',getCharAvatarPath],['getTavernRegexes',getTavernRegexes]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
   // The user's personas (酒馆助手's 获取用户人设 page), as the app tells this
@@ -1409,7 +1424,7 @@ $preload
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
     'getCharacter','getCharData','getCharAvatarPath','getPersonaNames','getPersonaIds','getCurrentPersonaName',
     'getCurrentPersonaId','getPersona','getPersonaAvatarPath','playAudio','pauseAudio','getCurrentAudio',
-    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings','triggerSlash',
+    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings','triggerSlash','getTavernRegexes',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
@@ -1437,7 +1452,7 @@ $preload
       frame.onload=function(){
         var w=frame.contentWindow;if(!w)return;
         shared.forEach(function(k){if(window[k]!==undefined)w[k]=window[k];});
-        own.then(function(){
+        Promise.all([own,regexReady()]).then(function(){
           var el=w.document.createElement('script');el.type='module';
           el.textContent=s.content+'\\n//# sourceURL=dsh-script-'+n+'.js';
           w.document.head.appendChild(el);
