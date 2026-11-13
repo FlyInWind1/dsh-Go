@@ -124,6 +124,22 @@ void main() {
     expect(find.byType(TavernInspectorPage), findsOneWidget);
   });
 
+  testWidgets('its button sits beside the words with room, under them when narrow and large', (tester) async {
+    await _oneTurn(tester, {TavernSettingsController.costAlertKey: 0.1});
+    final notice = find.byKey(const ValueKey('tavern-notice'));
+    final words = find.descendant(of: notice, matching: find.text(_said));
+    final button = find.descendant(of: notice, matching: find.text('看看发了什么'));
+    expect(tester.getRect(button).left, greaterThan(tester.getRect(words).right));
+
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    tester.view.physicalSize = const Size(360, 740) * 2;
+    await tester.pumpAndSettle();
+    expect(tester.getRect(button).top, greaterThanOrEqualTo(tester.getRect(words).bottom));
+    // The words keep the row: a line or two, not a column.
+    expect(tester.getRect(words).width, greaterThan(200));
+  });
+
   testWidgets('under the line: nothing said', (tester) async {
     await _oneTurn(tester, {TavernSettingsController.costAlertKey: 0.5});
     expect(find.byKey(const ValueKey('tavern-notice')), findsNothing);

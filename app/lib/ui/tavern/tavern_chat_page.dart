@@ -2625,6 +2625,8 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dsh = DshColors.of(context);
+    final theme = Theme.of(context);
+    final words = Text(message, style: theme.textTheme.bodySmall);
     return GlassSurface(
       key: const ValueKey('tavern-notice'),
       tier: GlassTier.card,
@@ -2634,8 +2636,46 @@ class _Notice extends StatelessWidget {
         children: [
           Icon(AppIcons.info, size: 18, color: dsh.textTertiary),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: Theme.of(context).textTheme.bodySmall)),
-          if (action case final action?) TextButton(onPressed: action.onPressed, child: Text(action.label)),
+          Expanded(
+            child: switch (action) {
+              null => words,
+              final action => LayoutBuilder(
+                builder: (context, box) {
+                  final button = TextButton(onPressed: action.onPressed, child: Text(action.label));
+                  // Beside the words while they keep over half the row; under
+                  // them when a long label on a narrow screen or in large text
+                  // would squeeze them into a column of short lines.
+                  final label = TextPainter(
+                    text: TextSpan(text: action.label, style: theme.textTheme.labelLarge),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                    maxLines: 1,
+                  )..layout();
+                  final beside = box.maxWidth - (label.width + 24) >= box.maxWidth * 0.55;
+                  label.dispose();
+                  if (beside) {
+                    return Row(
+                      children: [
+                        Expanded(child: words),
+                        button,
+                      ],
+                    );
+                  }
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: SizedBox(width: double.infinity, child: words),
+                      ),
+                      button,
+                    ],
+                  );
+                },
+              ),
+            },
+          ),
           IconButton(
             onPressed: onDismiss,
             tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
