@@ -23,6 +23,7 @@ import '../../tavern/tavern_bookmarks.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
+import '../../tavern/tavern_interact.dart';
 import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_canvas_calls.dart';
@@ -65,6 +66,7 @@ import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
 import 'tavern_island.dart';
 import 'tavern_inspector_page.dart';
+import 'tavern_interact_view.dart';
 import 'tavern_live_display.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
@@ -166,7 +168,30 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     characterId: () => _canvasCharacter,
     pages: ref.read(tavernScriptPagesProvider),
     avatar: (id) async => tavernImageDataUrl((await _tavern.character(id))?.avatarPath),
+    interact: _interact,
   );
+
+  /// A card script's request to the person, shown here: a dialog, a notice,
+  /// or words put in the composer (/setinput).
+  Future<TavernInteractAnswer> _interact(
+    TavernInteractKind kind,
+    Map<String, Object?> fields, {
+    required Future<void> withdraw,
+  }) async {
+    if (!mounted) return const TavernInteractAnswer(TavernInteractStatus.cancelled);
+    return showTavernInteract(
+      context,
+      kind,
+      fields,
+      withdraw: withdraw,
+      onSetInput: (text) {
+        _input.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+    );
+  }
 
   /// The chat's character (or a group's title), and the names of all.
   String _canvasSpeaker = '';

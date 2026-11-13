@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dsh_app/tavern/tavern_canvas_calls.dart';
+import 'package:dsh_app/tavern/tavern_interact.dart';
 import 'package:dsh_app/tavern/tavern_script_host.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -268,11 +269,141 @@ void main() {
     await calls.close();
   });
 
+  test(
+    "a script's /input, /buttons and /setinput are asked by the chat's screen, answered with what was done",
+    () async {
+      final pages = TavernScriptPages()..attach(tavern.scripts);
+      final context = await tavern.scripts.openContext(
+        TavernScriptContextSpec(instanceId: 'canvas', chatId: chat, characterId: character),
+      );
+      final asked = <(TavernInteractKind, Map<String, Object?>)>[];
+      final answers = [
+        const TavernInteractAnswer(TavernInteractStatus.submitted, text: '阿青'),
+        const TavernInteractAnswer(TavernInteractStatus.submitted, buttonIndex: 1, label: '西'),
+        const TavernInteractAnswer(TavernInteractStatus.submitted, text: '再来一杯'),
+      ];
+      pages.add(
+        context.id,
+        (_) async => false,
+        interact: (kind, fields, {required withdraw}) async {
+          asked.add((kind, fields));
+          return answers.removeAt(0);
+        },
+      );
+
+      final input = await tavern.scripts.triggerSlash(context.id, '/input 你叫什么');
+      expect((await input.result).pipe, '阿青');
+      final buttons = await tavern.scripts.triggerSlash(
+        context.id,
+        '/buttons labels={{arg::labels}} 往哪走',
+        arguments: const {'labels': '["东","西"]'},
+      );
+      expect((await buttons.result).pipe, '西');
+      final set = await tavern.scripts.triggerSlash(context.id, '/setinput 再来一杯');
+      expect((await set.result).pipe, '再来一杯');
+
+      expect(asked.map((a) => a.$1), [
+        TavernInteractKind.input,
+        TavernInteractKind.buttons,
+        TavernInteractKind.setInput,
+      ]);
+      expect(asked[0].$2['text'], '你叫什么');
+      expect(asked[1].$2['buttonLabels'], ['东', '西']);
+    },
+  );
+
+  test('a request on screen is taken back when the script is stopped, or its page closes', () async {
+    final pages = TavernScriptPages()..attach(tavern.scripts);
+    final context = await tavern.scripts.openContext(
+      TavernScriptContextSpec(instanceId: 'canvas', chatId: chat, characterId: character),
+    );
+    final showing = <Completer<void>>[];
+    pages.add(
+      context.id,
+      (_) async => false,
+      interact: (kind, fields, {required withdraw}) async {
+        final shown = Completer<void>()..complete();
+        showing.add(shown);
+        await withdraw;
+        return const TavernInteractAnswer(TavernInteractStatus.cancelled);
+      },
+    );
+
+    final run = await tavern.scripts.triggerSlash(context.id, '/input 等一下', executionId: 'waiting');
+    while (showing.isEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(tavern.scripts.stopScript('waiting'), isTrue);
+    await expectLater(
+      run.result,
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.cancelled)),
+    );
+
+    // The page closing takes back what its scripts asked.
+    final asked = pages.interact(
+      TavernScriptUiRequest(requestId: 'r2', contextId: context.id, executionId: 'e2', kind: 'popup'),
+      _Never(),
+    );
+    while (showing.length < 2) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    pages.remove(context.id);
+    final answer = await asked;
+    expect((answer.requestId, answer.status), ('r2', 'cancelled'));
+  });
+
+  test('a canvas hands its chat screen to the host with its context', () async {
+    final pages = _Recording();
+    final calls = TavernCanvasCalls(
+      tavern.scripts,
+      chatId: chat,
+      characterId: () => character,
+      pages: pages,
+      interact: (kind, fields, {required withdraw}) async => const TavernInteractAnswer(TavernInteractStatus.dismissed),
+    );
+    final out = await calls.handle({
+      'id': 1,
+      'method': 'getVariables',
+      'params': {
+        'target': {'scope': 'chat'},
+      },
+    });
+    expect(out['ok'], isTrue, reason: '${out['error']}');
+    expect(pages.interactors, hasLength(1));
+    final answer = await pages.interact(
+      TavernScriptUiRequest(requestId: 'r', contextId: pages.interactors.keys.single, executionId: 'e', kind: 'echo'),
+      _Never(),
+    );
+    expect(answer.status, 'dismissed');
+    await calls.close();
+  });
+
   test('what the app does not do for scripts yet is refused, not faked', () async {
     final pages = TavernScriptPages();
     final cancel = _Never();
+    // No chat on screen for it; a kind the app does not know.
     await expectLater(
       pages.interact(TavernScriptUiRequest(requestId: 'r', contextId: 'c', executionId: 'e', kind: 'input'), cancel),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.hostUnavailable)),
+    );
+    pages.add(
+      'c',
+      (_) async => false,
+      interact: (kind, fields, {required withdraw}) async => const TavernInteractAnswer(TavernInteractStatus.submitted),
+    );
+    await expectLater(
+      pages.interact(TavernScriptUiRequest(requestId: 'r', contextId: 'c', executionId: 'e', kind: 'speak'), cancel),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability)),
+    );
+    // Already cancelled: not shown, answered cancelled.
+    final gone = _Cancel()..cancel();
+    final answer = await pages.interact(
+      TavernScriptUiRequest(requestId: 'r3', contextId: 'c', executionId: 'e', kind: 'input'),
+      gone,
+    );
+    expect(answer.status, 'cancelled');
+    await expectLater(
+      pages.resolveSlash(const TavernSlashReference(contextId: 'c', label: 'x'), cancel),
       throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability)),
     );
     // A delivery for a context no page holds is acknowledged, nothing run.
@@ -283,6 +414,16 @@ void main() {
     expect((ack.eventId, ack.status), ('ev', TavernScriptAckStatus.completed));
     expect(ack.issues, isEmpty);
   });
+}
+
+class _Recording extends TavernScriptPages {
+  final interactors = <String, TavernScriptInteractor>{};
+
+  @override
+  void add(String contextId, TavernScriptPage page, {TavernScriptInteractor? interact}) {
+    if (interact != null) interactors[contextId] = interact;
+    super.add(contextId, page, interact: interact);
+  }
 }
 
 class _Cancel implements TavernScriptCancellation {

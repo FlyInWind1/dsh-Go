@@ -11,19 +11,31 @@
 //   answering. A page not ready yet has no handlers: nothing ran, said so.
 // - invoke: a prompt's filter is a function the page keeps; the page runs it
 //   and says true or false (or how it failed), its writes back first.
-// - UI requests and slash lookups are refused as unsupported, never answered
-//   with an empty success.
+// - interact: a script's /input, /buttons, /popup, /echo or /setinput is shown
+//   by the app itself for the chat whose page holds the context (never in the
+//   card's page); taken back when the engine cancels it or the page closes.
+// - slash lookups are refused as unsupported (the app keeps no script
+//   library), never answered with an empty success.
 // - refresh: the chat page redraws from its own watch of the path.
 
 import 'dart:async';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 
+import 'tavern_interact.dart';
 import 'tavern_script_wire.dart';
 
 /// Puts one delivery (JSON) into a page; false when there was no page ready
 /// to take it.
 typedef TavernScriptPage = Future<bool> Function(Map<String, Object?> delivery);
+
+/// Shows a script's UI request for its chat and says how the person left
+/// it; [withdraw] completes when the request is taken back.
+typedef TavernScriptInteractor = Future<TavernInteractAnswer> Function(
+  TavernInteractKind kind,
+  Map<String, Object?> fields, {
+  required Future<void> withdraw,
+});
 
 class TavernScriptPages implements TavernScriptHost {
   final _pages = <String, TavernScriptPage>{};
@@ -32,6 +44,12 @@ class TavernScriptPages implements TavernScriptHost {
   /// Lifecycle events a page is running, by event: which context, and the
   /// answer the engine waits for.
   final _waiting = <String, ({String contextId, Completer<TavernScriptDispatchAck> answer})>{};
+
+  /// Who shows UI requests for a context: its chat's screen.
+  final _interactors = <String, TavernScriptInteractor>{};
+
+  /// UI requests on screen, by request: whose, and how to take one back.
+  final _asking = <String, ({String contextId, Completer<void> withdraw})>{};
 
   /// Filters a page is running, by request.
   final _invoking =
@@ -47,11 +65,24 @@ class TavernScriptPages implements TavernScriptHost {
     bridge.attachHost(this);
   }
 
-  void add(String contextId, TavernScriptPage page) => _pages[contextId] = page;
+  void add(String contextId, TavernScriptPage page, {TavernScriptInteractor? interact}) {
+    _pages[contextId] = page;
+    if (interact != null) {
+      _interactors[contextId] = interact;
+    } else {
+      _interactors.remove(contextId);
+    }
+  }
 
+  /// The page closed: what it was running did not finish, and what its
+  /// scripts asked the person is taken back.
   void remove(String contextId) {
     _pages.remove(contextId);
+    _interactors.remove(contextId);
     drop(contextId);
+    for (final asking in [..._asking.values]) {
+      if (asking.contextId == contextId && !asking.withdraw.isCompleted) asking.withdraw.complete();
+    }
   }
 
   /// The page for [contextId] went (closed, or its renderer was lost):
@@ -139,9 +170,46 @@ class TavernScriptPages implements TavernScriptHost {
     }
   }
 
+  /// A script's UI request, shown by its chat's screen: how the person left
+  /// it is the answer (what they wrote, the button they chose; nothing made
+  /// up). Cancelled by the engine, or its page closed, it is taken back and
+  /// answered cancelled.
   @override
-  Future<TavernScriptUiResult> interact(TavernScriptUiRequest request, TavernScriptCancellation cancellation) =>
-      Future.error(_unsupported('interact'));
+  Future<TavernScriptUiResult> interact(TavernScriptUiRequest request, TavernScriptCancellation cancellation) async {
+    final kind = tavernInteractKind(request.kind);
+    if (kind == null) throw _unsupported('interact ${request.kind}');
+    final show = _interactors[request.contextId];
+    if (show == null) {
+      throw TavernScriptException(
+        code: TavernScriptErrorCode.hostUnavailable,
+        operation: 'interact',
+        message: 'No chat on screen holds that context now.',
+        contextId: request.contextId,
+      );
+    }
+    if (cancellation.isCancelled) {
+      return TavernScriptUiResult(requestId: request.requestId, status: TavernInteractStatus.cancelled.name);
+    }
+    final withdraw = Completer<void>();
+    _asking[request.requestId] = (contextId: request.contextId, withdraw: withdraw);
+    unawaited(
+      cancellation.whenCancelled.then((_) {
+        if (!withdraw.isCompleted) withdraw.complete();
+      }),
+    );
+    try {
+      final answer = await show(kind, request.fields, withdraw: withdraw.future);
+      return TavernScriptUiResult(
+        requestId: request.requestId,
+        status: answer.status.name,
+        text: answer.text,
+        buttonIndex: answer.buttonIndex,
+        label: answer.label,
+      );
+    } finally {
+      _asking.remove(request.requestId);
+    }
+  }
 
   /// A prompt's filter, run by the page that keeps it: called with the
   /// request's arguments; its true or false (anything else is not an answer),

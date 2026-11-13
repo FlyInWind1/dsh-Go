@@ -22,7 +22,11 @@ class TavernCanvasCalls {
     this.instanceId = 'canvas',
     this.pages,
     this.avatar,
+    this.interact,
   });
+
+  /// Who shows this chat's script UI requests (/input, /buttons, …).
+  final TavernScriptInteractor? interact;
 
   /// The chat character's picture as the page can show it (a data: URL),
   /// for getCharAvatarPath; null when it has none. The app's, not the
@@ -60,7 +64,7 @@ class TavernCanvasCalls {
       TavernScriptContextSpec(instanceId: instanceId, chatId: chatId, characterId: characterId()),
     )).id;
     _registered = id;
-    pages?.add(id, (delivery) => deliver?.call(delivery) ?? Future.value(false));
+    pages?.add(id, (delivery) => deliver?.call(delivery) ?? Future.value(false), interact: interact);
     return id;
   }
 
