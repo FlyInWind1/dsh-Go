@@ -354,6 +354,14 @@
         }
       }
     },
+    "web-search-key-write-result.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-ui-settings-web-search/lib/client.js": {
+          "after": "88445a93f6145c0e29521f257f7706516aef249fc262afa4365fb2d08cffbede",
+          "before": "1d42b683573864152655c88d0b2f41dbe88e4c25e5d692e2bdc275dfc708f0df"
+        }
+      }
+    },
     "webserver-resource-abort.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-host-webserver/lib/index.js": {
