@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tavern_provider.dart';
 
@@ -126,3 +127,18 @@ final tavernCardScriptsProvider = FutureProvider.autoDispose.family<List<TavernC
   final data = await ref.watch(tavernCardDataProvider(characterId).future);
   return data == null ? const [] : tavernCardScripts({'data': data});
 });
+
+/// Where it is kept, per character, that the word over the composer about
+/// its card's scripts waiting on 整页画布 was put away.
+const tavernScriptsHintOffKey = 'tavern.scriptsHintOff.';
+
+/// Whether that word was put away for [characterId]'s card: then it is not
+/// said again, for any of its chats.
+final tavernScriptsHintOffProvider = FutureProvider.autoDispose.family<bool, String>(
+  (ref, characterId) async =>
+      (await SharedPreferences.getInstance()).getBool('$tavernScriptsHintOffKey$characterId') ?? false,
+);
+
+/// Puts that word away for [characterId]'s card, for good.
+Future<void> tavernPutScriptsHintAway(String characterId) async =>
+    (await SharedPreferences.getInstance()).setBool('$tavernScriptsHintOffKey$characterId', true);

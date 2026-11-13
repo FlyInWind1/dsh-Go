@@ -21197,6 +21197,14 @@ class L10nZh extends L10n {
   String get tavernCanvas => '整页画布（试用）';
 
   @override
+  String tavernCardScriptsHint(int count) {
+    return '这张卡带了 $count 个脚本，打开「整页画布（试用）」才会运行';
+  }
+
+  @override
+  String get tavernCardScriptsHintAction => '打开';
+
+  @override
   String get tavernCanvasSubtitle =>
       '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。';
 

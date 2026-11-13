@@ -13010,6 +13010,15 @@
   "tavernRegexTryDraft": "用现在填的试一下",
   "tavernRegexDepthAny": "不限",
   "tavernCanvas": "整页画布（试用）",
+  "tavernCardScriptsHint": "这张卡带了 {count} 个脚本，打开「整页画布（试用）」才会运行",
+  "@tavernCardScriptsHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernCardScriptsHintAction": "打开",
   "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。",
   "tavernCanvasReloaded": "画面重新加载了",
   "tavernGroupSpeaking": "{name} 在说",

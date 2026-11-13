@@ -38732,6 +38732,18 @@ abstract class L10n {
   /// **'整页画布（试用）'**
   String get tavernCanvas;
 
+  /// No description provided for @tavernCardScriptsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡带了 {count} 个脚本，打开「整页画布（试用）」才会运行'**
+  String tavernCardScriptsHint(int count);
+
+  /// No description provided for @tavernCardScriptsHintAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开'**
+  String get tavernCardScriptsHintAction;
+
   /// No description provided for @tavernCanvasSubtitle.
   ///
   /// In zh, this message translates to:

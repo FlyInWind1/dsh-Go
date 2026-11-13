@@ -22369,6 +22369,20 @@ class L10nEn extends L10n {
   String get tavernCanvas => 'Whole-page canvas (trial)';
 
   @override
+  String tavernCardScriptsHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'This card has $count scripts; they run only with Whole-page canvas (trial) on',
+      one: 'This card has a script; it runs only with Whole-page canvas (trial) on',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernCardScriptsHintAction => 'Turn on';
+
+  @override
   String get tavernCanvasSubtitle =>
       'The whole chat in one web page laid out as SillyTavern does, so a card\'s ST styles reach across messages. Card scripts run here; turn on \"No card scripts in those pages\" to stop them. Not for visual novel.';
 

@@ -1338,6 +1338,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               for (final b in s.buttons) (s.id, b),
           ]
         : const <(String, String)>[];
+    // The card's own scripts, where they wait on 整页画布 being on (off, and
+    // not 视觉小说, which has no canvas): said over the composer with the way
+    // to turn it on, until put away for this card. Not where the player chose
+    // 不运行卡的脚本, nor for a group, whose scripts do not run.
+    final hintCharacter = !canvas && layout != TavernLayout.visualNovel && !_groupChat ? characterId : null;
+    final scriptsWaiting =
+        hintCharacter != null &&
+            !ref.watch(tavernSettingsProvider.select((s) => s.islandNoScripts)) &&
+            ref.watch(tavernScriptsHintOffProvider(hintCharacter)).value == false
+        ? (ref.watch(tavernCardScriptsProvider(hintCharacter)).value ?? const <TavernCardScript>[]).length
+        : 0;
     // The pages and the canvas read each message as shown, through the
     // display regex; the bubble and novel rows ask for their own.
     final shownText = layout == TavernLayout.visualNovel || canvas
@@ -1552,6 +1563,22 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               // No key yet: say so before the first line, not after it fails.
               if (!preview && _error == null && !ref.watch(settingsProvider.select((s) => s.hasApiKey)))
                 _KeyMissing(onAdd: _openKeySettings),
+              if (_error == null && scriptsWaiting > 0 && hintCharacter != null)
+                Padding(
+                  key: const ValueKey('tavern-scripts-hint'),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _Notice(
+                    message: l10n.tavernCardScriptsHint(scriptsWaiting),
+                    action: (
+                      label: l10n.tavernCardScriptsHintAction,
+                      onPressed: () => unawaited(ref.read(tavernSettingsProvider.notifier).setCanvas(true)),
+                    ),
+                    onDismiss: () => unawaited(
+                      tavernPutScriptsHintAway(hintCharacter)
+                          .then((_) => ref.invalidate(tavernScriptsHintOffProvider(hintCharacter))),
+                    ),
+                  ),
+                ),
               _ErrorSlot(
                 error: _error,
                 calm: _calm,
