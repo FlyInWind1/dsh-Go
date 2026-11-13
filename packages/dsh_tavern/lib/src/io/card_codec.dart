@@ -153,6 +153,26 @@ class TavernCard {
 class CardCodec {
   const CardCodec();
 
+  /// Internal authoritative library JSON route. Validation uses a detached
+  /// runtime projection; it must not adopt `_upgrade` defaults into the stored
+  /// V3 data or replace the import container/media retained by the library.
+  Map<String, Object?> decodeAuthority(Uint8List bytes) {
+    final json = _decodeJson(bytes);
+    if (json['spec'] != 'chara_card_v3' || json['spec_version'] is! String || json['data'] is! Map<String, Object?>) {
+      throw const FormatException('Stored character authority must be a V3 envelope.');
+    }
+    _upgrade(json);
+    return json;
+  }
+
+  /// Validates a proposed authoritative envelope without returning defaults.
+  void validateAuthority(Map<String, Object?> json) {
+    if (json['spec'] != 'chara_card_v3' || json['spec_version'] is! String || json['data'] is! Map<String, Object?>) {
+      throw const FormatException('Stored character authority must be a V3 envelope.');
+    }
+    _upgrade(json);
+  }
+
   TavernCard decode(Uint8List bytes) {
     try {
       if (_startsWith(bytes, _pngSignature)) return _decodePng(bytes);

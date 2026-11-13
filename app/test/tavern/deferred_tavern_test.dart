@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dsh_app/tavern/deferred_tavern.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
@@ -25,6 +26,190 @@ void main() {
     expect(events.last, isA<TavernTurnDone>());
   });
 
+  test('card scripts: one bridge; before it opens it claims nothing; the host set early reaches it', () async {
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    final bridge = deferred.scripts;
+    expect(identical(bridge, deferred.scripts), isTrue);
+    expect(bridge.capabilities.methods, isEmpty);
+    expect(bridge.capabilities.simulated, isFalse);
+    bridge.attachHost(_Host());
+    expect(bridge.capabilities.hostAttached, isTrue);
+    final refused = bridge.getVariables('c', const TavernVariableTarget(scope: TavernVariableScope.global));
+
+    final preview = PreviewTavern(tick: Duration.zero);
+    opening.complete(preview);
+    await expectLater(
+      refused,
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability)),
+    );
+    // Open: what the preview says, with the host handed over.
+    expect(bridge.capabilities.simulated, isTrue);
+    expect(bridge.capabilities.hostAttached, isTrue);
+    expect(preview.scripts.capabilities.hostAttached, isTrue);
+    bridge.attachHost(null);
+    expect(preview.scripts.capabilities.hostAttached, isFalse);
+  });
+
+  test('card scripts reach the real engine: a global variable written, read back, and kept', () async {
+    final dir = await Directory.systemTemp.createTemp('deferred-scripts');
+    addTearDown(() => dir.delete(recursive: true));
+    const global = TavernVariableTarget(scope: TavernVariableScope.global);
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    final context = deferred.scripts.openContext(const TavernScriptContextSpec(instanceId: 'frame'));
+    opening.complete(await openTavern(dir.path));
+
+    final id = (await context).id;
+    final value = <String, Object?>{
+      'hp': 7,
+      'bag': ['key'],
+    };
+    final saved = await deferred.scripts.replaceVariables(id, global, value);
+    // The engine took it as it was at the call.
+    (value['bag']! as List).add('map');
+    expect(saved.value, {
+      'hp': 7,
+      'bag': ['key'],
+    });
+    expect(deferred.scripts.capabilities.simulated, isFalse);
+    expect(deferred.scripts.capabilities.methods, contains('replaceVariables'));
+    await deferred.close();
+
+    // Opened again: still there.
+    final again = DeferredTavern(openTavern(dir.path));
+    addTearDown(again.close);
+    final reopened = await again.scripts.openContext(const TavernScriptContextSpec(instanceId: 'frame'));
+    expect((await again.scripts.getVariables(reopened.id, global)).value, {
+      'hp': 7,
+      'bag': ['key'],
+    });
+  });
+
+  test('B2 reaches the real engine too: a prompt injected for a chat is listed, then taken out', () async {
+    final dir = await Directory.systemTemp.createTemp('deferred-b2');
+    addTearDown(() => dir.delete(recursive: true));
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    addTearDown(deferred.close);
+    // Nothing can be generating before it opens.
+    expect(deferred.scripts.stopGenerationById('nothing'), isFalse);
+    opening.complete(await openTavern(dir.path));
+    final card = await File('assets/tavern/sample_innkeeper.json').readAsBytes();
+    final character = await deferred.importCard(card, fileName: 'sample_innkeeper.json');
+    final chat = await deferred.createChat(character.id);
+    final context = await deferred.scripts.openContext(TavernScriptContextSpec(instanceId: 'frame', chatId: chat));
+
+    await deferred.scripts.injectPrompts(context.id, [TavernScriptInjection(id: 'weather', content: '外面在下雨。')]);
+    final listed = await deferred.scripts.listInjections(context.id);
+    expect(listed.map((v) => v.injection?.content), contains('外面在下雨。'));
+    await deferred.scripts.uninjectPrompts(context.id, ['weather']);
+    expect(
+      (await deferred.scripts.listInjections(context.id)).map((v) => v.injection?.content),
+      isNot(contains('外面在下雨。')),
+    );
+    expect(deferred.scripts.stopGenerationById('nothing'), isFalse);
+  });
+
+  test('the preview says it does not simulate B2 either', () async {
+    final preview = PreviewTavern(tick: Duration.zero);
+    await expectLater(
+      preview.scripts.listInjections('c'),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability)),
+    );
+    expect(preview.scripts.stopGenerationById('g'), isFalse);
+  });
+
+  test('B3 reaches the real engine: a Slash script, macros, and the card book read and replaced', () async {
+    final dir = await Directory.systemTemp.createTemp('deferred-b3');
+    addTearDown(() => dir.delete(recursive: true));
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    addTearDown(deferred.close);
+    // Nothing can be running before it opens.
+    expect(deferred.scripts.stopScript('nothing'), isFalse);
+    opening.complete(await openTavern(dir.path));
+    final card = await File('assets/tavern/sample_innkeeper.json').readAsBytes();
+    final character = await deferred.importCard(card, fileName: 'sample_innkeeper.json');
+    final chat = await deferred.createChat(character.id);
+    final context = await deferred.scripts.openContext(
+      TavernScriptContextSpec(instanceId: 'frame', chatId: chat, characterId: character.id),
+    );
+
+    final run = await deferred.scripts.triggerSlash(context.id, '/pass {{char}} | /pass 到了', executionId: 'hello');
+    expect((await run.result).pipe, '到了');
+    expect(deferred.scripts.stopScript('hello'), isFalse);
+    expect(await deferred.scripts.substituteMacros(context.id, '{{char}}在柜台后'), '林晚在柜台后');
+
+    final embedded = TavernScriptBookRef.embedded(characterId: character.id);
+    final books = await deferred.scripts.getContextBooks(context.id);
+    expect(books.map((b) => b.ref).whereType<TavernScriptEmbeddedBookRef>(), isNotEmpty);
+    final read = await deferred.scripts.readBook(context.id, embedded);
+    expect(read.book['name'], '雨镇');
+    final replaced = await deferred.scripts.replaceBook(context.id, embedded, {
+      ...read.book,
+      'name': '雨镇（改）',
+    }, expectedVersion: read.version);
+    expect(replaced.book['name'], '雨镇（改）');
+    expect(replaced.version, isNot(read.version));
+    expect((await deferred.scripts.readBook(context.id, embedded)).book['name'], '雨镇（改）');
+    // The old version no longer matches.
+    await expectLater(
+      deferred.scripts.replaceBook(context.id, embedded, read.book, expectedVersion: read.version),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.revisionConflict)),
+    );
+  });
+
+  test(
+    'B3 before it opens: a card or a book is refused at the call if it is not JSON; the preview runs no Slash',
+    () async {
+      final opening = Completer<Tavern>();
+      final deferred = DeferredTavern(opening.future);
+      final loop = <String, Object?>{};
+      loop['self'] = loop;
+      final embedded = TavernScriptBookRef.embedded(characterId: 'x');
+      await expectLater(
+        deferred.scripts.replaceCharacterData('c', 'x', loop),
+        throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.invalidJson)),
+      );
+      await expectLater(
+        deferred.scripts.replaceBook('c', embedded, loop),
+        throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.invalidJson)),
+      );
+
+      final preview = PreviewTavern(tick: Duration.zero);
+      final unsupported = throwsA(
+        isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability),
+      );
+      await expectLater(preview.scripts.triggerSlash('c', '/pass x'), unsupported);
+      await expectLater(preview.scripts.substituteMacros('c', '{{char}}'), unsupported);
+      await expectLater(preview.scripts.replaceCharacterData('c', 'x', const {}), unsupported);
+      await expectLater(preview.scripts.getContextBooks('c'), unsupported);
+      await expectLater(preview.scripts.readBook('c', embedded), unsupported);
+      await expectLater(preview.scripts.replaceBook('c', embedded, const {}), unsupported);
+      expect(preview.scripts.stopScript('s'), isFalse);
+      opening.complete(preview);
+    },
+  );
+
+  test('card scripts before it opens: a value is copied at the call; a cycle is refused there', () async {
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    const global = TavernVariableTarget(scope: TavernVariableScope.global);
+    final loop = <String, Object?>{};
+    loop['self'] = loop;
+    await expectLater(
+      deferred.scripts.replaceVariables('c', global, loop),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.invalidJson)),
+    );
+    // A plain value waits, copied: the preview then refuses it as unsimulated.
+    final value = <String, Object?>{'hp': 7};
+    final waiting = deferred.scripts.replaceVariables('c', global, value);
+    value['hp'] = 0;
+    opening.complete(PreviewTavern(tick: Duration.zero));
+    await expectLater(waiting, throwsA(isA<TavernScriptException>()));
+  });
+
   test('the libraries and the display pass reach the engine once it opens (T20, T21)', () async {
     final preview = PreviewTavern(tick: Duration.zero);
     final chat = await preview.createChat('sample-innkeeper');
@@ -42,4 +227,10 @@ void main() {
     final book = await deferred.importLorebook('{"entries": {"0": {"content": "x"}}}', fileName: 'w.json');
     expect((await deferred.listLorebooks()).single.id, book.book.id);
   });
+}
+
+/// A host that never answers: only its presence is looked at.
+class _Host implements TavernScriptHost {
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

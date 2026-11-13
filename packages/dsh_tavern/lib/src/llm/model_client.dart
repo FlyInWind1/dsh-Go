@@ -122,6 +122,7 @@ class TavernModelClient {
     required TavernModelConfig config,
     required Map<String, Object?> body,
     required ModelCancellation cancellation,
+    void Function(int attempt)? onRequestStarted,
   }) async* {
     String? key;
     try {
@@ -148,6 +149,8 @@ class TavernModelClient {
             encodedBody,
             payload['stream'] != false,
             cancellation,
+            attempt: attempt,
+            onRequestStarted: onRequestStarted,
           )) {
             yield delta;
           }
@@ -185,8 +188,10 @@ class TavernModelClient {
     String key,
     String encodedBody,
     bool streaming,
-    ModelCancellation cancellation,
-  ) async* {
+    ModelCancellation cancellation, {
+    required int attempt,
+    void Function(int attempt)? onRequestStarted,
+  }) async* {
     http.Client? client;
     try {
       cancellation.check();
@@ -197,7 +202,20 @@ class TavernModelClient {
       cancellation.check();
       http.StreamedResponse response;
       try {
-        response = await cancellation.wait(client.send(request).timeout(idleTimeout));
+        late final Future<http.StreamedResponse> sent;
+        try {
+          sent = client.send(request);
+        } finally {
+          // The method was really invoked, even if it threw synchronously.
+          // This is not proof of socket delivery or HTTP acceptance. A private
+          // observer cannot add retries, replace the error, or insert an await.
+          try {
+            onRequestStarted?.call(attempt);
+          } catch (_) {
+            /* observation only */
+          }
+        }
+        response = await cancellation.wait(sent.timeout(idleTimeout));
       } on http.RequestAbortedException {
         rethrow;
       } on http.ClientException {

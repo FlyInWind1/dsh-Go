@@ -23,8 +23,11 @@ import '../../tavern/tavern_bookmarks.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_preview.dart';
 import '../../tavern/tavern_card_theme.dart';
+import '../../tavern/tavern_interact.dart';
 import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_canvas.dart';
+import '../../tavern/tavern_canvas_calls.dart';
+import '../../tavern/tavern_card_scripts.dart';
 import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_markers.dart';
@@ -57,11 +60,13 @@ import '../wallpaper/wallpaper_backdrop.dart';
 import 'tavern_arrive.dart';
 import 'tavern_canvas_view.dart';
 import 'tavern_component_view.dart';
+import 'tavern_group_page.dart';
 import 'tavern_character_page.dart';
 import 'tavern_dice_sheet.dart';
 import 'tavern_ink.dart';
 import 'tavern_island.dart';
 import 'tavern_inspector_page.dart';
+import 'tavern_interact_view.dart';
 import 'tavern_live_display.dart';
 import 'tavern_message_edit_page.dart';
 import 'tavern_personas.dart';
@@ -112,7 +117,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   TavernPage? _staged;
   late final Tavern _tavern = ref.read(tavernProvider);
   StreamSubscription<void>? _changes;
-  StreamSubscription<TavernEvent>? _turn;
+  StreamSubscription<Object?>? _turn;
+
+  /// This chat's group (engine P2 125), when it is one: its roster and how
+  /// it takes turns; and, while a batch runs, who speaks and who follows.
+  StreamSubscription<TavernGroupChat?>? _groupWatch;
+  TavernGroupChat? _group;
+
+  /// This chat is a group's: by its own details, or its summary before they
+  /// are in (a line sent then still goes to the group).
+  bool _groupChat = false;
+  TavernGroupProgress? _groupProgress;
 
   /// The director's three suggestions for now (engine T18), first in the row
   /// over the composer; none when it has not run, or its last thought is
@@ -146,13 +161,54 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// null while nothing is being written. Fed only while the canvas shows.
   final _canvasStream = ValueNotifier<(String, String)?>(null);
   bool _canvasOn = false;
+
+  /// A card's script on the canvas asking the engine (dsh.call): in this
+  /// chat's own script context, opened on its first call.
+  TavernCanvasCalls? _calls;
+  String? _canvasCharacter;
+  TavernCanvasCalls get _canvasCalls => _calls ??= TavernCanvasCalls(
+    _tavern.scripts,
+    chatId: widget.chatId,
+    characterId: () => _canvasCharacter,
+    pages: ref.read(tavernScriptPagesProvider),
+    avatar: (id) async => tavernImageDataUrl((await _tavern.character(id))?.avatarPath),
+    interact: _interact,
+  );
+
+  /// A card script's request to the person, shown here: a dialog, a notice,
+  /// or words put in the composer (/setinput).
+  Future<TavernInteractAnswer> _interact(
+    TavernInteractKind kind,
+    Map<String, Object?> fields, {
+    required Future<void> withdraw,
+  }) async {
+    if (!mounted) return const TavernInteractAnswer(TavernInteractStatus.cancelled);
+    return showTavernInteract(
+      context,
+      kind,
+      fields,
+      withdraw: withdraw,
+      onSetInput: (text) {
+        _input.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+    );
+  }
+
+  /// The chat's character (or a group's title), and the names of all.
   String _canvasSpeaker = '';
+  Map<String, String> _canvasNames = const {};
 
   void _feedCanvas() {
     if (!_canvasOn) return;
     final text = _live.shown;
+    // In a group, the member speaking as of their own events, which come
+    // before the page rebuilds for them.
+    final speaker = _canvasNames[_group == null ? null : _groupProgress?.speakerCharacterId] ?? _canvasSpeaker;
     _canvasStream.value = _running && !_drafting && text.isNotEmpty
-        ? (_canvasSpeaker, tavernStoryHtml(tavernComponentTagsOut(tavernStripMarkers(text))))
+        ? (speaker, tavernStoryHtml(tavernComponentTagsOut(tavernStripMarkers(text))))
         : null;
   }
 
@@ -204,8 +260,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       onError: (Object _) {},
     );
     unawaited(_reload());
-    // A reply left running when the page was last closed (engine T24).
-    _run(() => _tavern.resumeTurn(widget.chatId), rejoin: true);
+    _groupWatch = _tavern
+        .watchGroupChat(widget.chatId)
+        .listen((group) => mounted ? setState(() => _group = group) : null, onError: (Object _) {});
+    unawaited(_rejoin());
     _voice = VoiceInputController(
       input: _input,
       bridge: ref.read(voiceBridgeProvider),
@@ -224,6 +282,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   void dispose() {
     unawaited(_changes?.cancel());
     unawaited(_director?.cancel());
+    unawaited(_groupWatch?.cancel());
     // A reply goes on without the page (engine T24) and is picked up when it
     // opens again; a line being written into this page's box has nowhere to go.
     if (_running && _drafting) _tavern.stop(widget.chatId);
@@ -232,6 +291,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _live.removeListener(_feedCanvas);
     _live.dispose();
     _canvasStream.dispose();
+    unawaited(_calls?.close());
     _stopThinking();
     _thinking.dispose();
     _voice.removeListener(_reportVoice);
@@ -464,6 +524,156 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     );
   }
 
+  /// A reply left running when the page was last closed (engine T24), or a
+  /// group's batch (P2): picked up as it is now.
+  Future<void> _rejoin() async {
+    TavernGroupChat? group;
+    try {
+      group = await _tavern.groupChat(widget.chatId);
+    } on Object {
+      group = null;
+    }
+    if (!mounted || _turn != null) return;
+    if (group != null) {
+      setState(() => _group = group);
+      _runGroup(() => _tavern.resumeGroupTurn(widget.chatId), rejoin: true);
+    } else {
+      _run(() => _tavern.resumeTurn(widget.chatId), rejoin: true);
+    }
+  }
+
+  /// A group's batch (engine P2 125): the outer events say who speaks and who
+  /// follows; each member's own turn streams as a reply does, one after the
+  /// other; the batch ends once, at its Finished.
+  void _runGroup(Stream<TavernGroupEvent> Function() start, {String? draft, bool rejoin = false}) {
+    unawaited(_turn?.cancel());
+    _immersive.value = false;
+    _rejoining = rejoin;
+    if (!rejoin) {
+      setState(() {
+        _error = null;
+        _action = null;
+        _streamNode = null;
+        _groupProgress = null;
+      });
+    }
+    _stream.value = _nothing;
+    _live.reset();
+    _stopThinking();
+    _thinking.value = null;
+    void member(TavernEvent event) {
+      switch (event) {
+        case TavernTurnStarted(:final message):
+          _stream.value = _nothing;
+          _live.reset();
+          _stopThinking();
+          _thinking.value = null;
+          setState(() => _streamNode = message.nodeId);
+          unawaited(_reload());
+        case TavernTextDelta(:final nodeId, :final text):
+          _adopt(nodeId);
+          _stream.value = (text: _stream.value.text + text, reasoning: _stream.value.reasoning);
+          _live.text = _stream.value.text;
+          _stopThinking();
+        case TavernReasoningDelta(:final nodeId, :final text):
+          _adopt(nodeId);
+          _stream.value = (text: _stream.value.text, reasoning: _stream.value.reasoning + text);
+          if (_thinking.value == null && _stream.value.text.isEmpty) {
+            _thinking.value = 0;
+            _thinkingTick = Timer.periodic(const Duration(seconds: 1), (_) => _thinking.value = _thinking.value! + 1);
+          }
+        case TavernTurnDone():
+          // This one has said it; the next follows.
+          _stream.value = _nothing;
+          _live.reset();
+          _stopThinking();
+          setState(() => _streamNode = null);
+          unawaited(_reload());
+        default:
+        // A member's failure ends the batch: its Finished says how.
+      }
+    }
+
+    _turn = start().listen(
+      (event) {
+        if (!mounted) return;
+        switch (event) {
+          case TavernGroupStarted(:final progress) || TavernGroupProgressChanged(:final progress):
+            setState(() {
+              _rejoining = false;
+              _groupProgress = progress;
+            });
+          case TavernGroupSnapshot(:final progress, :final message):
+            setState(() {
+              _rejoining = false;
+              _groupProgress = progress;
+              _streamNode = message?.nodeId;
+            });
+            if (message != null) {
+              _stream.value = (text: message.text, reasoning: message.reasoning ?? '');
+              _live.text = message.text;
+            }
+          case TavernGroupMemberEvent(:final progress, :final event):
+            _groupProgress = progress;
+            member(event);
+          case TavernGroupFinished(:final reason, :final failure, :final detail, :final progress):
+            setState(() => _groupProgress = null);
+            final l10n = context.l10n;
+            switch (reason) {
+              case TavernGroupEndReason.completed || TavernGroupEndReason.cancelled:
+                _finish();
+              case TavernGroupEndReason.noSpeakers:
+                _finish(error: l10n.tavernGroupNoSpeakers, calm: true);
+              case TavernGroupEndReason.failed:
+                // Your line was not kept: back in the box.
+                final kept = progress?.userNodeId != null;
+                if (!kept && draft != null && _input.text.isEmpty) _input.text = draft;
+                final kind = failure ?? TavernFailure.server;
+                _finish(
+                  error: _failureText(kind, detail),
+                  action: switch (kind) {
+                    TavernFailure.noKey ||
+                    TavernFailure.badKey => (label: l10n.commonSettings, onPressed: _openKeySettings),
+                    // Kept: the group goes on from it. Not kept: send it again.
+                    _ => (
+                      label: l10n.commonRetry,
+                      onPressed: kept || draft == null
+                          ? () => _runGroup(() => _tavern.sendGroup(widget.chatId, ''))
+                          : _send,
+                    ),
+                  },
+                );
+            }
+        }
+      },
+      onDone: () {
+        if (!mounted || _turn == null) return;
+        if (_rejoining) {
+          setState(() {
+            _turn = null;
+            _rejoining = false;
+          });
+        } else {
+          _finish();
+        }
+      },
+    );
+  }
+
+  /// 点名 (a group): [characterId] replies next, to what is in the box or to
+  /// nothing; muted or not.
+  void _speak(String characterId) {
+    if (_running) return;
+    if (_tavern is! TavernPreview && !ref.read(settingsProvider).hasApiKey) {
+      _openKeySettings();
+      return;
+    }
+    unawaited(HapticFeedback.selectionClick());
+    final text = _input.text;
+    _input.clear();
+    _runGroup(() => _tavern.sendGroup(widget.chatId, text, speakerCharacterId: characterId), draft: text);
+  }
+
   /// 小说: into the story by the reader's own hand hides the header and the
   /// box; back toward the newest lines, or near them, shows them again. Not
   /// while a reply is written or something is being typed.
@@ -539,6 +749,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     }
     final text = _input.text;
     _input.clear();
+    // A group: the line goes to all of them, who answer in turn.
+    if (_groupChat) {
+      _runGroup(() => _tavern.sendGroup(widget.chatId, text), draft: text);
+      return;
+    }
     _run(() => _tavern.send(widget.chatId, text), draft: text);
   }
 
@@ -645,9 +860,21 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   }
 
   /// A quick reply sends as it is; on failure it waits in the box.
+  /// A card script's button: pressed in the page, where the script listens
+  /// for it (eventOn(getButtonEvent(name))).
+  void _pressScriptButton(String scriptId, String name) {
+    unawaited(HapticFeedback.selectionClick());
+    final deliver = _canvasCalls.deliver;
+    if (deliver != null) unawaited(deliver({'kind': 'button', 'scriptId': scriptId, 'name': name}));
+  }
+
   void _sendQuick(String text) {
     if (_running) return;
     unawaited(HapticFeedback.selectionClick());
+    if (_groupChat) {
+      _runGroup(() => _tavern.sendGroup(widget.chatId, text), draft: text);
+      return;
+    }
     _run(() => _tavern.send(widget.chatId, text), draft: text);
   }
 
@@ -994,15 +1221,20 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       if (nodeId != null) unawaited(_jumpTo(nodeId));
     });
     final l10n = context.l10n;
-    final characterId = ref
-        .watch(tavernChatsProvider(null))
-        .value
-        ?.where((c) => c.id == widget.chatId)
-        .firstOrNull
-        ?.characterId;
+    final summary = ref.watch(tavernChatsProvider(null)).value?.where((c) => c.id == widget.chatId).firstOrNull;
+    final characterId = summary?.characterId;
+    // A group by its summary too, before its own details are in.
+    _groupChat = _group != null || summary?.kind == TavernChatKind.group;
     final characters = ref.watch(tavernCharactersProvider).value;
     final character = characters?.where((c) => c.id == characterId).firstOrNull;
-    final name = character?.name ?? l10n.tavernTitle;
+    // A group goes by its own title; its members by theirs.
+    final group = _group;
+    final names = {for (final c in characters ?? const <TavernCharacter>[]) c.id: c.name};
+    final name = group?.title ?? character?.name ?? l10n.tavernTitle;
+    // Who writes the reply now: in a group, the member speaking, not the
+    // group's title; else the chat's character.
+    final speaking = group == null ? null : _groupProgress?.speakerCharacterId;
+    final writer = names[speaking] ?? name;
     final preview = _tavern is TavernPreview;
     // The card's own look (酒馆设置 can turn it off): a layout to start in,
     // a picture, an accent and name colours for the story.
@@ -1016,6 +1248,15 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final showUsage = ref.watch(tavernSettingsProvider.select((s) => s.showUsage));
     final messages = _messages;
     final (String status, StatusTone tone) = switch (()) {
+      // A group: who speaks now, and who follows.
+      _ when _running && _groupProgress?.speakerCharacterId != null => (
+        [
+          l10n.tavernGroupSpeaking(names[_groupProgress!.speakerCharacterId] ?? ''),
+          if (_groupProgress!.remainingCharacterIds.isNotEmpty)
+            l10n.tavernGroupThen([for (final id in _groupProgress!.remainingCharacterIds) names[id] ?? id].join('、')),
+        ].join(' · '),
+        StatusTone.busy,
+      ),
       _ when _running => (l10n.tavernReplying, StatusTone.busy),
       _ when preview => (l10n.tavernPreviewStatus, StatusTone.warn),
       // What the card pins (好感 8 · 地点 旅店) in place of 「就绪」.
@@ -1039,6 +1280,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             live: _live,
             thinking: _thinking,
             indent: indent,
+            speaker: group != null && !novel ? m.speaker : null,
+            lead: name,
           )
         else
           _MessageRow(
@@ -1054,6 +1297,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             showUsage: showUsage,
             lead: name,
             bookmarked: marked.contains(m.nodeId),
+            showName: group != null,
           ),
       ],
       if (_running && (_streamNode == null || !(messages?.any((m) => m.nodeId == _streamNode) ?? false)))
@@ -1063,12 +1307,16 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           live: _live,
           thinking: _thinking,
           indent: indent,
+          speaker: group != null && !novel ? writer : null,
+          lead: name,
         ),
     ];
 
     // Read here, not in the 视觉小说 builder below, which reruns on every
     // piece of the reply.
-    final live2d = layout != TavernLayout.visualNovel || characterId == null || _stageFailed
+    // A group's stage shows whoever speaks, in their own picture: no one
+    // member's Live2D model stands for all of them.
+    final live2d = layout != TavernLayout.visualNovel || characterId == null || _stageFailed || group != null
         ? null
         : ref.watch(tavernLive2dProvider(characterId)).value;
     final revealRate = ref.watch(tavernSettingsProvider.select((s) => s.textSpeed.charactersPerSecond));
@@ -1076,7 +1324,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final canvas = layout != TavernLayout.visualNovel && ref.watch(tavernSettingsProvider.select((s) => s.canvas));
     _canvasOn = canvas;
     _canvasSpeaker = name;
+    _canvasNames = names;
+    _canvasCharacter = _groupChat ? null : characterId;
     if (canvas) _feedCanvas();
+    // The buttons the card's own scripts show: only where those scripts run
+    // (the canvas, scripts on, one character).
+    final scriptCharacter = _canvasCharacter;
+    final scriptButtons =
+        canvas && scriptCharacter != null && !ref.watch(tavernSettingsProvider.select((s) => s.islandNoScripts))
+        ? [
+            for (final s in ref.watch(tavernCardScriptsProvider(scriptCharacter)).value ?? const <TavernCardScript>[])
+              for (final b in s.buttons) (s.id, b),
+          ]
+        : const <(String, String)>[];
     // The pages and the canvas read each message as shown, through the
     // display regex; the bubble and novel rows ask for their own.
     final shownText = layout == TavernLayout.visualNovel || canvas
@@ -1125,9 +1385,14 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
           status: status,
           tone: tone,
           scrolledUnder: _scrolled,
-          // The title is the character's: its page. The chat's own things are in 舞台 › 本局.
+          // The title is the character's: its page; a group's, its settings.
+          // The chat's own things are in 舞台 › 本局.
           onDetails: () {
-            if (characterId != null) unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
+            if (group != null) {
+              unawaited(Navigator.of(context).push(TavernGroupPage.route(widget.chatId)));
+            } else if (characterId != null) {
+              unawaited(Navigator.of(context).push(TavernCharacterPage.route(characterId)));
+            }
           },
           // 舞台 in place of ⓘ (the title opens the quick look); beside the story
           // on a wide screen, it needs no key.
@@ -1166,7 +1431,8 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                           TavernMessage(
                             nodeId: _streamNode ?? '',
                             role: TavernRole.character,
-                            speaker: name,
+                            speaker: writer,
+                            speakerCharacterId: speaking,
                             text: '',
                             at: DateTime(0),
                           ),
@@ -1177,6 +1443,12 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     name: name,
                     avatarPath: character?.avatarPath,
                     sprites: tavernSprites(character?.assets),
+                    castFor: group == null
+                        ? null
+                        : (id) => switch (characters?.where((c) => c.id == id).firstOrNull) {
+                            final c? => (name: c.name, avatarPath: c.avatarPath, sprites: tavernSprites(c.assets)),
+                            null => null,
+                          },
                     stage: switch (live2d) {
                       final store? => CompanionStage(
                         key: ValueKey(store.root.path),
@@ -1222,6 +1494,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     final m = messages?.where((m) => m.nodeId == node).firstOrNull;
                     if (m != null) unawaited(_menu(m, last: m.nodeId == lastCharacter));
                   },
+                  calls: _canvasCalls,
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: (n) {
@@ -1293,7 +1566,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   hardwareEnterSends: ref.watch(settingsProvider.select((s) => s.hardwareEnterSends)),
                   // Nothing written: the character speaks next (engine send with no line).
                   sendWhenEmpty: messages != null && messages.isNotEmpty,
-                  emptySendLabel: l10n.tavernSpeakNext(name),
+                  emptySendLabel: group != null ? l10n.tavernGroupSpeakNext : l10n.tavernSpeakNext(name),
                   controller: _input,
                   focusNode: _focus,
                   connected: messages != null,
@@ -1312,12 +1585,19 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                       ? _SlashRow(onPick: _pickSlash)
                       : !_running && messages != null && (!_readingBack.value || _focus.hasFocus)
                       ? _QuickReplyRow(
+                          members: [
+                            for (final m in group?.members ?? const <TavernGroupMember>[])
+                              if (names[m.characterId] case final n?) (m.characterId, n),
+                          ],
+                          onSpeak: _speak,
                           directed: _directed,
                           onDirected: _suggest,
                           onDirectedSend: _sendQuick,
                           replies: ref.watch(tavernQuickRepliesProvider),
                           onSend: _sendQuick,
                           onEdit: _editQuick,
+                          scriptButtons: scriptButtons,
+                          onScriptButton: _pressScriptButton,
                           onDice: () => unawaited(_dice()),
                           onAll: () => unawaited(_allQuick()),
                         )
@@ -1416,10 +1696,14 @@ class _MessageRow extends StatelessWidget {
     this.showUsage = false,
     this.lead = '',
     this.bookmarked = false,
+    this.showName = false,
   });
 
   final String chatId;
   final TavernMessage message;
+
+  /// A group: each character's line says whose it is (bubbles too).
+  final bool showName;
 
   /// Marked (书签): says so under it, as hidden does.
   final bool bookmarked;
@@ -1501,6 +1785,19 @@ class _MessageRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (showName && message.role == TavernRole.character)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                tavernSpeaker(context, message),
+                key: ValueKey('tavern-speaker-${message.nodeId}'),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: tavernNameColor(context, tavernSpeaker(context, message), lead: lead),
+                  fontWeight: FontWeight.w600,
+                  fontFamily: tavernNameFont(context),
+                ),
+              ),
+            ),
           // Narration says so: it is no one's line.
           if (message.role == TavernRole.narrator)
             Padding(
@@ -1630,18 +1927,30 @@ class _SlashRow extends StatelessWidget {
 }
 
 /// The capsules above the composer (§6): 快速回复 (tap sends, long-press puts
-/// it in the box), then 掷骰.
+/// it in the box), the card's script buttons, then 掷骰.
 class _QuickReplyRow extends StatelessWidget {
   const _QuickReplyRow({
+    this.members = const [],
+    this.onSpeak,
     this.directed = const [],
     this.onDirected,
     this.onDirectedSend,
     required this.replies,
     required this.onSend,
     required this.onEdit,
+    this.scriptButtons = const [],
+    this.onScriptButton,
     required this.onDice,
     required this.onAll,
   });
+
+  /// The buttons the card's own scripts show, by script and name, as given.
+  final List<(String, String)> scriptButtons;
+  final void Function(String scriptId, String name)? onScriptButton;
+
+  /// A group's members, before all else: a tap has that one speak next.
+  final List<(String, String)> members;
+  final ValueChanged<String>? onSpeak;
 
   /// The director's suggestions, first: a tap puts one in the box; a long
   /// press sends it as it is (docs/design/roleplay-ui.md §5).
@@ -1672,49 +1981,73 @@ class _QuickReplyRow extends StatelessWidget {
         key: const ValueKey('tavern-quick-replies'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: directed.length + replies.length + (replies.isEmpty ? 1 : 2),
+        itemCount: members.length + directed.length + replies.length + scriptButtons.length + (replies.isEmpty ? 1 : 2),
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         // The director's suggestions arrive whenever it has them: each new
         // one fades in, a beat after the one before it.
-        itemBuilder: (context, at) => at < directed.length
-            ? TavernArrive(
-                key: ValueKey(('tavern-directed-arrive', at, directed[at])),
-                index: at,
-                child: GestureDetector(
-                  onLongPress: onDirectedSend == null ? null : () => onDirectedSend!(directed[at]),
-                  child: CapsuleChoiceChip(
-                    key: ValueKey('tavern-directed-$at'),
-                    icon: AppIcons.askAi,
-                    label: _label(directed[at]),
-                    selected: false,
-                    onSelected: () => onDirected?.call(directed[at]),
-                  ),
-                ),
+        itemBuilder: (context, i) => i < members.length
+            ? CapsuleChoiceChip(
+                key: ValueKey('tavern-speak-${members[i].$1}'),
+                icon: AppIcons.mention,
+                label: members[i].$2,
+                selected: false,
+                onSelected: () => onSpeak?.call(members[i].$1),
               )
-            : _item(context, at - directed.length),
+            : _directedOrReply(context, i - members.length),
       ),
     ),
   );
 
-  Widget _item(BuildContext context, int i) => i > replies.length
-      ? CapsuleChoiceChip(
-          key: const ValueKey('tavern-qr-all'),
-          label: context.l10n.tavernQuickRepliesAll,
-          selected: false,
-          onSelected: onAll,
+  Widget _directedOrReply(BuildContext context, int at) => at < directed.length
+      ? TavernArrive(
+          key: ValueKey(('tavern-directed-arrive', at, directed[at])),
+          index: at,
+          child: GestureDetector(
+            onLongPress: onDirectedSend == null ? null : () => onDirectedSend!(directed[at]),
+            child: CapsuleChoiceChip(
+              key: ValueKey('tavern-directed-$at'),
+              icon: AppIcons.askAi,
+              label: _label(directed[at]),
+              selected: false,
+              onSelected: () => onDirected?.call(directed[at]),
+            ),
+          ),
         )
-      : i == replies.length
-      ? CapsuleChoiceChip(
-          key: const ValueKey('tavern-dice'),
-          label: context.l10n.tavernDice,
-          selected: false,
-          onSelected: onDice,
-        )
-      : GestureDetector(
-          key: ValueKey('tavern-qr-$i'),
-          onLongPress: () => onEdit(replies[i]),
-          child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
-        );
+      : _item(context, at - directed.length);
+
+  Widget _item(BuildContext context, int i) {
+    if (i < replies.length) {
+      return GestureDetector(
+        key: ValueKey('tavern-qr-$i'),
+        onLongPress: () => onEdit(replies[i]),
+        child: CapsuleChoiceChip(label: _label(replies[i]), selected: false, onSelected: () => onSend(replies[i])),
+      );
+    }
+    final at = i - replies.length;
+    if (at < scriptButtons.length) {
+      final (script, name) = scriptButtons[at];
+      return CapsuleChoiceChip(
+        key: ValueKey('tavern-script-button-$at'),
+        icon: AppIcons.code,
+        label: _label(name),
+        selected: false,
+        onSelected: () => onScriptButton?.call(script, name),
+      );
+    }
+    return at == scriptButtons.length
+        ? CapsuleChoiceChip(
+            key: const ValueKey('tavern-dice'),
+            label: context.l10n.tavernDice,
+            selected: false,
+            onSelected: onDice,
+          )
+        : CapsuleChoiceChip(
+            key: const ValueKey('tavern-qr-all'),
+            label: context.l10n.tavernQuickRepliesAll,
+            selected: false,
+            onSelected: onAll,
+          );
+  }
 }
 
 /// Swiping a reply sideways steps through its alternatives: left for the next
@@ -2018,7 +2351,13 @@ class _StreamingReply extends StatelessWidget {
     required this.live,
     required this.thinking,
     this.indent = false,
+    this.speaker,
+    this.lead = '',
   });
+
+  /// A group: who is writing it, over it.
+  final String? speaker;
+  final String lead;
 
   /// 小说's paragraph indent, as the reply will have once written.
   final bool indent;
@@ -2038,6 +2377,18 @@ class _StreamingReply extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (speaker case final who? when who.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                who,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: tavernNameColor(context, who, lead: lead),
+                  fontWeight: FontWeight.w600,
+                  fontFamily: tavernNameFont(context),
+                ),
+              ),
+            ),
           if (reasoning.isNotEmpty)
             ThinkingPill(
               reasoning: reasoning,

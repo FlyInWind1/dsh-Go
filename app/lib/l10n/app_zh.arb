@@ -12198,6 +12198,24 @@
   "tavernSessionUsing": "正在用",
   "tavernSessionLook": "外观",
   "tavernSessionMore": "更多",
+  "tavernAudio": "音乐和音效",
+  "tavernAudioBgm": "背景音乐",
+  "tavernAudioAmbient": "音效",
+  "tavernAudioNothing": "没在放",
+  "tavernAudioPlay": "播放",
+  "tavernAudioPause": "暂停",
+  "tavernAudioMode": "播放方式",
+  "tavernAudioModeOne": "单曲",
+  "tavernAudioModeAll": "列表",
+  "tavernAudioModeShuffle": "随机",
+  "tavernAudioModeOnce": "放一首",
+  "tavernAudioVolume": "音量",
+  "tavernAudioAllow": "让角色卡播放",
+  "tavernAudioAdd": "加一首背景音乐",
+  "tavernAudioAddTitle": "背景音乐的链接",
+  "tavernAudioAddNote": "填音频文件的网址（mp3、ogg 等），加进这段对话的背景音乐列表，和卡放的放在一起。",
+  "tavernAudioAddConfirm": "加入",
+  "tavernAudioAddInvalid": "要以 http:// 或 https:// 开头",
   "tavernStageState": "状态",
   "tavernStageDirector": "导演",
   "tavernStageTurn": "本回合",
@@ -12641,6 +12659,22 @@
     }
   },
   "tavernSessionUsageNone": "还没有模型报告过用量",
+  "tavernSessionUsageCost": "约 {usd}，按 DeepSeek 官方价，分高峰和低谷时段算；法定节假日全天是低谷价，那几天这里会算高一点",
+  "@tavernSessionUsageCost": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernSessionUsageUnpriced": "{count} 条回复用的模型不在价目表里，没算进费用",
+  "@tavernSessionUsageUnpriced": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tavernComposerNoKey": "填好 Key 就能开始",
   "tavernWriteOwn": "自己写一个角色",
   "tavernWriteOwnSubtitle": "从一张空白卡开始，名字、设定和开场白都自己填",
@@ -12803,7 +12837,9 @@
   },
   "tavernStThemeNote": "配色选「ST」时，引号里的话和 *动作* 用它的颜色；太浅或太深看不清的，会调到看得清。",
   "tavernStThemeImport": "导入 ST 主题",
-  "tavernStThemeImportNote": "从 SillyTavern 导出的主题文件里取引号和斜体的颜色。",
+  "tavernStThemeImportNote": "从 SillyTavern 导出的主题文件里取引号和斜体的颜色，和它的自定义 CSS。",
+  "tavernStThemeCss": "用它的自定义 CSS",
+  "tavernStThemeCssSubtitle": "配色选「ST」时加进整页画布，和在 ST 里一样盖过默认样式。版面乱了就关掉，颜色照用。",
   "tavernStThemeRemove": "移除",
   "tavernStThemeImported": "换成了 ST 主题「{name}」的配色",
   "@tavernStThemeImported": {
@@ -12813,7 +12849,7 @@
       }
     }
   },
-  "tavernStThemeNoColors": "「{name}」里没有能用的引号或斜体颜色",
+  "tavernStThemeNoColors": "「{name}」里没有能用的引号、斜体颜色或自定义 CSS",
   "@tavernStThemeNoColors": {
     "placeholders": {
       "name": {
@@ -12917,6 +12953,14 @@
   "tavernRollSuccess": "成功",
   "tavernRollFailure": "失败",
   "tavernGameHere": "这里有一个小游戏，现在还不能在这里玩",
+  "tavernCanvasReplied": "{name}回复了",
+  "@tavernCanvasReplied": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "tavernRegexEdit": "编辑规则",
   "tavernRegexFieldName": "名字",
   "tavernRegexFieldFindHelp": "SillyTavern 的写法：/规则/标志，比如 /(早安|晚安)/gi",
@@ -12950,8 +12994,109 @@
   "tavernRegexTryDraft": "用现在填的试一下",
   "tavernRegexDepthAny": "不限",
   "tavernCanvas": "整页画布（试用）",
-  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。",
+  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。",
   "tavernCanvasReloaded": "画面重新加载了",
+  "tavernGroupSpeaking": "{name} 在说",
+  "@tavernGroupSpeaking": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupThen": "接着是 {names}",
+  "@tavernGroupThen": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupNoSpeakers": "这一轮没人接话。点上面的名字，让谁来说。",
+  "tavernGroupSpeakNext": "让大家接着说",
+  "tavernGroupNew": "新建群聊",
+  "tavernGroupMembers": "谁在里面",
+  "tavernGroupMembersNote": "按点选的顺序排；第一个是主持，故事共用的状态记在它的卡上。",
+  "tavernGroupHost": "主持",
+  "tavernGroupTitle": "群名",
+  "tavernGroupActivation": "怎么轮流说",
+  "tavernGroupNatural": "自然",
+  "tavernGroupListOrder": "按顺序",
+  "tavernGroupRandom": "随机",
+  "tavernGroupManual": "手动",
+  "tavernGroupDirector": "导演",
+  "tavernGroupNaturalNote": "像 SillyTavern：被点到名的先说，其余看各自的话多话少；每轮最多几个人说在群设置里改。",
+  "tavernGroupListOrderNote": "每轮按名单从头轮一遍（静音的跳过）。",
+  "tavernGroupRandomNote": "每轮随机挑一个这轮还没说过的人。",
+  "tavernGroupManualNote": "谁也不自己开口；点输入框上面的名字，让谁说谁说。",
+  "tavernGroupDirectorNote": "由导演按剧情点名下一位。",
+  "tavernGroupPickTwo": "至少选两个角色",
+  "tavernGroupCreate": "建群（{count} 人）",
+  "@tavernGroupCreate": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernGroupCreateFailed": "没能建群：{reason}",
+  "@tavernGroupCreateFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupTag": "群",
+  "tavernGroupMemberCount": "{count} 人",
+  "@tavernGroupMemberCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernGroupSettings": "群聊设置",
+  "tavernGroupMaxSpeakers": "每轮最多几人说",
+  "tavernGroupSelfResponses": "可以接着自己说",
+  "tavernGroupSelfResponsesNote": "上一句是谁说的，这一轮还能先轮到他。",
+  "tavernGroupHostNote": "主持是「{name}」：故事共用的状态、导演和秘密记在它的卡上；它可以不在发言名单里。",
+  "@tavernGroupHostNote": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupMuted": "静音",
+  "tavernGroupMutedNote": "不会自己开口；点名时照样说。",
+  "tavernGroupTalkativeness": "话多话少",
+  "tavernGroupTalkativenessNote": "「自然」轮流时，越高越容易开口。",
+  "tavernGroupHelperModel": "用辅助模型",
+  "tavernGroupHelperModelNote": "用便宜快的模型说（DeepSeek 是 flash、不思考），适合配角。",
+  "tavernGroupMoveUp": "往前挪",
+  "tavernGroupMoveDown": "往后挪",
+  "tavernGroupRemove": "移出群聊",
+  "tavernGroupAdd": "加一个角色",
+  "tavernGroupNoOthers": "书架上的角色都在群里了",
+  "tavernGroupUnavailable": "角色卡不在了",
+  "tavernGroupSaveFailed": "没能保存：{reason}",
+  "@tavernGroupSaveFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupErrorNotGroup": "这已经不是群聊了",
+  "tavernGroupErrorCharacterNotFound": "这个角色的卡不在了",
+  "tavernGroupErrorMemberExists": "这个角色已经在群里了",
+  "tavernGroupErrorMemberNotFound": "这个角色已经不在群里了",
+  "tavernGroupErrorInvalidMembers": "成员不能重复，群里至少要有一个角色",
+  "tavernGroupErrorInvalidTalkativeness": "话多程度要在 0 到 1 之间",
+  "tavernGroupErrorInvalidLimit": "每轮至少要有一个人说话",
+  "tavernGroupErrorInvalidOrder": "排的顺序和群里的成员对不上，请重新打开再排",
+  "tavernGroupErrorHostInUse": "这个角色是一个群聊的群主，先删掉那个群聊",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

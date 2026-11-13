@@ -99,6 +99,21 @@ final class PromptAssembler {
   PromptAssembly assemble(PromptInput input) => _AssemblyRun(input, counter).run();
 }
 
+/// Internal quiet adapter: call the already-prepared stop supplier once at
+/// the assembler's real stop stage, without filtering or expanding it again.
+/// Its bias admission uses the first prepared value and JS whitespace; the
+/// ordinary assemble/default raw paths retain their original behavior.
+PromptAssembly assembleScriptPrompt(
+  PromptAssembler assembler,
+  PromptInput input, {
+  required List<String> Function() preparedStops,
+}) => _AssemblyRun(
+  input,
+  assembler.counter,
+  preparedStops: preparedStops,
+  preparedBiasHasContent: trimJsWhitespace(input.bias).isNotEmpty,
+).run();
+
 final class _Prompt {
   _Prompt(
     this.id,
@@ -176,7 +191,8 @@ final class _DepthExtension {
 }
 
 final class _AssemblyRun {
-  _AssemblyRun(this.input, this.counter) : settings = input.preset.settings {
+  _AssemblyRun(this.input, this.counter, {this.preparedStops, this.preparedBiasHasContent})
+    : settings = input.preset.settings {
     type = input.generationType.trim().toLowerCase();
     if (type.isEmpty) type = 'normal';
     final extensions = settings['extensions'];
@@ -202,6 +218,8 @@ final class _AssemblyRun {
     remaining = budget - 3;
   }
   final PromptInput input;
+  final List<String> Function()? preparedStops;
+  final bool? preparedBiasHasContent;
   final PromptTokenCounter counter;
   final Map<String, Object?> settings;
   late final bool enhancedPrefillEnabled;
@@ -587,6 +605,12 @@ final class _AssemblyRun {
     if (input.persona.isNotEmpty && input.personaInPrompt) {
       marker('personaDescription', input.persona, const [PromptSource('persona', 'description')]);
     }
+    final occupiedExtensionIds = <String>{
+      for (final prompt in prompts) prompt.id,
+      for (final injection in input.injections) injection.fragment.source.id.replaceAll(RegExp(r'\W'), '_'),
+      ...knownExtensions.values,
+    };
+    var isolatedExtensionIndex = 0;
     for (final injection in input.injections) {
       final key = injection.fragment.source.id;
       if (injection.placement == PromptPlacement.inChat ||
@@ -595,7 +619,13 @@ final class _AssemblyRun {
           const {'PERSONA_DESCRIPTION', 'QUIET_PROMPT', 'DEPTH_PROMPT'}.contains(key)) {
         continue;
       }
-      extension(injection, key.replaceAll(RegExp(r'\W'), '_'), unknown: true);
+      var identifier = key.replaceAll(RegExp(r'\W'), '_');
+      if (injection.fragment.source.kind == 'scriptInjection') {
+        do {
+          identifier = 'scriptPrivateExtension${isolatedExtensionIndex++}';
+        } while (!occupiedExtensionIds.add(identifier));
+      }
+      extension(injection, identifier, unknown: true);
     }
     for (final pair in [('main', 'system_prompt'), ('jailbreak', 'post_history_instructions')]) {
       final prompt = get(pair.$1);
@@ -648,7 +678,7 @@ final class _AssemblyRun {
     for (final id in ['nsfw', 'jailbreak', ...relativeIds, 'enhanceDefinitions']) {
       addFixed(id);
     }
-    if (input.bias.trim().isNotEmpty) addFixed('bias');
+    if (preparedBiasHasContent ?? input.bias.trim().isNotEmpty) addFixed('bias');
     final absolute = prompts.where((prompt) => prompt.absolute).map((prompt) => prompt.copy()).toList();
     final depthExtensions = input.injections
         .where((injection) => injection.placement == PromptPlacement.inChat && injectionHasContent(injection))
@@ -785,7 +815,9 @@ final class _AssemblyRun {
             counter: counter,
           )
         : before;
-    final stops = input.stops.where((stop) => stop.isNotEmpty).map((stop) => expand(stop)).toList();
+    final stops = preparedStops == null
+        ? input.stops.where((stop) => stop.isNotEmpty).map((stop) => expand(stop)).toList()
+        : List<String>.of(preparedStops!());
     final body = input.deepseek
         ? deepSeekRequestBody(
             messages: after,
@@ -832,6 +864,7 @@ final class _AssemblyRun {
           content.replaceAll('\r', ''),
           sources,
           role: role,
+          expandMacros: item.expandMacros,
           data: {
             'name': item.name,
             if (item.toolCalls != null) 'tool_calls': item.toolCalls,
@@ -876,8 +909,12 @@ final class _AssemblyRun {
               ? extensionPieces.where((piece) => piece.injection.depth == depth && piece.role == role).toList()
               : <_DepthExtension>[];
           ext.sort((a, b) {
-            final byKey = a.injection.fragment.source.id.compareTo(b.injection.fragment.source.id);
-            return byKey != 0 ? byKey : a.index.compareTo(b.index);
+            final byKey = (a.injection.sortKey ?? a.injection.fragment.source.id).compareTo(
+              b.injection.sortKey ?? b.injection.fragment.source.id,
+            );
+            if (byKey != 0) return byKey;
+            final bySource = a.injection.sourceOrder.compareTo(b.injection.sourceOrder);
+            return bySource != 0 ? bySource : a.index.compareTo(b.index);
           });
           final split =
               own.any((prompt) => prompt.explicitRole || prompt.trimGroup != null || !prompt.expandMacros) ||
@@ -967,7 +1004,10 @@ final class _AssemblyRun {
               ? extensions.where((prompt) => prompt.depth == depth && prompt.role == role).toList()
               : <PromptInjection>[];
           final ownText = own.map((prompt) => prompt.content).join('\n');
-          ext.sort((a, b) => a.fragment.source.id.compareTo(b.fragment.source.id));
+          ext.sort((a, b) {
+            final byKey = (a.sortKey ?? a.fragment.source.id).compareTo(b.sortKey ?? b.fragment.source.id);
+            return byKey != 0 ? byKey : a.sourceOrder.compareTo(b.sourceOrder);
+          });
           final extensionRaw = ext.map((prompt) => trimJsWhitespace(prompt.fragment.content)).join('\n');
           final extensionText = extensionRaw.isEmpty ? '' : expand(extensionRaw);
           final text = [ownText, extensionText].where((text) => text.isNotEmpty).map(trimJsWhitespace).join('\n');
@@ -1210,21 +1250,86 @@ final class _AssemblyRun {
     return result;
   }
 
-  Map<String, Object?> genericBody(List<PromptSegment> messages, List<String> stops) => {
-    'messages': messages.map((segment) => segment.message).toList(),
-    'model': input.model,
-    'temperature': presetSamplingNumber(settings['temperature']),
-    'max_tokens': settings['openai_max_tokens'],
-    'stream': settings['stream_openai'] == true && type != 'quiet',
-    'presence_penalty': presetSamplingNumber(settings['presence_penalty']),
-    'frequency_penalty': presetSamplingNumber(settings['frequency_penalty']),
-    'top_p': presetSamplingNumber(settings['top_p']),
-    if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
-    if (presetJsNumber(settings['seed']) >= 0) 'seed': settings['seed'],
-    if (tools.isNotEmpty) 'tools': tools,
-    if (tools.isNotEmpty && input.toolChoice != null) 'tool_choice': input.toolChoice,
-  };
+  Map<String, Object?> genericBody(List<PromptSegment> messages, List<String> stops) => genericChatRequestBody(
+    messages: messages,
+    settings: settings,
+    model: input.model,
+    generationType: type,
+    stops: stops,
+    tools: tools,
+    toolChoice: input.toolChoice,
+  );
 }
+
+/// The existing provider parameter projection, exposed independently of prompt
+/// assembly so an explicit raw sequence need not manufacture preset prompts.
+Map<String, Object?> genericChatRequestBody({
+  required List<PromptSegment> messages,
+  required Map<String, Object?> settings,
+  required String model,
+  required String generationType,
+  List<String> stops = const [],
+  List<Map<String, Object?>> tools = const [],
+  Object? toolChoice,
+}) => {
+  'messages': messages.map((segment) => segment.message).toList(),
+  'model': model,
+  'temperature': presetSamplingNumber(settings['temperature']),
+  'max_tokens': settings['openai_max_tokens'],
+  'stream': settings['stream_openai'] == true && generationType != 'quiet',
+  'presence_penalty': presetSamplingNumber(settings['presence_penalty']),
+  'frequency_penalty': presetSamplingNumber(settings['frequency_penalty']),
+  'top_p': presetSamplingNumber(settings['top_p']),
+  if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
+  if (presetJsNumber(settings['seed']) >= 0) 'seed': settings['seed'],
+  if (tools.isNotEmpty) 'tools': tools,
+  if (tools.isNotEmpty && toolChoice != null) 'tool_choice': toolChoice,
+};
+
+List<PromptSegment> convertExplicitPromptMessages(
+  List<PromptSegment> messages, {
+  required bool deepseek,
+  required String userName,
+  required String characterName,
+  List<String> groupNames = const [],
+  required PromptTokenCounter counter,
+}) => deepseek
+    ? postProcessDeepSeek(
+        messages,
+        userName: userName,
+        characterName: characterName,
+        groupNames: groupNames,
+        counter: counter,
+      )
+    : messages;
+
+Map<String, Object?> explicitPromptRequestBody({
+  required List<PromptSegment> messages,
+  required Map<String, Object?>? settings,
+  required bool deepseek,
+  required String model,
+  List<String> preparedStops = const [],
+}) => settings == null
+    ? {
+        'model': model,
+        'messages': messages.map((message) => message.message).toList(),
+        if (preparedStops.isNotEmpty) 'stop': preparedStops.take(4).toList(),
+      }
+    : deepseek
+    ? deepSeekRequestBody(
+        messages: messages,
+        settings: settings,
+        model: model,
+        generationType: 'normal',
+        stops: preparedStops,
+      )
+    : genericChatRequestBody(
+        messages: messages,
+        settings: settings,
+        model: model,
+        generationType: 'normal',
+        stops: preparedStops,
+      );
 
 // JS trim's exact WhiteSpace/LineTerminator set. In particular U+0085 NEL is
 // meaningful text; Dart String.trim would incorrectly discard that prefix.

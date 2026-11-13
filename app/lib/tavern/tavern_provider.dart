@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../state/settings_state.dart';
 import 'deferred_tavern.dart';
+import 'tavern_script_host.dart';
 import 'tavern_settings.dart';
 
 final tavernProvider = Provider<Tavern>((ref) {
@@ -31,6 +32,13 @@ final tavernProvider = Provider<Tavern>((ref) {
   configure(ref.read(tavernSettingsProvider));
   ref.listen(tavernSettingsProvider, (_, next) => configure(next));
   return tavern;
+});
+
+/// The app's host for card scripts, one per tavern: what the engine delivers
+/// to a canvas page's script context goes to that page.
+final tavernScriptPagesProvider = Provider<TavernScriptPages>((ref) {
+  ref.watch(tavernProvider);
+  return TavernScriptPages();
 });
 
 /// Every character, as the library lists them.

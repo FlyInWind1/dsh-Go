@@ -19916,6 +19916,60 @@ class L10nZh extends L10n {
   String get tavernSessionMore => '更多';
 
   @override
+  String get tavernAudio => '音乐和音效';
+
+  @override
+  String get tavernAudioBgm => '背景音乐';
+
+  @override
+  String get tavernAudioAmbient => '音效';
+
+  @override
+  String get tavernAudioNothing => '没在放';
+
+  @override
+  String get tavernAudioPlay => '播放';
+
+  @override
+  String get tavernAudioPause => '暂停';
+
+  @override
+  String get tavernAudioMode => '播放方式';
+
+  @override
+  String get tavernAudioModeOne => '单曲';
+
+  @override
+  String get tavernAudioModeAll => '列表';
+
+  @override
+  String get tavernAudioModeShuffle => '随机';
+
+  @override
+  String get tavernAudioModeOnce => '放一首';
+
+  @override
+  String get tavernAudioVolume => '音量';
+
+  @override
+  String get tavernAudioAllow => '让角色卡播放';
+
+  @override
+  String get tavernAudioAdd => '加一首背景音乐';
+
+  @override
+  String get tavernAudioAddTitle => '背景音乐的链接';
+
+  @override
+  String get tavernAudioAddNote => '填音频文件的网址（mp3、ogg 等），加进这段对话的背景音乐列表，和卡放的放在一起。';
+
+  @override
+  String get tavernAudioAddConfirm => '加入';
+
+  @override
+  String get tavernAudioAddInvalid => '要以 http:// 或 https:// 开头';
+
+  @override
   String get tavernStageState => '状态';
 
   @override
@@ -20555,6 +20609,16 @@ class L10nZh extends L10n {
   String get tavernSessionUsageNone => '还没有模型报告过用量';
 
   @override
+  String tavernSessionUsageCost(String usd) {
+    return '约 $usd，按 DeepSeek 官方价，分高峰和低谷时段算；法定节假日全天是低谷价，那几天这里会算高一点';
+  }
+
+  @override
+  String tavernSessionUsageUnpriced(int count) {
+    return '$count 条回复用的模型不在价目表里，没算进费用';
+  }
+
+  @override
   String get tavernComposerNoKey => '填好 Key 就能开始';
 
   @override
@@ -20823,7 +20887,13 @@ class L10nZh extends L10n {
   String get tavernStThemeImport => '导入 ST 主题';
 
   @override
-  String get tavernStThemeImportNote => '从 SillyTavern 导出的主题文件里取引号和斜体的颜色。';
+  String get tavernStThemeImportNote => '从 SillyTavern 导出的主题文件里取引号和斜体的颜色，和它的自定义 CSS。';
+
+  @override
+  String get tavernStThemeCss => '用它的自定义 CSS';
+
+  @override
+  String get tavernStThemeCssSubtitle => '配色选「ST」时加进整页画布，和在 ST 里一样盖过默认样式。版面乱了就关掉，颜色照用。';
 
   @override
   String get tavernStThemeRemove => '移除';
@@ -20835,7 +20905,7 @@ class L10nZh extends L10n {
 
   @override
   String tavernStThemeNoColors(String name) {
-    return '「$name」里没有能用的引号或斜体颜色';
+    return '「$name」里没有能用的引号、斜体颜色或自定义 CSS';
   }
 
   @override
@@ -21013,6 +21083,11 @@ class L10nZh extends L10n {
   String get tavernGameHere => '这里有一个小游戏，现在还不能在这里玩';
 
   @override
+  String tavernCanvasReplied(String name) {
+    return '$name回复了';
+  }
+
+  @override
   String get tavernRegexEdit => '编辑规则';
 
   @override
@@ -21112,10 +21187,181 @@ class L10nZh extends L10n {
   String get tavernCanvas => '整页画布（试用）';
 
   @override
-  String get tavernCanvasSubtitle => '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。';
+  String get tavernCanvasSubtitle =>
+      '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。';
 
   @override
   String get tavernCanvasReloaded => '画面重新加载了';
+
+  @override
+  String tavernGroupSpeaking(String name) {
+    return '$name 在说';
+  }
+
+  @override
+  String tavernGroupThen(String names) {
+    return '接着是 $names';
+  }
+
+  @override
+  String get tavernGroupNoSpeakers => '这一轮没人接话。点上面的名字，让谁来说。';
+
+  @override
+  String get tavernGroupSpeakNext => '让大家接着说';
+
+  @override
+  String get tavernGroupNew => '新建群聊';
+
+  @override
+  String get tavernGroupMembers => '谁在里面';
+
+  @override
+  String get tavernGroupMembersNote => '按点选的顺序排；第一个是主持，故事共用的状态记在它的卡上。';
+
+  @override
+  String get tavernGroupHost => '主持';
+
+  @override
+  String get tavernGroupTitle => '群名';
+
+  @override
+  String get tavernGroupActivation => '怎么轮流说';
+
+  @override
+  String get tavernGroupNatural => '自然';
+
+  @override
+  String get tavernGroupListOrder => '按顺序';
+
+  @override
+  String get tavernGroupRandom => '随机';
+
+  @override
+  String get tavernGroupManual => '手动';
+
+  @override
+  String get tavernGroupDirector => '导演';
+
+  @override
+  String get tavernGroupNaturalNote => '像 SillyTavern：被点到名的先说，其余看各自的话多话少；每轮最多几个人说在群设置里改。';
+
+  @override
+  String get tavernGroupListOrderNote => '每轮按名单从头轮一遍（静音的跳过）。';
+
+  @override
+  String get tavernGroupRandomNote => '每轮随机挑一个这轮还没说过的人。';
+
+  @override
+  String get tavernGroupManualNote => '谁也不自己开口；点输入框上面的名字，让谁说谁说。';
+
+  @override
+  String get tavernGroupDirectorNote => '由导演按剧情点名下一位。';
+
+  @override
+  String get tavernGroupPickTwo => '至少选两个角色';
+
+  @override
+  String tavernGroupCreate(int count) {
+    return '建群（$count 人）';
+  }
+
+  @override
+  String tavernGroupCreateFailed(String reason) {
+    return '没能建群：$reason';
+  }
+
+  @override
+  String get tavernGroupTag => '群';
+
+  @override
+  String tavernGroupMemberCount(int count) {
+    return '$count 人';
+  }
+
+  @override
+  String get tavernGroupSettings => '群聊设置';
+
+  @override
+  String get tavernGroupMaxSpeakers => '每轮最多几人说';
+
+  @override
+  String get tavernGroupSelfResponses => '可以接着自己说';
+
+  @override
+  String get tavernGroupSelfResponsesNote => '上一句是谁说的，这一轮还能先轮到他。';
+
+  @override
+  String tavernGroupHostNote(String name) {
+    return '主持是「$name」：故事共用的状态、导演和秘密记在它的卡上；它可以不在发言名单里。';
+  }
+
+  @override
+  String get tavernGroupMuted => '静音';
+
+  @override
+  String get tavernGroupMutedNote => '不会自己开口；点名时照样说。';
+
+  @override
+  String get tavernGroupTalkativeness => '话多话少';
+
+  @override
+  String get tavernGroupTalkativenessNote => '「自然」轮流时，越高越容易开口。';
+
+  @override
+  String get tavernGroupHelperModel => '用辅助模型';
+
+  @override
+  String get tavernGroupHelperModelNote => '用便宜快的模型说（DeepSeek 是 flash、不思考），适合配角。';
+
+  @override
+  String get tavernGroupMoveUp => '往前挪';
+
+  @override
+  String get tavernGroupMoveDown => '往后挪';
+
+  @override
+  String get tavernGroupRemove => '移出群聊';
+
+  @override
+  String get tavernGroupAdd => '加一个角色';
+
+  @override
+  String get tavernGroupNoOthers => '书架上的角色都在群里了';
+
+  @override
+  String get tavernGroupUnavailable => '角色卡不在了';
+
+  @override
+  String tavernGroupSaveFailed(String reason) {
+    return '没能保存：$reason';
+  }
+
+  @override
+  String get tavernGroupErrorNotGroup => '这已经不是群聊了';
+
+  @override
+  String get tavernGroupErrorCharacterNotFound => '这个角色的卡不在了';
+
+  @override
+  String get tavernGroupErrorMemberExists => '这个角色已经在群里了';
+
+  @override
+  String get tavernGroupErrorMemberNotFound => '这个角色已经不在群里了';
+
+  @override
+  String get tavernGroupErrorInvalidMembers => '成员不能重复，群里至少要有一个角色';
+
+  @override
+  String get tavernGroupErrorInvalidTalkativeness => '话多程度要在 0 到 1 之间';
+
+  @override
+  String get tavernGroupErrorInvalidLimit => '每轮至少要有一个人说话';
+
+  @override
+  String get tavernGroupErrorInvalidOrder => '排的顺序和群里的成员对不上，请重新打开再排';
+
+  @override
+  String get tavernGroupErrorHostInUse => '这个角色是一个群聊的群主，先删掉那个群聊';
 
   @override
   String get updateCheck => '检查更新';

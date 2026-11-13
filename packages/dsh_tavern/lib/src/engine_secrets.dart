@@ -307,7 +307,7 @@ Map<String, Object?> _secretStateSource(Map<String, Object?> saved) {
 /// Current authorization needs the selected saved state, not unrelated later
 /// ancestor bodies or their extra/original JSON. Source provenance is separate.
 Map<String, Object?> _secretAuthorizationSource(TavernEngine engine, String chatId, String? nodeId) {
-  final saved = nodeId == null
+  final saved = nodeId == null && engine._store.groupChat(chatId) == null
       ? _emptyChatState(engine._chatCodec.metadataForNode(engine._store, chatId))
       : engine._stateAt(chatId, nodeId);
   return _secretStateSource(saved);
