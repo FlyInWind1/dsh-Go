@@ -85,6 +85,20 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     super.initState();
     widget.streaming.addListener(_onStream);
     widget.calls?.deliver = _deliver;
+    if (widget.calls?.chatId case final chat?) {
+      final audio = ref.read(tavernCanvasAudioProvider(chat).notifier);
+      audio.attach(_sendAudio);
+      _audio = audio;
+    }
+  }
+
+  /// The chat's player in the app (舞台 › 会话): what this page's players
+  /// are doing goes there, and what the person does there comes here.
+  TavernCanvasAudio? _audio;
+  Future<void> _sendAudio(Map<String, Object?> command) async {
+    final controller = _controller;
+    if (!mounted || !_ready || controller == null) return;
+    await controller.runJavaScript('window.dsh&&dsh.audioControl(${jsonEncode(command)})');
   }
 
   /// The engine's delivery for this page's script context, into its copy;
@@ -238,6 +252,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _rendered = null;
         _streamSent = null;
         _avatars.reset();
+        _audio?.report(null);
         _pushPersonas();
         _pushAudio();
         _render();
@@ -255,6 +270,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         if (messenger != null) _toasts.show(messenger, data);
       case 'audio':
         if (widget.calls?.chatId case final chat?) unawaited(tavernSaveAudio(chat, data['state']).catchError((_) {}));
+      case 'audioNow':
+        _audio?.report(data['now']);
     }
   }
 
@@ -356,8 +373,10 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     final old = _guard;
     WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(old.destroy()));
     ScaffoldMessenger.maybeOf(context)?.showBriefNotice(context.l10n.tavernCanvasReloaded);
-    // The handlers the lost page was running will not answer.
+    // The handlers the lost page was running will not answer; its music
+    // stopped with it.
     widget.calls?.pageLost();
+    _audio?.report(null);
     setState(() {
       _guard = WebViewGuard(onGone: _onGone);
       _controller = null;
@@ -371,6 +390,17 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     if (widget.calls?.deliver == _deliver) {
       widget.calls?.deliver = null;
       widget.calls?.pageLost();
+    }
+    if (_audio case final audio?) {
+      final send = _sendAudio;
+      // Not while the tree is being taken down.
+      scheduleMicrotask(() {
+        try {
+          audio.detach(send);
+        } on Object {
+          // The app's state went first: nothing to clear.
+        }
+      });
     }
     widget.streaming.removeListener(_onStream);
     _streamTimer?.cancel();

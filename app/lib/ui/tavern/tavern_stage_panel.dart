@@ -29,6 +29,7 @@ import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_arrive.dart';
+import 'tavern_audio_section.dart';
 import 'tavern_bookmarks_page.dart';
 import 'tavern_branches_page.dart';
 import 'tavern_character_page.dart';
@@ -322,6 +323,7 @@ class _Session extends ConsumerWidget {
               ),
           ],
         ),
+        TavernAudioSection(chatId: chatId),
         SettingsSection(
           title: l10n.tavernSessionMore,
           margin: EdgeInsets.zero,

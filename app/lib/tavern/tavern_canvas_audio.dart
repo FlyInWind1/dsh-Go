@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const tavernAudioChannels = ['bgm', 'ambient'];
@@ -51,4 +52,106 @@ Future<Map<String, Object?>> tavernLoadAudio(String chatId) async {
 /// Keeps what [chatId]'s page says its players are now.
 Future<void> tavernSaveAudio(String chatId, Object? state) async {
   await (await SharedPreferences.getInstance()).setString(_key(chatId), jsonEncode(tavernAudioState(state)));
+}
+
+/// One of a page's players as the page last said it was: the track it is on
+/// (its title; empty when none or not in the list), whether it is playing,
+/// how many tracks its list has, and its settings.
+class TavernAudioNow {
+  const TavernAudioNow({
+    this.title = '',
+    this.playing = false,
+    this.tracks = 0,
+    this.enabled = true,
+    this.mode = 'repeat_all',
+    this.volume = 100,
+  });
+
+  static TavernAudioNow? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final settings = json['settings'] is Map ? json['settings'] as Map : const {};
+    return TavernAudioNow(
+      title: json['title'] is String ? json['title'] as String : '',
+      playing: json['playing'] == true,
+      tracks: json['tracks'] is num ? (json['tracks'] as num).toInt() : 0,
+      enabled: settings['enabled'] != false,
+      mode: tavernAudioModes.contains(settings['mode']) ? settings['mode'] as String : 'repeat_all',
+      volume: settings['volume'] is num && (settings['volume'] as num).isFinite
+          ? (settings['volume'] as num).clamp(0, 100)
+          : 100,
+    );
+  }
+
+  final String title;
+  final bool playing;
+  final int tracks;
+  final bool enabled;
+  final String mode;
+  final num volume;
+
+  /// Anything for the player to see: a list, or a track on.
+  bool get any => tracks > 0 || title.isNotEmpty;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TavernAudioNow &&
+      other.title == title &&
+      other.playing == playing &&
+      other.tracks == tracks &&
+      other.enabled == enabled &&
+      other.mode == mode &&
+      other.volume == volume;
+
+  @override
+  int get hashCode => Object.hash(title, playing, tracks, enabled, mode, volume);
+}
+
+/// [chatId]'s canvas players as its page says they are ('bgm', 'ambient'),
+/// and the way to tell that page what the player wants; empty while no page
+/// is up.
+final tavernCanvasAudioProvider = NotifierProvider.family<TavernCanvasAudio, Map<String, TavernAudioNow>, String>(
+  TavernCanvasAudio.new,
+);
+
+class TavernCanvasAudio extends Notifier<Map<String, TavernAudioNow>> {
+  TavernCanvasAudio(this.chatId);
+
+  final String chatId;
+  Future<void> Function(Map<String, Object?> command)? _send;
+
+  @override
+  Map<String, TavernAudioNow> build() => const {};
+
+  /// The page that takes commands now ([send]), or none.
+  void attach(Future<void> Function(Map<String, Object?> command) send) => _send = send;
+
+  /// [send]'s page is gone: nothing playing to show, unless another took over.
+  void detach(Future<void> Function(Map<String, Object?> command) send) {
+    if (_send != send) return;
+    _send = null;
+    state = const {};
+  }
+
+  /// What the page says ({bgm: {title, playing, tracks, settings}, ambient: …}).
+  void report(Object? json) {
+    final next = {
+      if (json is Map)
+        for (final type in tavernAudioChannels) type: ?TavernAudioNow.fromJson(json[type]),
+    };
+    if (next.length != state.length || next.entries.any((e) => state[e.key] != e.value)) state = next;
+  }
+
+  /// Plays or pauses [type]'s player.
+  Future<void> toggle(String type) => _command({'type': type, 'action': 'toggle'});
+
+  /// Changes [type]'s settings as a script would (kept with the chat).
+  Future<void> settle(String type, Map<String, Object?> settings) => _command({'type': type, 'settings': settings});
+
+  Future<void> _command(Map<String, Object?> command) async {
+    try {
+      await _send?.call(command);
+    } on Object {
+      // The page went: nothing to tell.
+    }
+  }
 }

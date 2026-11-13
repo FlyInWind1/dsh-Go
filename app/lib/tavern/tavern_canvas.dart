@@ -832,6 +832,22 @@ $preload
     var out={};
     ['bgm','ambient'].forEach(function(t){var x=channel(t);out[t]={list:clone(x.list),settings:clone(x.settings)};});
     post({type:'audio',state:out});
+    audioReport();
+  }
+  // What the players are doing, for the app's own player (its panel): said
+  // once for each run of changes.
+  var audioReported=false;
+  function audioReport(){
+    if(audioReported)return;audioReported=true;
+    setTimeout(function(){
+      audioReported=false;
+      var now={};
+      ['bgm','ambient'].forEach(function(t){
+        var c=channel(t),n=getCurrentAudio(t);
+        now[t]={title:n.title,playing:n.playing,tracks:c.list.length,settings:clone(c.settings)};
+      });
+      post({type:'audioNow',now:now});
+    },0);
   }
   function audioApply(c){
     var el=c.el;if(!el)return;
@@ -842,17 +858,19 @@ $preload
     c.current=item;
     if(!c.el){
       c.el=new Audio();c.el.preload='auto';
-      c.el.addEventListener('ended',function(){audioNext(c);});
+      c.el.addEventListener('ended',function(){audioReport();audioNext(c);});
+      c.el.addEventListener('play',audioReport);c.el.addEventListener('pause',audioReport);
     }
     if(c.el.dataset.url!==item.url){c.el.dataset.url=item.url;c.el.src=item.url;}
     audioApply(c);
     if(c.settings.enabled){var p=c.el.play();if(p&&p.catch)p.catch(function(){});}
+    audioReport();
   }
   // A track ended (one on repeat loops instead): the next, or another at
   // random, or none.
-  function audioNext(c){
+  function audioNext(c,asked){
     var n=c.list.length,mode=c.settings.mode;
-    if(!n||mode==='play_one_and_stop'||!c.settings.enabled)return;
+    if(!n||!c.settings.enabled||!asked&&mode==='play_one_and_stop')return;
     var at=-1;
     for(var i=0;i<n;i++)if(c.current&&c.list[i].url===c.current.url){at=i;break;}
     var next=(at+1)%n;
@@ -893,6 +911,19 @@ $preload
       try{c.list=audioItems(s.list||[]);}catch(e){}
       audioSettle(c.settings,s.settings);audioApply(c);
     });
+    audioReport();
+  };
+  // The app's player: play or pause ({type, action:'toggle'}), or settings
+  // the person chose ({type, settings}), kept like a script's.
+  dsh.audioControl=function(cmd){
+    var c=channel(cmd&&cmd.type);
+    if(cmd.settings)setAudioSettings(cmd.type,cmd.settings);
+    if(cmd.action==='toggle'){
+      if(c.el&&!c.el.paused)c.el.pause();
+      else if(c.current)audioStart(c,c.current);
+      else if(c.list.length)audioStart(c,c.list[0]);
+    }else if(cmd.action==='next')audioNext(c,true);
+    audioReport();
   };
   [['playAudio',playAudio],['pauseAudio',pauseAudio],['getCurrentAudio',getCurrentAudio],['getAudioList',getAudioList],
    ['replaceAudioList',replaceAudioList],['appendAudioList',appendAudioList],['getAudioSettings',getAudioSettings],

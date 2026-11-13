@@ -19864,6 +19864,45 @@ class L10nZh extends L10n {
   String get tavernSessionMore => '更多';
 
   @override
+  String get tavernAudio => '音乐和音效';
+
+  @override
+  String get tavernAudioBgm => '背景音乐';
+
+  @override
+  String get tavernAudioAmbient => '音效';
+
+  @override
+  String get tavernAudioNothing => '没在放';
+
+  @override
+  String get tavernAudioPlay => '播放';
+
+  @override
+  String get tavernAudioPause => '暂停';
+
+  @override
+  String get tavernAudioMode => '播放方式';
+
+  @override
+  String get tavernAudioModeOne => '单曲';
+
+  @override
+  String get tavernAudioModeAll => '列表';
+
+  @override
+  String get tavernAudioModeShuffle => '随机';
+
+  @override
+  String get tavernAudioModeOnce => '放一首';
+
+  @override
+  String get tavernAudioVolume => '音量';
+
+  @override
+  String get tavernAudioAllow => '让角色卡播放';
+
+  @override
   String get tavernStageState => '状态';
 
   @override

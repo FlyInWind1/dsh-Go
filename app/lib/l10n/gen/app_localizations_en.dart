@@ -20968,6 +20968,45 @@ class L10nEn extends L10n {
   String get tavernSessionMore => 'More';
 
   @override
+  String get tavernAudio => 'Music and sound';
+
+  @override
+  String get tavernAudioBgm => 'Music';
+
+  @override
+  String get tavernAudioAmbient => 'Sound effects';
+
+  @override
+  String get tavernAudioNothing => 'Not playing';
+
+  @override
+  String get tavernAudioPlay => 'Play';
+
+  @override
+  String get tavernAudioPause => 'Pause';
+
+  @override
+  String get tavernAudioMode => 'Play mode';
+
+  @override
+  String get tavernAudioModeOne => 'One';
+
+  @override
+  String get tavernAudioModeAll => 'All';
+
+  @override
+  String get tavernAudioModeShuffle => 'Shuffle';
+
+  @override
+  String get tavernAudioModeOnce => 'Once';
+
+  @override
+  String get tavernAudioVolume => 'Volume';
+
+  @override
+  String get tavernAudioAllow => 'Let the card play';
+
+  @override
   String get tavernStageState => 'State';
 
   @override

@@ -36326,6 +36326,84 @@ abstract class L10n {
   /// **'更多'**
   String get tavernSessionMore;
 
+  /// No description provided for @tavernAudio.
+  ///
+  /// In zh, this message translates to:
+  /// **'音乐和音效'**
+  String get tavernAudio;
+
+  /// No description provided for @tavernAudioBgm.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景音乐'**
+  String get tavernAudioBgm;
+
+  /// No description provided for @tavernAudioAmbient.
+  ///
+  /// In zh, this message translates to:
+  /// **'音效'**
+  String get tavernAudioAmbient;
+
+  /// No description provided for @tavernAudioNothing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没在放'**
+  String get tavernAudioNothing;
+
+  /// No description provided for @tavernAudioPlay.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get tavernAudioPlay;
+
+  /// No description provided for @tavernAudioPause.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get tavernAudioPause;
+
+  /// No description provided for @tavernAudioMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放方式'**
+  String get tavernAudioMode;
+
+  /// No description provided for @tavernAudioModeOne.
+  ///
+  /// In zh, this message translates to:
+  /// **'单曲'**
+  String get tavernAudioModeOne;
+
+  /// No description provided for @tavernAudioModeAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表'**
+  String get tavernAudioModeAll;
+
+  /// No description provided for @tavernAudioModeShuffle.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机'**
+  String get tavernAudioModeShuffle;
+
+  /// No description provided for @tavernAudioModeOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'放一首'**
+  String get tavernAudioModeOnce;
+
+  /// No description provided for @tavernAudioVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量'**
+  String get tavernAudioVolume;
+
+  /// No description provided for @tavernAudioAllow.
+  ///
+  /// In zh, this message translates to:
+  /// **'让角色卡播放'**
+  String get tavernAudioAllow;
+
   /// No description provided for @tavernStageState.
   ///
   /// In zh, this message translates to:
