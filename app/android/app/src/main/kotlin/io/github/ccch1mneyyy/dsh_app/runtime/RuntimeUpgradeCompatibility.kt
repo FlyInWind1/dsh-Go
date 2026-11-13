@@ -1,5 +1,6 @@
 package io.github.ccch1mneyyy.dsh_app.runtime
 
+import io.github.ccch1mneyyy.dsh_app.files.GuestFiles
 import java.io.File
 import java.nio.file.Files
 import java.security.MessageDigest
@@ -78,7 +79,11 @@ private fun parseBaseCompatibility(raw: JSONObject): BaseCompatibility = try {
 }
 
 private fun readRuntimeInfo(tree: File): JSONObject = try {
-    JSONObject(File(tree, "etc/dsh-app/runtime.json").readText())
+    // An existing image may still hold a tawc backup token before any new launch.
+    val file = File(tree, "etc/dsh-app/runtime.json").takeIf { it.isFile }
+        ?: GuestFiles.resolve(tree, "/etc/dsh-app/runtime.json", PhoneStorage.GUEST_PATH)
+        ?: throw RuntimeUpgradeBlocked("manifest")
+    JSONObject(file.readText())
 } catch (_: Exception) {
     throw RuntimeUpgradeBlocked("manifest")
 }
@@ -94,7 +99,12 @@ private fun parseUpgrade(json: JSONObject): EngineUpgradeSpec = try {
 }
 
 private fun osIdentity(tree: File): List<String> = try {
-    val rows = File(tree, "etc/os-release").readLines()
+    val file = File(tree, "etc/os-release").takeIf { it.isFile }
+        ?: io.github.ccch1mneyyy.dsh_app.files.GuestFiles.resolve(
+            tree, "/etc/os-release", PhoneStorage.GUEST_PATH,
+        )
+        ?: throw RuntimeUpgradeBlocked("base")
+    val rows = file.readLines()
     listOf("ID", "VERSION_ID").map { key ->
         rows.single { it.startsWith("$key=") }.substringAfter('=').trim().trim('"', '\'')
     }
