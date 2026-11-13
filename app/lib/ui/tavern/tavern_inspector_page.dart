@@ -141,14 +141,14 @@ class _Body extends StatelessWidget {
                 value: Text('${prompt.remainingBudget} / ${prompt.budget}'),
               ),
             ],
+            // The numbers under the title, not beside it: beside, a long line
+            // of them squeezed the title into a column.
             SettingsTile(
               key: const ValueKey('tavern-inspect-usage'),
               title: l10n.tavernInspectUsage,
-              value: Text(
-                usage == null
-                    ? l10n.tavernInspectNoUsage
-                    : l10n.tavernInspectUsageValue(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens),
-              ),
+              subtitle: usage == null
+                  ? l10n.tavernInspectNoUsage
+                  : l10n.tavernInspectUsageValue(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens),
             ),
             if (usage != null && price != null)
               SettingsTile(

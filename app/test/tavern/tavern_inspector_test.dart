@@ -139,6 +139,15 @@ void main() {
     expect(find.descendant(of: cost, matching: find.text('按 DeepSeek 官方价，低谷时段（半价）')), findsOneWidget);
   });
 
+  testWidgets('long usage numbers sit under the title, which stays on one line', (tester) async {
+    const big = TavernUsage(promptTokens: 1234567, cacheHitTokens: 987654, completionTokens: 12345);
+    await _open(tester, _Recorded(usage: big), const TavernInspectorPage(chatId: 'c', nodeId: 'r1'));
+    final row = find.byKey(const ValueKey('tavern-inspect-usage'));
+    expect(find.descendant(of: row, matching: find.text('输入 1234567（缓存 987654）· 输出 12345')), findsOneWidget);
+    final title = tester.getSize(find.descendant(of: row, matching: find.text('模型报告的用量'))).height;
+    expect(title, tester.getSize(find.text('类型')).height);
+  });
+
   testWidgets('usage with no model named: no cost row', (tester) async {
     await _open(tester, _Recorded(), const TavernInspectorPage(chatId: 'c', nodeId: 'r1'));
     expect(find.byKey(const ValueKey('tavern-inspect-cost')), findsNothing);
