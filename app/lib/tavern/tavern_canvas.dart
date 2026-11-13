@@ -953,7 +953,12 @@ $preload
   // the person chose ({type, settings}), kept like a script's.
   dsh.audioControl=function(cmd){
     var c=channel(cmd&&cmd.type);
-    if(cmd.append)appendAudioList(cmd.type,cmd.append);
+    // The person's own tracks: not twice by their link (two with the same
+    // file name are still two).
+    if(cmd.append){
+      var added=audioItems(cmd.append).filter(function(a){return !c.list.some(function(x){return x.url===a.url;});});
+      if(added.length){c.list=c.list.concat(added);audioSaved(c);}
+    }
     if(cmd.settings)setAudioSettings(cmd.type,cmd.settings);
     if(cmd.action==='toggle'){
       c.suspended=false;
