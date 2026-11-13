@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dsh_app/tavern/tavern_canvas_calls.dart';
 import 'package:dsh_app/tavern/tavern_preview.dart';
+import 'package:dsh_app/tavern/tavern_script_host.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -163,4 +164,51 @@ void main() {
     slow.complete('/old.png');
     expect(await first, isEmpty);
   });
+
+  test('a page closed while its context is still opening leaves nothing with the host', () async {
+    final bridge = _SlowOpen();
+    final pages = _Pages();
+    final calls = TavernCanvasCalls(bridge, chatId: 'chat', characterId: () => 'c', pages: pages);
+    final reply = calls.handle({
+      'id': 1,
+      'method': 'getVariables',
+      'params': {
+        'target': {'scope': 'chat'},
+      },
+    });
+    final closing = calls.close();
+    bridge.opening.complete(const TavernScriptContext(id: 'ctx', engineEpoch: 'e', instanceId: 'canvas'));
+    await closing;
+    await reply;
+    expect(pages.added, isEmpty);
+    expect(bridge.closed, ['ctx']);
+  });
+}
+
+/// A bridge whose context opens only when told; closes are noted.
+class _SlowOpen implements TavernScriptBridge {
+  final opening = Completer<TavernScriptContext>();
+  final closed = <String>[];
+
+  @override
+  Future<TavernScriptContext> openContext(TavernScriptContextSpec spec) => opening.future;
+
+  @override
+  Future<void> closeContext(String contextId) async => closed.add(contextId);
+
+  @override
+  void attachHost(TavernScriptHost? host) {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Pages extends TavernScriptPages {
+  final added = <String>[];
+
+  @override
+  void add(String contextId, TavernScriptPage page, {TavernScriptInteractor? interact}) {
+    added.add(contextId);
+    super.add(contextId, page, interact: interact);
+  }
 }

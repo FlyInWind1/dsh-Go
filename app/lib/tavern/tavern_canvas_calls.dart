@@ -55,20 +55,27 @@ class TavernCanvasCalls {
   Future<String>? _context;
   String? _registered;
 
+  /// Counts the contexts let go: one that finishes opening after its page
+  /// was closed is not handed to the host.
+  var _released = 0;
+
   static const _own = {'capabilities', 'openContext'};
 
   Future<String> _open() async {
     // The host first: deliveries for the context start as it opens.
     pages?.attach(_bridge);
+    final released = _released;
     final id = (await _bridge.openContext(
       TavernScriptContextSpec(instanceId: instanceId, chatId: chatId, characterId: characterId()),
     )).id;
+    if (released != _released) return id;
     _registered = id;
     pages?.add(id, (delivery) => deliver?.call(delivery) ?? Future.value(false), interact: interact);
     return id;
   }
 
   void _forget() {
+    _released++;
     if (_registered case final id?) pages?.remove(id);
     _registered = null;
     _context = null;

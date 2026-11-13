@@ -274,7 +274,10 @@ void main() {
     // ours; each runs in a hidden frame named for it (checked in Edge). None
     // when scripts do not run.
     expect(open, contains('var cardScripts=[],'));
-    String withScripts({bool noScripts = false}) => tavernCanvasDocument(
+    String withScripts({
+      bool noScripts = false,
+      Map<String, Object?> card = const {'name': '林晚', 'description': '店主</script>'},
+    }) => tavernCanvasDocument(
       text: const Color(0xff112233),
       accent: const Color(0xff445566),
       muted: const Color(0xff778899),
@@ -288,7 +291,7 @@ void main() {
       cardScripts: const [
         {'id': 's1', 'name': '状态栏', 'content': "x = '</script>';", 'buttons': <String>[]},
       ],
-      card: const {'name': '林晚', 'description': '店主</script>'},
+      card: card,
       characterId: 'char-1',
     );
     expect(
@@ -296,14 +299,18 @@ void main() {
       contains(
         r'var cardScripts=[{"id":"s1","name":"状态栏","content":"x = '
         "'"
-        r'<\/script>',
+        r'\u003c/script>',
       ),
     );
     expect(withScripts(), isNot(contains("x = '</script>'")));
     expect(withScripts(noScripts: true), contains('var cardScripts=[],'));
     // The chat's card likewise (its questions checked in Edge); none for a
     // group, or when scripts do not run.
-    expect(withScripts(), contains(r'var card={"name":"林晚","description":"店主<\/script>"},cardId="char-1";'));
+    expect(withScripts(), contains(r'var card={"name":"林晚","description":"店主\u003c/script>"},cardId="char-1";'));
+    // A comment opener and a script opener in a card's text cannot derail ours.
+    final opener = withScripts(card: const {'description': '<!--<script>'});
+    expect(opener, isNot(contains('<!--<script>')));
+    expect(opener, contains(r'"description":"\u003c!--\u003cscript>"'));
     expect(withScripts(noScripts: true), contains('var card=null,cardId=null;'));
     expect(open, contains('var card=null,cardId=null;'));
     expect(open, contains(r"el.textContent=s.content+'\n//# sourceURL=dsh-script-'+n+'.js';"));

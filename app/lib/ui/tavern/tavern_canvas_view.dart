@@ -138,8 +138,14 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       old.streaming.removeListener(_onStream);
       widget.streaming.addListener(_onStream);
     }
+    // The chat's character came (its summary loaded) or went (a group): the
+    // page is built again with its card and scripts, or without.
+    if (widget.calls?.characterId() != _character) _open();
     _render();
   }
+
+  /// The character the page was last built for.
+  String? _character;
 
   /// Loads the page, again when its look or its guards change.
   void _open() {
@@ -185,7 +191,9 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       themeCss,
       Object.hashAll(cardScripts),
       card,
+      character,
     );
+    _character = character;
     if (key == _loaded) return;
     _loaded = key;
     _ready = false;

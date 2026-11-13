@@ -22327,7 +22327,7 @@ class L10nEn extends L10n {
 
   @override
   String get tavernCanvasSubtitle =>
-      'The whole chat in one web page laid out as SillyTavern does, so a card\'s ST styles reach across messages. Not for visual novel; card scripts don\'t run here yet.';
+      'The whole chat in one web page laid out as SillyTavern does, so a card\'s ST styles reach across messages. Card scripts run here; turn on \"No card scripts in those pages\" to stop them. Not for visual novel.';
 
   @override
   String get tavernCanvasReloaded => 'The page reloaded';
@@ -22477,6 +22477,34 @@ class L10nEn extends L10n {
   String tavernGroupSaveFailed(String reason) {
     return 'Couldn\'t save: $reason';
   }
+
+  @override
+  String get tavernGroupErrorNotGroup => 'This is no longer a group chat';
+
+  @override
+  String get tavernGroupErrorCharacterNotFound => 'That character\'s card is gone';
+
+  @override
+  String get tavernGroupErrorMemberExists => 'That character is already in the group';
+
+  @override
+  String get tavernGroupErrorMemberNotFound => 'That character is no longer in the group';
+
+  @override
+  String get tavernGroupErrorInvalidMembers => 'Members can\'t repeat, and a group needs at least one character';
+
+  @override
+  String get tavernGroupErrorInvalidTalkativeness => 'Talkativeness goes from 0 to 1';
+
+  @override
+  String get tavernGroupErrorInvalidLimit => 'At least one member speaks each round';
+
+  @override
+  String get tavernGroupErrorInvalidOrder => 'That order doesn\'t match the members; open it again and reorder';
+
+  @override
+  String get tavernGroupErrorHostInUse =>
+      'This character hosts a group chat; change the host or delete that chat first';
 
   @override
   String get updateCheck => 'Check for updates';

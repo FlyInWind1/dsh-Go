@@ -41,7 +41,19 @@ class TavernGroupPage extends ConsumerWidget {
     try {
       await change(ref.read(tavernProvider));
     } on TavernGroupException catch (e) {
-      messenger?.showBriefNotice(l10n.tavernGroupSaveFailed(e.code.name));
+      messenger?.showBriefNotice(
+        l10n.tavernGroupSaveFailed(switch (e.code) {
+          TavernGroupError.notGroup => l10n.tavernGroupErrorNotGroup,
+          TavernGroupError.characterNotFound => l10n.tavernGroupErrorCharacterNotFound,
+          TavernGroupError.memberExists => l10n.tavernGroupErrorMemberExists,
+          TavernGroupError.memberNotFound => l10n.tavernGroupErrorMemberNotFound,
+          TavernGroupError.invalidMembers => l10n.tavernGroupErrorInvalidMembers,
+          TavernGroupError.invalidTalkativeness => l10n.tavernGroupErrorInvalidTalkativeness,
+          TavernGroupError.invalidLimit => l10n.tavernGroupErrorInvalidLimit,
+          TavernGroupError.invalidOrder => l10n.tavernGroupErrorInvalidOrder,
+          TavernGroupError.hostInUse => l10n.tavernGroupErrorHostInUse,
+        }),
+      );
     } on Object catch (e) {
       messenger?.showBriefNotice(l10n.tavernGroupSaveFailed('$e'));
     }

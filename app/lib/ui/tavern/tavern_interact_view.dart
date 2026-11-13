@@ -56,25 +56,32 @@ Future<TavernInteractAnswer> _dialog(
 ) async {
   BuildContext? open;
   var withdrawn = false;
+  void close() {
+    final at = open;
+    if (at == null || !at.mounted) return;
+    final route = ModalRoute.of(at);
+    if (route == null || !route.isActive) return;
+    final navigator = Navigator.of(at);
+    if (route.isCurrent) {
+      navigator.pop();
+    } else {
+      navigator.removeRoute(route);
+    }
+  }
+
   unawaited(
     withdraw?.then((_) {
       withdrawn = true;
-      final at = open;
-      if (at == null || !at.mounted) return;
-      final route = ModalRoute.of(at);
-      if (route == null || !route.isActive) return;
-      final navigator = Navigator.of(at);
-      if (route.isCurrent) {
-        navigator.pop();
-      } else {
-        navigator.removeRoute(route);
-      }
+      close();
     }),
   );
   final answer = await showAppDialog<TavernInteractAnswer>(
     context: context,
     builder: (dialog) {
+      final first = open == null;
       open = dialog;
+      // Taken back before it was even drawn: it goes once it is.
+      if (first && withdrawn) WidgetsBinding.instance.addPostFrameCallback((_) => close());
       return switch (kind) {
         TavernInteractKind.input => _InputDialog(fields: f),
         TavernInteractKind.buttons => _ButtonsDialog(fields: f),

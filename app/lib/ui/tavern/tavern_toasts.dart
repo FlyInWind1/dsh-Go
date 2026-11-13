@@ -8,11 +8,19 @@ import 'package:flutter/material.dart';
 import '../../tavern/tavern_canvas.dart';
 
 /// The notices one canvas's card scripts ask for. One already up or waiting
-/// takes the new words rather than another queueing behind it; a notice of
-/// the app's own is never put away for one, it waits its turn.
+/// takes the new words rather than another queueing behind it, and they get
+/// their own time to be read; a notice of the app's own is never put away
+/// for one, it waits its turn.
 class TavernToasts {
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _bar;
-  final _text = ValueNotifier<(String, String)>(('', ''));
+
+  /// The one up is on its way out (its time ran out, or a tap): new words
+  /// get a notice of their own rather than leaving with it.
+  bool _leaving = false;
+
+  /// The words on it (title, message) and how long they stay up, counted
+  /// from when they are seen; [_Toast.shown] makes each new show count anew.
+  final _toast = ValueNotifier<_Toast>(const _Toast('', '', Duration.zero, 0));
   bool _disposed = false;
 
   /// Shows what [data] (the page's {type:'toast', level, title, message})
@@ -20,32 +28,44 @@ class TavernToasts {
   void show(ScaffoldMessengerState messenger, Map<Object?, Object?> data) {
     final toast = tavernToast(data);
     if (_disposed || toast == null) return;
-    _text.value = (toast.title, toast.message);
-    if (_bar != null) return;
-    final bar = _bar = messenger.showSnackBar(
+    _toast.value = _Toast(toast.title, toast.message, toast.duration, _toast.value.shown + 1);
+    if (_bar != null && !_leaving) return;
+    _leaving = false;
+    late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> bar;
+    bar = _bar = messenger.showSnackBar(
       SnackBar(
         key: const ValueKey('tavern-canvas-toast'),
-        content: Builder(
-          builder: (context) => GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => ScaffoldMessenger.of(context).removeCurrentSnackBar(reason: SnackBarClosedReason.dismiss),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              // The title as a heading over the words, as toastr sets it.
-              child: ValueListenableBuilder<(String, String)>(
-                valueListenable: _text,
-                builder: (_, text, _) => Text.rich(
-                  key: const ValueKey('tavern-canvas-toast-text'),
-                  TextSpan(
-                    children: [
-                      if (text.$1.isNotEmpty)
-                        TextSpan(
-                          text: text.$1,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      if (text.$1.isNotEmpty && text.$2.isNotEmpty) const TextSpan(text: '\n'),
-                      if (text.$2.isNotEmpty) TextSpan(text: text.$2),
-                    ],
+        content: _Countdown(
+          toast: _toast,
+          onDone: () {
+            if (identical(_bar, bar)) _leaving = true;
+            bar.close();
+          },
+          child: Builder(
+            builder: (context) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (identical(_bar, bar)) _leaving = true;
+                ScaffoldMessenger.of(context).removeCurrentSnackBar(reason: SnackBarClosedReason.dismiss);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                // The title as a heading over the words, as toastr sets it.
+                child: ValueListenableBuilder<_Toast>(
+                  valueListenable: _toast,
+                  builder: (_, toast, _) => Text.rich(
+                    key: const ValueKey('tavern-canvas-toast-text'),
+                    TextSpan(
+                      children: [
+                        if (toast.title.isNotEmpty)
+                          TextSpan(
+                            text: toast.title,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        if (toast.title.isNotEmpty && toast.message.isNotEmpty) const TextSpan(text: '\n'),
+                        if (toast.message.isNotEmpty) TextSpan(text: toast.message),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -53,13 +73,16 @@ class TavernToasts {
           ),
         ),
         padding: EdgeInsets.zero,
-        duration: toast.duration,
+        // Put away by its own count ([_Countdown]), not the messenger's.
+        duration: const Duration(days: 1),
       ),
     );
     unawaited(
       bar.closed.whenComplete(() {
-        if (identical(_bar, bar)) _bar = null;
-        if (_disposed) _text.dispose();
+        if (!identical(_bar, bar)) return;
+        _bar = null;
+        _leaving = false;
+        if (_disposed) _toast.dispose();
       }),
     );
   }
@@ -68,6 +91,54 @@ class TavernToasts {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    if (_bar == null) _text.dispose();
+    if (_bar == null) _toast.dispose();
   }
+}
+
+final class _Toast {
+  const _Toast(this.title, this.message, this.lasts, this.shown);
+
+  final String title;
+  final String message;
+  final Duration lasts;
+  final int shown;
+}
+
+/// Puts the notice away once its words have been up their time: counted from
+/// when it is on screen, and from the start again for new words.
+class _Countdown extends StatefulWidget {
+  const _Countdown({required this.toast, required this.onDone, required this.child});
+
+  final ValueNotifier<_Toast> toast;
+  final VoidCallback onDone;
+  final Widget child;
+
+  @override
+  State<_Countdown> createState() => _CountdownState();
+}
+
+class _CountdownState extends State<_Countdown> {
+  Timer? _timer;
+
+  void _count() {
+    _timer?.cancel();
+    _timer = Timer(widget.toast.value.lasts, widget.onDone);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.toast.addListener(_count);
+    _count();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    widget.toast.removeListener(_count);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -21162,7 +21162,8 @@ class L10nZh extends L10n {
   String get tavernCanvas => '整页画布（试用）';
 
   @override
-  String get tavernCanvasSubtitle => '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。';
+  String get tavernCanvasSubtitle =>
+      '整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。';
 
   @override
   String get tavernCanvasReloaded => '画面重新加载了';
@@ -21309,6 +21310,33 @@ class L10nZh extends L10n {
   String tavernGroupSaveFailed(String reason) {
     return '没能保存：$reason';
   }
+
+  @override
+  String get tavernGroupErrorNotGroup => '这已经不是群聊了';
+
+  @override
+  String get tavernGroupErrorCharacterNotFound => '这个角色的卡不在了';
+
+  @override
+  String get tavernGroupErrorMemberExists => '这个角色已经在群里了';
+
+  @override
+  String get tavernGroupErrorMemberNotFound => '这个角色已经不在群里了';
+
+  @override
+  String get tavernGroupErrorInvalidMembers => '成员不能重复，群里至少要有一个角色';
+
+  @override
+  String get tavernGroupErrorInvalidTalkativeness => '话多程度要在 0 到 1 之间';
+
+  @override
+  String get tavernGroupErrorInvalidLimit => '每轮至少要有一个人说话';
+
+  @override
+  String get tavernGroupErrorInvalidOrder => '排的顺序和群里的成员对不上，请重新打开再排';
+
+  @override
+  String get tavernGroupErrorHostInUse => '这个角色是群聊的群主，先换群主或删掉那个群聊';
 
   @override
   String get updateCheck => '检查更新';

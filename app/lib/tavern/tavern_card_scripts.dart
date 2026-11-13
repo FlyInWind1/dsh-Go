@@ -78,7 +78,10 @@ List<TavernCardScript> tavernCardScripts(Object? card) {
           content: content,
           buttons: [
             if (button?['enabled'] != false)
-              for (final b in (button?['buttons'] as List<Object?>?) ?? const [])
+              for (final b in switch (button?['buttons']) {
+                final List<Object?> list => list,
+                _ => const <Object?>[],
+              })
                 if (object(b) case {'name': final String name} when object(b)!['visible'] != false && name.isNotEmpty)
                   name,
           ],

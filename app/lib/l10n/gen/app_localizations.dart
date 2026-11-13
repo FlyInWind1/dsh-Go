@@ -38681,7 +38681,7 @@ abstract class L10n {
   /// No description provided for @tavernCanvasSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。'**
+  /// **'整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。'**
   String get tavernCanvasSubtitle;
 
   /// No description provided for @tavernCanvasReloaded.
@@ -38947,6 +38947,60 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'没能保存：{reason}'**
   String tavernGroupSaveFailed(String reason);
+
+  /// No description provided for @tavernGroupErrorNotGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'这已经不是群聊了'**
+  String get tavernGroupErrorNotGroup;
+
+  /// No description provided for @tavernGroupErrorCharacterNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色的卡不在了'**
+  String get tavernGroupErrorCharacterNotFound;
+
+  /// No description provided for @tavernGroupErrorMemberExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色已经在群里了'**
+  String get tavernGroupErrorMemberExists;
+
+  /// No description provided for @tavernGroupErrorMemberNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色已经不在群里了'**
+  String get tavernGroupErrorMemberNotFound;
+
+  /// No description provided for @tavernGroupErrorInvalidMembers.
+  ///
+  /// In zh, this message translates to:
+  /// **'成员不能重复，群里至少要有一个角色'**
+  String get tavernGroupErrorInvalidMembers;
+
+  /// No description provided for @tavernGroupErrorInvalidTalkativeness.
+  ///
+  /// In zh, this message translates to:
+  /// **'话多程度要在 0 到 1 之间'**
+  String get tavernGroupErrorInvalidTalkativeness;
+
+  /// No description provided for @tavernGroupErrorInvalidLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'每轮至少要有一个人说话'**
+  String get tavernGroupErrorInvalidLimit;
+
+  /// No description provided for @tavernGroupErrorInvalidOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'排的顺序和群里的成员对不上，请重新打开再排'**
+  String get tavernGroupErrorInvalidOrder;
+
+  /// No description provided for @tavernGroupErrorHostInUse.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个角色是群聊的群主，先换群主或删掉那个群聊'**
+  String get tavernGroupErrorHostInUse;
 
   /// No description provided for @updateCheck.
   ///

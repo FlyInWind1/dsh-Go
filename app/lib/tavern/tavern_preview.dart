@@ -461,10 +461,16 @@ class PreviewTavern implements Tavern, TavernPreview {
       case TavernGroupActivation.manual:
         return const [];
       case TavernGroupActivation.randomPool:
-        // The next who has not spoken since your last line.
+        // The next who has not spoken since your line before this one (the
+        // line just sent is passed over, so the members take turns).
         final spoken = <String>{};
+        var replies = false;
         for (final m in chat.path().reversed) {
-          if (m.role == TavernRole.user) break;
+          if (m.role == TavernRole.user) {
+            if (replies) break;
+            continue;
+          }
+          replies = true;
           if (m.speakerCharacterId case final id?) spoken.add(id);
         }
         final next = ready.where((id) => !spoken.contains(id)).firstOrNull ?? ready.firstOrNull;

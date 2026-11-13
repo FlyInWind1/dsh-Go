@@ -174,6 +174,19 @@ DS Bot 的 NOTICE 原文附在文末。
 | 用途 | 社区论坛的容器配置，基于官方 `samples/standalone.yml` 改写 |
 | 文件 | `infra/forum/containers/app.yml`、`infra/forum/containers/app.reverse-proxy.yml` |
 
+### SillyTavern（AGPL-3.0）
+
+| 项 | 内容 |
+|---|---|
+| 项目 | SillyTavern，https://github.com/SillyTavern/SillyTavern |
+| 版本 | 1.19.0，提交 `7e8663cd9c184a550b37238218bdd32c6efc68e9` |
+| 许可 | AGPL-3.0（与本项目相同） |
+| 用途 | 酒馆引擎照 SillyTavern 的行为移植或改写：提示词组装、世界书、宏、斜杠命令、正则、角色卡与聊天文件的读写、人设 |
+| 来源文件 | `public/script.js`；`public/scripts/` 下的 `PromptManager.js`、`openai.js`、`personas.js`、`world-info.js`、`macros.js`、`slash-commands.js`、`bookmarks.js`；`src/character-card-parser.js`、`src/prompt-converters.js`、`src/endpoints/characters.js`、`src/endpoints/chats.js`、`src/endpoints/backends/chat-completions.js` |
+| 文件 | `packages/dsh_tavern/lib/src/` 下文件头写明 SillyTavern 来源和提交的文件 |
+
+酒馆引擎里另有几处移植，许可写在各自的文件头或同目录的许可文件里：Fuse.js 7.1.0（Apache-2.0，`packages/dsh_tavern/lib/src/slash/FUSE-LICENSE.txt`）、json-logic-js（MIT，`packages/dsh_tavern/lib/src/state/JSONLOGIC-LICENSE.txt`）、Unicode 16.0.0 数据（Unicode 许可，`packages/dsh_tavern/lib/src/slash/UNICODE-NAME-LICENSE.txt`）、seedrandom 3.0.5（MIT，David Bau，许可原文在 `packages/dsh_tavern/lib/src/macros/macro_engine.dart`）、Handlebars 4.7.9 与 Moment 2.30.1 的有限行为（各自文件头注明）。
+
 ## 二、素材
 
 ### Phosphor Icons（MIT）

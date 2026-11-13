@@ -174,6 +174,12 @@ void main() {
     expect(await answer, const TavernInteractAnswer(_cancelled));
   });
 
+  testWidgets('withdrawn before it was drawn: it does not stay up', (tester) async {
+    final answer = await _ask(tester, TavernInteractKind.input, {'text': '名字？'}, withdraw: Future<void>.value());
+    expect(find.byKey(const ValueKey('tavern-interact-input')), findsNothing);
+    expect(await answer, const TavernInteractAnswer(_cancelled));
+  });
+
   testWidgets('/echo: the app notice, answered with its words at once', (tester) async {
     final answer = await _ask(tester, TavernInteractKind.echo, {'text': '存好了', 'severity': 'success', 'title': '存档'});
     expect(await answer, const TavernInteractAnswer(_submitted, text: '存好了'));

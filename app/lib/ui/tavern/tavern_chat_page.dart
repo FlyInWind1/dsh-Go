@@ -123,6 +123,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// it takes turns; and, while a batch runs, who speaks and who follows.
   StreamSubscription<TavernGroupChat?>? _groupWatch;
   TavernGroupChat? _group;
+
+  /// This chat is a group's: by its own details, or its summary before they
+  /// are in (a line sent then still goes to the group).
+  bool _groupChat = false;
   TavernGroupProgress? _groupProgress;
 
   /// The director's three suggestions for now (engine T18), first in the row
@@ -746,7 +750,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     final text = _input.text;
     _input.clear();
     // A group: the line goes to all of them, who answer in turn.
-    if (_group != null) {
+    if (_groupChat) {
       _runGroup(() => _tavern.sendGroup(widget.chatId, text), draft: text);
       return;
     }
@@ -867,7 +871,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   void _sendQuick(String text) {
     if (_running) return;
     unawaited(HapticFeedback.selectionClick());
-    if (_group != null) {
+    if (_groupChat) {
       _runGroup(() => _tavern.sendGroup(widget.chatId, text), draft: text);
       return;
     }
@@ -1217,12 +1221,10 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
       if (nodeId != null) unawaited(_jumpTo(nodeId));
     });
     final l10n = context.l10n;
-    final characterId = ref
-        .watch(tavernChatsProvider(null))
-        .value
-        ?.where((c) => c.id == widget.chatId)
-        .firstOrNull
-        ?.characterId;
+    final summary = ref.watch(tavernChatsProvider(null)).value?.where((c) => c.id == widget.chatId).firstOrNull;
+    final characterId = summary?.characterId;
+    // A group by its summary too, before its own details are in.
+    _groupChat = _group != null || summary?.kind == TavernChatKind.group;
     final characters = ref.watch(tavernCharactersProvider).value;
     final character = characters?.where((c) => c.id == characterId).firstOrNull;
     // A group goes by its own title; its members by theirs.
@@ -1323,7 +1325,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _canvasOn = canvas;
     _canvasSpeaker = name;
     _canvasNames = names;
-    _canvasCharacter = group == null ? characterId : null;
+    _canvasCharacter = _groupChat ? null : characterId;
     if (canvas) _feedCanvas();
     // The buttons the card's own scripts show: only where those scripts run
     // (the canvas, scripts on, one character).

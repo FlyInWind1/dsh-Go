@@ -12973,7 +12973,7 @@
   "tavernRegexTryDraft": "用现在填的试一下",
   "tavernRegexDepthAny": "不限",
   "tavernCanvas": "整页画布（试用）",
-  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。",
+  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。",
   "tavernCanvasReloaded": "画面重新加载了",
   "tavernGroupSpeaking": "{name} 在说",
   "@tavernGroupSpeaking": {
@@ -13067,6 +13067,15 @@
       }
     }
   },
+  "tavernGroupErrorNotGroup": "这已经不是群聊了",
+  "tavernGroupErrorCharacterNotFound": "这个角色的卡不在了",
+  "tavernGroupErrorMemberExists": "这个角色已经在群里了",
+  "tavernGroupErrorMemberNotFound": "这个角色已经不在群里了",
+  "tavernGroupErrorInvalidMembers": "成员不能重复，群里至少要有一个角色",
+  "tavernGroupErrorInvalidTalkativeness": "话多程度要在 0 到 1 之间",
+  "tavernGroupErrorInvalidLimit": "每轮至少要有一个人说话",
+  "tavernGroupErrorInvalidOrder": "排的顺序和群里的成员对不上，请重新打开再排",
+  "tavernGroupErrorHostInUse": "这个角色是群聊的群主，先换群主或删掉那个群聊",
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",

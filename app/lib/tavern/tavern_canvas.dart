@@ -82,7 +82,12 @@ final class TavernCanvasLabels {
   };
 }
 
+/// [value] as JSON written inside our <script>: every `<` escaped, so no
+/// `</script`, `<!--` or `<script` in a card's text can end or derail it.
+String _inScript(Object? value) => jsonEncode(value).replaceAll('<', r'\u003c');
+
 /// [entries] as our script's render() takes them.
+
 String tavernCanvasJson(List<TavernCanvasEntry> entries) => jsonEncode([for (final e in entries) e.toJson()]);
 
 String _escape(String text) =>
@@ -250,11 +255,10 @@ String tavernCanvasDocument({
   Map<String, Object?>? card,
   String? characterId,
 }) {
-  // The card goes in as JSON too, a closing tag in it not ending our script.
-  final cardJson = noScripts || card == null ? 'null' : jsonEncode(card).replaceAll('</', r'<\/');
-  final cardIdJson = noScripts ? 'null' : jsonEncode(characterId);
-  // The card's scripts go in as JSON; a closing tag in one cannot end ours.
-  final cardScriptsJson = noScripts ? '[]' : jsonEncode(cardScripts).replaceAll('</', r'<\/');
+  // The card and its scripts go in as JSON (see [_inScript]).
+  final cardJson = noScripts || card == null ? 'null' : _inScript(card);
+  final cardIdJson = noScripts ? 'null' : _inScript(characterId);
+  final cardScriptsJson = noScripts ? '[]' : _inScript(cardScripts);
   // The libraries card scripts expect on the page (jQuery, lodash), ours and
   // so under the page's nonce; not there when card scripts do not run.
   final preload = noScripts
@@ -314,7 +318,7 @@ $preload
 <script nonce="$nonce">
 (function(){
   var chat=document.getElementById('chat');
-  var userLabel=${jsonEncode(userLabel)};
+  var userLabel=${_inScript(userLabel)};
   // A card's scripts: off with 酒馆设置 › 安全 › 不运行卡的脚本 (the page's
   // policy would refuse them too). Never given this page's own nonce.
   var runScripts=${!noScripts},running=Promise.resolve();
@@ -1320,7 +1324,7 @@ $preload
   });
   // Component tags as Web Components: their own look in a shadow root, with
   // parts (::part(paper) …) and --dsh-* variables left for a card to restyle.
-  var L=${jsonEncode(labels.toJson())};
+  var L=${_inScript(labels.toJson())};
   function fill(s,k,v){return s.split('{'+k+'}').join(v);}
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   var base=':host{display:block;margin:6px 0;color:var(--dsh-text);font:inherit;font-style:normal;}'+

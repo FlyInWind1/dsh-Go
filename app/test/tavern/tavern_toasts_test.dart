@@ -80,4 +80,37 @@ void main() {
     expect(_toast, findsNothing);
     toasts.dispose();
   });
+
+  testWidgets('new words on a notice about to go: they get their own time to be read', (tester) async {
+    final messenger = await _messenger(tester);
+    final toasts = TavernToasts();
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '好'});
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 1500));
+    toasts.show(messenger, {'type': 'toast', 'level': 'warning', 'title': '小心', 'message': '前面有人'});
+    await tester.pump();
+    // Past the first one's two seconds, the warning is still up.
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('小心\n前面有人'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(_toast, findsNothing);
+    toasts.dispose();
+  });
+
+  testWidgets('new words while one is on its way out: a notice of their own, not gone with it', (tester) async {
+    final messenger = await _messenger(tester);
+    final toasts = TavernToasts();
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '走了'});
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('走了'));
+    await tester.pump();
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '又来'});
+    await tester.pumpAndSettle();
+    expect(find.text('又来'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(_toast, findsNothing);
+    toasts.dispose();
+  });
 }
