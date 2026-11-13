@@ -82,6 +82,14 @@
         }
       }
     },
+    "input-trigger-source-recovery.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-ui-input-trigger/lib/client.js": {
+          "after": "efd7a41a7dc2d3554d2e210371c3248f80d472a3b5c17ad7b1d5edef1da267de",
+          "before": "3f57b79e1f5f9a2378caadba05c3fead8baf1aa4dc80e3ffcd3718774f0b887f"
+        }
+      }
+    },
     "install-log-redaction.diff": {
       "0.2.1-rc.4": {
         "node_modules/@deepseek-ai/dsh-plugin-manager/lib/index.js": {
@@ -232,6 +240,30 @@
         }
       }
     },
+    "rrule-mixed-byday.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/rrule/dist/es5/rrule.js": {
+          "after": "ba775df437da7265acc536d406fdf72311b3d157e5053d72d9a8c3a7d32bc324",
+          "before": "93954dd2dedfef048e9ed7ee5c7c5f5bb9607cdbda9007545847cd25754999a6"
+        }
+      }
+    },
+    "rrule-negative-position-range.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/rrule/dist/es5/rrule.js": {
+          "after": "7a23596f28eeeadd7dbc80d8b73f1317a5d94a6f70e855933b06ca07a8e1d88c",
+          "before": "653c3065b3fa57aa510852ea943f4a359ebdfb3d962340f648a37f744f237204"
+        }
+      }
+    },
+    "rrule-weekly-first-period.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/rrule/dist/es5/rrule.js": {
+          "after": "93954dd2dedfef048e9ed7ee5c7c5f5bb9607cdbda9007545847cd25754999a6",
+          "before": "7a23596f28eeeadd7dbc80d8b73f1317a5d94a6f70e855933b06ca07a8e1d88c"
+        }
+      }
+    },
     "schemastery-json-context.diff": {
       "0.2.1-rc.4": {
         "node_modules/@deepseek-ai/schemastery/lib/index.cjs": {
@@ -311,6 +343,22 @@
         "node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js": {
           "after": "f67cd7cbcf2ac824887396acd68a4f6f159be5f4bd880cd6f0014da3edb6c673",
           "before": "9a37949cc76603ea3a965ce4d0d6ca65885de4a9808345c38748e595ac396378"
+        }
+      }
+    },
+    "web-preset-save-freshness.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-ui-agent-preset/lib/client.js": {
+          "after": "d6e0ec30a1b851b6aa3f82699ba40f7a02b71e7cc9508b94764d1dbb7c4776cc",
+          "before": "b409e4dd4fdbea1c313382083532f46ca21650b1c3d07c0be0074f60c337b359"
+        }
+      }
+    },
+    "web-search-key-write-result.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-ui-settings-web-search/lib/client.js": {
+          "after": "88445a93f6145c0e29521f257f7706516aef249fc262afa4365fb2d08cffbede",
+          "before": "1d42b683573864152655c88d0b2f41dbe88e4c25e5d692e2bdc275dfc708f0df"
         }
       }
     },

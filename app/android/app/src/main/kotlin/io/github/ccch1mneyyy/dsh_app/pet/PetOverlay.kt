@@ -1071,7 +1071,6 @@ internal object PetOverlay {
             showTarget()
             react("drag", loop = true)
             startLoop()
-            fitFrame()
         }
 
         override fun onDrag(dx: Int, dy: Int) {
