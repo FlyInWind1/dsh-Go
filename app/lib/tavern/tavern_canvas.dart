@@ -716,6 +716,24 @@ $preload
     getContext:function(){return SillyTavern;},
     getCurrentChatId:function(){var m=msgs[0];return m&&m.ref?m.ref.chatId:undefined;}
   };
+  // A Slash script, run by the engine in this chat (酒馆助手's 触发 /STScript
+  // page): its pipe, or undefined when it stopped at /abort; a failure is
+  // thrown.
+  function triggerSlash(command){
+    return call('triggerSlash',{source:String(command)}).then(function(r){
+      return r&&r.completion==='aborted'?undefined:r?r.pipe:undefined;
+    });
+  }
+  // ST's own runner, as that page shows it: never throws, says how it went.
+  SillyTavern.executeSlashCommandsWithOptions=function(command){
+    var out={interrupt:false,pipe:'',isBreak:false,isAborted:false,isQuietlyAborted:false,abortReason:'',
+      isError:false,errorMessage:''};
+    return call('triggerSlash',{source:String(command)}).then(function(r){
+      out.pipe=r&&typeof r.pipe==='string'?r.pipe:'';
+      out.isAborted=!!r&&r.completion==='aborted';
+      return out;
+    },function(e){out.isError=true;out.errorMessage=String(e&&e.message||e);return out;});
+  };
   Object.defineProperty(SillyTavern,'chat',{get:function(){return msgs.map(stMessage);},enumerable:true});
   Object.defineProperty(SillyTavern,'chatId',{get:function(){return SillyTavern.getCurrentChatId();},enumerable:true});
   // The chat's character card (酒馆助手's 获取角色卡 pages): this chat's own
@@ -751,7 +769,8 @@ $preload
     return call('characterAvatar',{}).then(function(r){return r||null;},function(){return null;});
   }
   Object.defineProperty(SillyTavern,'name2',{get:function(){return getCurrentCharacterName()||undefined;},enumerable:true});
-  [['getCurrentCharacterName',getCurrentCharacterName],['getCurrentCharacterId',getCurrentCharacterId],
+  [['triggerSlash',triggerSlash],['getCurrentCharacterName',getCurrentCharacterName],
+   ['getCurrentCharacterId',getCurrentCharacterId],
    ['getCharacter',watched(getCharacter)],['getCharData',getCharData],
    ['getCharAvatarPath',getCharAvatarPath]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
@@ -1366,7 +1385,7 @@ $preload
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
     'getCharacter','getCharData','getCharAvatarPath','getPersonaNames','getPersonaIds','getCurrentPersonaName',
     'getCurrentPersonaId','getPersona','getPersonaAvatarPath','playAudio','pauseAudio','getCurrentAudio',
-    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings',
+    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings','triggerSlash',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;

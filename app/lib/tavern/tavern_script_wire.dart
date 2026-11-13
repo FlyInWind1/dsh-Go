@@ -223,6 +223,28 @@ class TavernScriptWire {
         }
       case 'stopGenerationById':
         return bridge.stopGenerationById(p.string('generationId'));
+      // A Slash script (B3): run to its end; the reply is its pipe and how it
+      // ended (completed, or aborted by /abort). A failure is the error.
+      case 'triggerSlash':
+        final arguments = <String, String>{
+          if (p.has('arguments'))
+            for (final MapEntry(:key, :value) in p.object('arguments').entries)
+              key: switch (value) {
+                final String s => s,
+                _ => throw _bad(p.method, 'An argument is a string.', fieldPath: 'arguments.$key'),
+              },
+        };
+        final run = await bridge.triggerSlash(
+          p.string('contextId'),
+          p.string('source'),
+          executionId: p.stringOrNull('executionId'),
+          pipe: p.stringOrNull('pipe') ?? '',
+          arguments: arguments,
+        );
+        final result = await run.result;
+        return {'id': result.id, 'pipe': result.pipe, 'completion': result.completion.name};
+      case 'stopScript':
+        return bridge.stopScript(p.string('executionId'));
     }
     throw TavernScriptException(
       code: TavernScriptErrorCode.unsupportedCapability,

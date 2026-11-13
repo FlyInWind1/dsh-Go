@@ -367,6 +367,46 @@ void main() {
     expect(_result(await _ask(wire, 'stopGenerationById', {'generationId': 'g1'})), isTrue);
   });
 
+  test('a Slash script over the channel: its pipe and how it ended; a failure is the error', () async {
+    final context = _result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>;
+    final id = context['id']! as String;
+
+    final ran =
+        _result(
+              await _ask(wire, 'triggerSlash', {
+                'contextId': id,
+                'source': '/setglobalvar key=weather {{arg::w}} | /getglobalvar weather',
+                'arguments': {'w': '小雨'},
+                'executionId': 'weather',
+              }),
+            )!
+            as Map<String, Object?>;
+    expect(ran, {'id': 'weather', 'pipe': '小雨', 'completion': 'completed'});
+    final global =
+        _result(
+              await _ask(wire, 'getVariables', {
+                'contextId': id,
+                'target': {'scope': 'global'},
+              }),
+            )!
+            as Map<String, Object?>;
+    expect((global['value']! as Map)['weather'], '小雨');
+
+    final stopped = _result(await _ask(wire, 'triggerSlash', {'contextId': id, 'source': '/pass 半路 | /abort'}))!;
+    expect((stopped as Map)['completion'], 'aborted');
+
+    expect(_error(await _ask(wire, 'triggerSlash', {'contextId': id, 'source': '/nosuchcommand'}))['code'], isNotNull);
+    final bad = _error(
+      await _ask(wire, 'triggerSlash', {
+        'contextId': id,
+        'source': '/pass x',
+        'arguments': {'n': 1},
+      }),
+    );
+    expect((bad['code'], bad['fieldPath']), ('invalidArgument', 'arguments.n'));
+    expect(_result(await _ask(wire, 'stopScript', {'executionId': 'nothing'})), isFalse);
+  });
+
   test('a wrong request is told why, as an error, not a broken channel', () async {
     final id =
         (_result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>)['id']! as String;
