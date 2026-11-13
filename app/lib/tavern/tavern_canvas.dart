@@ -767,19 +767,29 @@ $preload
       fav:x.fav!=null?x.fav:false,data:card}));
   }
   // The chat's regexes (酒馆助手's 获取正则 page), which getTavernRegexes
-  // hands out at once: fetched once, before any script runs; another
-  // character's or preset's are not on this page, and come back empty.
-  var regexes={global:[],character:[],preset:[]},regexLoading=null;
+  // hands out at once: fetched before any script runs; another character's
+  // or preset's are not on this page, and come back empty. Not read (the
+  // engine refused, or not yet): the call says so and asks again, so a
+  // later one can have them; scripts still start.
+  var regexes=null,regexLoading=null,regexError=null;
   function regexReady(){
-    if(!regexLoading)regexLoading=call('getTavernRegexes',{}).then(function(r){if(r)regexes=r;},function(){});
+    if(!regexLoading)regexLoading=call('getTavernRegexes',{}).then(function(r){
+      regexes=r||{global:[],character:[],preset:[]};regexError=null;
+    },function(x){regexLoading=null;regexError=x;});
     return regexLoading;
   }
   function getTavernRegexes(option){
     var o=option||{},name=o.name;
+    if(o.type!=='global'&&o.type!=='character'&&o.type!=='preset')
+      throw new Error('getTavernRegexes: type is global, character or preset');
+    if(!regexes){
+      var why=regexError?'could not be read: '+(regexError.message||regexError):'are not read yet';
+      regexReady();
+      throw new Error('getTavernRegexes: the regexes '+why+'; asked again, try once more');
+    }
     if(o.type==='global')return clone(regexes.global||[]);
     if(o.type==='character')return name==null||name==='current'||isCurrent(name)?clone(regexes.character||[]):[];
-    if(o.type==='preset')return name==null||name==='in_use'?clone(regexes.preset||[]):[];
-    throw new Error('getTavernRegexes: type is global, character or preset');
+    return name==null||name==='in_use'?clone(regexes.preset||[]):[];
   }
   // Its picture, as the app has it (a data: URL the page can show); null for
   // another character's, or a card that has none.

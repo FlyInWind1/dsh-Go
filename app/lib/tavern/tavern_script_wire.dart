@@ -266,51 +266,36 @@ class TavernScriptWire {
   }
 }
 
-/// [r] in 酒馆助手's TavernRegex shape: its ST fields renamed; where it runs
-/// (ST's placements 1 user input, 2 AI output, 3 slash command, 5 world info,
-/// 6 reasoning); whether it changes what is shown and what the model is
-/// sent (markdownOnly is the display alone, promptOnly the prompt alone,
-/// neither both).
+/// [r] in 酒馆助手's TavernRegex shape, as the engine runs it (its parsed
+/// [TavernScriptRegex.execution]: a legacy placement 0 or 4 already spread
+/// to what it means, a placement that is not a whole number dropped):
+/// its ST fields renamed; where it runs (ST's placements 1 user input, 2 AI
+/// output, 3 slash command, 5 world info, 6 reasoning); and its destination,
+/// which is ST's two checkboxes as they are (display is 仅格式显示,
+/// markdownOnly; prompt is 仅格式提示词, promptOnly; neither, it changes the
+/// message itself).
 Map<String, Object?> tavernHelperRegexJson(TavernScriptRegex r) {
-  final raw = r.raw;
-  final placement = {
-    if (raw['placement'] case final List<Object?> list)
-      for (final p in list)
-        if (p is num) p.toInt(),
-  };
-  String text(String key) => switch (raw[key]) {
-    final String s => s,
-    _ => '',
-  };
-  num? depth(String key) => switch (raw[key]) {
-    final num n => n,
-    _ => null,
-  };
+  final script = r.execution;
+  final placement = script.placement.toSet();
   return {
-    'id': switch (raw['id']) {
-      final String s when s.isNotEmpty => s,
-      _ => r.stId,
-    },
-    'script_name': text('scriptName'),
+    'id': script.id.isNotEmpty ? script.id : r.stId,
+    'script_name': script.scriptName,
     'enabled': r.enabled,
-    'run_on_edit': raw['runOnEdit'] == true,
+    'run_on_edit': script.runOnEdit,
     if (r.source != TavernScriptRegexSource.preset) 'scope': r.source.name,
-    'find_regex': text('findRegex'),
-    'trim_strings': switch (raw['trimStrings']) {
-      final List<Object?> list => list.whereType<String>().join('\n'),
-      _ => '',
-    },
-    'replace_string': text('replaceString'),
+    'find_regex': script.findRegex,
+    'trim_strings': script.trimStrings.join('\n'),
+    'replace_string': script.replaceString,
     'source': {
-      'user_input': placement.contains(1),
-      'ai_output': placement.contains(2),
-      'slash_command': placement.contains(3),
-      'world_info': placement.contains(5),
-      'reasoning': placement.contains(6),
+      'user_input': placement.contains(RegexPlacement.userInput),
+      'ai_output': placement.contains(RegexPlacement.aiOutput),
+      'slash_command': placement.contains(RegexPlacement.slashCommand),
+      'world_info': placement.contains(RegexPlacement.worldInfo),
+      'reasoning': placement.contains(RegexPlacement.reasoning),
     },
-    'destination': {'display': raw['promptOnly'] != true, 'prompt': raw['markdownOnly'] != true},
-    'min_depth': depth('minDepth'),
-    'max_depth': depth('maxDepth'),
+    'destination': {'display': script.markdownOnly, 'prompt': script.promptOnly},
+    'min_depth': script.minDepth,
+    'max_depth': script.maxDepth,
   };
 }
 

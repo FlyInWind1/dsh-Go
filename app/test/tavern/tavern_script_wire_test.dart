@@ -463,6 +463,7 @@ void main() {
           'world_info': false,
           'reasoning': true,
         },
+        // 仅格式显示 checked.
         'destination': {'display': true, 'prompt': false},
         'min_depth': 2,
         'max_depth': null,
@@ -488,6 +489,40 @@ void main() {
         'max_depth': 4,
       },
     ]);
+    // As the engine runs them: a legacy placement 0 is every source, both
+    // boxes checked; neither box checked changes the message itself.
+    Map<String, Object?> rule(String id, List<Object?> placement, {bool md = false, bool prompt = false}) => {
+      'id': id,
+      'scriptName': id,
+      'findRegex': 'a',
+      'replaceString': 'b',
+      'trimStrings': <Object?>[],
+      'placement': placement,
+      'disabled': false,
+      'markdownOnly': md,
+      'promptOnly': prompt,
+      'runOnEdit': false,
+      'substituteRegex': 0,
+    };
+    await tavern.setSettings({
+      'globalRegexScripts': [
+        rule('legacy', [0]),
+        rule('stored', [2]),
+        rule('both', [2], md: true, prompt: true),
+      ],
+    });
+    final again = _result(await _ask(wire, 'getTavernRegexes', {'contextId': id}))! as Map<String, Object?>;
+    final byId = {for (final r in (again['global']! as List).cast<Map<String, Object?>>()) r['id']: r};
+    expect(byId['legacy']!['source'], {
+      'user_input': true,
+      'ai_output': true,
+      'slash_command': true,
+      'world_info': true,
+      'reasoning': true,
+    });
+    expect(byId['legacy']!['destination'], {'display': true, 'prompt': true});
+    expect(byId['stored']!['destination'], {'display': false, 'prompt': false});
+    expect(byId['both']!['destination'], {'display': true, 'prompt': true});
     expect(regexes['character'], isEmpty);
   });
 
