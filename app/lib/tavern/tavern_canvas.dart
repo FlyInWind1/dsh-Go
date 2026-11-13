@@ -949,6 +949,7 @@ $preload
   // the person chose ({type, settings}), kept like a script's.
   dsh.audioControl=function(cmd){
     var c=channel(cmd&&cmd.type);
+    if(cmd.append)appendAudioList(cmd.type,cmd.append);
     if(cmd.settings)setAudioSettings(cmd.type,cmd.settings);
     if(cmd.action==='toggle'){
       c.suspended=false;
@@ -1439,6 +1440,8 @@ $preload
     });
   }
   post({type:'ready'});
+  // The app's player learns there is a page to play on, music or not.
+  audioReport();
 })();
 </script></body></html>''';
 }

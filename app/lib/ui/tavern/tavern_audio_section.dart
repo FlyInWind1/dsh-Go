@@ -12,6 +12,7 @@ import '../../l10n/l10n.dart';
 import '../../tavern/tavern_canvas_audio.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
+import '../workspace/text_prompt.dart';
 
 class TavernAudioSection extends ConsumerWidget {
   const TavernAudioSection({super.key, required this.chatId});
@@ -27,7 +28,8 @@ class TavernAudioSection extends ConsumerWidget {
       for (final type in tavernAudioChannels)
         if (players[type] case final now? when now.any) (type, now),
     ];
-    if (shown.isEmpty) return const SizedBox.shrink();
+    // No canvas page up: nothing to play on.
+    if (players.isEmpty) return const SizedBox.shrink();
     return SettingsSection(
       title: l10n.tavernAudio,
       margin: const EdgeInsets.only(bottom: 12),
@@ -71,8 +73,35 @@ class TavernAudioSection extends ConsumerWidget {
             onChanged: (on) => unawaited(audio.settle(type, {'enabled': on})),
           ),
         ],
+        SettingsTile(
+          key: const ValueKey('tavern-audio-add'),
+          icon: AppIcons.add,
+          tinted: false,
+          title: l10n.tavernAudioAdd,
+          chevron: false,
+          onTap: () => unawaited(_add(context, audio)),
+        ),
       ],
     );
+  }
+
+  /// A track of the person's own, by its link, to the music list.
+  Future<void> _add(BuildContext context, TavernCanvasAudio audio) async {
+    final l10n = context.l10n;
+    final url = await showTextPrompt(
+      context,
+      title: l10n.tavernAudioAddTitle,
+      hint: 'https://',
+      caption: l10n.tavernAudioAddNote,
+      confirm: l10n.tavernAudioAddConfirm,
+      keyboardType: TextInputType.url,
+      validate: (text) => switch (Uri.tryParse(text.trim())) {
+        final Uri uri when (uri.isScheme('http') || uri.isScheme('https')) && uri.host.isNotEmpty => null,
+        _ => l10n.tavernAudioAddInvalid,
+      },
+    );
+    if (url == null || url.isEmpty) return;
+    await audio.append('bgm', url);
   }
 }
 

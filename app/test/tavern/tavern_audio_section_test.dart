@@ -91,10 +91,44 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('nothing to play: no section', (tester) async {
-      await pump(tester, {'bgm': _channel('', playing: false, tracks: 0)});
+    testWidgets('no canvas page up: no section', (tester) async {
+      await pump(tester, null);
       expect(find.byType(SettingsSection), findsNothing);
       expect(find.text('音乐和音效'), findsNothing);
+    });
+
+    testWidgets('a page with nothing to play: only a way to add music of your own', (tester) async {
+      await pump(tester, {
+        'bgm': _channel('', playing: false, tracks: 0),
+        'ambient': _channel('', playing: false, tracks: 0),
+      });
+      expect(find.text('音乐和音效'), findsOneWidget);
+      expect(find.text('背景音乐'), findsNothing);
+      expect(find.byKey(const ValueKey('tavern-audio-add')), findsOneWidget);
+    });
+
+    testWidgets('your own track, by its link: a web address only, added to the music list', (tester) async {
+      await pump(tester, {'bgm': _channel('', playing: false, tracks: 0)});
+      await tester.tap(find.byKey(const ValueKey('tavern-audio-add')));
+      await tester.pumpAndSettle();
+      expect(find.text('背景音乐的链接'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'file:///sdcard/a.mp3');
+      await tester.tap(find.text('加入'));
+      await tester.pumpAndSettle();
+      expect(find.text('要以 http:// 或 https:// 开头'), findsOneWidget);
+      expect(sent, isEmpty);
+
+      await tester.enterText(find.byType(TextField), ' https://example.com/rain.mp3 ');
+      await tester.tap(find.text('加入'));
+      await tester.pumpAndSettle();
+      expect(sent, [
+        {
+          'type': 'bgm',
+          'append': [
+            {'url': 'https://example.com/rain.mp3'},
+          ],
+        },
+      ]);
     });
 
     testWidgets("each player with something on: what it is on, and the person's controls", (tester) async {

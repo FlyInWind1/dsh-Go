@@ -145,6 +145,15 @@ class TavernCanvasAudio extends Notifier<Map<String, TavernAudioNow>> {
   /// Plays or pauses [type]'s player.
   Future<void> toggle(String type) => _command({'type': type, 'action': 'toggle'});
 
+  /// Adds the track at [url] to [type]'s list, as a script would (kept with
+  /// the chat); not twice.
+  Future<void> append(String type, String url) => _command({
+    'type': type,
+    'append': [
+      {'url': url},
+    ],
+  });
+
   /// Changes [type]'s settings as a script would (kept with the chat).
   Future<void> settle(String type, Map<String, Object?> settings) => _command({'type': type, 'settings': settings});
 

@@ -36506,6 +36506,36 @@ abstract class L10n {
   /// **'让角色卡播放'**
   String get tavernAudioAllow;
 
+  /// No description provided for @tavernAudioAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'加一首背景音乐'**
+  String get tavernAudioAdd;
+
+  /// No description provided for @tavernAudioAddTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景音乐的链接'**
+  String get tavernAudioAddTitle;
+
+  /// No description provided for @tavernAudioAddNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'填音频文件的网址（mp3、ogg 等），加进这段对话的背景音乐列表，和卡放的放在一起。'**
+  String get tavernAudioAddNote;
+
+  /// No description provided for @tavernAudioAddConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入'**
+  String get tavernAudioAddConfirm;
+
+  /// No description provided for @tavernAudioAddInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'要以 http:// 或 https:// 开头'**
+  String get tavernAudioAddInvalid;
+
   /// No description provided for @tavernStageState.
   ///
   /// In zh, this message translates to:

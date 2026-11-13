@@ -21062,6 +21062,22 @@ class L10nEn extends L10n {
   String get tavernAudioAllow => 'Let the card play';
 
   @override
+  String get tavernAudioAdd => 'Add background music';
+
+  @override
+  String get tavernAudioAddTitle => 'Link to the music';
+
+  @override
+  String get tavernAudioAddNote =>
+      'The web address of an audio file (mp3, ogg…). It joins this chat\'s music list, with the card\'s own.';
+
+  @override
+  String get tavernAudioAddConfirm => 'Add';
+
+  @override
+  String get tavernAudioAddInvalid => 'Starts with http:// or https://';
+
+  @override
   String get tavernStageState => 'State';
 
   @override

@@ -19955,6 +19955,21 @@ class L10nZh extends L10n {
   String get tavernAudioAllow => '让角色卡播放';
 
   @override
+  String get tavernAudioAdd => '加一首背景音乐';
+
+  @override
+  String get tavernAudioAddTitle => '背景音乐的链接';
+
+  @override
+  String get tavernAudioAddNote => '填音频文件的网址（mp3、ogg 等），加进这段对话的背景音乐列表，和卡放的放在一起。';
+
+  @override
+  String get tavernAudioAddConfirm => '加入';
+
+  @override
+  String get tavernAudioAddInvalid => '要以 http:// 或 https:// 开头';
+
+  @override
   String get tavernStageState => '状态';
 
   @override
