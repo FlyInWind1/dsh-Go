@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dsh_app/tavern/tavern_canvas_calls.dart';
@@ -124,5 +125,42 @@ void main() {
     expect(await of('a.txt', 'not a picture'.codeUnits), isNull);
     expect(await tavernImageDataUrl('${dir.path}/missing.png'), isNull);
     expect(await tavernImageDataUrl(null), isNull);
+  });
+
+  test("the personas' pictures go to the page once each, and again only as they change", () async {
+    final reads = <String?>[];
+    final avatars = TavernCanvasPersonaAvatars(
+      read: (path) async {
+        reads.add(path);
+        if (path == '/broken.png') throw const FileSystemException('gone');
+        return path == null ? null : 'data:image/png;base64,$path';
+      },
+    );
+    TavernPersona persona(String id, [String? avatar]) => TavernPersona(id: id, name: id, avatarPath: avatar);
+
+    expect(await avatars.changes([persona('p1', '/a.png'), persona('p2')]), [('p1', 'data:image/png;base64,/a.png')]);
+    expect(reads, ['/a.png']);
+    expect(await avatars.changes([persona('p1', '/a.png'), persona('p2')]), isEmpty);
+    expect(reads, ['/a.png']);
+
+    // A new picture, one taken away, one that cannot be read (none, not an error).
+    expect(await avatars.changes([persona('p1'), persona('p2', '/b.png'), persona('p3', '/broken.png')]), [
+      ('p1', null),
+      ('p2', 'data:image/png;base64,/b.png'),
+      ('p3', null),
+    ]);
+
+    // A fresh page has none of them.
+    avatars.reset();
+    expect(await avatars.changes([persona('p2', '/b.png')]), [('p2', 'data:image/png;base64,/b.png')]);
+  });
+
+  test('a picture changed again while the last one was read: only the newer goes', () async {
+    final slow = Completer<String?>();
+    final avatars = TavernCanvasPersonaAvatars(read: (path) => path == '/old.png' ? slow.future : Future.value(path));
+    final first = avatars.changes([TavernPersona(id: 'p1', name: 'a', avatarPath: '/old.png')]);
+    expect(await avatars.changes([TavernPersona(id: 'p1', name: 'a', avatarPath: '/new.png')]), [('p1', '/new.png')]);
+    slow.complete('/old.png');
+    expect(await first, isEmpty);
   });
 }

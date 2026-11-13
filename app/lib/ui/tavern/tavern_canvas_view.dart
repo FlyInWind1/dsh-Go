@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:dsh_tavern/dsh_tavern.dart' show TavernPersona;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -230,6 +231,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _ready = true;
         _rendered = null;
         _streamSent = null;
+        _avatars.reset();
         _pushPersonas();
         _render();
         _onStream();
@@ -269,11 +271,22 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     final controller = _controller;
     final chat = widget.calls?.chatId;
     if (!_ready || controller == null || chat == null) return;
-    final json = tavernCanvasPersonas(
-      ref.read(tavernPersonasProvider).value ?? const [],
-      ref.read(tavernPersonaSelectionProvider(chat)).value,
-    );
+    final personas = ref.read(tavernPersonasProvider).value ?? const <TavernPersona>[];
+    final json = tavernCanvasPersonas(personas, ref.read(tavernPersonaSelectionProvider(chat)).value);
     unawaited(controller.runJavaScript('window.dsh&&dsh.setPersonas(${jsonEncode(json)})').catchError((_) {}));
+    unawaited(_pushAvatars(controller, personas));
+  }
+
+  /// The personas' pictures the page does not have yet, each as it is read.
+  final _avatars = TavernCanvasPersonaAvatars();
+
+  Future<void> _pushAvatars(WebViewController controller, List<TavernPersona> personas) async {
+    for (final (id, url) in await _avatars.changes(personas)) {
+      if (!mounted || !identical(controller, _controller)) return;
+      await controller
+          .runJavaScript('window.dsh&&dsh.setPersonaAvatar(${jsonEncode(id)},${jsonEncode(url)})')
+          .catchError((_) {});
+    }
   }
 
   /// The messages, when they differ from what the page shows.

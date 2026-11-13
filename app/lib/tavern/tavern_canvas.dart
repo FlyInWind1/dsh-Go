@@ -767,22 +767,35 @@ $preload
   function personaById(id){for(var i=0;i<personas.list.length;i++)if(personas.list[i].id===id)return personas.list[i];return null;}
   function getCurrentPersonaId(){return personaById(personas.current)?personas.current:null;}
   function getCurrentPersonaName(){var p=personaById(personas.current);return p?p.name:null;}
-  // By 'current', its id, or a name only one persona has; else it throws.
+  // By 'current', its id, or a name only one persona has: the persona, null,
+  // or false for a name more than one has.
+  function personaFor(key){
+    var p=key==='current'?personaById(personas.current):personaById(key);
+    if(p)return p;
+    var named=personas.list.filter(function(x){return x.name===key;});
+    return named.length>1?false:named[0]||null;
+  }
   function getPersona(which){
     var key=which===undefined?'current':String(which);
-    var p=key==='current'?personaById(personas.current):personaById(key);
-    if(!p){
-      var named=personas.list.filter(function(x){return x.name===key;});
-      if(named.length>1)throw new Error('More than one persona is called '+key);
-      p=named[0]||null;
-    }
+    var p=personaFor(key);
+    if(p===false)throw new Error('More than one persona is called '+key);
     if(!p)throw new Error('No such persona: '+key);
     return clone({avatar_id:p.id,name:p.name,title:'',description:p.description||'',position:p.position,
       is_default:p.id===personas['default']});
   }
+  // Their pictures, as the app sends them (dsh.setPersonaAvatar: a data: URL,
+  // or null for none), each once until it changes; asked for, one is there
+  // at once, or null — never a throw.
+  var personaAvatars={};
+  dsh.setPersonaAvatar=function(id,url){if(url)personaAvatars[id]=url;else delete personaAvatars[id];};
+  function getPersonaAvatarPath(which){
+    var p=personaFor(which===undefined?'current':String(which));
+    return p&&personaAvatars[p.id]||null;
+  }
   Object.defineProperty(SillyTavern,'name1',{get:function(){return getCurrentPersonaName()||undefined;},enumerable:true});
   [['getPersonaNames',getPersonaNames],['getPersonaIds',getPersonaIds],['getCurrentPersonaName',getCurrentPersonaName],
-   ['getCurrentPersonaId',getCurrentPersonaId],['getPersona',getPersona]].forEach(function(f){
+   ['getCurrentPersonaId',getCurrentPersonaId],['getPersona',getPersona],
+   ['getPersonaAvatarPath',getPersonaAvatarPath]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
   dsh.scripts.SillyTavern=SillyTavern;
@@ -1220,7 +1233,7 @@ $preload
     'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
     'getCharacter','getCharData','getCharAvatarPath','getPersonaNames','getPersonaIds','getCurrentPersonaName',
-    'getCurrentPersonaId','getPersona',
+    'getCurrentPersonaId','getPersona','getPersonaAvatarPath',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;

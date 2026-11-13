@@ -205,3 +205,44 @@ Future<String?> tavernImageDataUrl(String? path) async {
       : null;
   return type == null ? null : 'data:$type;base64,${base64Encode(bytes)}';
 }
+
+/// The personas' pictures a canvas page has been sent (getPersonaAvatarPath
+/// answers at once, so the page keeps them): each goes once, and again only
+/// when it changes. A fresh page starts from nothing ([reset]).
+class TavernCanvasPersonaAvatars {
+  TavernCanvasPersonaAvatars({this.read = tavernImageDataUrl});
+
+  /// A picture file as the page shows it.
+  final Future<String?> Function(String? path) read;
+
+  final _sent = <String, String?>{};
+
+  void reset() => _sent.clear();
+
+  /// What the page is to be told for [personas]: each persona whose picture
+  /// changed, with it as a data: URL (null: none now). One that changed again
+  /// while this was reading is left to the later call.
+  Future<List<(String, String?)>> changes(List<TavernPersona> personas) async {
+    final changed = <TavernPersona>[];
+    for (final persona in personas) {
+      final had = _sent.containsKey(persona.id);
+      if (had ? _sent[persona.id] == persona.avatarPath : persona.avatarPath == null) {
+        _sent[persona.id] = persona.avatarPath;
+        continue;
+      }
+      _sent[persona.id] = persona.avatarPath;
+      changed.add(persona);
+    }
+    final out = <(String, String?)>[];
+    for (final persona in changed) {
+      String? url;
+      try {
+        url = await read(persona.avatarPath);
+      } on Object {
+        url = null;
+      }
+      if (_sent[persona.id] == persona.avatarPath) out.add((persona.id, url));
+    }
+    return out;
+  }
+}
