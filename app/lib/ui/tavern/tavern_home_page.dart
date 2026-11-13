@@ -798,7 +798,7 @@ class _ContinueCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
-    final name = character?.name ?? chat.title;
+    final name = chat.kind == TavernChatKind.group ? chat.title : character?.name ?? chat.title;
     return SizedBox(
       width: 236,
       child: GlassSurface(

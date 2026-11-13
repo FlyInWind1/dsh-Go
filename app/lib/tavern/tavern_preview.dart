@@ -1688,7 +1688,8 @@ class _Chat {
     for (final child in children(id)) {
       nodes[child.id] = _Node(child.id, node.parent, child.role, child.speaker, child.text, child.at)
         ..reasoning = child.reasoning
-        ..hidden = child.hidden;
+        ..hidden = child.hidden
+        ..speakerId = child.speakerId;
     }
     nodes.remove(id);
     _order.remove(id);

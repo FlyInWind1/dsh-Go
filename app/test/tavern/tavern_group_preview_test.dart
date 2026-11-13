@@ -150,4 +150,36 @@ void main() {
     expect(_shape(await deferred.sendGroup(chat, '').toList()), contains('finished:completed'));
     expect((await deferred.watchGroupChat(chat).first)!.chatId, chat);
   });
+
+  test('one message taken out of a group chat: the replies under it keep who wrote them', () async {
+    final tavern = PreviewTavern(tick: Duration.zero);
+    final chat = await tavern.createGroupChat(
+      [_lin, _star],
+      activation: TavernGroupActivation.listOrder,
+      addGreetings: false,
+    );
+    await tavern.sendGroup(chat, '大家好').toList();
+    final path = await tavern.path(chat);
+    await tavern.deleteMessage(chat, path[1].nodeId);
+    expect((await tavern.path(chat)).map((m) => (m.role, m.speakerCharacterId)), [
+      (TavernRole.user, null),
+      (TavernRole.character, _star),
+    ]);
+  });
+
+  test('a randomPool group takes turns: after one member answered, the next line goes to another', () async {
+    final tavern = PreviewTavern(tick: Duration.zero);
+    final chat = await tavern.createGroupChat(
+      [_lin, _star],
+      activation: TavernGroupActivation.randomPool,
+      addGreetings: false,
+    );
+    await tavern.sendGroup(chat, '你好').toList();
+    await tavern.sendGroup(chat, '还有谁').toList();
+    final speakers = [
+      for (final m in await tavern.path(chat))
+        if (m.role == TavernRole.character) m.speakerCharacterId,
+    ];
+    expect(speakers, [_lin, _star]);
+  });
 }
