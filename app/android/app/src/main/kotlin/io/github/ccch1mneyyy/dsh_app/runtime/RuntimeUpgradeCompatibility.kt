@@ -5,14 +5,16 @@ import java.nio.file.Files
 import java.security.MessageDigest
 import org.json.JSONObject
 
-internal fun checkEngineCompatibility(baseDir: File, raw: JSONObject, version: String, abi: String): EngineUpgradeSpec {
+internal fun checkEngineCompatibility(
+    baseDir: File, raw: JSONObject, version: String, abi: String,
+    payloadTree: File = File(baseDir, "staging"),
+): EngineUpgradeSpec {
     val rootfs = File(baseDir, "rootfs")
-    val staging = File(baseDir, "staging")
     if (Files.isSymbolicLink(rootfs.toPath()) || File(baseDir, "home.carry").exists()) {
         throw RuntimeUpgradeBlocked("legacy_interrupted")
     }
     val next = parseUpgrade(raw)
-    val shipped = readRuntimeInfo(staging)
+    val shipped = readRuntimeInfo(payloadTree)
     if (parseUpgrade(shipped) != next || shipped.optString("runtimeVersion") != version) {
         throw RuntimeUpgradeBlocked("manifest")
     }
@@ -32,14 +34,14 @@ internal fun checkEngineCompatibility(baseDir: File, raw: JSONObject, version: S
         File(baseDir, "rootfs.old").deleteRecursivelySafely()
     }
     if (previous.optString("abi") != abi || shipped.optString("abi") != abi ||
-        osIdentity(rootfs) != (base?.osRelease ?: osIdentity(staging))) throw RuntimeUpgradeBlocked("base")
+        osIdentity(rootfs) != (base?.osRelease ?: osIdentity(payloadTree))) throw RuntimeUpgradeBlocked("base")
     if (previous.has("upgrade")) {
         if (parseUpgrade(previous).baseId != next.baseId) throw RuntimeUpgradeBlocked("base")
     } else {
         // One-time adoption of old bundles. Do not infer compatibility just
         // from rNN or Node versions. Keep Python and all user pip packages.
         if (previous.optString("ubuntuVersion") != next.ubuntuVersion ||
-            !(if (base != null) matchesPython(rootfs, base.python3Sha256) else samePython(rootfs, staging))) {
+            !(if (base != null) matchesPython(rootfs, base.python3Sha256) else samePython(rootfs, payloadTree))) {
             throw RuntimeUpgradeBlocked("base")
         }
     }
