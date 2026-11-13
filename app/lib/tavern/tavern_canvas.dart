@@ -798,6 +798,107 @@ $preload
    ['getPersonaAvatarPath',getPersonaAvatarPath]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
+  // Its two players (酒馆助手's 播放音频 pages): 'bgm' music and 'ambient'
+  // sounds, each a list, a track it is on and settings. The lists and the
+  // settings belong to the chat — the app keeps them ({type:'audio'} out,
+  // dsh.setAudioState in); what is playing goes with the page.
+  var audio={},audioModes=['repeat_one','repeat_all','shuffle','play_one_and_stop'];
+  function channel(type){
+    if(type!=='bgm'&&type!=='ambient')throw new Error('No such audio type: '+type);
+    return audio[type]||(audio[type]={list:[],settings:{enabled:true,mode:'repeat_all',muted:false,volume:100},
+      el:null,current:null,touched:false});
+  }
+  // A track without a title is called by its file's name.
+  function audioTitle(a){
+    if(a.title!=null&&String(a.title)!=='')return String(a.title);
+    var path=String(a.url).split(/[?#]/)[0],name=path.slice(path.lastIndexOf('/')+1);
+    try{name=decodeURIComponent(name);}catch(e){}
+    var dot=name.lastIndexOf('.');return dot>0?name.slice(0,dot):name;
+  }
+  function audioItems(list){
+    if(!Array.isArray(list))throw new Error('Not a list of audio');
+    return list.filter(function(a){return a&&typeof a.url==='string'&&a.url!=='';})
+      .map(function(a){return {title:audioTitle(a),url:a.url};});
+  }
+  function audioSettle(o,s){
+    s=s||{};
+    if(typeof s.enabled==='boolean')o.enabled=s.enabled;
+    if(audioModes.indexOf(s.mode)>=0)o.mode=s.mode;
+    if(typeof s.muted==='boolean')o.muted=s.muted;
+    if(typeof s.volume==='number'&&isFinite(s.volume))o.volume=Math.max(0,Math.min(100,s.volume));
+  }
+  function audioSaved(c){
+    c.touched=true;
+    var out={};
+    ['bgm','ambient'].forEach(function(t){var x=channel(t);out[t]={list:clone(x.list),settings:clone(x.settings)};});
+    post({type:'audio',state:out});
+  }
+  function audioApply(c){
+    var el=c.el;if(!el)return;
+    el.volume=c.settings.volume/100;el.muted=c.settings.muted;el.loop=c.settings.mode==='repeat_one';
+    if(!c.settings.enabled&&!el.paused)el.pause();
+  }
+  function audioStart(c,item){
+    c.current=item;
+    if(!c.el){
+      c.el=new Audio();c.el.preload='auto';
+      c.el.addEventListener('ended',function(){audioNext(c);});
+    }
+    if(c.el.dataset.url!==item.url){c.el.dataset.url=item.url;c.el.src=item.url;}
+    audioApply(c);
+    if(c.settings.enabled){var p=c.el.play();if(p&&p.catch)p.catch(function(){});}
+  }
+  // A track ended (one on repeat loops instead): the next, or another at
+  // random, or none.
+  function audioNext(c){
+    var n=c.list.length,mode=c.settings.mode;
+    if(!n||mode==='play_one_and_stop'||!c.settings.enabled)return;
+    var at=-1;
+    for(var i=0;i<n;i++)if(c.current&&c.list[i].url===c.current.url){at=i;break;}
+    var next=(at+1)%n;
+    if(mode==='shuffle'&&n>1){do{next=Math.floor(Math.random()*n);}while(next===at);}
+    audioStart(c,c.list[next]);
+  }
+  function playAudio(type,a){
+    var c=channel(type),item=audioItems([a])[0];
+    if(!item)throw new Error('playAudio: no url');
+    for(var i=0;i<c.list.length;i++)if(c.list[i].url===item.url)return audioStart(c,c.list[i]);
+    c.list.push(item);audioSaved(c);audioStart(c,item);
+  }
+  function pauseAudio(type){var c=channel(type);if(c.el)c.el.pause();}
+  function getCurrentAudio(type){
+    var c=channel(type),el=c.el,src=c.current?c.current.url:'',title='';
+    for(var i=0;i<c.list.length;i++)if(c.list[i].url===src){title=c.list[i].title;break;}
+    var at=el&&isFinite(el.duration)&&el.duration>0?el.currentTime/el.duration*100:0;
+    return {src:src,title:title,playing:!!el&&!el.paused&&!el.ended,progress:Math.max(0,Math.min(100,at))};
+  }
+  function getAudioList(type){return clone(channel(type).list);}
+  function replaceAudioList(type,list){var c=channel(type);c.list=audioItems(list);audioSaved(c);}
+  // Not a second of one already there by its title or its url.
+  function appendAudioList(type,list){
+    var c=channel(type);
+    audioItems(list).forEach(function(a){
+      if(!c.list.some(function(x){return x.url===a.url||x.title===a.title;}))c.list.push(a);
+    });
+    audioSaved(c);
+  }
+  function getAudioSettings(type){return clone(channel(type).settings);}
+  function setAudioSettings(type,s){var c=channel(type);audioSettle(c.settings,s);audioApply(c);audioSaved(c);}
+  // The chat's own, as the app kept them; a player the scripts already set
+  // up before they came keeps theirs.
+  dsh.setAudioState=function(state){
+    ['bgm','ambient'].forEach(function(t){
+      var c=channel(t),s=state&&state[t];
+      if(!s||c.touched)return;
+      try{c.list=audioItems(s.list||[]);}catch(e){}
+      audioSettle(c.settings,s.settings);audioApply(c);
+    });
+  };
+  [['playAudio',playAudio],['pauseAudio',pauseAudio],['getCurrentAudio',getCurrentAudio],['getAudioList',getAudioList],
+   ['replaceAudioList',replaceAudioList],['appendAudioList',appendAudioList],['getAudioSettings',getAudioSettings],
+   ['setAudioSettings',setAudioSettings]].forEach(function(f){
+    dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
+  });
   dsh.scripts.SillyTavern=SillyTavern;
   if(!window.SillyTavern)window.SillyTavern=SillyTavern;
   // The message the caller is in: the nearest named script on the stack;
@@ -1233,7 +1334,8 @@ $preload
     'eventMakeFirst','eventMakeLast','eventEmitAndWait','eventClearEvent','eventClearListener','eventClearAll',
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
     'getCharacter','getCharData','getCharAvatarPath','getPersonaNames','getPersonaIds','getCurrentPersonaName',
-    'getCurrentPersonaId','getPersona','getPersonaAvatarPath',
+    'getCurrentPersonaId','getPersona','getPersonaAvatarPath','playAudio','pauseAudio','getCurrentAudio',
+    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;

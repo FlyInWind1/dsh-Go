@@ -15,9 +15,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_canvas.dart';
+import '../../tavern/tavern_canvas_audio.dart';
 import '../../tavern/tavern_canvas_calls.dart';
 import '../../tavern/tavern_card_scripts.dart';
 import '../../tavern/tavern_provider.dart';
@@ -206,6 +208,10 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
           controller.setBackgroundColor(Colors.transparent),
           controller.addJavaScriptChannel('DshTavern', onMessageReceived: (m) => _onMessage(m.message)),
           controller.setNavigationDelegate(NavigationDelegate(onNavigationRequest: _onNavigation)),
+          // A card's music starts when its script says, as in a browser tab
+          // the page is already playing in.
+          if (controller.platform case final AndroidWebViewController android)
+            android.setMediaPlaybackRequiresUserGesture(false),
         ].map((f) => f.catchError((_) {})),
       );
       if (!mounted || controller != _controller) return;
@@ -233,6 +239,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _streamSent = null;
         _avatars.reset();
         _pushPersonas();
+        _pushAudio();
         _render();
         _onStream();
       case 'menu':
@@ -246,7 +253,20 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       case 'toast':
         final messenger = ScaffoldMessenger.maybeOf(context);
         if (messenger != null) _toasts.show(messenger, data);
+      case 'audio':
+        if (widget.calls?.chatId case final chat?) unawaited(tavernSaveAudio(chat, data['state']).catchError((_) {}));
     }
+  }
+
+  /// The chat's players as its scripts left them, for the page that just
+  /// came up.
+  Future<void> _pushAudio() async {
+    final controller = _controller;
+    final chat = widget.calls?.chatId;
+    if (controller == null || chat == null) return;
+    final state = await tavernLoadAudio(chat);
+    if (state.isEmpty || !mounted || !identical(controller, _controller)) return;
+    await controller.runJavaScript('window.dsh&&dsh.setAudioState(${jsonEncode(state)})').catchError((_) {});
   }
 
   /// A dsh.call from the page, answered to the page that asked (not to one
