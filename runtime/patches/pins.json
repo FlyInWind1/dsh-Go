@@ -346,6 +346,14 @@
         }
       }
     },
+    "web-preset-save-freshness.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-client-ui-agent-preset/lib/client.js": {
+          "after": "d6e0ec30a1b851b6aa3f82699ba40f7a02b71e7cc9508b94764d1dbb7c4776cc",
+          "before": "b409e4dd4fdbea1c313382083532f46ca21650b1c3d07c0be0074f60c337b359"
+        }
+      }
+    },
     "webserver-resource-abort.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-host-webserver/lib/index.js": {
