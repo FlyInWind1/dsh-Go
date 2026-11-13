@@ -20562,6 +20562,15 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get tavernInspectCost => 'Estimated cost';
+
+  @override
+  String get tavernInspectCostPeak => 'At DeepSeek\'s list prices, peak hours';
+
+  @override
+  String get tavernInspectCostOffPeak => 'At DeepSeek\'s list prices, off-peak (half price)';
+
+  @override
   String tavernInspectSegments(int count) {
     String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count parts sent', one: '1 part sent');
     return '$_temp0';
@@ -21233,10 +21242,11 @@ class L10nEn extends L10n {
   String get tavernUndoFailed => 'Couldn\'t undo';
 
   @override
-  String get tavernShowUsage => 'Show usage under each reply';
+  String get tavernShowUsage => 'Show usage and cost under each reply';
 
   @override
-  String get tavernShowUsageSubtitle => 'Input and output tokens as the model reports them; no cost estimates';
+  String get tavernShowUsageSubtitle =>
+      'Input and output tokens as the model reports them; for DeepSeek models, a cost at their list prices, peak and off-peak hours apart';
 
   @override
   String tavernUsageLine(int input, int output) {
@@ -21258,6 +21268,31 @@ class L10nEn extends L10n {
     final String outputString = outputNumberFormat.format(output);
 
     return 'In $inputString ($cachedString cached) · out $outputString';
+  }
+
+  @override
+  String tavernUsageCost(String usd) {
+    return 'about $usd';
+  }
+
+  @override
+  String tavernUsageCostUnder(String usd) {
+    return 'under $usd';
+  }
+
+  @override
+  String get tavernCostAlert => 'Per-turn cost reminder';
+
+  @override
+  String get tavernCostAlertSubtitle =>
+      'When a turn costs more than this at DeepSeek\'s list prices, say so over the composer; other models aren\'t estimated';
+
+  @override
+  String get tavernCostAlertOff => 'Off';
+
+  @override
+  String tavernCostAlertNotice(String cost, String line) {
+    return 'This turn cost $cost, over your reminder line of $line';
   }
 
   @override
@@ -21821,7 +21856,7 @@ class L10nEn extends L10n {
   String get tavernUsageStats => 'Usage';
 
   @override
-  String get tavernUsageStatsSubtitle => 'How many tokens each chat has taken';
+  String get tavernUsageStatsSubtitle => 'How many tokens each chat has taken, and about what it cost';
 
   @override
   String get tavernUsageAllNote =>
@@ -22356,6 +22391,20 @@ class L10nEn extends L10n {
 
   @override
   String get tavernCanvas => 'Whole-page canvas (trial)';
+
+  @override
+  String tavernCardScriptsHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'This card has $count scripts; they run only with Whole-page canvas (trial) on',
+      one: 'This card has a script; it runs only with Whole-page canvas (trial) on',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tavernCardScriptsHintAction => 'Turn on';
 
   @override
   String get tavernCanvasSubtitle =>

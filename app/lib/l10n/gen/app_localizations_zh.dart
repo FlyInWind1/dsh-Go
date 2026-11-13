@@ -19491,6 +19491,15 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernInspectCost => '估算费用';
+
+  @override
+  String get tavernInspectCostPeak => '按 DeepSeek 官方价，高峰时段';
+
+  @override
+  String get tavernInspectCostOffPeak => '按 DeepSeek 官方价，低谷时段（半价）';
+
+  @override
   String tavernInspectSegments(int count) {
     return '发出去的 $count 段';
   }
@@ -20115,10 +20124,10 @@ class L10nZh extends L10n {
   String get tavernUndoFailed => '没能撤销';
 
   @override
-  String get tavernShowUsage => '每条回复下显示用量';
+  String get tavernShowUsage => '每条回复下显示用量和费用';
 
   @override
-  String get tavernShowUsageSubtitle => '模型报告的输入、输出 token 数；不估算费用';
+  String get tavernShowUsageSubtitle => '模型报告的输入、输出 token 数；DeepSeek 的模型另按官方价估个费用，分高峰和低谷时段';
 
   @override
   String tavernUsageLine(int input, int output) {
@@ -20140,6 +20149,30 @@ class L10nZh extends L10n {
     final String outputString = outputNumberFormat.format(output);
 
     return '输入 $inputString（命中缓存 $cachedString）· 输出 $outputString';
+  }
+
+  @override
+  String tavernUsageCost(String usd) {
+    return '约 $usd';
+  }
+
+  @override
+  String tavernUsageCostUnder(String usd) {
+    return '不到 $usd';
+  }
+
+  @override
+  String get tavernCostAlert => '单回合费用提醒';
+
+  @override
+  String get tavernCostAlertSubtitle => '一个回合按 DeepSeek 官方价估的费用超过这条线时，在输入框上方说一声；别的模型不估';
+
+  @override
+  String get tavernCostAlertOff => '关';
+
+  @override
+  String tavernCostAlertNotice(String cost, String line) {
+    return '这一回合$cost，超过了提醒线 $line';
   }
 
   @override
@@ -20661,7 +20694,7 @@ class L10nZh extends L10n {
   String get tavernUsageStats => '用量统计';
 
   @override
-  String get tavernUsageStatsSubtitle => '每段对话用了多少 token';
+  String get tavernUsageStatsSubtitle => '每段对话用了多少 token、约多少钱';
 
   @override
   String get tavernUsageAllNote => '所有对话当前线上的回复合计；换掉的备选不算';
@@ -21185,6 +21218,14 @@ class L10nZh extends L10n {
 
   @override
   String get tavernCanvas => '整页画布（试用）';
+
+  @override
+  String tavernCardScriptsHint(int count) {
+    return '这张卡带了 $count 个脚本，打开「整页画布（试用）」才会运行';
+  }
+
+  @override
+  String get tavernCardScriptsHintAction => '打开';
 
   @override
   String get tavernCanvasSubtitle =>

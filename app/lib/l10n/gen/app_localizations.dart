@@ -35654,6 +35654,24 @@ abstract class L10n {
   /// **'输入 {prompt}（缓存 {hit}）· 输出 {completion}'**
   String tavernInspectUsageValue(int prompt, int hit, int completion);
 
+  /// No description provided for @tavernInspectCost.
+  ///
+  /// In zh, this message translates to:
+  /// **'估算费用'**
+  String get tavernInspectCost;
+
+  /// No description provided for @tavernInspectCostPeak.
+  ///
+  /// In zh, this message translates to:
+  /// **'按 DeepSeek 官方价，高峰时段'**
+  String get tavernInspectCostPeak;
+
+  /// No description provided for @tavernInspectCostOffPeak.
+  ///
+  /// In zh, this message translates to:
+  /// **'按 DeepSeek 官方价，低谷时段（半价）'**
+  String get tavernInspectCostOffPeak;
+
   /// No description provided for @tavernInspectSegments.
   ///
   /// In zh, this message translates to:
@@ -36809,13 +36827,13 @@ abstract class L10n {
   /// No description provided for @tavernShowUsage.
   ///
   /// In zh, this message translates to:
-  /// **'每条回复下显示用量'**
+  /// **'每条回复下显示用量和费用'**
   String get tavernShowUsage;
 
   /// No description provided for @tavernShowUsageSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'模型报告的输入、输出 token 数；不估算费用'**
+  /// **'模型报告的输入、输出 token 数；DeepSeek 的模型另按官方价估个费用，分高峰和低谷时段'**
   String get tavernShowUsageSubtitle;
 
   /// No description provided for @tavernUsageLine.
@@ -36829,6 +36847,42 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'输入 {input}（命中缓存 {cached}）· 输出 {output}'**
   String tavernUsageLineCached(int input, int cached, int output);
+
+  /// No description provided for @tavernUsageCost.
+  ///
+  /// In zh, this message translates to:
+  /// **'约 {usd}'**
+  String tavernUsageCost(String usd);
+
+  /// No description provided for @tavernUsageCostUnder.
+  ///
+  /// In zh, this message translates to:
+  /// **'不到 {usd}'**
+  String tavernUsageCostUnder(String usd);
+
+  /// No description provided for @tavernCostAlert.
+  ///
+  /// In zh, this message translates to:
+  /// **'单回合费用提醒'**
+  String get tavernCostAlert;
+
+  /// No description provided for @tavernCostAlertSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'一个回合按 DeepSeek 官方价估的费用超过这条线时，在输入框上方说一声；别的模型不估'**
+  String get tavernCostAlertSubtitle;
+
+  /// No description provided for @tavernCostAlertOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关'**
+  String get tavernCostAlertOff;
+
+  /// No description provided for @tavernCostAlertNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一回合{cost}，超过了提醒线 {line}'**
+  String tavernCostAlertNotice(String cost, String line);
 
   /// No description provided for @tavernSearchChat.
   ///
@@ -37751,7 +37805,7 @@ abstract class L10n {
   /// No description provided for @tavernUsageStatsSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'每段对话用了多少 token'**
+  /// **'每段对话用了多少 token、约多少钱'**
   String get tavernUsageStatsSubtitle;
 
   /// No description provided for @tavernUsageAllNote.
@@ -38719,6 +38773,18 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'整页画布（试用）'**
   String get tavernCanvas;
+
+  /// No description provided for @tavernCardScriptsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张卡带了 {count} 个脚本，打开「整页画布（试用）」才会运行'**
+  String tavernCardScriptsHint(int count);
+
+  /// No description provided for @tavernCardScriptsHintAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开'**
+  String get tavernCardScriptsHintAction;
 
   /// No description provided for @tavernCanvasSubtitle.
   ///

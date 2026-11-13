@@ -34,6 +34,7 @@ import '../../tavern/tavern_markers.dart';
 import '../../tavern/tavern_pinned.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_quick_replies.dart';
+import '../../tavern/tavern_session_usage.dart';
 import '../../tavern/tavern_settings.dart';
 import '../../tavern/tavern_slash.dart';
 import '../../tavern/tavern_sprites.dart';
@@ -483,7 +484,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                   ),
                 );
               default:
-                _finish();
+                if (_overCost(message) case final over?) {
+                  _finish(error: over.error, calm: true, action: over.action);
+                } else {
+                  _finish();
+                }
             }
           case TavernTurnFailed(:final kind, :final detail, :final partial):
             if (partial == null && draft != null && _input.text.isEmpty) _input.text = draft;
@@ -561,6 +566,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
     _live.reset();
     _stopThinking();
     _thinking.value = null;
+    // The round's costliest reply: what 单回合费用提醒 speaks of once it ends.
+    TavernMessage? costliest;
+    var most = 0.0;
     void member(TavernEvent event) {
       switch (event) {
         case TavernTurnStarted(:final message):
@@ -582,7 +590,11 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             _thinking.value = 0;
             _thinkingTick = Timer.periodic(const Duration(seconds: 1), (_) => _thinking.value = _thinking.value! + 1);
           }
-        case TavernTurnDone():
+        case TavernTurnDone(:final message):
+          if (_replyCost(message) case final cost? when cost > most) {
+            costliest = message;
+            most = cost;
+          }
           // This one has said it; the next follows.
           _stream.value = _nothing;
           _live.reset();
@@ -621,7 +633,15 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
             final l10n = context.l10n;
             switch (reason) {
               case TavernGroupEndReason.completed || TavernGroupEndReason.cancelled:
-                _finish();
+                final over = switch (costliest) {
+                  final reply? => _overCost(reply),
+                  null => null,
+                };
+                if (over != null) {
+                  _finish(error: over.error, calm: true, action: over.action);
+                } else {
+                  _finish();
+                }
               case TavernGroupEndReason.noSpeakers:
                 _finish(error: l10n.tavernGroupNoSpeakers, calm: true);
               case TavernGroupEndReason.failed:
@@ -693,6 +713,31 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// while a reply is written or something is being typed.
   void _vnReadingBack(bool back) {
     _immersive.value = back && !_running && !_focus.hasFocus;
+  }
+
+  /// [reply], when what it cost (at DeepSeek's list prices) is over 酒馆设置's
+  /// 单回合费用提醒: what to say over the composer, and 看看发了什么 to see what went
+  /// into that turn. Null when it is off, under the line, or not priced.
+  ({String error, ({String label, VoidCallback onPressed}) action})? _overCost(TavernMessage reply) {
+    final line = ref.read(tavernSettingsProvider).costAlert;
+    final cost = _replyCost(reply);
+    if (line <= 0 || cost == null || cost <= line) return null;
+    final l10n = context.l10n;
+    return (
+      error: l10n.tavernCostAlertNotice(tavernCostLabel(l10n, cost), 'US\$${line.toStringAsFixed(2)}'),
+      action: (
+        label: l10n.tavernInspectMenu,
+        onPressed: () =>
+            unawaited(Navigator.of(context).push(TavernInspectorPage.route(widget.chatId, nodeId: reply.nodeId))),
+      ),
+    );
+  }
+
+  /// What [reply] cost at DeepSeek's list prices; null when not priced.
+  static double? _replyCost(TavernMessage reply) {
+    final usage = reply.reportedUsage;
+    final price = tavernModelPrice(usage?.model);
+    return usage == null || price == null ? null : tavernReplyCost(usage, price, reply.at);
   }
 
   /// The reply's node, once known: the page places the reply by it.
@@ -1337,6 +1382,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               for (final b in s.buttons) (s.id, b),
           ]
         : const <(String, String)>[];
+    // The card's own scripts, where they wait on 整页画布 being on (off, and
+    // not 视觉小说, which has no canvas): said over the composer with the way
+    // to turn it on, until put away for this card. Not where the player chose
+    // 不运行卡的脚本, nor for a group, whose scripts do not run.
+    final hintCharacter = !canvas && layout != TavernLayout.visualNovel && !_groupChat ? characterId : null;
+    final scriptsWaiting =
+        hintCharacter != null &&
+            !ref.watch(tavernSettingsProvider.select((s) => s.islandNoScripts)) &&
+            ref.watch(tavernScriptsHintOffProvider(hintCharacter)).value == false
+        ? (ref.watch(tavernCardScriptsProvider(hintCharacter)).value ?? const <TavernCardScript>[]).length
+        : 0;
     // The pages and the canvas read each message as shown, through the
     // display regex; the bubble and novel rows ask for their own.
     final shownText = layout == TavernLayout.visualNovel || canvas
@@ -1551,6 +1607,22 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
               // No key yet: say so before the first line, not after it fails.
               if (!preview && _error == null && !ref.watch(settingsProvider.select((s) => s.hasApiKey)))
                 _KeyMissing(onAdd: _openKeySettings),
+              if (_error == null && scriptsWaiting > 0 && hintCharacter != null)
+                Padding(
+                  key: const ValueKey('tavern-scripts-hint'),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _Notice(
+                    message: l10n.tavernCardScriptsHint(scriptsWaiting),
+                    action: (
+                      label: l10n.tavernCardScriptsHintAction,
+                      onPressed: () => unawaited(ref.read(tavernSettingsProvider.notifier).setCanvas(true)),
+                    ),
+                    onDismiss: () => unawaited(
+                      tavernPutScriptsHintAway(hintCharacter)
+                          .then((_) => ref.invalidate(tavernScriptsHintOffProvider(hintCharacter))),
+                    ),
+                  ),
+                ),
               _ErrorSlot(
                 error: _error,
                 calm: _calm,
@@ -1726,6 +1798,7 @@ class _MessageRow extends StatelessWidget {
     final usage? when showUsage && message.role == TavernRole.character => _UsageLine(
       key: ValueKey('tavern-usage-${message.nodeId}'),
       usage: usage,
+      at: message.at,
     ),
     _ => null,
   };
@@ -1863,22 +1936,27 @@ class _MessageRow extends StatelessWidget {
   }
 }
 
-/// The tokens a reply took, as the provider reported them (engine T24): no
-/// estimate, no price.
+/// The tokens a reply took, as the provider reported them (engine T24), and
+/// for a DeepSeek model what that cost at its list prices when it was written
+/// ([tavernReplyCost]); another model's is not guessed at.
 class _UsageLine extends StatelessWidget {
-  const _UsageLine({super.key, required this.usage});
+  const _UsageLine({super.key, required this.usage, required this.at});
 
   final TavernUsage usage;
+  final DateTime at;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final tokens = usage.cacheHitTokens > 0
+        ? l10n.tavernUsageLineCached(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens)
+        : l10n.tavernUsageLine(usage.promptTokens, usage.completionTokens);
+    final price = tavernModelPrice(usage.model);
+    final cost = price == null ? null : tavernReplyCost(usage, price, at);
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Text(
-        usage.cacheHitTokens > 0
-            ? l10n.tavernUsageLineCached(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens)
-            : l10n.tavernUsageLine(usage.promptTokens, usage.completionTokens),
+        cost == null ? tokens : '$tokens · ${tavernCostLabel(l10n, cost)}',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
       ),
     );
@@ -2547,6 +2625,8 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dsh = DshColors.of(context);
+    final theme = Theme.of(context);
+    final words = Text(message, style: theme.textTheme.bodySmall);
     return GlassSurface(
       key: const ValueKey('tavern-notice'),
       tier: GlassTier.card,
@@ -2556,8 +2636,46 @@ class _Notice extends StatelessWidget {
         children: [
           Icon(AppIcons.info, size: 18, color: dsh.textTertiary),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: Theme.of(context).textTheme.bodySmall)),
-          if (action case final action?) TextButton(onPressed: action.onPressed, child: Text(action.label)),
+          Expanded(
+            child: switch (action) {
+              null => words,
+              final action => LayoutBuilder(
+                builder: (context, box) {
+                  final button = TextButton(onPressed: action.onPressed, child: Text(action.label));
+                  // Beside the words while they keep over half the row; under
+                  // them when a long label on a narrow screen or in large text
+                  // would squeeze them into a column of short lines.
+                  final label = TextPainter(
+                    text: TextSpan(text: action.label, style: theme.textTheme.labelLarge),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                    maxLines: 1,
+                  )..layout();
+                  final beside = box.maxWidth - (label.width + 24) >= box.maxWidth * 0.55;
+                  label.dispose();
+                  if (beside) {
+                    return Row(
+                      children: [
+                        Expanded(child: words),
+                        button,
+                      ],
+                    );
+                  }
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: SizedBox(width: double.infinity, child: words),
+                      ),
+                      button,
+                    ],
+                  );
+                },
+              ),
+            },
+          ),
           IconButton(
             onPressed: onDismiss,
             tooltip: MaterialLocalizations.of(context).closeButtonTooltip,

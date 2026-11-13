@@ -49,6 +49,66 @@ void main() {
     toasts.dispose();
   });
 
+  testWidgets('the card puts its notice away: the call that showed it, or with none named whichever is up', (
+    tester,
+  ) async {
+    final messenger = await _messenger(tester);
+    final toasts = TavernToasts();
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '加载中', 'id': 1});
+    await tester.pumpAndSettle();
+    expect(find.text('加载中'), findsOneWidget);
+    // Another call's number: not this one.
+    toasts.clear({'type': 'toastClear', 'id': 7});
+    await tester.pumpAndSettle();
+    expect(find.text('加载中'), findsOneWidget);
+    toasts.clear({'type': 'toastClear', 'id': 1});
+    await tester.pumpAndSettle();
+    expect(_toast, findsNothing);
+
+    // Its words replaced by a later call: clearing the first leaves them.
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '第一句', 'id': 2});
+    toasts.show(messenger, {'type': 'toast', 'level': 'success', 'title': '', 'message': '第二句', 'id': 3});
+    await tester.pumpAndSettle();
+    toasts.clear({'type': 'toastClear', 'id': 2});
+    await tester.pumpAndSettle();
+    expect(find.text('第二句'), findsOneWidget);
+    toasts.clear({'type': 'toastClear', 'id': null});
+    await tester.pumpAndSettle();
+    expect(_toast, findsNothing);
+
+    // Put away, then new words before it went: they stay their time.
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '旧的', 'id': 4});
+    await tester.pumpAndSettle();
+    toasts.clear({'type': 'toastClear', 'id': 4});
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '新的', 'id': 5});
+    await tester.pumpAndSettle();
+    expect(find.text('新的'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('新的'), findsOneWidget);
+    toasts.dispose();
+  });
+
+  testWidgets("put away while waiting behind the app's own: it never stays up", (tester) async {
+    final messenger = await _messenger(tester);
+    final toasts = TavernToasts();
+    messenger.showBriefNotice('已复制');
+    await tester.pumpAndSettle();
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '加载中', 'id': 1});
+    toasts.clear({'type': 'toastClear', 'id': null});
+    await tester.pump();
+    expect(find.text('已复制'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('已复制'), findsNothing);
+    expect(_toast, findsNothing);
+    // And the next is a notice of its own.
+    toasts.show(messenger, {'type': 'toast', 'level': 'info', 'title': '', 'message': '好了', 'id': 2});
+    await tester.pumpAndSettle();
+    expect(find.text('好了'), findsOneWidget);
+    toasts.dispose();
+  });
+
   testWidgets("the app's own notice is not put away for one: it waits its turn", (tester) async {
     final messenger = await _messenger(tester);
     final toasts = TavernToasts();

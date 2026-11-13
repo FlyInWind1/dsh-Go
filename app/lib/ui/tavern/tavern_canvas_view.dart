@@ -293,6 +293,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       case 'toast':
         final messenger = ScaffoldMessenger.maybeOf(context);
         if (messenger != null) _toasts.show(messenger, data);
+      case 'toastClear':
+        _toasts.clear(data);
       case 'audio':
         if (widget.calls?.chatId case final chat?) unawaited(tavernSaveAudio(chat, data['state']).catchError((_) {}));
       case 'audioNow':

@@ -541,7 +541,7 @@ $preload
         lastSeq=s.lastSeq||0;pathRev=s.pathRevision||null;loaded=true;
         renumber();
         var waiting=held;held=[];waiting.forEach(apply);
-        return true;
+        return regexReady().then(function(){return true;});
       },function(x){loading=null;throw x;});
       return loading;
     },
@@ -766,6 +766,31 @@ $preload
       creator_notes:card.creator_notes||'',tags:card.tags||[],talkativeness:x.talkativeness!=null?x.talkativeness:0.5,
       fav:x.fav!=null?x.fav:false,data:card}));
   }
+  // The chat's regexes (酒馆助手's 获取正则 page), which getTavernRegexes
+  // hands out at once: fetched before any script runs; another character's
+  // or preset's are not on this page, and come back empty. Not read (the
+  // engine refused, or not yet): the call says so and asks again, so a
+  // later one can have them; scripts still start.
+  var regexes=null,regexLoading=null,regexError=null;
+  function regexReady(){
+    if(!regexLoading)regexLoading=call('getTavernRegexes',{}).then(function(r){
+      regexes=r||{global:[],character:[],preset:[]};regexError=null;
+    },function(x){regexLoading=null;regexError=x;});
+    return regexLoading;
+  }
+  function getTavernRegexes(option){
+    var o=option||{},name=o.name;
+    if(o.type!=='global'&&o.type!=='character'&&o.type!=='preset')
+      throw new Error('getTavernRegexes: type is global, character or preset');
+    if(!regexes){
+      var why=regexError?'could not be read: '+(regexError.message||regexError):'are not read yet';
+      regexReady();
+      throw new Error('getTavernRegexes: the regexes '+why+'; asked again, try once more');
+    }
+    if(o.type==='global')return clone(regexes.global||[]);
+    if(o.type==='character')return name==null||name==='current'||isCurrent(name)?clone(regexes.character||[]):[];
+    return name==null||name==='in_use'?clone(regexes.preset||[]):[];
+  }
   // Its picture, as the app has it (a data: URL the page can show); null for
   // another character's, or a card that has none.
   function getCharAvatarPath(n){
@@ -776,7 +801,7 @@ $preload
   [['triggerSlash',triggerSlash],['getCurrentCharacterName',getCurrentCharacterName],
    ['getCurrentCharacterId',getCurrentCharacterId],
    ['getCharacter',watched(getCharacter)],['getCharData',getCharData],
-   ['getCharAvatarPath',getCharAvatarPath]].forEach(function(f){
+   ['getCharAvatarPath',getCharAvatarPath],['getTavernRegexes',getTavernRegexes]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
   // The user's personas (酒馆助手's 获取用户人设 page), as the app tells this
@@ -1006,8 +1031,10 @@ $preload
   });
   // toastr, which 酒馆助手's pages have (toastr.error(content, title)): the
   // app's own notice, not drawn here. Content may be HTML; its text is what
-  // shows (parsed apart from the page: nothing in it loads or runs). clear
-  // and remove leave it to time out.
+  // shows (parsed apart from the page: nothing in it loads or runs). Each
+  // call is numbered; clear and remove put away the one a call showed (what
+  // it returned), or with nothing given whichever is up; another element is
+  // not one of ours, and nothing goes.
   function plainText(s){
     if(s==null)return '';
     var d=new DOMParser().parseFromString(String(s),'text/html');
@@ -1016,15 +1043,22 @@ $preload
     [].forEach.call(d.body.querySelectorAll('br,p,div,li,tr,h1,h2,h3,h4,h5,h6'),function(e){e.before(' ');e.after(' ');});
     return String(d.body.textContent).replace(/\\s+/g,' ').trim();
   }
+  var toastSeq=0;
   function toast(level){
     return function(message,title){
-      var m=plainText(message),t=plainText(title);
-      if(m||t)post({type:'toast',level:level,title:t,message:m});
-      return window.jQuery?jQuery():undefined;
+      var m=plainText(message),t=plainText(title),id=++toastSeq;
+      if(m||t)post({type:'toast',level:level,title:t,message:m,id:id});
+      var shown=window.jQuery?jQuery():undefined;
+      if(shown)shown.dshToast=id;
+      return shown;
     };
   }
+  function clearToast(shown){
+    if(shown==null)post({type:'toastClear',id:null});
+    else if(shown.dshToast)post({type:'toastClear',id:shown.dshToast});
+  }
   var toastr={options:{},info:toast('info'),success:toast('success'),warning:toast('warning'),error:toast('error'),
-    clear:function(){},remove:function(){},subscribe:function(){}};
+    clear:clearToast,remove:clearToast,subscribe:function(){}};
   dsh.scripts.toastr=toastr;
   if(!window.toastr)window.toastr=toastr;
   // Writing messages (酒馆助手's set/create/delete/rotateChatMessages, as its
@@ -1409,7 +1443,7 @@ $preload
     'retrieveDisplayedMessage','renderOneMessage','SillyTavern','getCurrentCharacterName','getCurrentCharacterId',
     'getCharacter','getCharData','getCharAvatarPath','getPersonaNames','getPersonaIds','getCurrentPersonaName',
     'getCurrentPersonaId','getPersona','getPersonaAvatarPath','playAudio','pauseAudio','getCurrentAudio',
-    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings','triggerSlash',
+    'getAudioList','replaceAudioList','appendAudioList','getAudioSettings','setAudioSettings','triggerSlash','getTavernRegexes',
     '\$','jQuery','_','dsh'];
   function callerScript(){
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
@@ -1437,7 +1471,7 @@ $preload
       frame.onload=function(){
         var w=frame.contentWindow;if(!w)return;
         shared.forEach(function(k){if(window[k]!==undefined)w[k]=window[k];});
-        own.then(function(){
+        Promise.all([own,regexReady()]).then(function(){
           var el=w.document.createElement('script');el.type='module';
           el.textContent=s.content+'\\n//# sourceURL=dsh-script-'+n+'.js';
           w.document.head.appendChild(el);

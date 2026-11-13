@@ -407,6 +407,125 @@ void main() {
     expect(_result(await _ask(wire, 'stopScript', {'executionId': 'nothing'})), isFalse);
   });
 
+  test('the regexes in play, by source, in the shape 酒馆助手 hands them out', () async {
+    await tavern.setSettings({
+      'globalRegexScripts': [
+        {
+          'id': 'r1',
+          'scriptName': '去括号',
+          'findRegex': r'/\(.*?\)/g',
+          'replaceString': '',
+          'trimStrings': ['甲', '乙'],
+          'placement': [2, 6],
+          'disabled': false,
+          'markdownOnly': true,
+          'promptOnly': false,
+          'runOnEdit': true,
+          'substituteRegex': 0,
+          'minDepth': 2,
+          'maxDepth': null,
+        },
+        {
+          'id': 'r2',
+          'scriptName': '只改发出去的',
+          'findRegex': 'x',
+          'replaceString': 'y',
+          'trimStrings': <Object?>[],
+          'placement': [1, 3, 5],
+          'disabled': true,
+          'markdownOnly': false,
+          'promptOnly': true,
+          'runOnEdit': false,
+          'substituteRegex': 0,
+          'minDepth': null,
+          'maxDepth': 4,
+        },
+      ],
+    });
+    final id =
+        (_result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>)['id']! as String;
+    final regexes = _result(await _ask(wire, 'getTavernRegexes', {'contextId': id}))! as Map<String, Object?>;
+    expect(regexes.keys, unorderedEquals(['global', 'preset', 'character']));
+    expect(regexes['global'], [
+      {
+        'id': 'r1',
+        'script_name': '去括号',
+        'enabled': true,
+        'run_on_edit': true,
+        'scope': 'global',
+        'find_regex': r'/\(.*?\)/g',
+        'trim_strings': '甲\n乙',
+        'replace_string': '',
+        'source': {
+          'user_input': false,
+          'ai_output': true,
+          'slash_command': false,
+          'world_info': false,
+          'reasoning': true,
+        },
+        // 仅格式显示 checked.
+        'destination': {'display': true, 'prompt': false},
+        'min_depth': 2,
+        'max_depth': null,
+      },
+      {
+        'id': 'r2',
+        'script_name': '只改发出去的',
+        'enabled': false,
+        'run_on_edit': false,
+        'scope': 'global',
+        'find_regex': 'x',
+        'trim_strings': '',
+        'replace_string': 'y',
+        'source': {
+          'user_input': true,
+          'ai_output': false,
+          'slash_command': true,
+          'world_info': true,
+          'reasoning': false,
+        },
+        'destination': {'display': false, 'prompt': true},
+        'min_depth': null,
+        'max_depth': 4,
+      },
+    ]);
+    // As the engine runs them: a legacy placement 0 is every source, both
+    // boxes checked; neither box checked changes the message itself.
+    Map<String, Object?> rule(String id, List<Object?> placement, {bool md = false, bool prompt = false}) => {
+      'id': id,
+      'scriptName': id,
+      'findRegex': 'a',
+      'replaceString': 'b',
+      'trimStrings': <Object?>[],
+      'placement': placement,
+      'disabled': false,
+      'markdownOnly': md,
+      'promptOnly': prompt,
+      'runOnEdit': false,
+      'substituteRegex': 0,
+    };
+    await tavern.setSettings({
+      'globalRegexScripts': [
+        rule('legacy', [0]),
+        rule('stored', [2]),
+        rule('both', [2], md: true, prompt: true),
+      ],
+    });
+    final again = _result(await _ask(wire, 'getTavernRegexes', {'contextId': id}))! as Map<String, Object?>;
+    final byId = {for (final r in (again['global']! as List).cast<Map<String, Object?>>()) r['id']: r};
+    expect(byId['legacy']!['source'], {
+      'user_input': true,
+      'ai_output': true,
+      'slash_command': true,
+      'world_info': true,
+      'reasoning': true,
+    });
+    expect(byId['legacy']!['destination'], {'display': true, 'prompt': true});
+    expect(byId['stored']!['destination'], {'display': false, 'prompt': false});
+    expect(byId['both']!['destination'], {'display': true, 'prompt': true});
+    expect(regexes['character'], isEmpty);
+  });
+
   test('a wrong request is told why, as an error, not a broken channel', () async {
     final id =
         (_result(await _ask(wire, 'openContext', {'instanceId': 'frame'}))! as Map<String, Object?>)['id']! as String;

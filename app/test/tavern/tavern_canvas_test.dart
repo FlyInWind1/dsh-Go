@@ -326,7 +326,9 @@ void main() {
       expect(open, contains("['$name',$name]"));
     }
     // toastr is the app's notice, its HTML read apart from the page.
-    expect(open, contains("post({type:'toast',level:level,title:t,message:m})"));
+    expect(open, contains("post({type:'toast',level:level,title:t,message:m,id:id})"));
+    // clear and remove put away the notice a call showed, or with none named whichever is up.
+    expect(open, contains('clear:clearToast,remove:clearToast'));
     expect(open, contains("new DOMParser().parseFromString(String(s),'text/html')"));
     expect(open, contains('if(!window.toastr)window.toastr=toastr;'));
     // An ST theme's custom CSS comes after our styles, so it wins as in ST;
@@ -470,6 +472,83 @@ void main() {
 
     await _chat(tester, prefs: {TavernSettingsController.canvasKey: false}, overrides: [override]);
     expect(find.byKey(const ValueKey('tavern-script-button-0')), findsNothing);
+  });
+
+  testWidgets("with the switch off, a card's scripts are said to wait on it; 打开 turns it on", (tester) async {
+    final scripts = [
+      const TavernCardScript(id: 's1', name: '地图', content: 'x'),
+      const TavernCardScript(id: 's2', name: '状态栏', content: 'y'),
+    ];
+    final override = tavernCardScriptsProvider('sample-innkeeper').overrideWith((ref) async => scripts);
+    final (_, _, canvas) = await _chat(
+      tester,
+      prefs: {TavernSettingsController.canvasKey: false},
+      overrides: [override],
+    );
+    await tester.pumpAndSettle();
+    final hint = find.byKey(const ValueKey('tavern-scripts-hint'));
+    expect(find.descendant(of: hint, matching: find.text('这张卡带了 2 个脚本，打开「整页画布（试用）」才会运行')), findsOneWidget);
+    expect(find.byKey(const ValueKey('fake-canvas')), findsNothing);
+
+    await tester.tap(find.descendant(of: hint, matching: find.text('打开')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('fake-canvas')), findsOneWidget);
+    expect(canvas.builds, greaterThan(0));
+    expect(hint, findsNothing);
+    expect((await SharedPreferences.getInstance()).getBool(TavernSettingsController.canvasKey), isTrue);
+  });
+
+  testWidgets('put away, it is not said again for that card', (tester) async {
+    final override = tavernCardScriptsProvider('sample-innkeeper')
+        .overrideWith((ref) async => [const TavernCardScript(id: 's1', name: '地图', content: 'x')]);
+    await _chat(tester, prefs: {TavernSettingsController.canvasKey: false}, overrides: [override]);
+    await tester.pumpAndSettle();
+    final hint = find.byKey(const ValueKey('tavern-scripts-hint'));
+    expect(find.descendant(of: hint, matching: find.text('这张卡带了 1 个脚本，打开「整页画布（试用）」才会运行')), findsOneWidget);
+    await tester.tap(find.descendant(of: hint, matching: find.byType(IconButton)));
+    await tester.pumpAndSettle();
+    expect(hint, findsNothing);
+    expect((await SharedPreferences.getInstance()).getBool('${tavernScriptsHintOffKey}sample-innkeeper'), isTrue);
+
+    // Opened again, as kept: not said.
+    await _chat(
+      tester,
+      prefs: {TavernSettingsController.canvasKey: false, '${tavernScriptsHintOffKey}sample-innkeeper': true},
+      overrides: [override],
+    );
+    await tester.pumpAndSettle();
+    expect(hint, findsNothing);
+  });
+
+  testWidgets('not said where it would not help: no scripts, 不运行卡的脚本 on, or 视觉小说', (tester) async {
+    final override = tavernCardScriptsProvider('sample-innkeeper')
+        .overrideWith((ref) async => [const TavernCardScript(id: 's1', name: '地图', content: 'x')]);
+    final hint = find.byKey(const ValueKey('tavern-scripts-hint'));
+    await _chat(
+      tester,
+      prefs: {TavernSettingsController.canvasKey: false},
+      overrides: [tavernCardScriptsProvider('sample-innkeeper').overrideWith((ref) async => const [])],
+    );
+    await tester.pumpAndSettle();
+    expect(hint, findsNothing);
+    await _chat(
+      tester,
+      prefs: {TavernSettingsController.canvasKey: false, TavernSettingsController.islandNoScriptsKey: true},
+      overrides: [override],
+    );
+    await tester.pumpAndSettle();
+    expect(hint, findsNothing);
+    await _chat(
+      tester,
+      prefs: {TavernSettingsController.canvasKey: false, 'tavern.layout': 'visualNovel'},
+      overrides: [override],
+    );
+    await tester.pumpAndSettle();
+    expect(hint, findsNothing);
+    // On: they run, nothing to say.
+    await _chat(tester, overrides: [override]);
+    await tester.pumpAndSettle();
+    expect(hint, findsNothing);
   });
 
   test('the setting is off until chosen, and kept', () async {

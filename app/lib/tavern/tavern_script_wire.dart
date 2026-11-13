@@ -245,6 +245,18 @@ class TavernScriptWire {
         return {'id': result.id, 'pipe': result.pipe, 'completion': result.completion.name};
       case 'stopScript':
         return bridge.stopScript(p.string('executionId'));
+      // The regexes in play for this context, as 酒馆助手's getTavernRegexes
+      // hands them out, by where each comes from (global, the chat's
+      // character, the preset in use), in the order they apply.
+      case 'getTavernRegexes':
+        final regexes = await bridge.getTavernRegexes(p.string('contextId'), TavernScriptRegexQuery());
+        return {
+          for (final source in TavernScriptRegexSource.values)
+            source.name: [
+              for (final r in regexes)
+                if (r.source == source) tavernHelperRegexJson(r),
+            ],
+        };
     }
     throw TavernScriptException(
       code: TavernScriptErrorCode.unsupportedCapability,
@@ -252,6 +264,39 @@ class TavernScriptWire {
       message: 'The page channel does not carry $method.',
     );
   }
+}
+
+/// [r] in 酒馆助手's TavernRegex shape, as the engine runs it (its parsed
+/// [TavernScriptRegex.execution]: a legacy placement 0 or 4 already spread
+/// to what it means, a placement that is not a whole number dropped):
+/// its ST fields renamed; where it runs (ST's placements 1 user input, 2 AI
+/// output, 3 slash command, 5 world info, 6 reasoning); and its destination,
+/// which is ST's two checkboxes as they are (display is 仅格式显示,
+/// markdownOnly; prompt is 仅格式提示词, promptOnly; neither, it changes the
+/// message itself).
+Map<String, Object?> tavernHelperRegexJson(TavernScriptRegex r) {
+  final script = r.execution;
+  final placement = script.placement.toSet();
+  return {
+    'id': script.id.isNotEmpty ? script.id : r.stId,
+    'script_name': script.scriptName,
+    'enabled': r.enabled,
+    'run_on_edit': script.runOnEdit,
+    if (r.source != TavernScriptRegexSource.preset) 'scope': r.source.name,
+    'find_regex': script.findRegex,
+    'trim_strings': script.trimStrings.join('\n'),
+    'replace_string': script.replaceString,
+    'source': {
+      'user_input': placement.contains(RegexPlacement.userInput),
+      'ai_output': placement.contains(RegexPlacement.aiOutput),
+      'slash_command': placement.contains(RegexPlacement.slashCommand),
+      'world_info': placement.contains(RegexPlacement.worldInfo),
+      'reasoning': placement.contains(RegexPlacement.reasoning),
+    },
+    'destination': {'display': script.markdownOnly, 'prompt': script.promptOnly},
+    'min_depth': script.minDepth,
+    'max_depth': script.maxDepth,
+  };
 }
 
 TavernScriptException _bad(String operation, String message, {String? fieldPath}) => TavernScriptException(
