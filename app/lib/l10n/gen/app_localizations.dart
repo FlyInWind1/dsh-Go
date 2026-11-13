@@ -36833,13 +36833,13 @@ abstract class L10n {
   /// No description provided for @tavernUsageCost.
   ///
   /// In zh, this message translates to:
-  /// **'约 {usd}'**
+  /// **'约 {usd}'**
   String tavernUsageCost(String usd);
 
   /// No description provided for @tavernUsageCostUnder.
   ///
   /// In zh, this message translates to:
-  /// **'不到 {usd}'**
+  /// **'不到 {usd}'**
   String tavernUsageCostUnder(String usd);
 
   /// No description provided for @tavernSearchChat.
@@ -37763,7 +37763,7 @@ abstract class L10n {
   /// No description provided for @tavernUsageStatsSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'每段对话用了多少 token'**
+  /// **'每段对话用了多少 token、约多少钱'**
   String get tavernUsageStatsSubtitle;
 
   /// No description provided for @tavernUsageAllNote.

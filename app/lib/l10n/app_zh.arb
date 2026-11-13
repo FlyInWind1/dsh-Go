@@ -12321,7 +12321,7 @@
       }
     }
   },
-  "tavernUsageCost": "约 {usd}",
+  "tavernUsageCost": "约 {usd}",
   "@tavernUsageCost": {
     "placeholders": {
       "usd": {
@@ -12329,7 +12329,7 @@
       }
     }
   },
-  "tavernUsageCostUnder": "不到 {usd}",
+  "tavernUsageCostUnder": "不到 {usd}",
   "@tavernUsageCostUnder": {
     "placeholders": {
       "usd": {
@@ -12705,7 +12705,7 @@
   "tavernBookmarksEmptyMessage": "长按一条消息，选「加书签」",
   "tavernBookmarkGone": "那一条已经不在了，书签去掉了",
   "tavernUsageStats": "用量统计",
-  "tavernUsageStatsSubtitle": "每段对话用了多少 token",
+  "tavernUsageStatsSubtitle": "每段对话用了多少 token、约多少钱",
   "tavernUsageAllNote": "所有对话当前线上的回复合计；换掉的备选不算",
   "tavernUsageChatReplies": "{count} 条回复 · 回复 {completion}",
   "@tavernUsageChatReplies": {

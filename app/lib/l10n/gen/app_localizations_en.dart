@@ -21263,12 +21263,12 @@ class L10nEn extends L10n {
 
   @override
   String tavernUsageCost(String usd) {
-    return 'about $usd';
+    return 'about $usd';
   }
 
   @override
   String tavernUsageCostUnder(String usd) {
-    return 'under $usd';
+    return 'under $usd';
   }
 
   @override
@@ -21832,7 +21832,7 @@ class L10nEn extends L10n {
   String get tavernUsageStats => 'Usage';
 
   @override
-  String get tavernUsageStatsSubtitle => 'How many tokens each chat has taken';
+  String get tavernUsageStatsSubtitle => 'How many tokens each chat has taken, and about what it cost';
 
   @override
   String get tavernUsageAllNote =>

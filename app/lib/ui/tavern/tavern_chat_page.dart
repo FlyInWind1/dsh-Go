@@ -1911,13 +1911,10 @@ class _UsageLine extends StatelessWidget {
     final cost = price == null ? null : tavernReplyCost(usage, price, at);
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: Text(switch (cost) {
-        null => tokens,
-        // Most replies are a fraction of a cent; one too small to show in
-        // four places is said to be so, not shown as nothing.
-        final double c when c < 0.0001 => '$tokens · ${l10n.tavernUsageCostUnder('US\$0.0001')}',
-        final double c => '$tokens · ${l10n.tavernUsageCost('US\$${tavernUsd(c)}')}',
-      }, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary)),
+      child: Text(
+        cost == null ? tokens : '$tokens · ${tavernCostLabel(l10n, cost)}',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: DshColors.of(context).textTertiary),
+      ),
     );
   }
 }

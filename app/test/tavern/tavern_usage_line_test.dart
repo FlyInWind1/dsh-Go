@@ -92,18 +92,18 @@ void main() {
   testWidgets('a DeepSeek reply adds what it cost, at the hour it was written', (tester) async {
     // 9000 × 0.044 + 3000 × 1.32 + 540 × 3.96 = 6494.4 per million tokens.
     await _openAfterOneExchange(tester, {}, _Reported(usage: pro, at: peak));
-    expect(find.text('输入 12,000（命中缓存 9,000）· 输出 540 · 约 US\$0.0065'), findsOneWidget);
+    expect(find.text('输入 12,000（命中缓存 9,000）· 输出 540 · 约\u00a0US\$0.0065'), findsOneWidget);
   });
 
   testWidgets('off peak it is half', (tester) async {
     await _openAfterOneExchange(tester, {}, _Reported(usage: pro, at: offPeak));
-    expect(find.text('输入 12,000（命中缓存 9,000）· 输出 540 · 约 US\$0.0032'), findsOneWidget);
+    expect(find.text('输入 12,000（命中缓存 9,000）· 输出 540 · 约\u00a0US\$0.0032'), findsOneWidget);
   });
 
   testWidgets('one too small for four places says so', (tester) async {
     const tiny = TavernUsage(promptTokens: 100, cacheHitTokens: 0, completionTokens: 10, model: 'deepseek-v4-flash');
     await _openAfterOneExchange(tester, {}, _Reported(usage: tiny, at: offPeak));
-    expect(find.text('输入 100 · 输出 10 · 不到 US\$0.0001'), findsOneWidget);
+    expect(find.text('输入 100 · 输出 10 · 不到\u00a0US\$0.0001'), findsOneWidget);
   });
 
   testWidgets('a model not on the price list shows its tokens alone', (tester) async {
