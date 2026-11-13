@@ -120,6 +120,78 @@ void main() {
     expect(preview.scripts.stopGenerationById('g'), isFalse);
   });
 
+  test('B3 reaches the real engine: a Slash script, macros, and the card book read and replaced', () async {
+    final dir = await Directory.systemTemp.createTemp('deferred-b3');
+    addTearDown(() => dir.delete(recursive: true));
+    final opening = Completer<Tavern>();
+    final deferred = DeferredTavern(opening.future);
+    addTearDown(deferred.close);
+    // Nothing can be running before it opens.
+    expect(deferred.scripts.stopScript('nothing'), isFalse);
+    opening.complete(await openTavern(dir.path));
+    final card = await File('assets/tavern/sample_innkeeper.json').readAsBytes();
+    final character = await deferred.importCard(card, fileName: 'sample_innkeeper.json');
+    final chat = await deferred.createChat(character.id);
+    final context = await deferred.scripts.openContext(
+      TavernScriptContextSpec(instanceId: 'frame', chatId: chat, characterId: character.id),
+    );
+
+    final run = await deferred.scripts.triggerSlash(context.id, '/pass {{char}} | /pass 到了', executionId: 'hello');
+    expect((await run.result).pipe, '到了');
+    expect(deferred.scripts.stopScript('hello'), isFalse);
+    expect(await deferred.scripts.substituteMacros(context.id, '{{char}}在柜台后'), '林晚在柜台后');
+
+    final embedded = TavernScriptBookRef.embedded(characterId: character.id);
+    final books = await deferred.scripts.getContextBooks(context.id);
+    expect(books.map((b) => b.ref).whereType<TavernScriptEmbeddedBookRef>(), isNotEmpty);
+    final read = await deferred.scripts.readBook(context.id, embedded);
+    expect(read.book['name'], '雨镇');
+    final replaced = await deferred.scripts.replaceBook(context.id, embedded, {
+      ...read.book,
+      'name': '雨镇（改）',
+    }, expectedVersion: read.version);
+    expect(replaced.book['name'], '雨镇（改）');
+    expect(replaced.version, isNot(read.version));
+    expect((await deferred.scripts.readBook(context.id, embedded)).book['name'], '雨镇（改）');
+    // The old version no longer matches.
+    await expectLater(
+      deferred.scripts.replaceBook(context.id, embedded, read.book, expectedVersion: read.version),
+      throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.revisionConflict)),
+    );
+  });
+
+  test(
+    'B3 before it opens: a card or a book is refused at the call if it is not JSON; the preview runs no Slash',
+    () async {
+      final opening = Completer<Tavern>();
+      final deferred = DeferredTavern(opening.future);
+      final loop = <String, Object?>{};
+      loop['self'] = loop;
+      final embedded = TavernScriptBookRef.embedded(characterId: 'x');
+      await expectLater(
+        deferred.scripts.replaceCharacterData('c', 'x', loop),
+        throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.invalidJson)),
+      );
+      await expectLater(
+        deferred.scripts.replaceBook('c', embedded, loop),
+        throwsA(isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.invalidJson)),
+      );
+
+      final preview = PreviewTavern(tick: Duration.zero);
+      final unsupported = throwsA(
+        isA<TavernScriptException>().having((e) => e.code, 'code', TavernScriptErrorCode.unsupportedCapability),
+      );
+      await expectLater(preview.scripts.triggerSlash('c', '/pass x'), unsupported);
+      await expectLater(preview.scripts.substituteMacros('c', '{{char}}'), unsupported);
+      await expectLater(preview.scripts.replaceCharacterData('c', 'x', const {}), unsupported);
+      await expectLater(preview.scripts.getContextBooks('c'), unsupported);
+      await expectLater(preview.scripts.readBook('c', embedded), unsupported);
+      await expectLater(preview.scripts.replaceBook('c', embedded, const {}), unsupported);
+      expect(preview.scripts.stopScript('s'), isFalse);
+      opening.complete(preview);
+    },
+  );
+
   test('card scripts before it opens: a value is copied at the call; a cycle is refused there', () async {
     final opening = Completer<Tavern>();
     final deferred = DeferredTavern(opening.future);

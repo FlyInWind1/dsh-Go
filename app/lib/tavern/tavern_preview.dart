@@ -1964,4 +1964,41 @@ class _PreviewScripts implements TavernScriptBridge {
 
   @override
   Future<List<TavernScriptInjectionView>> listInjections(String contextId) => _no('listInjections');
+
+  @override
+  Future<TavernSlashExecution> triggerSlash(
+    String contextId,
+    String source, {
+    String? executionId,
+    String pipe = '',
+    Map<String, String> arguments = const {},
+  }) => _no('triggerSlash');
+
+  @override
+  bool stopScript(String executionId) => false;
+
+  @override
+  Future<String> substituteMacros(String contextId, String text) => _no('substituteMacros');
+
+  @override
+  Future<TavernCharacter> replaceCharacterData(
+    String contextId,
+    String characterId,
+    TavernJsonObject data, {
+    String? expectedVersion,
+  }) => _no('replaceCharacterData');
+
+  @override
+  Future<List<TavernScriptBookBinding>> getContextBooks(String contextId) => _no('getContextBooks');
+
+  @override
+  Future<TavernScriptBookSnapshot> readBook(String contextId, TavernScriptBookRef ref) => _no('readBook');
+
+  @override
+  Future<TavernScriptBookSnapshot> replaceBook(
+    String contextId,
+    TavernScriptBookRef ref,
+    TavernJsonObject book, {
+    String? expectedVersion,
+  }) => _no('replaceBook');
 }

@@ -717,6 +717,76 @@ class _DeferredScripts implements TavernScriptBridge {
 
   @override
   Future<List<TavernScriptInjectionView>> listInjections(String contextId) => _call((b) => b.listInjections(contextId));
+
+  // B3: Slash, macros, a character's raw data and the books in play. What
+  // the caller hands over is taken as it is now, not once the engine opens.
+
+  @override
+  Future<TavernSlashExecution> triggerSlash(
+    String contextId,
+    String source, {
+    String? executionId,
+    String pipe = '',
+    Map<String, String> arguments = const {},
+  }) {
+    if (_tavern._open case final open?) {
+      return open.scripts.triggerSlash(contextId, source, executionId: executionId, pipe: pipe, arguments: arguments);
+    }
+    final held = Map<String, String>.of(arguments);
+    return _call((b) => b.triggerSlash(contextId, source, executionId: executionId, pipe: pipe, arguments: held));
+  }
+
+  /// Nothing can be running before the engine is open.
+  @override
+  bool stopScript(String executionId) => _tavern._open?.scripts.stopScript(executionId) ?? false;
+
+  @override
+  Future<String> substituteMacros(String contextId, String text) => _call((b) => b.substituteMacros(contextId, text));
+
+  @override
+  Future<TavernCharacter> replaceCharacterData(
+    String contextId,
+    String characterId,
+    TavernJsonObject data, {
+    String? expectedVersion,
+  }) {
+    if (_tavern._open case final open?) {
+      return open.scripts.replaceCharacterData(contextId, characterId, data, expectedVersion: expectedVersion);
+    }
+    final TavernJsonObject held;
+    try {
+      held = _held(data, 'replaceCharacterData') as TavernJsonObject;
+    } on TavernScriptException catch (e) {
+      return Future.error(e);
+    }
+    return _call((b) => b.replaceCharacterData(contextId, characterId, held, expectedVersion: expectedVersion));
+  }
+
+  @override
+  Future<List<TavernScriptBookBinding>> getContextBooks(String contextId) => _call((b) => b.getContextBooks(contextId));
+
+  @override
+  Future<TavernScriptBookSnapshot> readBook(String contextId, TavernScriptBookRef ref) =>
+      _call((b) => b.readBook(contextId, ref));
+
+  @override
+  Future<TavernScriptBookSnapshot> replaceBook(
+    String contextId,
+    TavernScriptBookRef ref,
+    TavernJsonObject book, {
+    String? expectedVersion,
+  }) {
+    if (_tavern._open case final open?) {
+      return open.scripts.replaceBook(contextId, ref, book, expectedVersion: expectedVersion);
+    }
+    final TavernJsonObject held;
+    try {
+      held = _held(book, 'replaceBook') as TavernJsonObject;
+    } on TavernScriptException catch (e) {
+      return Future.error(e);
+    }
+    return _call((b) => b.replaceBook(contextId, ref, held, expectedVersion: expectedVersion));
+  }
 }
 
 /// [value] as it is now: maps and lists copied all the way down, the rest
