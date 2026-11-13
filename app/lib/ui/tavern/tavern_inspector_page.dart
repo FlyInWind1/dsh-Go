@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_cache_break.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_session_usage.dart';
 import '../bots/bot_format.dart' show shortTime;
 import '../common/smooth_size.dart';
 import '../features/feature_kit.dart';
@@ -22,6 +23,7 @@ import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_widgets.dart';
 
 class TavernInspectorPage extends ConsumerStatefulWidget {
   const TavernInspectorPage({super.key, required this.chatId, this.nodeId});
@@ -113,6 +115,8 @@ class _Body extends StatelessWidget {
     ];
     final tokens = segments.fold(0, (sum, s) => sum + s.tokens);
     final usage = record.reportedUsage;
+    // What the turn cost, for a DeepSeek model, at the hour it was asked.
+    final price = tavernModelPrice(usage?.model);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -146,6 +150,15 @@ class _Body extends StatelessWidget {
                     : l10n.tavernInspectUsageValue(usage.promptTokens, usage.cacheHitTokens, usage.completionTokens),
               ),
             ),
+            if (usage != null && price != null)
+              SettingsTile(
+                key: const ValueKey('tavern-inspect-cost'),
+                title: l10n.tavernInspectCost,
+                subtitle: tavernDeepSeekPeak(record.startedAt)
+                    ? l10n.tavernInspectCostPeak
+                    : l10n.tavernInspectCostOffPeak,
+                value: Text(tavernCostLabel(l10n, tavernReplyCost(usage, price, record.startedAt))),
+              ),
             if (before != null && segments.isNotEmpty)
               SettingsTile(
                 key: const ValueKey('tavern-inspect-cache'),

@@ -363,6 +363,9 @@
       }
     }
   },
+  "tavernInspectCost": "Estimated cost",
+  "tavernInspectCostPeak": "At DeepSeek's list prices, peak hours",
+  "tavernInspectCostOffPeak": "At DeepSeek's list prices, off-peak (half price)",
   "tavernInspectSegments": "{count, plural, =1{1 part sent} other{{count} parts sent}}",
   "@tavernInspectSegments": {
     "placeholders": {

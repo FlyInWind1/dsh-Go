@@ -11927,6 +11927,9 @@
       }
     }
   },
+  "tavernInspectCost": "估算费用",
+  "tavernInspectCostPeak": "按 DeepSeek 官方价，高峰时段",
+  "tavernInspectCostOffPeak": "按 DeepSeek 官方价，低谷时段（半价）",
   "tavernInspectSegments": "发出去的 {count} 段",
   "@tavernInspectSegments": {
     "placeholders": {

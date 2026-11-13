@@ -19491,6 +19491,15 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get tavernInspectCost => '估算费用';
+
+  @override
+  String get tavernInspectCostPeak => '按 DeepSeek 官方价，高峰时段';
+
+  @override
+  String get tavernInspectCostOffPeak => '按 DeepSeek 官方价，低谷时段（半价）';
+
+  @override
   String tavernInspectSegments(int count) {
     return '发出去的 $count 段';
   }
